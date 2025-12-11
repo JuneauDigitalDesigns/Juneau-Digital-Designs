@@ -1,8 +1,8 @@
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComputer, faDraftingCompass, faGear, faWrench, IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { useState } from "react";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 
 function Hero() {
@@ -17,7 +17,7 @@ function Hero() {
                         </h1>
 
                         <p className="text-xl md:text-2xl mb-6 max-w-lg">
-                            <span className="text-2xl md:text-3xl font-extrabold">Cutting-edge</span> web design, UI/UX, and full stack development services
+                            <span className="text-2xl md:text-3xl font-extrabold">Cutting-edge</span> web design, full-stack development, and maintenance & support services
                             to help your business thrive in the digital age.
                         </p>
 
@@ -65,48 +65,159 @@ function Mission() {
 }
 
 function Offer() {
+    interface Videos {
+        src: string;
+        body?: string;
+        type: string;
+    }
+
     interface Offering {
         title: string;
         icon: IconDefinition;
+        iconColor?: string;
         description: string;
+        clicked: {
+            title: string;
+            description: string;
+            body: string;
+            videos: Videos[];
+        };
+    }
+
+    const [selectedOffering, setSelectedOffering] = useState<Offering | null>(null);
+    const handleOfferingClick = (offering: Offering) => {
+        setSelectedOffering(offering);
     }
     const offerings: Offering[] = [
         {
             title: "User-First Design",
             icon: faDraftingCompass,
+            iconColor: "text-blue-700",
             description: "We put users at the heart of every design decision. By designing intuitive and seamless user interfaces that enhance usability, and streamline navigation, we create an unforgettable experience for your audience."
+            , clicked: {
+                title: "End-Users are at the Heart of Design",
+                description: "At Juneau Digital Designs, our user-first design philosophy ensures that every element of your website is crafted with the end-user in mind. We prioritize usability, accessibility, and engagement to create digital experiences that resonate with your audience. Our goal is to create websites that not only meet your business objectives but also provide a seamless and enjoyable experience for your users.",
+                body: "This popup window is an example of how we prioritize user experience in our designs. From intuitive navigation to engaging interfaces, we focus on creating digital experiences that are visually appealing and easy to use. We believe that all website content should be accessible and eye appealing. ",
+                videos: [
+                    { src: "/userfirst1.mp4", body: "We believe the content your customers rely on to make buying decisions should always be immediately accessible, no more than one click from view.", type: "video/mp4" },
+                    { src: "/userfirst2.mp4", body: "", type: "video/mp4" }
+                ]
+            }
         },
         {
             title: "Responsive Web Experiences",
             icon: faComputer,
+            iconColor: "text-yellow-500",
             description: "Crafting visually stunning, responsive websites tailored to your brand identity. Every element is designed to engage users and convert visitors into customers."
+            , clicked: {
+                title: "Websites That Adapt and Engage",
+                description: "We take great care in designing websites that not only look stunning but also function flawlessly across all devices. Our responsive web design approach ensures that your site adapts seamlessly to different screen sizes, providing an optimal viewing experience for users on desktops, tablets, and smartphones. By focusing on performance optimization and user engagement, we create digital experiences that captivate your audience and drive meaningful interactions with your brand.",
+                body: "",
+                videos: [
+                    { src: "/userfirst1.mp4", type: "video/mp4" },
+                    { src: "/userfirst2.mp4", type: "video/mp4" }
+                ]
+            }
         },
         {
             title: "End-to-End Development",
             icon: faGear,
+            iconColor: "text-green-600",
             description: "Building robust web applications from front-end to back-end, integrating modern technologies to ensure performance, scalability, and seamless user experiences."
+            , clicked: {
+                title: "Full Stack Excellence",
+                description: "Juneau Digital Designs offers comprehensive full stack development services that cover every aspect of your web application. From crafting dynamic front-end interfaces using the latest frameworks to developing scalable back-end systems, we ensure that your website is built for performance and reliability. Our expertise in database management, API integration, and cloud deployment allows us to deliver end-to-end solutions that meet your business needs and provide a seamless experience for your users.",
+                body: "",
+                videos: [
+                    { src: "/userfirst1.mp4", type: "video/mp4" },
+                    { src: "/userfirst2.mp4", type: "video/mp4" }
+                ]
+            }
         },
         {
             title: "Ongoing Maintenance & Support",
             icon: faWrench,
+            iconColor: "text-gray-700",
             description: "We provide comprehensive maintenance and support services to ensure your website remains secure, and up-to-date. From regular updates and backups to troubleshooting and enhancements, we are committed to keeping your digital presence strong and reliable."
+            , clicked: {
+                title: "Support That Never Sleeps",
+                description: "After launching your website, our commitment to your success continues with our ongoing maintenance and support services. We understand that a well-maintained website is crucial for security, performance, and user satisfaction. Our team provides regular updates, security patches, and backups to keep your site running smoothly. Additionally, we offer troubleshooting assistance and implement enhancements based on user feedback and evolving business needs. With Juneau Digital Designs, you can rest assured that your digital presence is in capable hands.",
+                body: "",
+                videos: [
+                    { src: "/userfirst1.mp4", type: "video/mp4" },
+                    { src: "/userfirst2.mp4", type: "video/mp4" }
+                ]
+            }
         }
     ];
 
+    const modalRef = useRef<HTMLDivElement>(null);
+    const handleCloseModal = () => {
+        setSelectedOffering(null);
+    }
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                handleCloseModal();
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        }
+    }, [handleCloseModal]);
+
     return (
         <div className="z-20 py-24 px-4 bg-gray-50 mb-8">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-12 text-center text-gray-800">
-                What We Offer
-            </h2>
+            {selectedOffering && (
+                <div className="fixed inset-0 z-[999] bg-black/40 flex justify-center items-center">
+                    <div ref={modalRef} className="bg-white rounded-2xl p-8 max-w-2xl mx-4 relative shadow-xl">
+                        <button
+                            className="absolute top-4 right-4 text-gray-600 hover:text-gray-900 text-4xl hover:cursor-pointer"
+                            onClick={() => setSelectedOffering(null)}
+                        >
+                            &times;
+                        </button>
 
+                        <h3 className="text-3xl font-extrabold mb-4">
+                            {selectedOffering.clicked.title}
+                        </h3>
+
+                        <p className="text-gray-800 leading-relaxed">
+                            {selectedOffering.clicked.description}
+                        </p>
+                        {selectedOffering.clicked.videos.map((video, index) => (
+                            <div key={index} className="my-6">
+                                <video
+                                    src={(video as any).src}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="w-full rounded-lg shadow-md"
+                                />
+                                {video.body && <p className="text-gray-700 mt-2">{(video as any).body}</p>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className="flex flex-col w-full items-center justify-center">
+                <h2 className="text-4xl md:text-5xl font-extrabold mb-4 text-center text-gray-800">
+                    What We Offer
+                </h2>
+                <span className="text-sm md:text-md italic text-center mb-12">Click one of the below services to learn more</span>
+            </div>
             <div className="flex flex-wrap gap-8 justify-center items-stretch">
                 {offerings.map((offering) => (
                     <div
                         key={offering.title}
-                        className="w-full sm:w-1/2 lg:w-1/4 p-4"
+                        className="w-full sm:w-1/2 lg:w-1/4 p-4 hover:cursor-pointer"
+                        onClick={() => handleOfferingClick(offering)}
                     >
                         <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition transform hover:-translate-y-2 text-center h-full">
-                            <div className="text-indigo-600 mb-6">
+                            <div className={`${offering.iconColor} mb-6`}>
                                 <FontAwesomeIcon icon={offering.icon} size="4x" />
                             </div>
                             <h3 className="text-2xl font-bold mb-3">{offering.title}</h3>
@@ -243,42 +354,110 @@ function Technology() {
     );
 }
 
-function Design() {
-    const designTools = [
+// function Design() {
+//     const designTools = [
+//         {
+//             name: "Figma",
+//             logo: "/techlogos/figma.png",
+//         },
+//         {
+//             name: "Sketch",
+//             logo: "/techlogos/sketch.png",
+//         },
+//         {
+//             name: "Adobe XD",
+//             logo: "/techlogos/adobexd.png",
+//         },
+//         {
+//             name: "Canva",
+//             logo: "/techlogos/canva.png",
+//         },
+//     ];
+//     return (
+//         <>
+//             <div className="z-20 bg-gray-100 py-16 px-4 pb-16">
+//                 <h2 className="text-4xl md:text-5xl text-center font-extrabold mb-6 leading-tight">Design Tools We Use</h2>
+//                 <div className="w-full flex flex-col flex-wrap md:flex-row items-center justify-center">
+//                     {designTools.map((tool) => (
+//                         <div key={tool.name} className="p-6 m-4 w-48 flex flex-col items-center">
+//                             <Image
+//                                 src={tool.logo}
+//                                 alt={`${tool.name} Logo`}
+//                                 width={64}
+//                                 height={64}
+//                                 className="mb-4"
+//                             />
+//                             <h3 className="text-xl font-bold mb-2">{tool.name}</h3>
+//                         </div>
+//                     ))}
+//                 </div>
+//             </div>
+//         </>
+//     )
+// }
+
+function Projects() {
+    interface Project {
+        title?: string;
+        description?: string;
+        image?: string;
+        link?: string;
+    }
+
+    const projects: Project[] = [
         {
-            name: "Figma",
-            logo: "/techlogos/figma.png",
+            title: "Air Service of Florida",
+            description: "A modern, responsive website for a regional industrial air service company. ",
+            image: "/airserviceflorida.png",
+            link: "https://airserviceofflorida.com"
+
         },
         {
-            name: "Sketch",
-            logo: "/techlogos/sketch.png",
-        },
-        {
-            name: "Adobe XD",
-            logo: "/techlogos/adobexd.png",
-        },
-        {
-            name: "Canva",
-            logo: "/techlogos/canva.png",
-        },
+            title: "Atlantic Compressor",
+            description: "A sleek, user-friendly e-commerce platform for a leading provider of industrial compressors and parts.",
+            image: "/atlanticcompressor.png",
+            link: "https://atlanticcompressor.com"
+        }
     ];
     return (
         <>
-            <div className="z-20 bg-gray-100 py-16 px-4 pb-16">
-                <h2 className="text-4xl md:text-5xl text-center font-extrabold mb-6 leading-tight">Design Tools We Use</h2>
-                <div className="w-full flex flex-col flex-wrap md:flex-row items-center justify-center">
-                    {designTools.map((tool) => (
-                        <div key={tool.name} className="p-6 m-4 w-48 flex flex-col items-center">
-                            <Image
-                                src={tool.logo}
-                                alt={`${tool.name} Logo`}
-                                width={64}
-                                height={64}
-                                className="mb-4"
-                            />
-                            <h3 className="text-xl font-bold mb-2">{tool.name}</h3>
-                        </div>
-                    ))}
+            <div className="bg-gray-100 z-20 py-20 px-4">
+                <div className="max-w-4xl mx-auto text-center">
+                    <h2 className="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
+                        Our Recent Projects
+                    </h2>
+                    <p className="text-lg md:text-xl text-gray-700 mb-8">
+                        Explore some of our latest work showcasing our expertise in web design, UI/UX, and full stack development.
+                    </p>
+                    <div className="w-full flex flex-col md:flex-row gap-8">
+                        {projects.map((project) => (
+                            <div key={project.title} className="w-full bg-white rounded-2xl shadow-lg overflow-hidden mb-12">
+                                {project.image && (
+                                    <Image
+                                        src={project.image}
+                                        alt={project.title || "Project Image"}
+                                        width={800}
+                                        height={400}
+                                        className="w-full h-[200px] object-cover"
+                                    />
+                                )}
+                                <div className="p-6 text-left">
+                                    <h3 className="text-2xl font-bold mb-2">{project.title}</h3>
+                                    <p className="text-gray-700 mb-4">{project.description}</p>
+                                    {project.link && (
+                                        <a
+                                            href={project.link}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-indigo-600 hover:underline font-semibold"
+                                        >
+                                            Visit Website
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </>
@@ -340,7 +519,8 @@ export default function HomePageClient() {
             <Mission />
             <Offer />
             <Technology />
-            <Design />
+            <Projects />
+            {/* <Design /> */}
             <Contact />
         </div>
     );
