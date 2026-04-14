@@ -108,27 +108,45 @@ export default function ProjectsPageClient() {
 
     function Hero() {
         return (
-            <div className="w-full max-w-6xl px-4 pt-14 pb-6">
-                <h1 className="text-4xl md:text-6xl font-bold tracking-tight">Our Projects</h1>
-                <p className="mt-3 text-lg md:text-xl text-gray-600 max-w-2xl">
+            <div className="w-full max-w-6xl px-4 pt-16 pb-8 md:pt-20">
+                
+                <h1 className="montserrat mt-5 max-w-4xl text-4xl font-extrabold tracking-[-0.02em] text-[#101C2F] md:text-6xl">
+                    Websites That Actually
+                    <span className="block text-[#D4672A]">Move The Needle</span>
+                </h1>
+                <p className="mt-5 max-w-2xl text-lg leading-relaxed text-gray-600 md:text-xl">
                     See how we craft UX-focused, performance-driven websites across marketing, eCommerce, and custom full-stack builds.
                 </p>
 
+                <div className="mt-6 flex flex-wrap gap-3 text-sm">
+                    <span className="rounded-full border border-[#14273F]/15 bg-white/80 px-3 py-1 text-[#14273F] backdrop-blur">
+                        {projects.length} launched builds
+                    </span>
+                    <span className="rounded-full border border-[#D4672A]/25 bg-[#D4672A]/10 px-3 py-1 text-[#9E471C]">
+                        {filteredProjects.length} shown in this view
+                    </span>
+                </div>
+
                 {/* Filter Tabs (matches the mockup vibe) */}
-                <div className="mt-8 flex flex-wrap gap-2">
-                    <TabButton
-                        active={activeFilter === "all"}
-                        onClick={() => setActiveFilter("all")}
-                        label="All"
-                    />
-                    {Object.values(SITE_TYPES).map((t) => (
+                <div className="mt-8 rounded-2xl border border-gray-200/70 bg-white/80 p-2 backdrop-blur">
+                    <div className="flex flex-wrap gap-2">
                         <TabButton
-                            key={t.id}
-                            active={activeFilter === t.id}
-                            onClick={() => setActiveFilter(t.id)}
-                            label={t.label}
+                            active={activeFilter === "all"}
+                            onClick={() => setActiveFilter("all")}
+                            label="All"
                         />
-                    ))}
+                        {Object.values(SITE_TYPES).map((t) => (
+                            <TabButton
+                                key={t.id}
+                                active={activeFilter === t.id}
+                                onClick={() => setActiveFilter(t.id)}
+                                label={t.label}
+                            />
+                        ))}
+                    </div>
+                    {activeFilter !== "all" ? (
+                        <p className="px-2 pt-3 text-sm text-gray-600">{SITE_TYPES[activeFilter].description}</p>
+                    ) : null}
                 </div>
             </div>
         );
@@ -144,67 +162,101 @@ export default function ProjectsPageClient() {
         label: string;
     }) {
         return (
-            <button
+            <motion.button
+                layout
                 onClick={onClick}
+                aria-pressed={active}
                 className={[
-                    "rounded-lg px-4 py-2 text-sm md:text-base transition hover:cursor-pointer",
+                    "relative overflow-hidden rounded-xl px-4 py-2 text-sm md:text-base transition hover:cursor-pointer",
                     active
-                        ? "bg-[#14273F] text-white shadow"
+                        ? "text-white shadow-md shadow-[#14273F]/25"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200",
                 ].join(" ")}
             >
-                {label}
-            </button>
+                {active ? (
+                    <motion.span
+                        layoutId="active-filter-pill"
+                        className="absolute inset-0 bg-[#14273F]"
+                        transition={{ type: "spring", stiffness: 360, damping: 30 }}
+                    />
+                ) : null}
+                <span className="relative z-10">{label}</span>
+            </motion.button>
         );
     }
 
     function ProjectCards() {
         return (
-            <div className="w-full max-w-6xl px-4 pb-16">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {filteredProjects.map((project) => (
-                        <div
-                            key={project.id}
-                            className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
-                        >
-                        
-                            <div className="h-56 bg-gradient-to-br from-[#0E1A2B] to-[#1B2F4B] relative">
-                                
-                                <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
-                                    {project.types.map((t) => (
-                                        <span
-                                            key={t}
-                                            className="rounded-full bg-white/15 backdrop-blur px-3 py-1 text-xs text-white border border-white/20"
-                                        >
-                                            {SITE_TYPES[t].label}
-                                        </span>
-                                    ))}
+            <div className="w-full max-w-6xl px-4 pb-20">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={activeFilter}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="grid grid-cols-1 gap-7 md:grid-cols-2"
+                    >
+                        {filteredProjects.map((project, index) => (
+                            <motion.article
+                                key={project.id}
+                                layout
+                                initial={{ opacity: 0, y: 24 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 12 }}
+                                transition={{ duration: 0.35, ease: "easeOut", delay: index * 0.07 }}
+                                className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#14273F]/10"
+                            >
+                                <div className="relative h-56 overflow-hidden">
+                                    <Image
+                                        src={project.thumbnail}
+                                        alt={`${project.name} website preview`}
+                                        fill
+                                        className="object-cover transition-transform duration-500 group-hover:scale-110"
+                                        priority={project.id === 1}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#0E1A2B]/65 via-[#0E1A2B]/20 to-transparent" />
+
+                                    <div className="absolute left-4 top-4 z-10 flex flex-wrap gap-2">
+                                        {project.types.map((t) => (
+                                            <span
+                                                key={t}
+                                                className="rounded-full border border-white/20 bg-white/15 px-3 py-1 text-xs text-white backdrop-blur"
+                                            >
+                                                {SITE_TYPES[t].label}
+                                            </span>
+                                        ))}
+                                    </div>
+
+                                    <span className="absolute right-4 bottom-4 z-10 rounded-full border border-white/25 bg-black/25 px-3 py-1 text-xs font-medium uppercase tracking-wide text-white backdrop-blur">
+                                        Case Study
+                                    </span>
                                 </div>
 
-                                <div className="absolute bottom-4 right-4 w-40 h-24 rounded-xl border border-white/50 bg-white/10 backdrop-blur" >
-                                <Image
-                                    src={project.thumbnail}
-                                    alt={`${project.name} website preview`}
-                                    fill
-                                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-xl"
-                                    priority={project.id === 1}
-                                />
-                                </div>
-                            </div>
+                                <div className="h-1 w-full bg-gradient-to-r from-[#D4672A] via-[#F19A63] to-[#14273F]" />
 
-                            <div className="p-6">
-                                <h2 className="text-xl md:text-2xl font-semibold">{project.name}</h2>
-                                <p className="mt-2 text-gray-600">{project.description}</p>
-                                <button
-                                    onClick={() => setSelectedProject(project)}
-                                    className="mt-6 inline-flex items-center justify-center rounded-lg px-4 py-2 border border-gray-200 hover:bg-gray-50 transition hover:cursor-pointer"
-                                >
-                                    View Project
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                <div className="relative p-6">
+                                    <div className="pointer-events-none absolute right-5 top-2 text-6xl font-extrabold leading-none tracking-tight text-[#14273F]/8">
+                                        {String(project.id).padStart(2, "0")}
+                                    </div>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#D4672A]">
+                                        {SITE_TYPES[project.types[0]].label} Build
+                                    </p>
+                                    <h2 className="montserrat mt-2 text-xl font-bold text-[#101C2F] md:text-2xl">
+                                        {project.name}
+                                    </h2>
+                                    <p className="mt-3 leading-relaxed text-gray-600">{project.description}</p>
+                                    <button
+                                        onClick={() => setSelectedProject(project)}
+                                        className="mt-6 inline-flex items-center justify-center rounded-lg bg-[#14273F] px-4 py-2 text-white transition hover:cursor-pointer hover:bg-[#1C3656]"
+                                    >
+                                        View Project
+                                    </button>
+                                </div>
+                            </motion.article>
+                        ))}
+                    </motion.div>
+                </AnimatePresence>
             </div>
         );
     }
@@ -224,18 +276,18 @@ export default function ProjectsPageClient() {
                 >
                     <motion.div
                         key="modal"
-                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        initial={{ opacity: 0, y: 30, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 16, scale: 0.98 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        exit={{ opacity: 0, y: 20, scale: 0.98 }}
+                        transition={{ type: "spring", stiffness: 280, damping: 24 }}
                         className="mx-auto mt-10 w-[92%] max-w-3xl rounded-2xl bg-white shadow-xl overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="p-6 md:p-8 border-b">
+                        <div className="border-b bg-[#F8FAFC] p-6 md:p-8">
                             <div className="flex items-start justify-between gap-4">
                                 <div>
-                                    <h3 className="text-2xl md:text-3xl font-bold">{selectedProject.name}</h3>
-                                    <p className="mt-2 text-gray-600">{selectedProject.description}</p>
+                                    <h3 className="montserrat text-2xl font-bold md:text-3xl">{selectedProject.name}</h3>
+                                    <p className="mt-2 text-gray-600 leading-relaxed">{selectedProject.description}</p>
                                     <div className="mt-4 flex flex-wrap gap-2">
                                         {selectedProject.types.map((t) => (
                                             <span
@@ -258,11 +310,17 @@ export default function ProjectsPageClient() {
                         </div>
 
                         <div className="p-6 md:p-8">
-                            <h4 className="text-lg font-semibold">What we delivered</h4>
+                            <h4 className="text-lg font-semibold text-[#101C2F]">What we delivered</h4>
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {selectedProject.details.map((d) => (
-                                    <div key={d.title} className="rounded-xl border p-4">
-                                        <div className="font-semibold">{d.title}</div>
+                                {selectedProject.details.map((d, detailIndex) => (
+                                    <motion.div
+                                        key={d.title}
+                                        initial={{ opacity: 0, y: 12 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25, delay: detailIndex * 0.08 }}
+                                        className="rounded-xl border p-4"
+                                    >
+                                        <div className="font-semibold text-[#14273F]">{d.title}</div>
                                         <p className="mt-1 text-sm text-gray-600">{d.summary}</p>
                                         {d.highlights?.length ? (
                                             <ul className="mt-3 text-sm list-disc pl-5">
@@ -271,7 +329,7 @@ export default function ProjectsPageClient() {
                                                 ))}
                                             </ul>
                                         ) : null}
-                                    </div>
+                                    </motion.div>
                                 ))}
                             </div>
 
@@ -290,26 +348,12 @@ export default function ProjectsPageClient() {
             </AnimatePresence>
         );
     }
-    function ProjectQuote() {
-        return (
-            <div className="w-full max-w-6xl px-4 pb-16">
-                <div className="bg-[#14273F] text-white rounded-2xl px-8 py-8 md:py-16 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div>
-                        <h3 className="text-2xl md:text-4xl font-semibold">Ready to start your project?</h3>
-                        <p className="mt-2 text-lg md:text-xl">Contact us today for a free quote and consultation.</p>
-                    </div>
-                    <button className="rounded-lg bg-white text-[#14273F] px-5 py-3 hover:opacity-90 transition ease-in-out hover:cursor-pointer">
-                        Request a Quote
-                    </button>
-                </div>
-            </div>
-        );
-    }
+    
     return (
-        <div className="flex flex-col items-center min-h-screen w-full bg-white text-black">
+        <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-[#F8FAFC] text-black">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(20,39,63,0.12),transparent_38%),radial-gradient(circle_at_85%_12%,rgba(212,103,42,0.14),transparent_35%)]" />
             <Hero />
             <ProjectCards />
-            <ProjectQuote />
             {selectedProject && <ProjectModal />}
         </div>
     );
