@@ -11,11 +11,18 @@ export default function ProjectsPageClient() {
      */
 
     type SiteTypeId = "marketing" | "ecommerce" | "fullstack";
+    type BuildStatusId = "live" | "inProgress";
 
     interface SiteType {
         id: SiteTypeId;
         label: string;
         description?: string;
+    }
+
+    interface BuildStatus {
+        id: BuildStatusId;
+        label: string;
+        modalLabel: string;
     }
 
     const SITE_TYPES: Record<SiteTypeId, SiteType> = {
@@ -36,6 +43,19 @@ export default function ProjectsPageClient() {
         },
     };
 
+    const BUILD_STATUSES: Record<BuildStatusId, BuildStatus> = {
+        live: {
+            id: "live",
+            label: "Live Build",
+            modalLabel: "Live Build",
+        },
+        inProgress: {
+            id: "inProgress",
+            label: "In Progress",
+            modalLabel: "Build In Progress",
+        },
+    };
+
     interface ProjectDetail {
         title: string;
         summary: string;
@@ -47,6 +67,7 @@ export default function ProjectsPageClient() {
         name: string;
         description: string;
         types: SiteTypeId[];
+        buildStatus: BuildStatusId;
         thumbnail: string;
         websiteUrl: string;
         details: ProjectDetail[];
@@ -59,6 +80,7 @@ export default function ProjectsPageClient() {
             description:
                 "A modern, responsive website for a regional industrial air service company.",
             types: ["marketing"],
+            buildStatus: "live",
             thumbnail: "/airserviceflorida.png",
             websiteUrl: "https://airserviceofflorida.com",
             details: [
@@ -82,6 +104,7 @@ export default function ProjectsPageClient() {
             description:
                 "An eCommerce rebuild emphasizing clarity, speed, and conversion-ready product browsing.",
             types: ["ecommerce", "fullstack"],
+            buildStatus: "inProgress",
             thumbnail: "/atlanticcompressor_1.png",
             websiteUrl: "https://atlanticcompressor.com",
             details: [
@@ -141,10 +164,13 @@ export default function ProjectsPageClient() {
 
                 <div className="mt-6 flex flex-wrap gap-3 text-sm">
                     <span className="rounded-full border border-[#14273F]/15 bg-white/80 px-3 py-1 text-[#14273F] backdrop-blur">
-                        {projects.length} launched builds
+                        {projects.filter((p) => p.buildStatus === "live").length} launched builds
                     </span>
                     <span className="rounded-full border border-[#D4672A]/25 bg-[#D4672A]/10 px-3 py-1 text-[#9E471C]">
                         {filteredProjects.length} shown in this view
+                    </span>
+                    <span className="rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-amber-800">
+                        {projects.filter((p) => p.buildStatus === "inProgress").length} in progress
                     </span>
                 </div>
 
@@ -324,6 +350,16 @@ export default function ProjectsPageClient() {
                                                 {SITE_TYPES[t].label}
                                             </span>
                                         ))}
+                                        <span
+                                            className={[
+                                                "rounded-full px-3 py-1 text-sm font-medium",
+                                                selectedProject.buildStatus === "live"
+                                                    ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
+                                                    : "border border-amber-300 bg-amber-50 text-amber-800",
+                                            ].join(" ")}
+                                        >
+                                            {BUILD_STATUSES[selectedProject.buildStatus].label}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -346,7 +382,9 @@ export default function ProjectsPageClient() {
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-r from-[#0E1A2B]/65 via-[#0E1A2B]/30 to-transparent" />
                                 <div className="absolute right-0 bottom-0 p-4 text-right">
-                                    <p className="text-xs uppercase tracking-[0.2em] text-white/75">Live Build</p>
+                                    <p className="text-xs uppercase tracking-[0.2em] text-white/75">
+                                        {BUILD_STATUSES[selectedProject.buildStatus].modalLabel}
+                                    </p>
                                     <p className="montserrat text-lg font-semibold text-white">{selectedProject.name}</p>
                                 </div>
                             </div>
@@ -392,14 +430,20 @@ export default function ProjectsPageClient() {
 
                             {/* Optional CTA row */}
                             <div className="mt-8 flex flex-col md:flex-row gap-3">
-                                <a
-                                    href={selectedProject.websiteUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center justify-center rounded-lg bg-[#14273F] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer"
-                                >
-                                    Visit Live Website
-                                </a>
+                                {selectedProject.buildStatus === "live" ? (
+                                    <a
+                                        href={selectedProject.websiteUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center rounded-lg bg-[#14273F] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer"
+                                    >
+                                        Visit Live Website
+                                    </a>
+                                ) : (
+                                    <span className="inline-flex items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-5 py-3 font-medium text-amber-800">
+                                        This build is currently in progress
+                                    </span>
+                                )}
                                 <a
                                     href="/quote"
                                     className="rounded-lg bg-[#D4672A] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer"
