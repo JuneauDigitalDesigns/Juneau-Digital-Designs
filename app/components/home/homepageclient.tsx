@@ -672,10 +672,10 @@ function Contact() {
 
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 lg:justify-end lg:self-end shrink-0">
                             <a
-                                href="/contact"
+                                href="/quote"
                                 className="inline-flex justify-center items-center rounded-full bg-zinc-900 text-white px-6 py-3 text-base font-bold hover:bg-zinc-800 transition min-w-[180px]"
                             >
-                                Get in Touch
+                                Request a Quote
                             </a>
                             <a
                                 href="/projects"

@@ -27,7 +27,6 @@ export default function Navbar() {
     }, [handleCloseModal]);
     const pages: Pages[] = [
         { name: "Projects", href: "/projects" },
-        { name: "Contact", href: "/contact" },
     ]
     return (
         <div ref={navRef} className="sticky top-0 z-50 w-full bg-[#0E1A2B]/95 backdrop-blur-sm shadow-lg">
