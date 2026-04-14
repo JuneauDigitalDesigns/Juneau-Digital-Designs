@@ -51,6 +51,7 @@ export default function QuotePageClient() {
     const [formData, setFormData] = useState<QuoteFormData>(initialFormData);
     const [submitting, setSubmitting] = useState(false);
     const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
+    const [turnstileScriptFailed, setTurnstileScriptFailed] = useState(false);
     const [submitState, setSubmitState] = useState<SubmitState>({
         type: "idle",
         message: "",
@@ -89,6 +90,14 @@ export default function QuotePageClient() {
             setSubmitState({
                 type: "error",
                 message: "Security verification is not configured yet. Please try again later.",
+            });
+            return;
+        }
+
+        if (turnstileScriptFailed) {
+            setSubmitState({
+                type: "error",
+                message: "Security verification could not load. Please disable blockers and refresh the page.",
             });
             return;
         }
@@ -141,7 +150,18 @@ export default function QuotePageClient() {
             <Script
                 src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
                 strategy="afterInteractive"
-                onLoad={() => setTurnstileScriptLoaded(true)}
+                onLoad={() => {
+                    setTurnstileScriptLoaded(true);
+                    setTurnstileScriptFailed(false);
+                }}
+                onError={() => {
+                    setTurnstileScriptLoaded(false);
+                    setTurnstileScriptFailed(true);
+                    setSubmitState({
+                        type: "error",
+                        message: "Security verification failed to load. Check ad blockers, privacy tools, or network rules and refresh.",
+                    });
+                }}
             />
             <section className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-2">
                 <div className="rounded-3xl border border-zinc-200 bg-white/90 p-6 shadow-xl sm:p-8">
@@ -316,10 +336,15 @@ export default function QuotePageClient() {
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                             <p className="mb-3 text-sm font-semibold text-slate-800">Security verification</p>
                             <div ref={turnstileContainerRef} />
+                            {turnstileScriptFailed && (
+                                <p className="mt-3 text-sm text-red-700">
+                                    Could not connect to Cloudflare Turnstile. Ensure challenges.cloudflare.com is allowed and refresh this page.
+                                </p>
+                            )}
                         </div>
 
                         <button
-                            disabled={submitting || !turnstileSiteKey}
+                            disabled={submitting || !turnstileSiteKey || turnstileScriptFailed}
                             type="submit"
                             className="inline-flex items-center justify-center rounded-xl border border-[#0E1A2B] bg-[#0E1A2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#132745] disabled:cursor-not-allowed disabled:opacity-70"
                         >

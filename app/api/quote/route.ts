@@ -27,6 +27,11 @@ type TurnstileVerifyResponse = {
     "error-codes"?: string[];
 };
 
+type TurnstileVerificationResult = {
+    success: boolean;
+    errorCodes: string[];
+};
+
 const maxFieldLength = 2000;
 
 function sanitize(value: unknown, limit = maxFieldLength): string {
@@ -50,9 +55,9 @@ function escapeHtml(value: string): string {
         .replaceAll("'", "&#39;");
 }
 
-async function verifyTurnstileToken(token: string, remoteIp: string): Promise<boolean> {
+async function verifyTurnstileToken(token: string, remoteIp: string): Promise<TurnstileVerificationResult> {
     if (!turnstileSecretKey) {
-        return false;
+        return { success: false, errorCodes: ["missing-input-secret"] };
     }
 
     const payload = new URLSearchParams({
@@ -73,11 +78,14 @@ async function verifyTurnstileToken(token: string, remoteIp: string): Promise<bo
     });
 
     if (!verifyResponse.ok) {
-        return false;
+        return { success: false, errorCodes: ["verification-request-failed"] };
     }
 
     const verifyResult = (await verifyResponse.json()) as TurnstileVerifyResponse;
-    return Boolean(verifyResult.success);
+    return {
+        success: Boolean(verifyResult.success),
+        errorCodes: verifyResult["error-codes"] || [],
+    };
 }
 
 export async function POST(request: Request) {
@@ -118,8 +126,12 @@ export async function POST(request: Request) {
             );
         }
 
-        const isTurnstileValid = await verifyTurnstileToken(turnstileToken, remoteIp);
-        if (!isTurnstileValid) {
+        const turnstileVerification = await verifyTurnstileToken(turnstileToken, remoteIp);
+        if (!turnstileVerification.success) {
+            console.error("Turnstile verification failed", {
+                errorCodes: turnstileVerification.errorCodes,
+                hasRemoteIp: Boolean(remoteIp),
+            });
             return NextResponse.json(
                 { message: "Security verification failed. Please try again." },
                 { status: 400 }

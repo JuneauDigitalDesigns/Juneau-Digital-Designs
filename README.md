@@ -33,6 +33,16 @@ TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile site key used by the quote form widget
 - `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key used for server-side token verification
 
+### Turnstile Production Checklist
+
+If Turnstile works locally but fails in production with a connection/verification error:
+
+- Add your production hostname(s) to the widget in Cloudflare Turnstile (for example, `yourdomain.com` and `www.yourdomain.com`).
+- Ensure `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are from the same Turnstile widget.
+- Confirm both environment variables are set in your production platform and redeploy after changes.
+- Verify requests to `https://challenges.cloudflare.com` are not blocked by CSP, WAF, browser extensions, or privacy tools.
+- Check server logs for `Turnstile verification failed` and its `errorCodes` to identify exact verification failures.
+
 The quote form submits to `/api/quote` and sends a formatted email with all form details.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
