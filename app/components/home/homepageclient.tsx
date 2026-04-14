@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComputer, faDraftingCompass, faGear, faWrench, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { motion, AnimatePresence, useScroll, useTransform, type Variants } from "framer-motion";
 
 const sectionReveal: Variants = {
     hidden: { opacity: 0, y: 40 },
@@ -26,9 +26,17 @@ const staggerContainer: Variants = {
 
 
 function Hero() {
+    const heroRef = useRef<HTMLElement>(null);
+    const { scrollYProgress } = useScroll({
+        target: heroRef,
+        offset: ["start start", "end start"]
+    });
+    const backgroundY = useTransform(scrollYProgress, [0, 1], [-48, 48]);
+
     return (
         <>
             <motion.section
+                ref={heroRef}
                 className="relative w-full overflow-hidden"
                 variants={sectionReveal}
                 initial="hidden"
@@ -36,7 +44,7 @@ function Hero() {
                 viewport={{ once: true, amount: 0.2 }}
             >
 
-                <div className="absolute inset-0 z-0">
+                <motion.div className="absolute -inset-x-0 -top-24 -bottom-24 z-0 will-change-transform" style={{ y: backgroundY }}>
                     <Image
                         src="/hero_background1.png"
                         alt="Hero Background"
@@ -46,10 +54,10 @@ function Hero() {
                     />
 
                     <div className="absolute inset-0 bg-black/30" />
-                </div>
+                </motion.div>
 
 
-                <div className="relative z-10 w-full py-20 px-4 md:px-16 flex justify-center items-center">
+                <div className="relative z-10 w-full min-h-[70vh] md:min-h-[78vh] py-24 md:py-28 px-4 md:px-16 flex justify-center items-center">
                     <div className="w-full flex flex-col md:flex-row items-center md:space-x-4">
 
                         <div className="w-full md:w-1/2 flex flex-col items-center md:items-start px-4 text-center md:text-left text-white">
