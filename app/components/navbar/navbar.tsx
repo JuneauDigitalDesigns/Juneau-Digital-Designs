@@ -33,7 +33,7 @@ export default function Navbar() {
         <div ref={navRef} className="sticky top-0 z-50 w-full bg-[#0E1A2B]/95 backdrop-blur-sm shadow-lg">
             <div className="mx-auto flex h-16 w-full max-w-7xl items-center px-4 sm:px-6">
                 <Link href="/" aria-label="Go to home page" className="hover:cursor-pointer">
-                    <Image src="/JD_nobg.png" alt="Juneau Digital Designs home" width={100} height={100} className="h-14 w-14 sm:h-32 sm:w-32" />
+                    <Image src="/JDs_nobg.png" alt="Juneau Digital Designs home" width={100} height={100} className="h-14 w-14 sm:h-32 sm:w-32" />
                 </Link>
 
                 <div className="ml-auto hidden items-center gap-7 text-sm font-medium text-white/90 md:flex">

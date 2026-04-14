@@ -80,7 +80,7 @@ export default function ProjectsPageClient() {
             description:
                 "An eCommerce rebuild emphasizing clarity, speed, and conversion-ready product browsing.",
             types: ["ecommerce", "fullstack"],
-            thumbnail: "/atlanticcompressor.png",
+            thumbnail: "/atlanticcompressor_1.png",
             details: [
                 {
                     title: "eCommerce Experience",

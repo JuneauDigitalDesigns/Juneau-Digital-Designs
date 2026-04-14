@@ -538,13 +538,13 @@ function Projects() {
             description: "A modern, responsive website for a regional industrial air service company. ",
             image: "/airserviceflorida.png",
             link: "https://airserviceofflorida.com",
-            category: "Corporate Website"
+            category: "Marketing"
 
         },
         {
             title: "Atlantic Compressor",
             description: "A sleek, user-friendly e-commerce platform for a leading provider of industrial compressors and parts.",
-            image: "/atlanticcompressor.png",
+            image: "/atlanticcompressor_1.png",
             link: "https://atlantic-compressor.vercel.app",
             category: "E-Commerce"
         }

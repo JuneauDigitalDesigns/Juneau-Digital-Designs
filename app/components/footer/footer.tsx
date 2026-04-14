@@ -13,7 +13,7 @@ export default function Footer() {
                     <div className="max-w-3xl">
                         <Link href="/" aria-label="Go to home page" className="mb-4 inline-flex items-center gap-4 rounded-xl py-2 transition-colors hover:bg-white/[0.08]">
                             <Image
-                                src="/JD_nobg.png"
+                                src="/JDs_nobg.png"
                                 alt="Juneau Digital Designs home"
                                 width={72}
                                 height={72}
