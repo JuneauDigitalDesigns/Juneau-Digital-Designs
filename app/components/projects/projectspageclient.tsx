@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 export default function ProjectsPageClient() {
     /**
@@ -48,6 +48,7 @@ export default function ProjectsPageClient() {
         description: string;
         types: SiteTypeId[];
         thumbnail: string;
+        websiteUrl: string;
         details: ProjectDetail[];
     }
 
@@ -59,6 +60,7 @@ export default function ProjectsPageClient() {
                 "A modern, responsive website for a regional industrial air service company.",
             types: ["marketing"],
             thumbnail: "/airserviceflorida.png",
+            websiteUrl: "https://airserviceofflorida.com",
             details: [
                 {
                     title: "Marketing Site",
@@ -81,6 +83,7 @@ export default function ProjectsPageClient() {
                 "An eCommerce rebuild emphasizing clarity, speed, and conversion-ready product browsing.",
             types: ["ecommerce", "fullstack"],
             thumbnail: "/atlanticcompressor_1.png",
+            websiteUrl: "https://atlanticcompressor.com",
             details: [
                 {
                     title: "eCommerce Experience",
@@ -100,6 +103,24 @@ export default function ProjectsPageClient() {
 
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
     const [activeFilter, setActiveFilter] = useState<"all" | SiteTypeId>("all");
+
+    useEffect(() => {
+        if (!selectedProject) return;
+
+        const previousOverflow = document.body.style.overflow;
+        const previousPaddingRight = document.body.style.paddingRight;
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+        document.body.style.overflow = "hidden";
+        if (scrollbarWidth > 0) {
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.body.style.paddingRight = previousPaddingRight;
+        };
+    }, [selectedProject]);
 
     const filteredProjects = useMemo(() => {
         if (activeFilter === "all") return projects;
@@ -264,6 +285,10 @@ export default function ProjectsPageClient() {
     function ProjectModal() {
         if (!selectedProject) return null;
 
+        const uniqueHighlights = Array.from(
+            new Set(selectedProject.details.flatMap((detail) => detail.highlights ?? []))
+        );
+
         return (
             <AnimatePresence>
                 <motion.div
@@ -271,7 +296,7 @@ export default function ProjectsPageClient() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+                    className="fixed inset-0 z-50 overflow-y-auto bg-black/50 py-8 backdrop-blur-sm"
                     onClick={() => setSelectedProject(null)}
                 >
                     <motion.div
@@ -280,12 +305,14 @@ export default function ProjectsPageClient() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.98 }}
                         transition={{ type: "spring", stiffness: 280, damping: 24 }}
-                        className="mx-auto mt-10 w-[92%] max-w-3xl rounded-2xl bg-white shadow-xl overflow-hidden"
+                        className="mx-auto w-[92%] max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="border-b bg-[#F8FAFC] p-6 md:p-8">
+                        <div className="relative border-b bg-[#F8FAFC] p-6 md:p-8">
+                            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(20,39,63,0.12),transparent_45%),radial-gradient(circle_at_92%_20%,rgba(212,103,42,0.12),transparent_35%)]" />
                             <div className="flex items-start justify-between gap-4">
-                                <div>
+                                <div className="relative z-10">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#D4672A]">Project Spotlight</p>
                                     <h3 className="montserrat text-2xl font-bold md:text-3xl">{selectedProject.name}</h3>
                                     <p className="mt-2 text-gray-600 leading-relaxed">{selectedProject.description}</p>
                                     <div className="mt-4 flex flex-wrap gap-2">
@@ -302,7 +329,7 @@ export default function ProjectsPageClient() {
 
                                 <button
                                     onClick={() => setSelectedProject(null)}
-                                    className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 transition hover:cursor-pointer"
+                                    className="relative z-10 rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 transition hover:cursor-pointer"
                                 >
                                     Close
                                 </button>
@@ -310,6 +337,20 @@ export default function ProjectsPageClient() {
                         </div>
 
                         <div className="p-6 md:p-8">
+                            <div className="relative h-52 w-full overflow-hidden rounded-xl border border-gray-200">
+                                <Image
+                                    src={selectedProject.thumbnail}
+                                    alt={`${selectedProject.name} full preview`}
+                                    fill
+                                    className="object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#0E1A2B]/65 via-[#0E1A2B]/30 to-transparent" />
+                                <div className="absolute right-0 bottom-0 p-4 text-right">
+                                    <p className="text-xs uppercase tracking-[0.2em] text-white/75">Live Build</p>
+                                    <p className="montserrat text-lg font-semibold text-white">{selectedProject.name}</p>
+                                </div>
+                            </div>
+
                             <h4 className="text-lg font-semibold text-[#101C2F]">What we delivered</h4>
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {selectedProject.details.map((d, detailIndex) => (
@@ -333,14 +374,39 @@ export default function ProjectsPageClient() {
                                 ))}
                             </div>
 
+                            {uniqueHighlights.length ? (
+                                <div className="mt-6 rounded-xl border border-[#14273F]/15 bg-[#14273F]/5 p-4">
+                                    <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#14273F]">Impact Highlights</p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {uniqueHighlights.map((highlight) => (
+                                            <span
+                                                key={highlight}
+                                                className="rounded-full border border-[#14273F]/20 bg-white px-3 py-1 text-sm text-[#14273F]"
+                                            >
+                                                {highlight}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
                             {/* Optional CTA row */}
                             <div className="mt-8 flex flex-col md:flex-row gap-3">
-                                <button className="rounded-lg bg-[#14273F] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer">
+                                <a
+                                    href={selectedProject.websiteUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center rounded-lg bg-[#14273F] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer"
+                                >
+                                    Visit Live Website
+                                </a>
+                                <a
+                                    href="/quote"
+                                    className="rounded-lg bg-[#D4672A] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer"
+                                >
                                     Request a Quote
-                                </button>
-                                <button className="rounded-lg border border-gray-200 px-5 py-3 hover:bg-gray-50 transition hover:cursor-pointer">
-                                    View More Work
-                                </button>
+                                </a>
+                                
                             </div>
                         </div>
                     </motion.div>
@@ -352,9 +418,9 @@ export default function ProjectsPageClient() {
     return (
         <div className="relative flex min-h-screen w-full flex-col items-center overflow-hidden bg-[#F8FAFC] text-black">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(20,39,63,0.12),transparent_38%),radial-gradient(circle_at_85%_12%,rgba(212,103,42,0.14),transparent_35%)]" />
-            <Hero />
-            <ProjectCards />
-            {selectedProject && <ProjectModal />}
+            {Hero()}
+            {ProjectCards()}
+            {ProjectModal()}
         </div>
     );
 }
