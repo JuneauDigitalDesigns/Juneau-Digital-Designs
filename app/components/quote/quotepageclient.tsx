@@ -1,7 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import Script from "next/script";
+import { FormEvent, useEffect, useRef, useState } from "react";
+
+declare global {
+    interface Window {
+        turnstile?: {
+            render: (container: string | HTMLElement, options: Record<string, unknown>) => string;
+            reset: (widgetId?: string) => void;
+        };
+    }
+}
 
 type QuoteFormData = {
     fullName: string;
@@ -14,6 +24,7 @@ type QuoteFormData = {
     projectDetails: string;
     website: string;
     consent: boolean;
+    turnstileToken: string;
 };
 
 type SubmitState = {
@@ -32,18 +43,64 @@ const initialFormData: QuoteFormData = {
     projectDetails: "",
     website: "",
     consent: false,
+    turnstileToken: "",
 };
 
 export default function QuotePageClient() {
+    const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     const [formData, setFormData] = useState<QuoteFormData>(initialFormData);
     const [submitting, setSubmitting] = useState(false);
+    const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
     const [submitState, setSubmitState] = useState<SubmitState>({
         type: "idle",
         message: "",
     });
+    const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
+    const turnstileWidgetIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (!turnstileSiteKey || !turnstileScriptLoaded || !window.turnstile || !turnstileContainerRef.current) {
+            return;
+        }
+
+        if (turnstileWidgetIdRef.current) {
+            return;
+        }
+
+        turnstileWidgetIdRef.current = window.turnstile.render(turnstileContainerRef.current, {
+            sitekey: turnstileSiteKey,
+            callback: (token: string) => {
+                setFormData((prev) => ({ ...prev, turnstileToken: token }));
+            },
+            "expired-callback": () => {
+                setFormData((prev) => ({ ...prev, turnstileToken: "" }));
+            },
+            "error-callback": () => {
+                setFormData((prev) => ({ ...prev, turnstileToken: "" }));
+            },
+            theme: "light",
+        });
+    }, [turnstileScriptLoaded, turnstileSiteKey]);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+
+        if (!turnstileSiteKey) {
+            setSubmitState({
+                type: "error",
+                message: "Security verification is not configured yet. Please try again later.",
+            });
+            return;
+        }
+
+        if (!formData.turnstileToken) {
+            setSubmitState({
+                type: "error",
+                message: "Please complete the security verification before submitting.",
+            });
+            return;
+        }
+
         setSubmitting(true);
         setSubmitState({ type: "idle", message: "" });
 
@@ -67,6 +124,10 @@ export default function QuotePageClient() {
                 message: "Thanks! Your quote request has been sent. We will reach out soon.",
             });
             setFormData(initialFormData);
+
+            if (window.turnstile && turnstileWidgetIdRef.current) {
+                window.turnstile.reset(turnstileWidgetIdRef.current);
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : "Something went wrong.";
             setSubmitState({ type: "error", message });
@@ -77,6 +138,11 @@ export default function QuotePageClient() {
 
     return (
         <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-12 sm:px-6 lg:px-8">
+            <Script
+                src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+                strategy="afterInteractive"
+                onLoad={() => setTurnstileScriptLoaded(true)}
+            />
             <section className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-2">
                 <div className="rounded-3xl border border-zinc-200 bg-white/90 p-6 shadow-xl sm:p-8">
                     <span className="inline-flex rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700">
@@ -247,8 +313,13 @@ export default function QuotePageClient() {
                     </label>
 
                     <div className="md:col-span-2 flex flex-col gap-3">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <p className="mb-3 text-sm font-semibold text-slate-800">Security verification</p>
+                            <div ref={turnstileContainerRef} />
+                        </div>
+
                         <button
-                            disabled={submitting}
+                            disabled={submitting || !turnstileSiteKey}
                             type="submit"
                             className="inline-flex items-center justify-center rounded-xl border border-[#0E1A2B] bg-[#0E1A2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#132745] disabled:cursor-not-allowed disabled:opacity-70"
                         >

@@ -6,6 +6,7 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const toEmail = process.env.QUOTE_TO_EMAIL;
 const fromEmail = process.env.QUOTE_FROM_EMAIL || "onboarding@resend.dev";
+const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
 
 type QuotePayload = {
     fullName?: string;
@@ -18,6 +19,12 @@ type QuotePayload = {
     projectDetails?: string;
     website?: string;
     consent?: boolean;
+    turnstileToken?: string;
+};
+
+type TurnstileVerifyResponse = {
+    success: boolean;
+    "error-codes"?: string[];
 };
 
 const maxFieldLength = 2000;
@@ -43,9 +50,39 @@ function escapeHtml(value: string): string {
         .replaceAll("'", "&#39;");
 }
 
+async function verifyTurnstileToken(token: string, remoteIp: string): Promise<boolean> {
+    if (!turnstileSecretKey) {
+        return false;
+    }
+
+    const payload = new URLSearchParams({
+        secret: turnstileSecretKey,
+        response: token,
+    });
+
+    if (remoteIp) {
+        payload.set("remoteip", remoteIp);
+    }
+
+    const verifyResponse = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: payload,
+    });
+
+    if (!verifyResponse.ok) {
+        return false;
+    }
+
+    const verifyResult = (await verifyResponse.json()) as TurnstileVerifyResponse;
+    return Boolean(verifyResult.success);
+}
+
 export async function POST(request: Request) {
     try {
-        if (!resend || !toEmail) {
+        if (!resend || !toEmail || !turnstileSecretKey) {
             return NextResponse.json(
                 {
                     message: "Server is not configured for quote requests yet.",
@@ -65,10 +102,28 @@ export async function POST(request: Request) {
         const timeline = sanitize(body.timeline, 120);
         const projectDetails = sanitize(body.projectDetails, 3000);
         const website = sanitize(body.website, 120);
+        const turnstileToken = sanitize(body.turnstileToken, 4000);
         const consent = Boolean(body.consent);
+        const forwardedFor = request.headers.get("x-forwarded-for") || "";
+        const remoteIp = forwardedFor.split(",")[0]?.trim() || "";
 
         if (website) {
             return NextResponse.json({ message: "Submission accepted." }, { status: 200 });
+        }
+
+        if (!turnstileToken) {
+            return NextResponse.json(
+                { message: "Please complete security verification before submitting." },
+                { status: 400 }
+            );
+        }
+
+        const isTurnstileValid = await verifyTurnstileToken(turnstileToken, remoteIp);
+        if (!isTurnstileValid) {
+            return NextResponse.json(
+                { message: "Security verification failed. Please try again." },
+                { status: 400 }
+            );
         }
 
         if (!fullName || !businessName || !email || !projectDetails) {

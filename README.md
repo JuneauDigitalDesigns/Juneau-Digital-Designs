@@ -24,10 +24,14 @@ Create a `.env.local` file in the project root and configure:
 RESEND_API_KEY=your_resend_api_key
 QUOTE_TO_EMAIL=you@yourdomain.com
 QUOTE_FROM_EMAIL=onboarding@resend.dev
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key
+TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 ```
 
 - `QUOTE_TO_EMAIL`: inbox that should receive quote requests
 - `QUOTE_FROM_EMAIL`: sender identity (use a verified domain in production)
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY`: Cloudflare Turnstile site key used by the quote form widget
+- `TURNSTILE_SECRET_KEY`: Cloudflare Turnstile secret key used for server-side token verification
 
 The quote form submits to `/api/quote` and sends a formatted email with all form details.
 

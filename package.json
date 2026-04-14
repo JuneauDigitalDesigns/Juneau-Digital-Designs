@@ -17,7 +17,7 @@
     "@fortawesome/react-fontawesome": "^3.1.1",
     "font-awesome": "^4.7.0",
     "framer-motion": "^12.23.26",
-    "next": "16.0.8",
+    "next": "^16.2.3",
     "react": "19.2.1",
     "react-dom": "19.2.1",
     "resend": "^4.6.0"
@@ -28,7 +28,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.0.8",
+    "eslint-config-next": "^16.2.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
