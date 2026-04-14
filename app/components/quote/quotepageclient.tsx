@@ -77,18 +77,48 @@ export default function QuotePageClient() {
 
     return (
         <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-12 sm:px-6 lg:px-8">
-            <section className="mx-auto w-full max-w-4xl rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-xl backdrop-blur sm:p-10">
-                <div className="mb-8">
-                    <span className="inline-flex rounded-full border border-slate-300 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700">
+            <section className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-2">
+                <div className="rounded-3xl border border-zinc-200 bg-white/90 p-6 shadow-xl sm:p-8">
+                    <span className="inline-flex rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700">
                         Request a Quote
                     </span>
-                    <h1 className="mt-4 text-3xl font-bold text-slate-900 sm:text-4xl">Tell us about your project</h1>
-                    <p className="mt-3 text-slate-700">
-                        Share your goals, timeline, and budget. We will send back a clear scope and next steps.
+                    <h1 className="mt-4 text-3xl font-black leading-tight text-zinc-900 sm:text-5xl">
+                        Let&apos;s talk about your next website
+                    </h1>
+                    <p className="mt-4 text-zinc-700 leading-relaxed">
+                        Tell us what you are building and what outcome matters most. We will send a clear next step,
+                        practical recommendations, and a timeline you can trust.
                     </p>
+
+                    <div className="mt-8 space-y-4">
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                            <h2 className="text-base font-bold text-zinc-900">Response Time</h2>
+                            <p className="mt-1 text-sm text-zinc-700">Most inquiries receive a response within 1 business day.</p>
+                        </div>
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                            <h2 className="text-base font-bold text-zinc-900">What to Include</h2>
+                            <p className="mt-1 text-sm text-zinc-700">
+                                Your goals, target audience, and any deadline constraints help us scope quickly.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+                            <h2 className="text-base font-bold text-zinc-900">What You Can Expect</h2>
+                            <p className="mt-1 text-sm text-zinc-700">
+                                A practical recommendation, scope direction, and clear next actions after review.
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 md:grid-cols-2" noValidate>
+                <div className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-xl backdrop-blur sm:p-8">
+                    <div className="mb-8">
+                        <h2 className="text-3xl font-bold text-slate-900 sm:text-4xl">Tell us about your project</h2>
+                        <p className="mt-3 text-slate-700">
+                            Share your goals, timeline, and budget. We will send back a clear scope and next steps.
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 md:grid-cols-2" noValidate>
                     <label className="flex flex-col gap-2">
                         <span className="text-sm font-semibold text-slate-800">Full name</span>
                         <input
@@ -238,7 +268,8 @@ export default function QuotePageClient() {
                             </p>
                         )}
                     </div>
-                </form>
+                    </form>
+                </div>
             </section>
         </main>
     );

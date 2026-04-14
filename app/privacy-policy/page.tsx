@@ -58,7 +58,7 @@ export default function PrivacyPolicyPage() {
                 <section className="mt-8 space-y-3 text-slate-700">
                     <h2 className="text-xl font-semibold text-slate-900">Contact</h2>
                     <p>
-                        For privacy-related questions, visit our <Link href="/contact" className="font-semibold underline underline-offset-4">contact page</Link>.
+                        For privacy-related questions, visit our <Link href="/quote" className="font-semibold underline underline-offset-4">quote page</Link>.
                     </p>
                 </section>
             </article>
