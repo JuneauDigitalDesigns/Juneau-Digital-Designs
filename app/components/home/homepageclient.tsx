@@ -300,9 +300,9 @@ function Offer() {
                             <p className="text-gray-700 leading-relaxed mb-6 flex-1">
                                 {offering.description}
                             </p>
-                            <span className="inline-flex items-center gap-2 rounded-full border border-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white transition">
-                                Learn More
-                                <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">&gt;</span>
+                            <span className="relative inline-flex w-full items-center justify-center rounded-full border border-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white transition">
+                                <span className="text-center">Learn More</span>
+                                <span aria-hidden="true" className="absolute right-4 transition-transform group-hover:translate-x-1">&gt;</span>
                             </span>
                         </div>
                     </motion.div>
@@ -475,14 +475,14 @@ function Technology() {
                             className="p-8 md:p-10 bg-white rounded-3xl shadow-2xl border border-zinc-200"
                         >
                             <div className="flex flex-col gap-6">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-                                    <div className="w-20 h-20 md:w-24 md:h-24 flex items-center justify-center rounded-2xl bg-zinc-100 shadow-inner border border-zinc-200 flex-shrink-0">
+                                <div className="flex items-center gap-4 md:gap-5">
+                                    <div className="w-16 h-16 md:w-24 md:h-24 flex items-center justify-center rounded-2xl bg-zinc-100 shadow-inner border border-zinc-200 flex-shrink-0">
                                         <Image
                                             src={selectedTech.logo}
                                             alt={`${selectedTech.name} Logo`}
                                             width={80}
                                             height={80}
-                                            className="p-3 object-contain"
+                                            className="p-2 md:p-3 object-contain"
                                         />
                                     </div>
 

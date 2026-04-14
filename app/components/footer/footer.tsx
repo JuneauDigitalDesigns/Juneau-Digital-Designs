@@ -46,6 +46,7 @@ export default function Footer() {
                         <Link href="/" className="transition-colors hover:text-white">Home</Link>
                         <Link href="/projects" className="transition-colors hover:text-white">Projects</Link>
                         <Link href="/contact" className="transition-colors hover:text-white">Contact</Link>
+                        <Link href="/privacy-policy" className="transition-colors hover:text-white">Privacy Policy</Link>
                     </div>
 
                     <div className="flex flex-col gap-1 sm:items-end">
