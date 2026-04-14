@@ -2,14 +2,39 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faComputer, faDraftingCompass, faGear, faWrench, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+
+const sectionReveal: Variants = {
+    hidden: { opacity: 0, y: 40 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
+    }
+};
+
+const staggerContainer: Variants = {
+    hidden: {},
+    visible: {
+        transition: {
+            staggerChildren: 0.12,
+            delayChildren: 0.1
+        }
+    }
+};
 
 
 function Hero() {
     return (
         <>
-            <section className="relative w-full overflow-hidden">
-                
+            <motion.section
+                className="relative w-full overflow-hidden"
+                variants={sectionReveal}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.2 }}
+            >
+
                 <div className="absolute inset-0 z-0">
                     <Image
                         src="/hero_background1.png"
@@ -18,23 +43,22 @@ function Hero() {
                         priority
                         className="object-cover"
                     />
-                    
+
                     <div className="absolute inset-0 bg-black/30" />
                 </div>
 
-                
+
                 <div className="relative z-10 w-full py-20 px-4 md:px-16 flex justify-center items-center">
                     <div className="w-full flex flex-col md:flex-row items-center md:space-x-4">
 
                         <div className="w-full md:w-1/2 flex flex-col items-center md:items-start px-4 text-center md:text-left text-white">
                             <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
-                                Digital Solutions for Modern Businesses
+                                Every Pixel Matters. Every Click Counts.
                             </h1>
 
-                            <p className="text-xl md:text-2xl mb-6 max-w-lg">
-                                <span className="text-2xl md:text-3xl font-extrabold">Cutting-edge</span>{" "}
-                                web design, full-stack development, and maintenance & support services
-                                to help your business thrive in the digital age.
+                            <p className="text-xl md:text-2xl mb-6 max-w-3xl">
+                                At <span className="font-semibold text-2xl">Juneau Digital Designs</span>, we craft websites where no detail is too small.
+                                From micro-interactions to seamless navigation, we focus on the user experience that ensures your audience stays engaged with your business.
                             </p>
 
                             <button className="border px-6 py-3 rounded hover:bg-white hover:text-black transition">
@@ -44,32 +68,11 @@ function Hero() {
 
                     </div>
                 </div>
-            </section>
+            </motion.section>
 
         </>
 
 
-    )
-}
-
-function Mission() {
-    return (
-        <>
-            <section className="z-20 py-32 px-4 bg-gray-50">
-                <div className="max-w-4xl mx-auto text-center">
-                    <h2 className="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
-                        Every Pixel Matters. Every Click Counts.
-                    </h2>
-                    <p className="text-lg md:text-xl text-gray-700 mb-8">
-                        At <span className="font-semibold text-2xl">Juneau Digital Designs</span>, we craft websites where no detail is too small.
-                        From micro-interactions to seamless navigation, we focus on the user experience that ensures your audience stays engaged with your business.
-                    </p>
-                    <button className="bg-black text-white px-8 py-3 rounded-md text-lg font-semibold hover:bg-gray-900 transition">
-                        Discover How
-                    </button>
-                </div>
-            </section>
-        </>
     )
 }
 
@@ -177,7 +180,13 @@ function Offer() {
     }, [handleCloseModal]);
 
     return (
-        <div className="z-20 py-24 px-4 bg-gray-50">
+        <motion.section
+            className="z-20 py-24 px-4 bg-gray-50"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.15 }}
+        >
             {selectedOffering && (
                 <div className="fixed inset-0 z-[999] bg-black/40 flex justify-center items-center">
                     <div ref={modalRef} className="bg-white rounded-2xl p-8 max-w-2xl mx-4 relative shadow-xl">
@@ -212,18 +221,19 @@ function Offer() {
                 </div>
             )}
 
-            <div className="flex flex-col w-full items-center justify-center">
+            <motion.div className="flex flex-col w-full items-center justify-center" variants={sectionReveal}>
                 <h2 className="text-4xl md:text-5xl font-extrabold mb-4 text-center text-gray-800">
                     What We Offer
                 </h2>
                 <span className="text-sm md:text-md italic text-center mb-12">Click one of the below services to learn more</span>
-            </div>
+            </motion.div>
             <div className="flex flex-wrap gap-8 justify-center items-stretch">
                 {offerings.map((offering) => (
-                    <div
+                    <motion.div
                         key={offering.title}
                         className="w-full sm:w-1/2 lg:w-1/4 p-4 hover:cursor-pointer"
                         onClick={() => handleOfferingClick(offering)}
+                        variants={sectionReveal}
                     >
                         <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition transform hover:-translate-y-2 text-center h-full">
                             <div className={`${offering.iconColor} mb-6`}>
@@ -234,10 +244,10 @@ function Offer() {
                                 {offering.description}
                             </p>
                         </div>
-                    </div>
+                    </motion.div>
                 ))}
             </div>
-        </div>
+        </motion.section>
 
     )
 }
@@ -299,27 +309,34 @@ function Technology() {
     const [selectedTech, setSelectedTech] = useState<Technology>(technologies[0] || null);
 
     return (
-        <section className="z-20 bg-white py-20 px-4">
-            <h2 className="text-4xl md:text-5xl font-extrabold mb-12 text-center text-black">
+        <motion.section
+            className="z-20 bg-white py-20 px-4"
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.2 }}
+        >
+            <motion.h2 className="text-4xl md:text-5xl font-extrabold mb-12 text-center text-black" variants={sectionReveal}>
                 Technologies We Use
-            </h2>
+            </motion.h2>
 
-            <div className="flex flex-col-reverse md:flex-col mt-16 md:mt-0">
+            <motion.div className="flex flex-col-reverse md:flex-col mt-16 md:mt-0" variants={sectionReveal}>
                 <div className="flex flex-wrap justify-center gap-4 mt-16 md:mb-16 md:mt-0">
                     {technologies.map((tech) => {
                         const isActive = selectedTech.name === tech.name;
                         return (
-                            <button
+                            <motion.button
                                 key={tech.name}
                                 onClick={() => setSelectedTech(tech)}
                                 className={`
                 flex items-center gap-2 px-6 py-3 rounded-full border transition cursor-pointer
                 ${isActive ? "border-black border-2 shadow-lg" : "bg-gray-100 text-black border-black hover:bg-gray-200"}
               `}
+                                variants={sectionReveal}
                             >
                                 <Image src={tech.logo} alt={`${tech.name} Logo`} width={24} height={24} className="rounded-full" />
                                 <span>{tech.name}</span>
-                            </button>
+                            </motion.button>
                         );
                     })}
                 </div>
@@ -360,52 +377,11 @@ function Technology() {
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
-        </section>
+            </motion.div>
+        </motion.section>
     );
 }
 
-// function Design() {
-//     const designTools = [
-//         {
-//             name: "Figma",
-//             logo: "/techlogos/figma.png",
-//         },
-//         {
-//             name: "Sketch",
-//             logo: "/techlogos/sketch.png",
-//         },
-//         {
-//             name: "Adobe XD",
-//             logo: "/techlogos/adobexd.png",
-//         },
-//         {
-//             name: "Canva",
-//             logo: "/techlogos/canva.png",
-//         },
-//     ];
-//     return (
-//         <>
-//             <div className="z-20 bg-gray-100 py-16 px-4 pb-16">
-//                 <h2 className="text-4xl md:text-5xl text-center font-extrabold mb-6 leading-tight">Design Tools We Use</h2>
-//                 <div className="w-full flex flex-col flex-wrap md:flex-row items-center justify-center">
-//                     {designTools.map((tool) => (
-//                         <div key={tool.name} className="p-6 m-4 w-48 flex flex-col items-center">
-//                             <Image
-//                                 src={tool.logo}
-//                                 alt={`${tool.name} Logo`}
-//                                 width={64}
-//                                 height={64}
-//                                 className="mb-4"
-//                             />
-//                             <h3 className="text-xl font-bold mb-2">{tool.name}</h3>
-//                         </div>
-//                     ))}
-//                 </div>
-//             </div>
-//         </>
-//     )
-// }
 
 function Projects() {
     interface Project {
@@ -413,6 +389,7 @@ function Projects() {
         description?: string;
         image?: string;
         link?: string;
+        category?: string;
     }
 
     const projects: Project[] = [
@@ -420,57 +397,96 @@ function Projects() {
             title: "Air Service of Florida",
             description: "A modern, responsive website for a regional industrial air service company. ",
             image: "/airserviceflorida.png",
-            link: "https://airserviceofflorida.com"
+            link: "https://airserviceofflorida.com",
+            category: "Corporate Website"
 
         },
         {
             title: "Atlantic Compressor",
             description: "A sleek, user-friendly e-commerce platform for a leading provider of industrial compressors and parts.",
             image: "/atlanticcompressor.png",
-            link: "https://atlantic-compressor.vercel.app"
+            link: "https://atlantic-compressor.vercel.app",
+            category: "E-Commerce"
         }
     ];
     return (
         <>
-            <div className="bg-gray-100 z-20 py-20 px-4">
-                <div className="max-w-4xl mx-auto text-center">
-                    <h2 className="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
-                        Our Recent Projects
-                    </h2>
-                    <p className="text-lg md:text-xl text-gray-700 mb-8">
-                        Explore some of our latest work showcasing our expertise in web design, UI/UX, and full stack development.
-                    </p>
-                    <div className="w-full flex flex-col md:flex-row gap-8">
-                        {projects.map((project) => (
-                            <div key={project.title} className="w-full bg-white rounded-2xl shadow-lg overflow-hidden mb-12">
+            <motion.section
+                className="relative z-20 py-24 px-4 overflow-hidden bg-gradient-to-b from-zinc-100 via-slate-50 to-white"
+                variants={staggerContainer}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.2 }}
+            >
+                <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-orange-200/40 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-20 -right-20 h-72 w-72 rounded-full bg-cyan-200/40 blur-3xl" />
+
+                <div className="relative max-w-6xl mx-auto">
+                    <motion.div className="text-center mb-14" variants={sectionReveal}>
+                        <span className="inline-flex items-center rounded-full border border-zinc-300 bg-white/80 px-4 py-1 text-xs md:text-sm font-semibold tracking-[0.12em] uppercase text-zinc-700">
+                            Featured Work
+                        </span>
+                        <h2 className="text-4xl md:text-6xl font-extrabold mt-5 mb-5 leading-tight text-zinc-900">
+                            Recent Projects
+                        </h2>
+                        <p className="text-lg md:text-xl text-zinc-700 max-w-3xl mx-auto">
+                            Real business outcomes, polished interactions, and production-ready engineering. Here are two launches we are proud of.
+                        </p>
+                    </motion.div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+                        {projects.map((project, index) => (
+                            <motion.article
+                                key={project.title}
+                                initial={{ opacity: 0, y: 30 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, amount: 0.3 }}
+                                transition={{ duration: 0.45, delay: index * 0.12 }}
+                                className="group relative isolate rounded-3xl border border-zinc-200 bg-white/90 shadow-xl shadow-zinc-300/40 overflow-hidden"
+                                variants={sectionReveal}
+                            >
                                 {project.image && (
-                                    <Image
-                                        src={project.image}
-                                        alt={project.title || "Project Image"}
-                                        width={800}
-                                        height={400}
-                                        className="w-full h-[200px] object-cover"
-                                    />
+                                    <div className="relative h-56 overflow-hidden">
+                                        <Image
+                                            src={project.image}
+                                            alt={project.title || "Project Image"}
+                                            width={1200}
+                                            height={700}
+                                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
+                                        {project.category && (
+                                            <span className="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold uppercase tracking-wide text-zinc-900">
+                                                {project.category}
+                                            </span>
+                                        )}
+                                    </div>
                                 )}
-                                <div className="p-6 text-left">
-                                    <h3 className="text-2xl font-bold mb-2">{project.title}</h3>
-                                    <p className="text-gray-700 mb-4">{project.description}</p>
+
+                                <div className="p-7 text-left">
+                                    <h3 className="text-2xl md:text-3xl font-black mb-3 text-zinc-900">
+                                        {project.title}
+                                    </h3>
+                                    <p className="text-zinc-700 mb-6 leading-relaxed min-h-[72px]">
+                                        {project.description}
+                                    </p>
                                     {project.link && (
                                         <a
                                             href={project.link}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-indigo-600 hover:underline font-semibold"
+                                            className="inline-flex items-center gap-2 rounded-full border border-zinc-900 px-5 py-2.5 font-semibold text-zinc-900 transition hover:bg-zinc-900 hover:text-white"
                                         >
                                             Visit Website
+                                            <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
                                         </a>
                                     )}
                                 </div>
-                            </div>
+                            </motion.article>
                         ))}
                     </div>
                 </div>
-            </div>
+            </motion.section>
         </>
     )
 }
@@ -478,8 +494,14 @@ function Projects() {
 function Contact() {
     return (
         <>
-            <section className="flex flex-col w-full z-20 py-20 px-4 bg-gray-100">
-                <div className="max-w-2xl mx-auto text-center">
+            <motion.section
+                className="flex flex-col w-full z-20 py-20 px-4 bg-gray-100"
+                variants={sectionReveal}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, amount: 0.2 }}
+            >
+                <motion.div className="max-w-2xl mx-auto text-center" variants={staggerContainer}>
                     <h2 className="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
                         Ready to Elevate Your Digital Presence?
                     </h2>
@@ -489,49 +511,33 @@ function Contact() {
                     <button className="bg-black text-white px-8 py-3 rounded-md text-lg font-semibold hover:bg-gray-900 transition">
                         Get in Touch
                     </button>
-                </div>
-            </section>
+                </motion.div>
+            </motion.section>
         </>
     )
 }
 
-// function ParallaxBackground() {
-//   // This tracks the scroll of the whole page
-//   const { scrollY } = useScroll();
-
-//   // Map scroll position to y-offsets for layers
-//   const ySlow = useTransform(scrollY, [0, 1000], [0, -50]);
-//   const yMedium = useTransform(scrollY, [0, 1000], [0, -100]);
-//   const yFast = useTransform(scrollY, [0, 1000], [0, -150]);
-
-//   return (
-//     <div className="fixed inset-0 z-10 pointer-events-none">
-//       <motion.div
-//         style={{ y: ySlow }}
-//         className="absolute top-20 left-10 w-40 h-40 bg-indigo-300 rounded-full opacity-30"
-//       />
-//       <motion.div
-//         style={{ y: yMedium }}
-//         className="absolute top-64 right-20 w-60 h-60 bg-pink-300 rounded-full opacity-20"
-//       />
-//       <motion.div
-//         style={{ y: yFast }}
-//         className="absolute bottom-20 left-80 transform -translate-x-1/2 w-80 h-80 bg-yellow-300 rounded-full opacity-10"
-//       />
-//     </div>
-//   );
-// }
-
 export default function HomePageClient() {
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+
+        const previousRestoration = window.history.scrollRestoration;
+        window.history.scrollRestoration = "manual";
+        window.scrollTo(0, 0);
+
+        return () => {
+            window.history.scrollRestoration = previousRestoration;
+        };
+    }, []);
+
     return (
-        <div className="w-full min-h-[100dvh] text-black bg-white relative overflow-x-hidden">
-            {/* <ParallaxBackground /> */}
+        <div className="w-full text-black bg-white relative">
+
             <Hero />
             <Projects />
+            
             <Offer />
-            <Mission />
             <Technology />
-            {/* <Design /> */}
             <Contact />
         </div>
     );
