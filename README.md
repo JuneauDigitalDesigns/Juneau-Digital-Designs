@@ -16,6 +16,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Quote Form Email Setup (Resend)
+
+Create a `.env.local` file in the project root and configure:
+
+```bash
+RESEND_API_KEY=your_resend_api_key
+QUOTE_TO_EMAIL=you@yourdomain.com
+QUOTE_FROM_EMAIL=onboarding@resend.dev
+```
+
+- `QUOTE_TO_EMAIL`: inbox that should receive quote requests
+- `QUOTE_FROM_EMAIL`: sender identity (use a verified domain in production)
+
+The quote form submits to `/api/quote` and sends a formatted email with all form details.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
