@@ -62,11 +62,12 @@ function Hero() {
 
                         <div className="w-full md:w-1/2 flex flex-col items-center md:items-start px-4 text-center md:text-left text-white">
                             <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
-                                Every Pixel Matters. Every Click Counts.
+                                Every Pixel Matters.
+                                <span className="block text-[#D4672A]">Every Click Counts.</span>
                             </h1>
 
                             <p className="text-xl md:text-2xl mb-6 max-w-3xl">
-                                At <span className="font-semibold text-2xl">Juneau Digital Designs</span>, we craft websites where no detail is too small.
+                                At <span className="font-semibold text-2xl text-[#D4672A]">Juneau Digital Designs</span>, we craft websites where no detail is too small.
                                 From micro-interactions to seamless navigation, we focus on the user experience that ensures your audience stays engaged with your business.
                             </p>
 
@@ -239,7 +240,7 @@ function Offer() {
                             &times;
                         </button>
 
-                        <span className="inline-flex rounded-full border border-zinc-300 px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-zinc-700 mb-4">
+                        <span className="inline-flex rounded-full border border-[#D4672A]/35 bg-[#D4672A]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-[#9E471C] mb-4">
                             Service Details
                         </span>
                         <h3 className="text-3xl md:text-4xl font-extrabold mb-4 text-zinc-900">
@@ -283,7 +284,7 @@ function Offer() {
                     Our Services
                 </span>
                 <h2 className="text-4xl md:text-6xl font-extrabold mb-4 text-center text-zinc-900 leading-tight">
-                    What We Offer
+                    What We <span className="text-[#D4672A]">Offer</span>
                 </h2>
                 <span className="text-sm md:text-base italic text-center mb-12 text-zinc-600">Click any service card to open details</span>
             </motion.div>
@@ -435,7 +436,7 @@ function Technology() {
                         Built With Proven Tools
                     </span>
                     <h2 className="text-4xl md:text-6xl font-extrabold mb-4 text-center text-zinc-900 leading-tight">
-                        Technologies We Use
+                        Technologies We <span className="text-[#D4672A]">Use</span>
                     </h2>
                     <p className="text-zinc-600 md:text-lg max-w-3xl mx-auto">
                         We choose each part of the stack for speed, scalability, and long-term maintainability.
@@ -572,7 +573,7 @@ function Projects() {
                             Featured Work
                         </span>
                         <h2 className="text-4xl md:text-6xl font-extrabold mt-5 mb-5 leading-tight text-zinc-900">
-                            Recent Projects
+                            Recent <span className="text-[#D4672A]">Projects</span>
                         </h2>
                         <p className="text-lg md:text-xl text-zinc-700 max-w-3xl mx-auto">
                             Real business outcomes, polished interactions, and production-ready engineering. Here are two launches we are proud of.
@@ -657,7 +658,7 @@ function Contact() {
                                 Let&apos;s Build Something Great
                             </span>
                             <h2 className="text-4xl md:text-6xl font-extrabold mb-5 leading-tight">
-                                Ready to Elevate Your Digital Presence?
+                                Ready to <span className="text-[#D4672A]">Elevate</span> Your Digital Presence?
                             </h2>
                             <p className="text-lg md:text-xl text-zinc-700 leading-relaxed">
                                 Have a project in mind or just want to explore ideas? We keep the process simple, collaborative, and focused on results your business can feel.
