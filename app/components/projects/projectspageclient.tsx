@@ -1,24 +1,44 @@
-"use client"
-import { useState, useEffect } from 'react';
+"use client";
+
+import { motion, AnimatePresence } from "framer-motion";
+import { useMemo, useState } from "react";
+import Image from "next/image";
 export default function ProjectsPageClient() {
-    interface TechBase {
-        id: string;
+    /**
+     * 1) Swap "TECH" filters for WEBSITE TYPES
+     * 2) Update projects with a `types` array for filtering
+     * 3) Restructure cards to match the mockup: header + tabs + grid cards
+     */
+
+    type SiteTypeId = "marketing" | "ecommerce" | "fullstack";
+
+    interface SiteType {
+        id: SiteTypeId;
         label: string;
-        icon?: string;
-        color?: string;
+        description?: string;
     }
 
-    const TECH: Record<string, TechBase> = {
-        nextjs: { id: "nextjs", label: "Next.js" },
-        node: { id: "node", label: "Node.js" },
-        typescript: { id: "typescript", label: "TypeScript" },
-        tailwind: { id: "tailwind", label: "Tailwind CSS" },
+    const SITE_TYPES: Record<SiteTypeId, SiteType> = {
+        marketing: {
+            id: "marketing",
+            label: "Marketing",
+            description: "Lead-gen, service pages, SEO-first site structure.",
+        },
+        ecommerce: {
+            id: "ecommerce",
+            label: "eCommerce",
+            description: "Product catalog, carts/checkout, conversion optimization.",
+        },
+        fullstack: {
+            id: "fullstack",
+            label: "Full Stack",
+            description: "Dashboards, portals, APIs, and custom integrations.",
+        },
     };
 
-    interface ProjectTech {
-        techId: keyof typeof TECH;
+    interface ProjectDetail {
+        title: string;
         summary: string;
-        details?: string;
         highlights?: string[];
     }
 
@@ -26,7 +46,9 @@ export default function ProjectsPageClient() {
         id: number;
         name: string;
         description: string;
-        tech: ProjectTech[];
+        types: SiteTypeId[];
+        thumbnail: string;
+        details: ProjectDetail[];
     }
 
     const projects: Project[] = [
@@ -35,21 +57,20 @@ export default function ProjectsPageClient() {
             name: "Air Service of Florida",
             description:
                 "A modern, responsive website for a regional industrial air service company.",
-            tech: [
+            types: ["marketing"],
+            thumbnail: "/airserviceflorida.png",
+            details: [
                 {
-                    techId: "nextjs",
+                    title: "Marketing Site",
                     summary:
-                        "Used Next.js for server-side rendering and fast page loads.",
-                    highlights: [
-                        "SEO-optimized routing",
-                        "Server Components",
-                        "Image optimization",
-                    ],
+                        "Service-first IA, SEO-friendly pages, and clear CTAs designed to convert visitors into leads.",
+                    highlights: ["Service landing pages", "CTA hierarchy", "Local SEO structure"],
                 },
                 {
-                    techId: "tailwind",
+                    title: "UX & UI",
                     summary:
-                        "Tailwind enabled rapid UI iteration with a consistent design system.",
+                        "A clean, industrial aesthetic with a focus on readability, speed, and mobile-first browsing.",
+                    highlights: ["Mobile-first layout", "Accessibility-minded typography", "Component consistency"],
                 },
             ],
         },
@@ -57,166 +78,239 @@ export default function ProjectsPageClient() {
             id: 2,
             name: "Atlantic Compressor",
             description:
-                "A performance-focused rebuild emphasizing clarity and speed.",
-            tech: [
+                "An eCommerce rebuild emphasizing clarity, speed, and conversion-ready product browsing.",
+            types: ["ecommerce", "fullstack"],
+            thumbnail: "/atlanticcompressor.png",
+            details: [
                 {
-                    techId: "nextjs",
+                    title: "eCommerce Experience",
                     summary:
-                        "Used Next.js strictly for static generation and routing.",
+                        "Optimized product discovery and purchasing flow with category structure and conversion-minded layout.",
+                    highlights: ["Product grids & filters", "Cart/checkout flow", "Conversion-focused UX"],
                 },
                 {
-                    techId: "node",
+                    title: "Full-Stack Integration",
                     summary:
-                        "Node.js handled backend form processing and API integrations.",
-                },
-                {
-                    techId: "typescript",
-                    summary:
-                        "TypeScript ensured type safety and maintainability in the codebase.",
+                        "Backend support for forms/integrations and scalable structure for future expansion.",
+                    highlights: ["API integrations", "Form processing", "Maintainable architecture"],
                 },
             ],
         },
     ];
 
-    const [filteredProjects, setFilteredProjects] = useState<Project[]>(projects);
-    const [selectedTech, setSelectedTech] = useState<string>("all");
-    const [activeTechInfo, setActiveTechInfo] = useState<{
-        projectId: number;
-        tech: string;
-    } | null>(null);
-    const handleFilter = (techId: string) => {
-        setSelectedTech(techId);
-        setActiveTechInfo(null);
+    const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+    const [activeFilter, setActiveFilter] = useState<"all" | SiteTypeId>("all");
 
-        if (techId === "all") {
-            setFilteredProjects(projects);
-        } else {
-            setFilteredProjects(
-                projects.filter(project =>
-                    project.tech.some(t => t.techId === techId)
-                )
-            );
-        }
-    };
-    const handleTechInfo = (projectId: number, tech: string) => {
-        setActiveTechInfo(prev =>
-            prev?.projectId === projectId && prev.tech === tech
-                ? null
-                : { projectId, tech }
-        );
-    };
+    const filteredProjects = useMemo(() => {
+        if (activeFilter === "all") return projects;
+        return projects.filter((p) => p.types.includes(activeFilter));
+    }, [activeFilter]);
+
     function Hero() {
         return (
-            <>
-                <h1 className="p-4 text-2xl md:text-4xl">Projects</h1>
-                <p className="py-4 text-xl md:text-2xl">
-                    Explore my latest projects and collaborations.
+            <div className="w-full max-w-6xl px-4 pt-14 pb-6">
+                <h1 className="text-4xl md:text-6xl font-bold tracking-tight">Our Projects</h1>
+                <p className="mt-3 text-lg md:text-xl text-gray-600 max-w-2xl">
+                    See how we craft UX-focused, performance-driven websites across marketing, eCommerce, and custom full-stack builds.
                 </p>
 
-                <div className="w-full flex justify-between px-32 gap-2">
-                    <button
-                        onClick={() => handleFilter("all")}
-                        className={`w-full rounded-lg py-2 text-lg text-white md:text-xl
-                        ${selectedTech === "all"
-                                ? "bg-blue-600"
-                                : "bg-gray-400 hover:bg-gray-500"}`}
-                    >
-                        All
-                    </button>
-
-                    {Object.values(TECH).map((tech) => (
-                        <button
-                            key={tech.id}
-                            onClick={() => handleFilter(tech.id)}
-                            className={`w-full rounded-lg py-2 text-lg text-white md:text-xl
-                            ${selectedTech === tech.id
-                                    ? "bg-blue-600"
-                                    : "bg-gray-400 hover:bg-gray-500"}`}
-                        >
-                            {tech.label}
-                        </button>
+                {/* Filter Tabs (matches the mockup vibe) */}
+                <div className="mt-8 flex flex-wrap gap-2">
+                    <TabButton
+                        active={activeFilter === "all"}
+                        onClick={() => setActiveFilter("all")}
+                        label="All"
+                    />
+                    {Object.values(SITE_TYPES).map((t) => (
+                        <TabButton
+                            key={t.id}
+                            active={activeFilter === t.id}
+                            onClick={() => setActiveFilter(t.id)}
+                            label={t.label}
+                        />
                     ))}
                 </div>
-            </>
+            </div>
         );
     }
+
+    function TabButton({
+        active,
+        onClick,
+        label,
+    }: {
+        active: boolean;
+        onClick: () => void;
+        label: string;
+    }) {
+        return (
+            <button
+                onClick={onClick}
+                className={[
+                    "rounded-lg px-4 py-2 text-sm md:text-base transition hover:cursor-pointer",
+                    active
+                        ? "bg-[#14273F] text-white shadow"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200",
+                ].join(" ")}
+            >
+                {label}
+            </button>
+        );
+    }
+
     function ProjectCards() {
         return (
-            <>
-                {filteredProjects.map((project) => {
-                    const activeTechForProject =
-                        activeTechInfo?.projectId === project.id
-                            ? activeTechInfo.tech
-                            : null;
-
-                    return (
+            <div className="w-full max-w-6xl px-4 pb-16">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {filteredProjects.map((project) => (
                         <div
                             key={project.id}
-                            className="flex flex-col items-center w-full md:h-1/2 p-8 border rounded mx-8"
+                            className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden"
                         >
-                            <h2 className="text-xl md:text-2xl text-center">
-                                {project.name}
-                            </h2>
-                            <p className="p-8 text-center">
-                                {project.description}
-                            </p>
-                            <div className="flex flex-wrap justify-center gap-2">
-                                {project.tech.map(({ techId }) => (
-                                    <span
-                                        key={techId}
-                                        onClick={() => handleTechInfo(project.id, techId)}
-                                        className={`cursor-pointer rounded-full px-3 py-1 text-sm md:text-base
-            ${activeTechForProject === techId
-                                                ? "bg-yellow-600"
-                                                : selectedTech === techId
-                                                    ? "bg-blue-500 text-white"
-                                                    : "bg-gray-400"
-                                            }`}
-                                    >
-                                        {TECH[techId].label}
-                                    </span>
-                                ))}
-                            </div>
-                            {activeTechForProject && (
-                                <div className="mt-4 w-full p-4 bg-gray-400 rounded-lg">
-                                    <h4 className="font-semibold mb-1">
-                                        {TECH[activeTechForProject].label}
-                                    </h4>
-
-                                    <p className="text-sm">
-                                        {
-                                            project.tech.find(
-                                                t => t.techId === activeTechForProject
-                                            )?.summary
-                                        }
-                                    </p>
-
-                                    {project.tech.find(
-                                        t => t.techId === activeTechForProject
-                                    )?.highlights && (
-                                            <ul className="list-disc pl-5 mt-2 text-sm">
-                                                {project.tech
-                                                    .find(t => t.techId === activeTechForProject)!
-                                                    .highlights!.map(item => (
-                                                        <li key={item}>{item}</li>
-                                                    ))}
-                                            </ul>
-                                        )}
+                        
+                            <div className="h-56 bg-gradient-to-br from-[#0E1A2B] to-[#1B2F4B] relative">
+                                
+                                <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+                                    {project.types.map((t) => (
+                                        <span
+                                            key={t}
+                                            className="rounded-full bg-white/15 backdrop-blur px-3 py-1 text-xs text-white border border-white/20"
+                                        >
+                                            {SITE_TYPES[t].label}
+                                        </span>
+                                    ))}
                                 </div>
-                            )}
+
+                                <div className="absolute bottom-4 right-4 w-40 h-24 rounded-xl border border-white/50 bg-white/10 backdrop-blur" >
+                                <Image
+                                    src={project.thumbnail}
+                                    alt={`${project.name} website preview`}
+                                    fill
+                                    className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-xl"
+                                    priority={project.id === 1}
+                                />
+                                </div>
+                            </div>
+
+                            <div className="p-6">
+                                <h2 className="text-xl md:text-2xl font-semibold">{project.name}</h2>
+                                <p className="mt-2 text-gray-600">{project.description}</p>
+                                <button
+                                    onClick={() => setSelectedProject(project)}
+                                    className="mt-6 inline-flex items-center justify-center rounded-lg px-4 py-2 border border-gray-200 hover:bg-gray-50 transition hover:cursor-pointer"
+                                >
+                                    View Project
+                                </button>
+                            </div>
                         </div>
-                    );
-                })}
-            </>
+                    ))}
+                </div>
+            </div>
         );
     }
 
-    return (
-        <div className='w-full h-screen flex flex-col items-center justify-center bg-white text-black'>
-            <Hero />
-            <div className='w-full h-full flex flex-col md:flex-row items-center justify-center'>
-                <ProjectCards />
+    function ProjectModal() {
+        if (!selectedProject) return null;
+
+        return (
+            <AnimatePresence>
+                <motion.div
+                    key="overlay"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+                    onClick={() => setSelectedProject(null)}
+                >
+                    <motion.div
+                        key="modal"
+                        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 16, scale: 0.98 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="mx-auto mt-10 w-[92%] max-w-3xl rounded-2xl bg-white shadow-xl overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-6 md:p-8 border-b">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-2xl md:text-3xl font-bold">{selectedProject.name}</h3>
+                                    <p className="mt-2 text-gray-600">{selectedProject.description}</p>
+                                    <div className="mt-4 flex flex-wrap gap-2">
+                                        {selectedProject.types.map((t) => (
+                                            <span
+                                                key={t}
+                                                className="rounded-full bg-[#0E1A2B] text-white px-3 py-1 text-sm"
+                                            >
+                                                {SITE_TYPES[t].label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() => setSelectedProject(null)}
+                                    className="rounded-lg border border-gray-200 px-3 py-2 hover:bg-gray-50 transition hover:cursor-pointer"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="p-6 md:p-8">
+                            <h4 className="text-lg font-semibold">What we delivered</h4>
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {selectedProject.details.map((d) => (
+                                    <div key={d.title} className="rounded-xl border p-4">
+                                        <div className="font-semibold">{d.title}</div>
+                                        <p className="mt-1 text-sm text-gray-600">{d.summary}</p>
+                                        {d.highlights?.length ? (
+                                            <ul className="mt-3 text-sm list-disc pl-5">
+                                                {d.highlights.map((h) => (
+                                                    <li key={h}>{h}</li>
+                                                ))}
+                                            </ul>
+                                        ) : null}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Optional CTA row */}
+                            <div className="mt-8 flex flex-col md:flex-row gap-3">
+                                <button className="rounded-lg bg-[#14273F] text-white px-5 py-3 hover:opacity-90 transition hover:cursor-pointer">
+                                    Request a Quote
+                                </button>
+                                <button className="rounded-lg border border-gray-200 px-5 py-3 hover:bg-gray-50 transition hover:cursor-pointer">
+                                    View More Work
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            </AnimatePresence>
+        );
+    }
+    function ProjectQuote() {
+        return (
+            <div className="w-full max-w-6xl px-4 pb-16">
+                <div className="bg-[#14273F] text-white rounded-2xl px-8 py-8 md:py-16 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <h3 className="text-2xl md:text-4xl font-semibold">Ready to start your project?</h3>
+                        <p className="mt-2 text-lg md:text-xl">Contact us today for a free quote and consultation.</p>
+                    </div>
+                    <button className="rounded-lg bg-white text-[#14273F] px-5 py-3 hover:opacity-90 transition ease-in-out hover:cursor-pointer">
+                        Request a Quote
+                    </button>
+                </div>
             </div>
+        );
+    }
+    return (
+        <div className="flex flex-col items-center min-h-screen w-full bg-white text-black">
+            <Hero />
+            <ProjectCards />
+            <ProjectQuote />
+            {selectedProject && <ProjectModal />}
         </div>
     );
 }

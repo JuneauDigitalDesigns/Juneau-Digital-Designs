@@ -32,7 +32,7 @@ export default function RootLayout({
         </style>
       </head>
       <body
-        className={`montserrat antialiased`}
+        className={`montserrat antialiased overflow-x-hidden`}
       >
         <Navbar />
         {children}

@@ -8,35 +8,44 @@ import { motion, AnimatePresence } from "framer-motion";
 function Hero() {
     return (
         <>
-            <div className="z-20 w-full py-20 px-4 md:px-16 flex justify-center items-center">
-                <div className="w-full flex flex-col md:flex-row items-center justify-center md:space-x-4">
+            <section className="relative w-full overflow-hidden">
+                
+                <div className="absolute inset-0 z-0">
+                    <Image
+                        src="/hero_background1.png"
+                        alt="Hero Background"
+                        fill
+                        priority
+                        className="object-cover"
+                    />
+                    
+                    <div className="absolute inset-0 bg-black/30" />
+                </div>
 
-                    <div className="w-full md:w-1/2 flex flex-col items-center md:items-start px-4 text-center md:text-left">
-                        <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
-                            Digital Solutions for Modern Businesses
-                        </h1>
+                
+                <div className="relative z-10 w-full py-20 px-4 md:px-16 flex justify-center items-center">
+                    <div className="w-full flex flex-col md:flex-row items-center md:space-x-4">
 
-                        <p className="text-xl md:text-2xl mb-6 max-w-lg">
-                            <span className="text-2xl md:text-3xl font-extrabold">Cutting-edge</span> web design, full-stack development, and maintenance & support services
-                            to help your business thrive in the digital age.
-                        </p>
+                        <div className="w-full md:w-1/2 flex flex-col items-center md:items-start px-4 text-center md:text-left text-white">
+                            <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
+                                Digital Solutions for Modern Businesses
+                            </h1>
 
-                        <button className="border px-6 py-3 rounded hover:bg-black hover:text-white transition">
-                            Get Started
-                        </button>
-                    </div>
+                            <p className="text-xl md:text-2xl mb-6 max-w-lg">
+                                <span className="text-2xl md:text-3xl font-extrabold">Cutting-edge</span>{" "}
+                                web design, full-stack development, and maintenance & support services
+                                to help your business thrive in the digital age.
+                            </p>
 
-                    <div className="w-full md:w-1/2 flex justify-center md:justify-end mt-10 md:mt-0 px-4">
-                        <Image
-                            src="/window_element.png"
-                            alt="Homepage Illustration"
-                            width={600}
-                            height={600}
-                            className="w-full max-w-sm md:max-w-md lg:max-w-xl"
-                        />
+                            <button className="border px-6 py-3 rounded hover:bg-white hover:text-black transition">
+                                Get Started
+                            </button>
+                        </div>
+
                     </div>
                 </div>
-            </div>
+            </section>
+
         </>
 
 
@@ -168,7 +177,7 @@ function Offer() {
     }, [handleCloseModal]);
 
     return (
-        <div className="z-20 py-24 px-4 bg-gray-50 mb-8">
+        <div className="z-20 py-24 px-4 bg-gray-50">
             {selectedOffering && (
                 <div className="fixed inset-0 z-[999] bg-black/40 flex justify-center items-center">
                     <div ref={modalRef} className="bg-white rounded-2xl p-8 max-w-2xl mx-4 relative shadow-xl">
@@ -295,61 +304,63 @@ function Technology() {
                 Technologies We Use
             </h2>
 
-            <div className="flex flex-wrap justify-center gap-4 mb-16">
-                {technologies.map((tech) => {
-                    const isActive = selectedTech.name === tech.name;
-                    return (
-                        <button
-                            key={tech.name}
-                            onClick={() => setSelectedTech(tech)}
-                            className={`
+            <div className="flex flex-col-reverse md:flex-col mt-16 md:mt-0">
+                <div className="flex flex-wrap justify-center gap-4 mt-16 md:mb-16 md:mt-0">
+                    {technologies.map((tech) => {
+                        const isActive = selectedTech.name === tech.name;
+                        return (
+                            <button
+                                key={tech.name}
+                                onClick={() => setSelectedTech(tech)}
+                                className={`
                 flex items-center gap-2 px-6 py-3 rounded-full border transition cursor-pointer
                 ${isActive ? "border-black border-2 shadow-lg" : "bg-gray-100 text-black border-black hover:bg-gray-200"}
               `}
+                            >
+                                <Image src={tech.logo} alt={`${tech.name} Logo`} width={24} height={24} className="rounded-full" />
+                                <span>{tech.name}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <AnimatePresence mode="wait">
+                    {selectedTech && (
+                        <motion.div
+                            key={selectedTech.name}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.5 }}
+                            className="max-w-5xl mx-auto p-10 bg-white rounded-2xl shadow-xl border-t-4 border-black"
                         >
-                            <Image src={tech.logo} alt={`${tech.name} Logo`} width={24} height={24} className="rounded-full" />
-                            <span>{tech.name}</span>
-                        </button>
-                    );
-                })}
-            </div>
+                            <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
 
-            <AnimatePresence mode="wait">
-                {selectedTech && (
-                    <motion.div
-                        key={selectedTech.name}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.5 }}
-                        className="max-w-5xl mx-auto p-10 bg-white rounded-2xl shadow-xl border-t-4 border-black"
-                    >
-                        <div className="flex flex-col md:flex-row items-center md:items-start gap-10">
+                                <div className="flex-shrink-0">
+                                    <div className="w-32 h-32 flex items-center justify-center rounded-full bg-gray-200 shadow-inner">
+                                        <Image
+                                            src={selectedTech.logo}
+                                            alt={`${selectedTech.name} Logo`}
+                                            width={100}
+                                            height={100}
+                                            className="p-4"
+                                        />
+                                    </div>
+                                </div>
 
-                            <div className="flex-shrink-0">
-                                <div className="w-32 h-32 flex items-center justify-center rounded-full bg-gray-200 shadow-inner">
-                                    <Image
-                                        src={selectedTech.logo}
-                                        alt={`${selectedTech.name} Logo`}
-                                        width={100}
-                                        height={100}
-                                        className="p-4"
-                                    />
+                                <div className="flex-1 text-center md:text-left">
+                                    <h3 className="text-3xl md:text-4xl font-extrabold text-black mb-4">
+                                        {selectedTech.name}
+                                    </h3>
+                                    <p className="text-lg md:text-xl text-gray-800 leading-relaxed">
+                                        {selectedTech.detailedDescription}
+                                    </p>
                                 </div>
                             </div>
-
-                            <div className="flex-1 text-center md:text-left">
-                                <h3 className="text-3xl md:text-4xl font-extrabold text-black mb-4">
-                                    {selectedTech.name}
-                                </h3>
-                                <p className="text-lg md:text-xl text-gray-800 leading-relaxed">
-                                    {selectedTech.detailedDescription}
-                                </p>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
         </section>
     );
 }
@@ -416,7 +427,7 @@ function Projects() {
             title: "Atlantic Compressor",
             description: "A sleek, user-friendly e-commerce platform for a leading provider of industrial compressors and parts.",
             image: "/atlanticcompressor.png",
-            link: "https://atlanticcompressor.com"
+            link: "https://atlantic-compressor.vercel.app"
         }
     ];
     return (
@@ -467,8 +478,8 @@ function Projects() {
 function Contact() {
     return (
         <>
-            <section className="z-20 py-20 px-4">
-                <div className="max-w-4xl mx-auto text-center">
+            <section className="flex flex-col w-full z-20 py-20 px-4 bg-gray-100">
+                <div className="max-w-2xl mx-auto text-center">
                     <h2 className="text-4xl md:text-5xl font-extrabold mb-6 leading-tight">
                         Ready to Elevate Your Digital Presence?
                     </h2>
@@ -516,10 +527,10 @@ export default function HomePageClient() {
         <div className="w-full min-h-[100dvh] text-black bg-white relative overflow-x-hidden">
             {/* <ParallaxBackground /> */}
             <Hero />
-            <Mission />
-            <Offer />
-            <Technology />
             <Projects />
+            <Offer />
+            <Mission />
+            <Technology />
             {/* <Design /> */}
             <Contact />
         </div>
