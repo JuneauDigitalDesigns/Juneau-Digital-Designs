@@ -89,8 +89,14 @@ function Hero() {
 function Offer() {
     interface Videos {
         src: string;
-        body?: string;
         type: string;
+        body?: string;
+    }
+
+    interface OfferingSection {
+        heading: string;
+        summary: string;
+        bullets: string[];
     }
 
     interface Offering {
@@ -101,7 +107,8 @@ function Offer() {
         clicked: {
             title: string;
             description: string;
-            body: string;
+            sections: OfferingSection[];
+            showcase: string[];
             videos: Videos[];
         };
     }
@@ -120,11 +127,32 @@ function Offer() {
             , clicked: {
                 title: "End-Users are at the Heart of Design",
                 description: "At Juneau Digital Designs, our user-first design philosophy ensures that every element of your website is crafted with the end-user in mind. We prioritize usability, accessibility, and engagement to create digital experiences that resonate with your audience. Our goal is to create websites that not only meet your business objectives but also provide a seamless and enjoyable experience for your users.",
-                body: "This popup window is an example of how we prioritize user experience in our designs. From intuitive navigation to engaging interfaces, we focus on creating digital experiences that are visually appealing and easy to use. We believe that all website content should be accessible and eye appealing. ",
-                videos: [
-                    { src: "/userfirst1.mp4", body: "We believe the content your customers rely on to make buying decisions should always be immediately accessible, no more than one click from view.", type: "video/mp4" },
-                    { src: "/userfirst2.mp4", body: "", type: "video/mp4" }
-                ]
+                sections: [
+                    {
+                        heading: "Discovery and UX Mapping",
+                        summary: "We start by understanding how your customers think, what they need, and what slows them down.",
+                        bullets: [
+                            "Customer journeys mapped from first visit to final conversion.",
+                            "Page intent defined so each section has a clear job.",
+                            "Accessibility and readability built into structure from day one."
+                        ]
+                    },
+                    {
+                        heading: "Interaction and Trust Signals",
+                        summary: "We design micro-interactions that guide attention and reduce friction during key decisions.",
+                        bullets: [
+                            "Clear CTA hierarchy that supports primary business goals.",
+                            "Intentional spacing and typography that improve scanability.",
+                            "Consistent visual cues that build confidence while users browse."
+                        ]
+                    }
+                ],
+                showcase: [
+                    "Usability-first page flow",
+                    "Accessible content hierarchy",
+                    "Micro-interactions with purpose"
+                ],
+                videos: []
             }
         },
         {
@@ -135,11 +163,32 @@ function Offer() {
             , clicked: {
                 title: "Websites That Adapt and Engage",
                 description: "We take great care in designing websites that not only look stunning but also function flawlessly across all devices. Our responsive web design approach ensures that your site adapts seamlessly to different screen sizes, providing an optimal viewing experience for users on desktops, tablets, and smartphones. By focusing on performance optimization and user engagement, we create digital experiences that captivate your audience and drive meaningful interactions with your brand.",
-                body: "",
-                videos: [
-                    { src: "/userfirst1.mp4", type: "video/mp4" },
-                    { src: "/userfirst2.mp4", type: "video/mp4" }
-                ]
+                sections: [
+                    {
+                        heading: "Device-Ready Layout Systems",
+                        summary: "Your site is designed to feel intentional on every screen, not simply resized.",
+                        bullets: [
+                            "Mobile-first component design with adaptive breakpoints.",
+                            "Touch-friendly navigation and controls for smaller devices.",
+                            "Image and content scaling that preserves visual quality."
+                        ]
+                    },
+                    {
+                        heading: "Performance and Engagement",
+                        summary: "Responsive design is paired with speed and clarity so users stay engaged.",
+                        bullets: [
+                            "Optimized media delivery for faster load times.",
+                            "Content blocks arranged for quick scanning and decision-making.",
+                            "Layout consistency across desktop, tablet, and mobile browsers."
+                        ]
+                    }
+                ],
+                showcase: [
+                    "Mobile-first UI foundations",
+                    "Cross-device consistency",
+                    "Performance-aware frontend patterns"
+                ],
+                videos: []
             }
         },
         {
@@ -150,11 +199,32 @@ function Offer() {
             , clicked: {
                 title: "Full Stack Excellence",
                 description: "Juneau Digital Designs offers comprehensive full stack development services that cover every aspect of your web application. From crafting dynamic front-end interfaces using the latest frameworks to developing scalable back-end systems, we ensure that your website is built for performance and reliability. Our expertise in database management, API integration, and cloud deployment allows us to deliver end-to-end solutions that meet your business needs and provide a seamless experience for your users.",
-                body: "",
-                videos: [
-                    { src: "/userfirst1.mp4", type: "video/mp4" },
-                    { src: "/userfirst2.mp4", type: "video/mp4" }
-                ]
+                sections: [
+                    {
+                        heading: "Frontend to Backend Alignment",
+                        summary: "We connect design, data, and logic so your application behaves as one system.",
+                        bullets: [
+                            "Component architecture that scales as new features are added.",
+                            "API contracts that keep frontend and backend synchronized.",
+                            "Reliable form handling, validation, and secure data flow."
+                        ]
+                    },
+                    {
+                        heading: "Infrastructure and Launch Readiness",
+                        summary: "We deliver systems that are production-ready from day one.",
+                        bullets: [
+                            "Deployment pipelines and environment configuration.",
+                            "Error handling, logging, and monitoring foundations.",
+                            "Performance and reliability checks before release."
+                        ]
+                    }
+                ],
+                showcase: [
+                    "Integrated frontend/backend workflow",
+                    "API and data model planning",
+                    "Production launch support"
+                ],
+                videos: []
             }
         },
         {
@@ -165,11 +235,32 @@ function Offer() {
             , clicked: {
                 title: "Support That Never Sleeps",
                 description: "After launching your website, our commitment to your success continues with our ongoing maintenance and support services. We understand that a well-maintained website is crucial for security, performance, and user satisfaction. Our team provides regular updates, security patches, and backups to keep your site running smoothly. Additionally, we offer troubleshooting assistance and implement enhancements based on user feedback and evolving business needs. With Juneau Digital Designs, you can rest assured that your digital presence is in capable hands.",
-                body: "",
-                videos: [
-                    { src: "/userfirst1.mp4", type: "video/mp4" },
-                    { src: "/userfirst2.mp4", type: "video/mp4" }
-                ]
+                sections: [
+                    {
+                        heading: "Preventive Maintenance",
+                        summary: "We proactively protect your website from downtime, regressions, and security risks.",
+                        bullets: [
+                            "Routine dependency and security patch management.",
+                            "Scheduled backups and restore verification.",
+                            "Performance reviews to catch slowdowns early."
+                        ]
+                    },
+                    {
+                        heading: "Priority Support and Improvement",
+                        summary: "When your business evolves, your website evolves with it.",
+                        bullets: [
+                            "Issue triage with clear communication and turnaround.",
+                            "Small enhancements shipped without disrupting operations.",
+                            "Roadmap recommendations based on real usage patterns."
+                        ]
+                    }
+                ],
+                showcase: [
+                    "Security and update cadence",
+                    "Rapid issue response",
+                    "Continuous iteration support"
+                ],
+                videos: []
             }
         }
     ];
@@ -204,11 +295,18 @@ function Offer() {
         };
 
         const previousOverflow = document.body.style.overflow;
+        const previousPaddingRight = document.body.style.paddingRight;
+        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
         document.body.style.overflow = "hidden";
+        if (scrollbarWidth > 0) {
+            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        }
         document.addEventListener("keydown", onEscape);
 
         return () => {
             document.body.style.overflow = previousOverflow;
+            document.body.style.paddingRight = previousPaddingRight;
             document.removeEventListener("keydown", onEscape);
         };
     }, [selectedOffering]);
@@ -226,12 +324,14 @@ function Offer() {
                 >
                     <motion.div
                         ref={modalRef}
-                        className="bg-white rounded-3xl p-8 md:p-10 max-w-3xl w-full relative shadow-2xl border border-zinc-200 max-h-[90vh] overflow-y-auto"
+                        className="no-scrollbar bg-white rounded-3xl p-8 md:p-10 max-w-3xl w-full relative shadow-2xl max-h-[90vh] overflow-y-auto"
                         initial={{ opacity: 0, y: 20, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.98 }}
                         transition={{ duration: 0.25 }}
                     >
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 rounded-t-3xl bg-gradient-to-r from-sky-500 via-cyan-400 to-emerald-400" />
+
                         <button
                             className="absolute top-4 right-5 text-gray-600 hover:text-gray-900 text-4xl hover:cursor-pointer"
                             onClick={() => setSelectedOffering(null)}
@@ -240,9 +340,6 @@ function Offer() {
                             &times;
                         </button>
 
-                        <span className="inline-flex rounded-full border border-[#D4672A]/35 bg-[#D4672A]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.1em] text-[#9E471C] mb-4">
-                            Service Details
-                        </span>
                         <h3 className="text-3xl md:text-4xl font-extrabold mb-4 text-zinc-900">
                             {selectedOffering.clicked.title}
                         </h3>
@@ -250,19 +347,51 @@ function Offer() {
                         <p className="text-zinc-700 leading-relaxed text-lg">
                             {selectedOffering.clicked.description}
                         </p>
-                        {selectedOffering.clicked.videos.map((video, index) => (
-                            <div key={index} className="my-6">
-                                <video
-                                    src={video.src}
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    className="w-full rounded-xl shadow-md border border-zinc-200"
-                                />
-                                {video.body && <p className="text-gray-700 mt-3 leading-relaxed">{video.body}</p>}
+                        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedOffering.clicked.sections.map((section) => (
+                                <div key={section.heading} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                                    <h4 className="text-lg font-extrabold text-zinc-900 mb-2">{section.heading}</h4>
+                                    <p className="text-zinc-700 leading-relaxed mb-3">{section.summary}</p>
+                                    <ul className="space-y-2 text-zinc-700 text-sm leading-relaxed">
+                                        {section.bullets.map((bullet) => (
+                                            <li key={bullet} className="flex items-start gap-2">
+                                                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zinc-500 shrink-0" />
+                                                <span>{bullet}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6">
+                            <h4 className="text-sm font-bold uppercase tracking-[0.12em] text-zinc-500 mb-3">What This Includes</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {selectedOffering.clicked.showcase.map((item) => (
+                                    <span key={item} className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800">
+                                        {item}
+                                    </span>
+                                ))}
                             </div>
-                        ))}
+                        </div>
+
+                        {selectedOffering.clicked.videos.length > 0 && (
+                            <div className="mt-8 space-y-6">
+                                {selectedOffering.clicked.videos.map((video, index) => (
+                                    <div key={index}>
+                                        <video
+                                            src={video.src}
+                                            autoPlay
+                                            loop
+                                            muted
+                                            playsInline
+                                            className="w-full rounded-xl shadow-md border border-zinc-200"
+                                        />
+                                        {video.body && <p className="text-gray-700 mt-3 leading-relaxed">{video.body}</p>}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </motion.div>
                 </motion.div>
             )}
