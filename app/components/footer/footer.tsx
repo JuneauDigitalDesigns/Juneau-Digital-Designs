@@ -34,10 +34,10 @@ export default function Footer() {
                     </div>
 
                     <Link
-                        href="/quote"
+                        href="/pricing"
                         className="inline-flex items-center justify-center rounded-xl border border-white/45 bg-white/5 px-5 py-3 text-sm font-semibold transition-colors hover:bg-white hover:text-[#13233B]"
                     >
-                        Request a Quote
+                        See Plans
                     </Link>
                 </div>
 
@@ -45,7 +45,7 @@ export default function Footer() {
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
                         <Link href="/" className="transition-colors hover:text-white">Home</Link>
                         <Link href="/projects" className="transition-colors hover:text-white">Projects</Link>
-                        <Link href="/quote" className="transition-colors hover:text-white">Request a Quote</Link>
+                        <Link href="/pricing" className="transition-colors hover:text-white">Pricing</Link>
                         <Link href="/privacy-policy" className="transition-colors hover:text-white">Privacy Policy</Link>
                     </div>
 

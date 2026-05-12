@@ -41,7 +41,7 @@ function Hero() {
                 variants={sectionReveal}
                 initial="hidden"
                 whileInView="visible"
-                viewport={{ once: true, amount: 0.2 }}
+                viewport={{ once: true, amount: 0.5 }}
             >
 
                 <motion.div className="absolute -inset-x-0 -top-24 -bottom-24 z-0 will-change-transform" style={{ y: backgroundY }}>
@@ -71,9 +71,9 @@ function Hero() {
                                 From micro-interactions to seamless navigation, we focus on the user experience that ensures your audience stays engaged with your business.
                             </p>
 
-                            <button className="border px-6 py-3 rounded hover:bg-white hover:text-black transition">
+                            <a href="/pricing" className="border px-6 py-3 rounded hover:bg-white hover:text-black transition">
                                 Get Started
-                            </button>
+                            </a>
                         </div>
 
                     </div>
@@ -524,15 +524,15 @@ function Technology() {
             ]
         },
         {
-            name: "MongoDB",
-            logo: "/techlogos/mongodb.png",
-            shortDescription: "NoSQL database",
-            detailedDescription: "MongoDB is great when a project needs flexibility. It lets us move quickly with content-heavy or evolving features without forcing everything into rigid tables. We often use it for fast-moving apps where the data model needs room to grow.",
-            usageTitle: "Flexible Content and Rapid Iteration",
+            name: "Supabase",
+            logo: "/techlogos/supabase.png",
+            shortDescription: "Open-source Firebase alternative",
+            detailedDescription: "Supabase is our go-to when a project needs a structured, relational backend without the overhead of managing infrastructure. It gives us a full Postgres database with built-in auth, real-time subscriptions, and auto-generated APIs out of the box, letting teams move fast while keeping data integrity intact.",
+            usageTitle: "Structured Backends with Real-Time Capabilities",
             usagePoints: [
-                "We use flexible collections for content modules that change often during growth phases.",
-                "Feature teams can ship new fields without heavy schema migration overhead.",
-                "It is a strong fit for activity feeds, custom profile data, and evolving app content."
+                "We use Supabase as a full backend layer, leveraging Postgres for relational data with strong consistency guarantees.",
+                "Built-in auth and row-level security let us ship user-facing features without standing up a separate auth service.",
+                "Real-time subscriptions make it a natural fit for collaborative tools, live dashboards, and event-driven features."
             ]
         },
         {
@@ -674,7 +674,7 @@ function Projects() {
         {
             title: "Air Service of Florida",
             description: "A modern, responsive website for a regional industrial air service company. ",
-            image: "/airserviceflorida.png",
+            image: "/airserviceflorida_1.png",
             link: "https://airserviceofflorida.com",
             category: "Marketing"
 
@@ -683,7 +683,7 @@ function Projects() {
             title: "Atlantic Compressor",
             description: "A sleek, user-friendly e-commerce platform for a leading provider of industrial compressors and parts.",
             image: "/atlanticcompressor_1.png",
-            link: "https://atlantic-compressor.vercel.app",
+            link: "",
             category: "E-Commerce"
         }
     ];
@@ -802,10 +802,10 @@ function Contact() {
 
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 lg:justify-end lg:self-end shrink-0">
                             <a
-                                href="/quote"
+                                href="/pricing"
                                 className="inline-flex justify-center items-center rounded-full bg-zinc-900 text-white px-6 py-3 text-base font-bold hover:bg-zinc-800 transition min-w-[180px]"
                             >
-                                Request a Quote
+                                View Pricing
                             </a>
                             <a
                                 href="/projects"
@@ -839,7 +839,7 @@ export default function HomePageClient() {
 
             <Hero />
             <Projects />
-            
+
             <Offer />
             <Technology />
             <Contact />
