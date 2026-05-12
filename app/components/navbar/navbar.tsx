@@ -42,10 +42,10 @@ export default function Navbar() {
                         </Link>
                     ))}
                     <Link
-                        href="/quote"
+                        href="/pricing"
                         className="rounded-md border border-white/35 px-4 py-2 text-sm transition-colors hover:bg-white hover:text-[#0E1A2B]"
                     >
-                        Request a Quote
+                        View Pricing
                     </Link>
                 </div>
 
@@ -107,10 +107,10 @@ export default function Navbar() {
                                 <div className="p-3">
                                     <Link
                                         className="inline-flex w-full items-center justify-center rounded-xl border border-white/55 bg-white/5 px-4 py-3 text-sm font-semibold transition-colors hover:bg-white hover:text-[#14233A]"
-                                        href="/quote"
+                                        href="/pricing"
                                         onClick={() => setShowNav(false)}
                                     >
-                                        Request a Quote
+                                        See Plans
                                     </Link>
                                 </div>
                             </div>

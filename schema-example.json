@@ -1,0 +1,268 @@
+{
+  "selectedPlan": "growth",
+  "contact": {
+    "brandName": "Peak Home Services",
+    "brandLong": "Peak Home Services LLC",
+    "brandShort": "Peak",
+    "email": "owner@peakhomeservices.com",
+    "phone": "(907) 555-0142",
+    "address": "318 Glacier Ave, Juneau, AK 99801",
+    "license": "AK-GC-2019-04817",
+    "websiteType": "marketing"
+  },
+  "businessDetails": {
+    "industry": "Home Services / HVAC & Plumbing",
+    "established": "2011",
+    "brandTagline": "Reliable service, every season.",
+    "usp": "We're the only Juneau contractor offering same-day HVAC diagnostics with a price-lock guarantee — no surprise invoices after the fact.",
+    "notableClients": "City of Juneau, Bergmann Properties, Juneau School District",
+    "certifications": "EPA 608 Certified, NATE-Certified Technicians, BBB Accredited",
+    "awards": "Best of Juneau 2023 & 2024 — Home Services",
+    "businessHours": "Mon–Fri 7am–6pm · Sat 8am–4pm · Emergency line 24/7"
+  },
+  "branding": {
+    "paletteAccent": "#1E6FBF",
+    "paletteBg": "#FFFFFF",
+    "paletteBgSoft": "#F0F5FB",
+    "paletteInk": "#0F1B2D",
+    "paletteInkSoft": "#4A5568",
+    "paletteRule": "#CBD5E1",
+    "hasLogo": "yes"
+  },
+  "announcement": "Now booking summer AC tune-ups — schedule before June 1 and save $40!",
+  "seo": {
+    "seoTitle": "Peak Home Services | HVAC & Plumbing in Juneau, AK",
+    "seoDescription": "Juneau's trusted HVAC, plumbing, and home services company. Same-day diagnostics, price-lock guarantee, and 24/7 emergency support.",
+    "seoCanonical": "https://peakhomeservices.com",
+    "googleAnalyticsId": "G-XXXXXXXXXX",
+    "facebookPixelId": "1234567890123456"
+  },
+  "extensions": {
+    "mapsUrl": "https://maps.google.com/?cid=123456789",
+    "bookingUrl": "https://peakhomeservices.com/book",
+    "portalUrl": ""
+  },
+  "socialMedia": {
+    "linkedin": "",
+    "instagram": "https://instagram.com/peakhomeservicesjuneau",
+    "facebook": "https://facebook.com/peakhomeservices",
+    "youtube": ""
+  },
+  "hero": {
+    "heroEyebrow": "Juneau's #1 Rated Home Services",
+    "heroHeadline": "Comfort You Can Count On",
+    "heroHeadlineEmphasis": "Count On",
+    "heroSub": "HVAC, plumbing, and emergency repairs — done right the first time by technicians you can trust.",
+    "heroCta": "Book a Free Estimate",
+    "heroSecondaryCta": "Call (907) 555-0142",
+    "heroBadge": "⭐ 4.9 / 5 — 300+ reviews",
+    "heroFrictionReducers": [
+      "No hidden fees",
+      "Same-day availability",
+      "Licensed & insured",
+      "Price-lock guarantee"
+    ]
+  },
+  "about": {
+    "aboutEyebrow": "Who We Are",
+    "aboutTitle": "Built on Trust, Driven by Results",
+    "aboutBody": "Peak Home Services has been keeping Juneau homes comfortable since 2011. From routine maintenance to emergency callouts in the middle of winter, our team shows up fast and fixes it right. We believe in transparent pricing, honest advice, and work that lasts.",
+    "pillars": [
+      { "k": "shield", "t": "Licensed & Insured", "d": "Every technician is fully licensed, bonded, and covered so you have zero liability." },
+      { "k": "clock", "t": "Same-Day Service", "d": "We keep trucks staged around Juneau to respond within hours — not days." },
+      { "k": "tag", "t": "Price-Lock Guarantee", "d": "The quote we give you is the price you pay. No invoice surprises." },
+      { "k": "star", "t": "4.9-Star Rated", "d": "Over 300 verified reviews across Google and Facebook from real Juneau customers." }
+    ],
+    "stats": [
+      { "n": "14+", "l": "Years in business" },
+      { "n": "2,400+", "l": "Jobs completed" },
+      { "n": "4.9★", "l": "Average review rating" },
+      { "n": "24/7", "l": "Emergency support" }
+    ]
+  },
+  "servicesSection": {
+    "servicesEyebrow": "What We Do",
+    "servicesTitle": "Full-Service Home Comfort",
+    "servicesSub": "From seasonal tune-ups to full system replacements, we handle it all under one roof."
+  },
+  "work": {
+    "workEyebrow": "Our Work",
+    "workTitle": "Recent Projects",
+    "workSub": "A sample of installations and repairs we're proud to put our name on.",
+    "projects": [
+      {
+        "t": "Bergmann Apartment Complex — Full HVAC Retrofit",
+        "loc": "Downtown Juneau, AK",
+        "yr": "2025",
+        "scope": "Commercial retrofit",
+        "size": "18-unit building",
+        "caption": "Replaced aging baseboard heat with a multi-zone mini-split system across all 18 units.",
+        "image": {
+          "url": "https://placehold.co/800x600/1E6FBF/FFFFFF.jpg?text=HVAC+Retrofit",
+          "filename": "bergmann-hvac-retrofit.jpg",
+          "alt": "Bergmann apartment HVAC retrofit"
+        }
+      },
+      {
+        "t": "Single-Family Plumbing Repipe",
+        "loc": "Mendenhall Valley, AK",
+        "yr": "2024",
+        "scope": "Residential plumbing",
+        "size": "2,100 sq ft",
+        "caption": "Full copper-to-PEX repipe completed in two days with zero drywall damage.",
+        "image": {
+          "url": "https://placehold.co/800x600/0F1B2D/FFFFFF.jpg?text=Plumbing+Repipe",
+          "filename": "mendenhall-repipe.jpg",
+          "alt": "Residential plumbing repipe project"
+        }
+      },
+      {
+        "t": "Juneau School District — Boiler Replacement",
+        "loc": "Juneau, AK",
+        "yr": "2024",
+        "scope": "Commercial mechanical",
+        "size": "3 buildings",
+        "caption": "Coordinated off-season boiler replacement across three district facilities with zero classroom disruption.",
+        "image": {
+          "url": "https://placehold.co/800x600/4A5568/FFFFFF.jpg?text=Boiler+Replacement",
+          "filename": "jsd-boiler-replacement.jpg",
+          "alt": "School district boiler replacement"
+        }
+      }
+    ]
+  },
+  "testimonialsMeta": {
+    "testimonialsEyebrow": "What Clients Say",
+    "testimonialsTitle": "Real Reviews from Real Customers"
+  },
+  "faqMeta": {
+    "faqEyebrow": "Common Questions",
+    "faqTitle": "Frequently Asked Questions",
+    "faqSub": "Everything you need to know before booking."
+  },
+  "finalCta": {
+    "finalCtaEyebrow": "Ready to Get Comfortable?",
+    "finalCtaHeadline": "Book Your Free Estimate Today",
+    "finalCtaSub": "No pressure, no obligation — just an honest assessment of what your home needs and what it'll cost.",
+    "finalCtaCta": "Book a Free Estimate",
+    "finalCtaSecondary": "Call (907) 555-0142",
+    "finalCtaFrictionReducers": [
+      "Free estimates",
+      "Same-day availability",
+      "No hidden fees"
+    ]
+  },
+  "footer": {
+    "footerBlurb": "Peak Home Services has been Juneau's go-to HVAC, plumbing, and home repair contractor since 2011. Licensed, insured, and always available when you need us most.",
+    "footerLegal": "© 2026 Peak Home Services LLC. All rights reserved."
+  },
+  "images": {
+    "heroSlides": [
+      {
+        "url": "https://placehold.co/1600x900/1E6FBF/FFFFFF.jpg?text=Hero+Slide+1",
+        "filename": "hero-slide-1.jpg",
+        "alt": "Peak Home Services team on the job"
+      },
+      {
+        "url": "https://placehold.co/1600x900/0F1B2D/FFFFFF.jpg?text=Hero+Slide+2",
+        "filename": "hero-slide-2.jpg",
+        "alt": "HVAC installation in progress"
+      }
+    ],
+    "logo": {
+      "url": "https://placehold.co/400x200/FFFFFF/1E6FBF.png?text=Peak+Logo",
+      "filename": "peak-logo.png",
+      "alt": "Peak Home Services logo"
+    },
+    "aboutFeature": {
+      "url": "https://placehold.co/900x600/F0F5FB/0F1B2D.jpg?text=Team+Photo",
+      "filename": "team-photo.jpg",
+      "alt": "The Peak Home Services team"
+    }
+  },
+  "services": [
+    {
+      "t": "HVAC Installation & Replacement",
+      "tag": "Heating & Cooling",
+      "d": "We install and replace all major HVAC brands. Mini-splits, ducted systems, and heat pumps — sized right for Alaska's climate.",
+      "images": [
+        {
+          "url": "https://placehold.co/800x600/1E6FBF/FFFFFF.jpg?text=HVAC+Install",
+          "filename": "hvac-install.jpg",
+          "alt": "HVAC installation"
+        }
+      ]
+    },
+    {
+      "t": "Plumbing Repair & Repiping",
+      "tag": "Plumbing",
+      "d": "From leaky faucets to whole-home repiping, our licensed plumbers handle residential and commercial jobs of any size.",
+      "images": [
+        {
+          "url": "https://placehold.co/800x600/0F1B2D/FFFFFF.jpg?text=Plumbing",
+          "filename": "plumbing-service.jpg",
+          "alt": "Plumbing repair service"
+        }
+      ]
+    },
+    {
+      "t": "Seasonal Maintenance Plans",
+      "tag": "Maintenance",
+      "d": "Annual tune-up programs that keep your systems efficient, your warranties valid, and your energy bills predictable year-round.",
+      "images": []
+    },
+    {
+      "t": "24/7 Emergency Repairs",
+      "tag": "Emergency",
+      "d": "Pipes burst at 2am. Furnaces die on the coldest night of the year. Our emergency crew is always on call.",
+      "images": []
+    }
+  ],
+  "testimonials": [
+    {
+      "q": "They showed up two hours after I called — on a Saturday — and had my furnace running before dinner. Incredibly professional and honest about pricing.",
+      "a": "Mike R.",
+      "r": "Homeowner",
+      "company": "Mendenhall Valley",
+      "stars": 5
+    },
+    {
+      "q": "We've used Peak for all three of our rental properties for five years. Never a bad experience. The price-lock guarantee is real — what they quote is what we pay.",
+      "a": "Sandra T.",
+      "r": "Property Manager",
+      "company": "Bergmann Properties",
+      "stars": 5
+    },
+    {
+      "q": "Fast, clean, and explained everything in plain English. My old contractor always made me feel like I was being upsold. Peak felt completely different.",
+      "a": "James O.",
+      "r": "Homeowner",
+      "company": "Douglas Island",
+      "stars": 5
+    }
+  ],
+  "heroBullets": [
+    { "value": "2,400+", "label": "Jobs completed" },
+    { "value": "4.9★", "label": "Average rating" },
+    { "value": "14 yrs", "label": "In business" },
+    { "value": "24/7", "label": "Emergency line" }
+  ],
+  "faqs": [
+    {
+      "q": "Do you offer free estimates?",
+      "a": "Yes — all diagnostic visits and project estimates are free with no obligation to book."
+    },
+    {
+      "q": "How quickly can you respond to an emergency?",
+      "a": "Our emergency line operates 24/7. In most cases we can have a technician on-site within 2 hours anywhere in the Juneau area."
+    },
+    {
+      "q": "What areas do you serve?",
+      "a": "We serve Juneau, Douglas, Mendenhall Valley, Auke Bay, and surrounding communities within the City and Borough of Juneau."
+    },
+    {
+      "q": "Are your technicians licensed and insured?",
+      "a": "Yes. All technicians hold current Alaska contractor licenses and are covered by liability insurance and workers' compensation."
+    }
+  ]
+}
