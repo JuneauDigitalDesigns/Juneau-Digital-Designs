@@ -228,7 +228,7 @@ function Hero() {
                         }}
                     >
                         <div className="kicker" style={{ color: "rgba(244,246,251,0.55)" }}>
-                            ━━ Calls captured by JD across the network · this month
+                            ━━ The average small business loses
                         </div>
                         <div
                             style={{
@@ -245,7 +245,10 @@ function Hero() {
                                 textShadow: "0 0 40px rgba(91,232,224,0.18)",
                             }}
                         >
-                            <CounterEl to={18472} duration={2000} />
+                            <CounterEl to={70} duration={2000} />%
+                        </div>
+                        <div className="kicker mt-4 " style={{ color: "rgba(244,246,251,0.55)" }}>
+                            of calls. We fix that.
                         </div>
                         <div
                             style={{
@@ -449,14 +452,7 @@ function Offer() {
                                 background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))",
                             }}
                         />
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1.2fr",
-                                gap: 48,
-                                alignItems: "start",
-                            }}
-                        >
+                        <div className="grid-2col-responsive" style={{ alignItems: "start" }}>
                             {/* Left: description */}
                             <div>
                                 <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", marginBottom: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>
@@ -565,16 +561,7 @@ function HowItWorks() {
 
                 {/* 2-col header */}
                 <Reveal>
-                    <div
-                        style={{
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1.2fr",
-                            gap: 60,
-                            alignItems: "end",
-                            marginBottom: 64,
-                        }}
-                        className="block md:grid"
-                    >
+                    <div className="hiw-header-grid">
                         <div>
                             <div className="kicker" style={{ marginBottom: 16 }}>━━ How it works</div>
                             <h2
@@ -591,7 +578,7 @@ function HowItWorks() {
                                 <em style={{ color: "var(--accent)", fontStyle: "italic" }}>And the geeky one.</em>
                             </h2>
                         </div>
-                        <div style={{ paddingBottom: 8 }}>
+                        <div>
                             <p style={{ color: "var(--fg-2)", fontSize: 17, lineHeight: 1.6, maxWidth: "56ch" }}>
                                 Two ways to read the same system. Scroll the table for the plain-English version, or flip to the technical column if you want to know what&apos;s actually running under the hood.
                             </p>
@@ -601,35 +588,19 @@ function HowItWorks() {
 
                 {/* Table */}
                 <Reveal delay={1}>
-                    <div style={{ width: "100%", overflowX: "auto" }}>
+                    <div style={{ width: "100%" }}>
                         {/* Header row */}
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "auto 1fr 1.1fr",
-                                gap: "0 32px",
-                                padding: "0 0 14px",
-                                borderBottom: "1px solid var(--rule)",
-                                marginBottom: 0,
-                            }}
-                        >
+                        <div className="hiw-header-row">
                             <div className="kicker">━ #</div>
                             <div className="kicker">━ The simple version</div>
-                            <div className="kicker">━ Under the hood</div>
+                            <div className="kicker hiw-tech-col">━ Under the hood</div>
                         </div>
 
                         {/* Data rows */}
                         {TECH_ROWS.map((row, i) => (
                             <motion.div
                                 key={i}
-                                style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "auto 1fr 1.1fr",
-                                    gap: "0 32px",
-                                    padding: "24px 0",
-                                    borderBottom: "1px solid var(--rule)",
-                                    transition: "background 0.2s ease",
-                                }}
+                                className="hiw-row"
                                 whileHover={{ background: "var(--surface)" }}
                             >
                                 <div
@@ -647,7 +618,7 @@ function HowItWorks() {
                                 <div
                                     style={{
                                         fontFamily: "var(--font-display)",
-                                        fontSize: 22,
+                                        fontSize: "clamp(16px, 2.5vw, 22px)",
                                         fontWeight: 400,
                                         letterSpacing: "-0.015em",
                                         color: "var(--fg)",
@@ -657,6 +628,7 @@ function HowItWorks() {
                                     {row.simple}
                                 </div>
                                 <div
+                                    className="hiw-tech-cell"
                                     style={{
                                         fontFamily: "var(--font-mono)",
                                         fontSize: 12.5,
