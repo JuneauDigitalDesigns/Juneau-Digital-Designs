@@ -20,8 +20,8 @@ const TIERS: PricingTier[] = [
     {
         slug: "starter",
         name: "Starter",
-        price: 147,
-        tagline: "Everything you need to keep your site running smoothly.",
+        price: 97,
+        tagline: "Just need a Website that continues to work? We got you covered.",
         features: [
             "Basic 1 page website setup",
             "Web hosting",
@@ -35,11 +35,10 @@ const TIERS: PricingTier[] = [
         slug: "growth",
         name: "Growth",
         price: 297,
-        tagline: "Grow your search presence and get more detailed insights.",
+        tagline: "For businesses ready to grow with a powerful online presence and AI-driven capture.",
         features: [
-            "Custom 5-page website",
-            "24/7 AI voice receptionist",
             "Everything in Starter",
+            "24/7 AI voice receptionist",
             "Ongoing SEO optimization",
             "Bi-monthly performance reports",
         ],
@@ -55,7 +54,7 @@ const TIERS: PricingTier[] = [
             "Multi-team call routing",
             "Deep CRM integration",
             "Custom branded voice",
-            "Quarterly strategy sessions with our founder"
+            "Quarterly strategy sessions with our founder",
         ],
         highlighted: false,
     },
@@ -63,111 +62,233 @@ const TIERS: PricingTier[] = [
 
 export default function PricingPageClient() {
     return (
-        <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-16 sm:px-6 lg:px-8">
-            <div className="mx-auto max-w-6xl">
+        <main
+            style={{
+                minHeight: "100vh",
+                background: "var(--bg)",
+                position: "relative",
+                overflow: "hidden",
+                padding: "100px max(24px, 4vw)",
+            }}
+        >
+            {/* Aurora blob background */}
+            <div className="aurora-bg">
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 700,
+                        height: 700,
+                        background: "radial-gradient(circle, rgba(182,168,255,0.45) 0%, transparent 70%)",
+                        left: "15%",
+                        top: "-10%",
+                    }}
+                />
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 500,
+                        height: 500,
+                        background: "radial-gradient(circle, rgba(120,90,255,0.35) 0%, transparent 70%)",
+                        right: "10%",
+                        bottom: "10%",
+                        animationDelay: "-10s",
+                    }}
+                />
+            </div>
+            <div className="aurora-grid" />
+
+            <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative", zIndex: 2 }}>
+
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                    className="mb-14 text-center"
+                    transition={{ duration: 0.55, ease: "easeOut" }}
+                    style={{ marginBottom: 60, textAlign: "center" }}
                 >
-                    <span className="inline-flex rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700">
-                        Pricing
-                    </span>
-                    <h1 className="mt-4 text-4xl font-black leading-tight text-slate-900 sm:text-5xl">
-                        Simple, transparent plans.
+                    <span className="eyebrow" style={{ marginBottom: 20 }}>Pricing</span>
+                    <h1
+                        style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(36px, 5vw, 64px)",
+                            fontWeight: 400,
+                            letterSpacing: "-0.03em",
+                            color: "var(--fg)",
+                            marginTop: 16,
+                            marginBottom: 16,
+                            lineHeight: 1.05,
+                        }}
+                    >
+                        Simple, <em style={{ color: "var(--accent)", fontStyle: "italic" }}>transparent</em> plans.
                     </h1>
-                    <p className="mx-auto mt-4 max-w-xl text-base text-slate-600 leading-relaxed">
+                    <p
+                        style={{
+                            maxWidth: "52ch",
+                            margin: "0 auto",
+                            fontSize: 16,
+                            color: "var(--fg-2)",
+                            lineHeight: 1.6,
+                        }}
+                    >
                         Pick the plan that fits where you are now. Every plan includes personal support — no tickets, no bots.
                     </p>
                 </motion.div>
 
                 {/* Pricing Cards */}
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                        gap: 24,
+                        alignItems: "stretch",
+                    }}
+                >
                     {TIERS.map((tier, index) => (
                         <motion.div
                             key={tier.slug}
                             initial={{ opacity: 0, y: 24 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.45, ease: "easeOut", delay: index * 0.1 }}
-                            className={`relative flex flex-col rounded-3xl border p-8 shadow-xl backdrop-blur transition ${
-                                tier.slug === "premium"
-                                    ? "overflow-hidden border-[#0E1A2B] bg-gradient-to-b from-[#132745] via-[#102033] to-[#0B1624] text-white shadow-[0_24px_60px_rgba(14,26,43,0.28)]"
-                                    : tier.highlighted || tier.slug === "starter"
-                                      ? "border-t-4 border-t-[#D4672A] border-slate-200 bg-white/95"
-                                      : "border-slate-200 bg-white/95"
-                            }`}
+                            className="glass"
+                            style={{
+                                position: "relative",
+                                display: "flex",
+                                flexDirection: "column",
+                                padding: "36px 30px 32px",
+                                minHeight: 460,
+                                borderRadius: 22,
+                                /* Featured card gets accent ring */
+                                ...(tier.highlighted
+                                    ? { boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6)" }
+                                    : {}),
+                            }}
                         >
-                            {tier.slug === "premium" && (
-                                <>
-                                    <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-[radial-gradient(circle_at_top,rgba(212,103,42,0.24),transparent_68%)]" />
-                                    <span className="absolute right-4 top-4 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#F4E4DA] shadow-sm backdrop-blur-sm">
-                                        Premium Support
-                                    </span>
-                                </>
-                            )}
-
+                            {/* Badges */}
                             {tier.slug === "starter" && (
-                                <span className="absolute right-4 top-2 rounded-full border border-[#D4672A]/20 bg-[#F4E4DA] px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#A34D1C] shadow-sm">
+                                <span
+                                    style={{
+                                        position: "absolute",
+                                        top: 16,
+                                        right: 20,
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 10,
+                                        fontWeight: 500,
+                                        letterSpacing: "0.12em",
+                                        textTransform: "uppercase",
+                                        color: "var(--accent)",
+                                        border: "1px solid var(--accent-glow)",
+                                        background: "rgba(182,168,255,0.1)",
+                                        borderRadius: 999,
+                                        padding: "3px 10px",
+                                    }}
+                                >
                                     New Client Offer!
                                 </span>
                             )}
-
                             {tier.highlighted && (
-                                <span className="absolute -top-px right-6 rounded-b-xl bg-[#D4672A] px-3 py-1 text-xs font-bold uppercase tracking-wider text-white shadow">
+                                <span
+                                    style={{
+                                        position: "absolute",
+                                        top: -1,
+                                        right: 24,
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 10,
+                                        fontWeight: 500,
+                                        letterSpacing: "0.12em",
+                                        textTransform: "uppercase",
+                                        background: "var(--accent)",
+                                        color: "#06121a",
+                                        borderRadius: "0 0 10px 10px",
+                                        padding: "4px 12px",
+                                    }}
+                                >
                                     Most Popular
                                 </span>
                             )}
-
-                            <div className="mb-6">
+                            {tier.slug === "premium" && (
                                 <span
-                                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] ${
-                                        tier.slug === "premium"
-                                            ? "border border-white/15 bg-white/10 text-[#F4E4DA]"
-                                            : "border border-zinc-200 bg-zinc-50 text-zinc-600"
-                                    }`}
+                                    style={{
+                                        position: "absolute",
+                                        top: 16,
+                                        right: 20,
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 10,
+                                        fontWeight: 500,
+                                        letterSpacing: "0.12em",
+                                        textTransform: "uppercase",
+                                        color: "var(--fg-2)",
+                                        border: "1px solid var(--rule-strong)",
+                                        background: "var(--surface)",
+                                        borderRadius: 999,
+                                        padding: "3px 10px",
+                                    }}
+                                >
+                                    Premium Support
+                                </span>
+                            )}
+
+                            {/* Plan header */}
+                            <div style={{ marginBottom: 24 }}>
+                                <span
+                                    style={{
+                                        display: "inline-block",
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 10.5,
+                                        fontWeight: 500,
+                                        letterSpacing: "0.1em",
+                                        textTransform: "uppercase",
+                                        color: "var(--fg-3)",
+                                        border: "1px solid var(--rule)",
+                                        background: "var(--surface)",
+                                        borderRadius: 999,
+                                        padding: "3px 10px",
+                                        marginBottom: 16,
+                                    }}
                                 >
                                     {tier.name}
                                 </span>
-                                <div className="mt-4 flex items-end gap-1">
-                                    <span className={`text-5xl font-black ${tier.slug === "premium" ? "text-white" : "text-slate-900"}`}>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 8 }}>
+                                    <span
+                                        style={{
+                                            fontFamily: "var(--font-display)",
+                                            fontSize: 52,
+                                            fontWeight: 300,
+                                            color: "var(--fg)",
+                                            letterSpacing: "-0.03em",
+                                            lineHeight: 1,
+                                        }}
+                                    >
                                         ${tier.price}
                                     </span>
-                                    <span className={`mb-1 text-sm ${tier.slug === "premium" ? "text-slate-300" : "text-slate-500"}`}>
-                                        /month
-                                    </span>
+                                    <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>/month</span>
                                 </div>
-                                <p className={`mt-3 text-sm leading-relaxed ${tier.slug === "premium" ? "text-slate-200" : "text-slate-600"}`}>
+                                <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
                                     {tier.tagline}
                                 </p>
                             </div>
 
-                            <ul className="mb-8 flex flex-col gap-3">
+                            {/* Feature list */}
+                            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
                                 {tier.features.map((feature) => (
                                     <li
                                         key={feature}
-                                        className={`flex items-start gap-2.5 text-sm ${tier.slug === "premium" ? "text-slate-100" : "text-slate-700"}`}
+                                        style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg-2)" }}
                                     >
                                         <FontAwesomeIcon
                                             icon={faCheck}
-                                            className={`mt-0.5 h-4 w-4 shrink-0 ${tier.slug === "premium" ? "text-[#F0A06A]" : "text-[#D4672A]"}`}
+                                            style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0, width: 14 }}
                                         />
                                         <span>{feature}</span>
                                     </li>
                                 ))}
                             </ul>
 
-                            <div className="mt-auto">
+                            {/* CTA */}
+                            <div style={{ marginTop: 28 }}>
                                 <Link
                                     href={`/onboarding?plan=${tier.slug}`}
-                                    className={`inline-flex w-full items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold transition ${
-                                        tier.slug === "premium"
-                                            ? "bg-[#D4672A] text-white hover:bg-[#E0793F]"
-                                            : tier.highlighted
-                                            ? "bg-[#0E1A2B] text-white hover:bg-[#132745]"
-                                            : "border border-[#0E1A2B] bg-white text-[#0E1A2B] hover:bg-[#0E1A2B] hover:text-white"
-                                    }`}
+                                    className={tier.highlighted ? "btn primary" : "btn ghost"}
+                                    style={{ width: "100%", justifyContent: "center" }}
                                 >
                                     Get started with {tier.name}
                                 </Link>
@@ -178,13 +299,19 @@ export default function PricingPageClient() {
 
                 {/* Footer note */}
                 <motion.p
-                    initial={{ opacity: 0, y: 24 }}
+                    initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, ease: "easeOut", delay: 0.4 }}
-                    className="mt-12 text-center text-sm text-slate-500"
+                    style={{
+                        marginTop: 40,
+                        textAlign: "center",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 13,
+                        color: "var(--fg-3)",
+                    }}
                 >
                     Questions? Reach out via the contact form on our{" "}
-                    <Link href="/" className="font-semibold text-slate-700 underline underline-offset-4 hover:text-slate-900">
+                    <Link href="/" style={{ color: "var(--accent)", textDecoration: "underline" }}>
                         home page
                     </Link>
                     .
