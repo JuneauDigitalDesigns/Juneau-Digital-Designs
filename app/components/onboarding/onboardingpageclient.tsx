@@ -225,16 +225,49 @@ function makeInitialData(plan: PlanSlug): OnboardingFormData {
 }
 
 const inputCls =
-    "rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200 w-full";
-const labelCls = "flex flex-col gap-2 text-sm font-semibold text-slate-800";
+    "rounded-xl border w-full px-4 py-3 outline-none transition";
+const labelCls = "flex flex-col gap-2 text-sm font-semibold";
 
 function SectionHeading({ number, title }: { number: string; title: string }) {
     return (
-        <div className="mb-5 flex items-center gap-3 border-b border-slate-200 pb-3">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0E1A2B] text-xs font-bold text-white">
+        <div
+            style={{
+                marginBottom: 20,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                paddingBottom: 12,
+                borderBottom: "1px solid var(--rule)",
+            }}
+        >
+            <span
+                style={{
+                    display: "flex",
+                    width: 28,
+                    height: 28,
+                    flexShrink: 0,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: "50%",
+                    background: "var(--accent)",
+                    color: "#06121a",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: "var(--font-mono)",
+                }}
+            >
                 {number}
             </span>
-            <h2 className="text-base font-bold text-slate-900">{title}</h2>
+            <h2
+                style={{
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: "var(--fg)",
+                    fontFamily: "var(--font-display)",
+                }}
+            >
+                {title}
+            </h2>
         </div>
     );
 }
@@ -630,19 +663,38 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
 
     if (submitState.type === "success") {
         return (
-            <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-50 via-white to-slate-100 px-4 py-16">
-                <div className="mx-auto max-w-lg rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-xl">
-                    <div className="mb-4 flex justify-center">
-                        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-50 text-3xl">✓</span>
+            <main
+                style={{
+                    minHeight: "100vh",
+                    background: "var(--bg)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "64px max(16px, 4vw)",
+                }}
+            >
+                <div className="glass text-center" style={{ maxWidth: 520, width: "100%", padding: "48px 40px", borderRadius: 22 }}>
+                    <div style={{ marginBottom: 20, display: "flex", justifyContent: "center" }}>
+                        <span
+                            style={{
+                                display: "flex",
+                                width: 64,
+                                height: 64,
+                                alignItems: "center",
+                                justifyContent: "center",
+                                borderRadius: "50%",
+                                background: "rgba(182,168,255,0.15)",
+                                border: "1px solid var(--accent-glow)",
+                                fontSize: 28,
+                                color: "var(--accent)",
+                            }}
+                        >✓</span>
                     </div>
-                    <h1 className="text-2xl font-black text-slate-900">You&apos;re all set!</h1>
-                    <p className="mt-3 text-slate-600 leading-relaxed">
+                    <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, color: "var(--fg)", marginBottom: 12 }}>You&apos;re all set!</h1>
+                    <p style={{ color: "var(--fg-2)", lineHeight: 1.6 }}>
                         Your onboarding form has been submitted. We&apos;ll review your information and reach out within 1 business day to get things moving.
                     </p>
-                    <Link
-                        href="/"
-                        className="mt-8 inline-flex items-center justify-center rounded-xl bg-[#0E1A2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#132745]"
-                    >
+                    <Link href="/" className="btn primary" style={{ marginTop: 32, display: "inline-flex" }}>
                         Back to home
                     </Link>
                 </div>
@@ -651,7 +703,27 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
     }
 
     return (
-        <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-100">
+        <main
+            style={{
+                minHeight: "100vh",
+                background: "var(--bg)",
+                position: "relative",
+                overflow: "hidden",
+            }}
+        >
+            {/* Aurora backdrop */}
+            <div className="aurora-bg" style={{ opacity: 0.5 }}>
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 600,
+                        height: 600,
+                        background: "radial-gradient(circle, rgba(182,168,255,0.4) 0%, transparent 70%)",
+                        right: "-5%",
+                        top: "5%",
+                    }}
+                />
+            </div>
             <Script
                 src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
                 strategy="afterInteractive"
@@ -659,31 +731,50 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
             />
 
             {/* Sticky plan banner */}
-            <div className="sticky top-16 z-40 border-b border-white/10 bg-[#0E1A2B] px-4 py-3 text-white sm:px-6">
-                <div className="mx-auto flex max-w-4xl items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold uppercase tracking-widest text-white/60">Selected Plan</span>
-                        <span className="font-bold">{planMeta.label}</span>
-                        <span className="hidden text-white/60 sm:inline">—</span>
-                        <span className="hidden font-mono text-sm text-white/80 sm:inline">{planMeta.price}</span>
+            <div
+                style={{
+                    position: "sticky",
+                    top: 64,
+                    zIndex: 40,
+                    background: "rgba(7,16,30,0.9)",
+                    backdropFilter: "blur(16px)",
+                    WebkitBackdropFilter: "blur(16px)",
+                    borderBottom: "1px solid var(--rule)",
+                    padding: "12px max(16px, 2vw)",
+                }}
+            >
+                <div style={{ maxWidth: 896, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <span className="kicker">Selected Plan</span>
+                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>{planMeta.label}</span>
+                        <span style={{ color: "var(--fg-3)" }}>—</span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-2)" }}>{planMeta.price}</span>
                     </div>
-                    <Link href="/pricing" className="text-xs text-white/60 underline underline-offset-4 hover:text-white transition">
+                    <Link href="/pricing" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "underline" }}>
                         Change plan
                     </Link>
                 </div>
             </div>
 
-            <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
+            <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6" style={{ position: "relative", zIndex: 1 }}>
                 {/* Page header */}
                 <div className="mb-10">
-                    <span className="inline-flex rounded-full border border-zinc-300 bg-zinc-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-zinc-700">
-                        Onboarding
-                    </span>
-                    <h1 className="mt-4 text-3xl font-black leading-tight text-slate-900 sm:text-4xl">
+                    <span className="eyebrow">Onboarding</span>
+                    <h1
+                        style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(28px, 4vw, 40px)",
+                            fontWeight: 400,
+                            letterSpacing: "-0.025em",
+                            color: "var(--fg)",
+                            marginTop: 16,
+                            marginBottom: 12,
+                        }}
+                    >
                         Tell us about your business
                     </h1>
-                    <p className="mt-3 text-slate-600 leading-relaxed">
-                        Fill out as much or as little as you have right now. We&apos;ll follow up on anything we need. Required fields are marked with <span className="font-bold text-red-500">*</span>.
+                    <p style={{ color: "var(--fg-2)", lineHeight: 1.6, fontSize: 15 }}>
+                        Fill out as much or as little as you have right now. We&apos;ll follow up on anything we need. Required fields are marked with <span style={{ fontWeight: 700, color: "#ff7b7b" }}>*</span>.
                     </p>
                 </div>
 
@@ -701,7 +792,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </label>
 
                     {/* ── Section 1: Contact Info ─────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="1" title="Contact Information" />
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
@@ -794,7 +885,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 2: Business Details ─────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="2" title="Business Details" />
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
@@ -891,7 +982,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 3: Branding ─────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="3" title="Branding" />
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                             <div className={labelCls}>
@@ -972,11 +1063,12 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                     {["yes", "no"].map((val) => (
                                         <label
                                             key={val}
-                                            className={`cursor-pointer rounded-xl border px-5 py-2.5 text-sm font-semibold transition ${
+                                            className="cursor-pointer rounded-xl border px-5 py-2.5 text-sm font-semibold transition"
+                                            style={
                                                 formData.hasLogo === val
-                                                    ? "border-[#0E1A2B] bg-[#0E1A2B] text-white"
-                                                    : "border-slate-300 bg-white text-slate-700 hover:border-slate-500"
-                                            }`}
+                                                    ? { border: "1px solid var(--accent)", background: "rgba(182,168,255,0.15)", color: "var(--accent)" }
+                                                    : { border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }
+                                            }
                                         >
                                             <input
                                                 type="radio"
@@ -1034,7 +1126,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 4: Online Presence ──────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="4" title="Online Presence" />
 
                         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">SEO</p>
@@ -1127,7 +1219,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 5: Social Media ─────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="5" title="Social Media" />
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                             {(
@@ -1153,9 +1245,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 6: Website Content ──────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="6" title="Hero Section" />
-                        <p className="mb-5 text-sm text-slate-500">
+                        <p className="mb-5 text-sm" style={{ color: "var(--fg-3)" }}>
                             These populate your homepage hero. Leave any field blank and we&apos;ll suggest copy.
                         </p>
                         <div className="grid grid-cols-1 gap-5">
@@ -1317,9 +1409,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 7: Announcement ──────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="7" title="Announcement Banner" />
-                        <p className="mb-5 text-sm text-slate-500">
+                        <p className="mb-5 text-sm" style={{ color: "var(--fg-3)" }}>
                             Optional site-wide banner shown at the top of every page — promotions, seasonal hours, new service alerts, etc.
                         </p>
                         <label className={labelCls}>
@@ -1335,9 +1427,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 8: About ─────────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="8" title="About Section" />
-                        <p className="mb-5 text-sm text-slate-500">
+                        <p className="mb-5 text-sm" style={{ color: "var(--fg-3)" }}>
                             This populates the &ldquo;About&rdquo; section of your homepage. Leave any field blank and we&apos;ll write it for you.
                         </p>
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -1445,7 +1537,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 9: Services ─────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="9" title="Your Services" />
                         <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
@@ -1569,7 +1661,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 10: Work / Projects ──────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="10" title="Work / Projects" />
                         <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
@@ -1651,7 +1743,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 11: Testimonials ─────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="11" title="Testimonials" />
                         <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
@@ -1749,9 +1841,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 12: Key Stats ─────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="12" title="Key Stats" />
-                        <p className="mb-5 text-sm text-slate-500">
+                        <p className="mb-5 text-sm" style={{ color: "var(--fg-3)" }}>
                             Numbers shown in the hero section to build instant trust — e.g. &ldquo;200+ clients&rdquo; or &ldquo;10 years in business&rdquo;. Add up to 4.
                         </p>
                         <div className="space-y-3">
@@ -1803,7 +1895,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 13: FAQs ────────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="13" title="Frequently Asked Questions" />
                         <div className="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
@@ -1871,9 +1963,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 14: Final CTA ────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="14" title="Final Call-to-Action" />
-                        <p className="mb-5 text-sm text-slate-500">
+                        <p className="mb-5 text-sm" style={{ color: "var(--fg-3)" }}>
                             The closing section of your homepage — drives visitors to contact you or book.
                         </p>
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -1920,9 +2012,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 15: Footer ───────────────────────────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="15" title="Footer" />
-                        <p className="mb-5 text-sm text-slate-500">
+                        <p className="mb-5 text-sm" style={{ color: "var(--fg-3)" }}>
                             Content that appears in your site&apos;s footer on every page.
                         </p>
                         <div className="grid grid-cols-1 gap-5">
@@ -1938,7 +2030,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                     </section>
 
                     {/* ── Section 16: Consent + Security + Submit ─────────────── */}
-                    <section className="rounded-3xl border border-slate-200 bg-white/95 p-6 shadow-lg sm:p-8">
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="16" title="Submit" />
 
                         <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
@@ -1973,7 +2065,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                     !formData.consent
                                 }
                                 type="submit"
-                                className="inline-flex items-center justify-center rounded-xl border border-[#0E1A2B] bg-[#0E1A2B] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#132745] disabled:cursor-not-allowed disabled:opacity-70"
+                            className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70 btn primary"
                             >
                                 {submitting ? "Submitting..." : "Submit onboarding form"}
                             </button>

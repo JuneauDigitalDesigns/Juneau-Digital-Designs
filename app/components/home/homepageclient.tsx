@@ -1,847 +1,923 @@
-import Image from "next/image";
+"use client"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faComputer, faDraftingCompass, faGear, faWrench, IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { faGlobe, faPhone, faCalendarCheck, faChartBar, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence, useScroll, useTransform, type Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
-const sectionReveal: Variants = {
-    hidden: { opacity: 0, y: 40 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
-    }
-};
-
-const staggerContainer: Variants = {
-    hidden: {},
-    visible: {
-        transition: {
-            staggerChildren: 0.12,
-            delayChildren: 0.1
-        }
-    }
-};
-
-
-function Hero() {
-    const heroRef = useRef<HTMLElement>(null);
-    const { scrollYProgress } = useScroll({
-        target: heroRef,
-        offset: ["start start", "end start"]
-    });
-    const backgroundY = useTransform(scrollYProgress, [0, 1], [-48, 48]);
-
-    return (
-        <>
-            <motion.section
-                ref={heroRef}
-                className="relative w-full overflow-hidden"
-                variants={sectionReveal}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, amount: 0.5 }}
-            >
-
-                <motion.div className="absolute -inset-x-0 -top-24 -bottom-24 z-0 will-change-transform" style={{ y: backgroundY }}>
-                    <Image
-                        src="/hero_background1.png"
-                        alt="Hero Background"
-                        fill
-                        priority
-                        className="object-cover"
-                    />
-
-                    <div className="absolute inset-0 bg-black/30" />
-                </motion.div>
-
-
-                <div className="relative z-10 w-full min-h-[70vh] md:min-h-[78vh] py-24 md:py-28 px-4 md:px-16 flex justify-center items-center">
-                    <div className="w-full flex flex-col md:flex-row items-center md:space-x-4">
-
-                        <div className="w-full md:w-1/2 flex flex-col items-center md:items-start px-4 text-center md:text-left text-white">
-                            <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
-                                Every Pixel Matters.
-                                <span className="block text-[#D4672A]">Every Click Counts.</span>
-                            </h1>
-
-                            <p className="text-xl md:text-2xl mb-6 max-w-3xl">
-                                At <span className="font-semibold text-2xl text-[#D4672A]">Juneau Digital Designs</span>, we craft websites where no detail is too small.
-                                From micro-interactions to seamless navigation, we focus on the user experience that ensures your audience stays engaged with your business.
-                            </p>
-
-                            <a href="/pricing" className="border px-6 py-3 rounded hover:bg-white hover:text-black transition">
-                                Get Started
-                            </a>
-                        </div>
-
-                    </div>
-                </div>
-            </motion.section>
-
-        </>
-
-
-    )
+/* ── Scroll reveal hook ───────────────────────────────────── */
+function useReveal(options: IntersectionObserverInit = {}) {
+    const ref = useRef<HTMLElement>(null);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((e) => {
+                    if (e.isIntersecting) {
+                        el.classList.add("is-in");
+                        io.unobserve(el);
+                    }
+                });
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -8% 0px", ...options }
+        );
+        io.observe(el);
+        return () => io.disconnect();
+    }, []);
+    return ref;
 }
 
+function Reveal({
+    children,
+    delay = 0,
+    className = "",
+    style,
+    as: Tag = "div",
+}: {
+    children: React.ReactNode;
+    delay?: number;
+    className?: string;
+    style?: React.CSSProperties;
+    as?: React.ElementType;
+}) {
+    const ref = useReveal();
+    return (
+        <Tag
+            ref={ref}
+            className={`reveal ${className}`}
+            data-delay={delay || undefined}
+            style={style}
+        >
+            {children}
+        </Tag>
+    );
+}
+
+/* ── Animated counter ────────────────────────────────────── */
+function useCounter(
+    target: number,
+    { duration = 1600, decimals = 0 }: { duration?: number; decimals?: number } = {}
+): [React.RefObject<HTMLSpanElement | null>, string] {
+    const [value, setValue] = useState(0);
+    const ref = useRef<HTMLSpanElement>(null);
+    const startedRef = useRef(false);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((e) => {
+                    if (!e.isIntersecting || startedRef.current) return;
+                    startedRef.current = true;
+                    const t0 = performance.now();
+                    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+                    const step = (now: number) => {
+                        const t = Math.min(1, (now - t0) / duration);
+                        setValue(target * ease(t));
+                        if (t < 1) requestAnimationFrame(step);
+                        else setValue(target);
+                    };
+                    requestAnimationFrame(step);
+                });
+            },
+            { threshold: 0.3 }
+        );
+        io.observe(el);
+        return () => io.disconnect();
+    }, [target, duration]);
+
+    const display =
+        decimals > 0 ? value.toFixed(decimals) : Math.round(value).toLocaleString();
+    return [ref, display];
+}
+
+function CounterEl({
+    to,
+    duration,
+    decimals = 0,
+    suffix = "",
+}: {
+    to: number;
+    duration?: number;
+    decimals?: number;
+    suffix?: string;
+}) {
+    const [ref, val] = useCounter(to, { duration, decimals });
+    return <span ref={ref}>{val}{suffix}</span>;
+}
+
+/* ── Hero ─────────────────────────────────────────────────── */
+function Hero() {
+    return (
+        <section
+            style={{
+                position: "relative",
+                overflow: "hidden",
+                padding: "140px 0 100px",
+                minHeight: "80vh",
+                display: "flex",
+                alignItems: "center",
+            }}
+        >
+            {/* Aurora grid overlay */}
+            <div className="aurora-grid" />
+
+            {/* Aurora blob background */}
+            <div className="aurora-bg">
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 620,
+                        height: 620,
+                        background: "radial-gradient(circle, rgba(182,168,255,0.55) 0%, transparent 70%)",
+                        left: "5%",
+                        top: "10%",
+                    }}
+                />
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 540,
+                        height: 540,
+                        background: "radial-gradient(circle, rgba(120,90,255,0.45) 0%, transparent 70%)",
+                        right: "8%",
+                        top: "0%",
+                        animationDelay: "-8s",
+                    }}
+                />
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 700,
+                        height: 700,
+                        background: "radial-gradient(circle, rgba(38,80,180,0.5) 0%, transparent 70%)",
+                        left: "30%",
+                        top: "30%",
+                        animationDelay: "-14s",
+                    }}
+                />
+            </div>
+
+            {/* Content */}
+            <div
+                style={{
+                    position: "relative",
+                    zIndex: 2,
+                    width: "100%",
+                    maxWidth: 1240,
+                    margin: "0 auto",
+                    padding: "0 max(24px, 4vw)",
+                    textAlign: "center",
+                }}
+            >
+                <Reveal>
+                    <h1
+                        style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(48px, 7vw, 96px)",
+                            fontWeight: 400,
+                            lineHeight: 0.98,
+                            letterSpacing: "-0.035em",
+                            color: "var(--fg)",
+                            marginBottom: 28,
+                        }}
+                    >
+                        We build your site.
+                        <span
+                            style={{
+                                display: "block",
+                                fontStyle: "italic",
+                                color: "var(--accent)",
+                            }}
+                        >
+                            Your site books your clients.
+                        </span>
+                    </h1>
+                </Reveal>
+
+                <Reveal delay={2}>
+                    <p
+                        style={{
+                            fontSize: 18,
+                            lineHeight: 1.6,
+                            color: "var(--fg-2)",
+                            maxWidth: "54ch",
+                            margin: "0 auto 36px",
+                        }}
+                    >
+                        We build the site. We install the AI receptionist. Every inbound call gets answered, qualified, and booked — even at 2 a.m. on a Sunday.
+                    </p>
+                </Reveal>
+
+                <Reveal delay={3} style={{ marginBottom: 80 }}>
+                    <a href="/pricing" className="btn primary lg">
+                        Get Started
+                    </a>
+                </Reveal>
+
+                {/* Hero stat counter panel */}
+                <Reveal delay={4}>
+                    <div
+                        className="glass"
+                        style={{
+                            maxWidth: 880,
+                            margin: "0 auto",
+                            padding: "40px 36px",
+                            position: "relative",
+                        }}
+                    >
+                        <div className="kicker" style={{ color: "rgba(244,246,251,0.55)" }}>
+                            ━━ Calls captured by JD across the network · this month
+                        </div>
+                        <div
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(80px, 13vw, 168px)",
+                                lineHeight: 0.95,
+                                letterSpacing: "-0.045em",
+                                fontWeight: 400,
+                                marginTop: 6,
+                                background: "linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.55) 100%)",
+                                WebkitBackgroundClip: "text",
+                                backgroundClip: "text",
+                                color: "transparent",
+                                textShadow: "0 0 40px rgba(91,232,224,0.18)",
+                            }}
+                        >
+                            <CounterEl to={18472} duration={2000} />
+                        </div>
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1px 1fr 1px 1fr",
+                                gap: 28,
+                                alignItems: "center",
+                                marginTop: 24,
+                                paddingTop: 22,
+                                borderTop: "1px solid var(--rule)",
+                                fontSize: 13,
+                                color: "var(--fg-2)",
+                            }}
+                        >
+                            <div>
+                                <div className="kicker">avg pickup</div>
+                                <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, marginTop: 4 }}>
+                                    <CounterEl to={1.4} decimals={1} suffix="s" />
+                                </div>
+                            </div>
+                            <div style={{ background: "var(--rule)", height: 36 }} />
+                            <div>
+                                <div className="kicker">booking rate</div>
+                                <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, marginTop: 4 }}>
+                                    <CounterEl to={73} suffix="%" />
+                                </div>
+                            </div>
+                            <div style={{ background: "var(--rule)", height: 36 }} />
+                            <div>
+                                <div className="kicker">missed calls</div>
+                                <div style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, marginTop: 4, color: "var(--accent)" }}>
+                                    0
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
+/* ── Services / What We Offer ─────────────────────────────── */
 function Offer() {
-    interface Videos {
-        src: string;
-        type: string;
-        body?: string;
-    }
-
-    interface OfferingSection {
-        heading: string;
-        summary: string;
-        bullets: string[];
-    }
-
-    interface Offering {
+    interface Service {
+        id: string;
         title: string;
         icon: IconDefinition;
-        iconColor?: string;
+        tagline: string;
         description: string;
-        clicked: {
-            title: string;
-            description: string;
-            sections: OfferingSection[];
-            showcase: string[];
-            videos: Videos[];
-        };
+        bullets: string[];
+        availableOn: string;
     }
 
-    const [selectedOffering, setSelectedOffering] = useState<Offering | null>(null);
-    const [isClient, setIsClient] = useState(false);
-    const handleOfferingClick = (offering: Offering) => {
-        setSelectedOffering(offering);
-    }
-    const offerings: Offering[] = [
+    const services: Service[] = [
         {
-            title: "User-First Design",
-            icon: faDraftingCompass,
-            iconColor: "text-blue-700",
-            description: "We put users at the heart of every design decision."
-            , clicked: {
-                title: "End-Users are at the Heart of Design",
-                description: "At Juneau Digital Designs, our user-first design philosophy ensures that every element of your website is crafted with the end-user in mind. We prioritize usability, accessibility, and engagement to create digital experiences that resonate with your audience. Our goal is to create websites that not only meet your business objectives but also provide a seamless and enjoyable experience for your users.",
-                sections: [
-                    {
-                        heading: "Discovery and UX Mapping",
-                        summary: "We start by understanding how your customers think, what they need, and what slows them down.",
-                        bullets: [
-                            "Customer journeys mapped from first visit to final conversion.",
-                            "Page intent defined so each section has a clear job.",
-                            "Accessibility and readability built into structure from day one."
-                        ]
-                    },
-                    {
-                        heading: "Interaction and Trust Signals",
-                        summary: "We design micro-interactions that guide attention and reduce friction during key decisions.",
-                        bullets: [
-                            "Clear CTA hierarchy that supports primary business goals.",
-                            "Intentional spacing and typography that improve scanability.",
-                            "Consistent visual cues that build confidence while users browse."
-                        ]
-                    }
-                ],
-                showcase: [
-                    "Usability-first page flow",
-                    "Accessible content hierarchy",
-                    "Micro-interactions with purpose"
-                ],
-                videos: []
-            }
+            id: "website",
+            title: "Website & Local SEO",
+            icon: faGlobe,
+            tagline: "A site that ranks, loads fast, and converts.",
+            description: "We build a custom, lightning-fast website served from Cloudflare's global edge — not a template, not a builder. Every page is structured for local search, scored for 95+ Lighthouse on mobile, and wired with schema markup so Google knows exactly who you are and where you serve.",
+            bullets: [
+                "Custom 5-page website built for your brand and market",
+                "Cloudflare edge delivery — faster than your competitors' hosting",
+                "95+ Lighthouse mobile score, schema markup for local search",
+                "Google Business Profile optimization",
+                "Smart contact forms with instant lead capture",
+                "AI text-back on missed calls so no lead goes cold",
+            ],
+            availableOn: "All plans",
         },
         {
-            title: "Responsive Web Experiences",
-            icon: faComputer,
-            iconColor: "text-yellow-500",
-            description: "Crafting visually stunning, responsive websites tailored to your brand identity."
-            , clicked: {
-                title: "Websites That Adapt and Engage",
-                description: "We take great care in designing websites that not only look stunning but also function flawlessly across all devices. Our responsive web design approach ensures that your site adapts seamlessly to different screen sizes, providing an optimal viewing experience for users on desktops, tablets, and smartphones. By focusing on performance optimization and user engagement, we create digital experiences that captivate your audience and drive meaningful interactions with your brand.",
-                sections: [
-                    {
-                        heading: "Device-Ready Layout Systems",
-                        summary: "Your site is designed to feel intentional on every screen, not simply resized.",
-                        bullets: [
-                            "Mobile-first component design with adaptive breakpoints.",
-                            "Touch-friendly navigation and controls for smaller devices.",
-                            "Image and content scaling that preserves visual quality."
-                        ]
-                    },
-                    {
-                        heading: "Performance and Engagement",
-                        summary: "Responsive design is paired with speed and clarity so users stay engaged.",
-                        bullets: [
-                            "Optimized media delivery for faster load times.",
-                            "Content blocks arranged for quick scanning and decision-making.",
-                            "Layout consistency across desktop, tablet, and mobile browsers."
-                        ]
-                    }
-                ],
-                showcase: [
-                    "Mobile-first UI foundations",
-                    "Cross-device consistency",
-                    "Performance-aware frontend patterns"
-                ],
-                videos: []
-            }
+            id: "receptionist",
+            title: "AI Voice Receptionist",
+            icon: faPhone,
+            tagline: "Every call answered. Every caller qualified. 24/7.",
+            description: "Your existing number rolls to a Twilio line that streams in under a second to an ElevenLabs voice powered by an OpenAI reasoning loop. It knows your services, hours, prices, and service area — and it books real appointments, not just takes messages.",
+            bullets: [
+                "24/7 AI voice answers every inbound call under 1.4 seconds",
+                "Trained on your exact services, pricing, hours, and service area",
+                "Qualifies callers before transferring or booking",
+                "Owner SMS alert sent in under 60 seconds per captured lead",
+                "Monthly call review and AI tuning session included",
+            ],
+            availableOn: "Growth & Front Office plans",
         },
         {
-            title: "End-to-End Development",
-            icon: faGear,
-            iconColor: "text-green-600",
-            description: "Building robust web applications from front-end to back-end."
-            , clicked: {
-                title: "Full Stack Excellence",
-                description: "Juneau Digital Designs offers comprehensive full stack development services that cover every aspect of your web application. From crafting dynamic front-end interfaces using the latest frameworks to developing scalable back-end systems, we ensure that your website is built for performance and reliability. Our expertise in database management, API integration, and cloud deployment allows us to deliver end-to-end solutions that meet your business needs and provide a seamless experience for your users.",
-                sections: [
-                    {
-                        heading: "Frontend to Backend Alignment",
-                        summary: "We connect design, data, and logic so your application behaves as one system.",
-                        bullets: [
-                            "Component architecture that scales as new features are added.",
-                            "API contracts that keep frontend and backend synchronized.",
-                            "Reliable form handling, validation, and secure data flow."
-                        ]
-                    },
-                    {
-                        heading: "Infrastructure and Launch Readiness",
-                        summary: "We deliver systems that are production-ready from day one.",
-                        bullets: [
-                            "Deployment pipelines and environment configuration.",
-                            "Error handling, logging, and monitoring foundations.",
-                            "Performance and reliability checks before release."
-                        ]
-                    }
-                ],
-                showcase: [
-                    "Integrated frontend/backend workflow",
-                    "API and data model planning",
-                    "Production launch support"
-                ],
-                videos: []
-            }
+            id: "booking",
+            title: "Live Calendar Booking",
+            icon: faCalendarCheck,
+            tagline: "Calls that end in a confirmed appointment, not a voicemail.",
+            description: "When a caller is ready to book, the AI calls into your scheduling system in real time — holding the slot, returning the confirmation ID, and firing a text to both parties. No back-and-forth. No missed follow-up. End-to-end latency averages 4 seconds.",
+            bullets: [
+                "Direct integration with Google Calendar, Jobber, ServiceTitan, or Acuity",
+                "Holds the appointment slot in real time — no double-booking",
+                "Caller and owner both receive an SMS confirmation",
+                "CRM row created automatically on every booking",
+                "Zero back-and-forth — the job is on the calendar before the call ends",
+            ],
+            availableOn: "Growth & Front Office plans",
         },
         {
-            title: "Ongoing Maintenance & Support",
-            icon: faWrench,
-            iconColor: "text-gray-700",
-            description: "Comprehensive maintenance and support services to keep your website running smoothly."
-            , clicked: {
-                title: "Support That Never Sleeps",
-                description: "After launching your website, our commitment to your success continues with our ongoing maintenance and support services. We understand that a well-maintained website is crucial for security, performance, and user satisfaction. Our team provides regular updates, security patches, and backups to keep your site running smoothly. Additionally, we offer troubleshooting assistance and implement enhancements based on user feedback and evolving business needs. With Juneau Digital Designs, you can rest assured that your digital presence is in capable hands.",
-                sections: [
-                    {
-                        heading: "Preventive Maintenance",
-                        summary: "We proactively protect your website from downtime, regressions, and security risks.",
-                        bullets: [
-                            "Routine dependency and security patch management.",
-                            "Scheduled backups and restore verification.",
-                            "Performance reviews to catch slowdowns early."
-                        ]
-                    },
-                    {
-                        heading: "Priority Support and Improvement",
-                        summary: "When your business evolves, your website evolves with it.",
-                        bullets: [
-                            "Issue triage with clear communication and turnaround.",
-                            "Small enhancements shipped without disrupting operations.",
-                            "Roadmap recommendations based on real usage patterns."
-                        ]
-                    }
-                ],
-                showcase: [
-                    "Security and update cadence",
-                    "Rapid issue response",
-                    "Continuous iteration support"
-                ],
-                videos: []
-            }
-        }
+            id: "dashboard",
+            title: "Owner Dashboard & Reports",
+            icon: faChartBar,
+            tagline: "Every call, booking, and dollar — visible at a glance.",
+            description: "Your dashboard shows every call, every booking, and every dollar in motion. Monthly performance reports are included on all plans. Growth clients get bi-monthly deep-dives. Front Office clients get quarterly strategy sessions with our founder — no tickets, no bots.",
+            bullets: [
+                "Real-time call log and booking feed",
+                "SMS notification on every captured lead",
+                "Monthly performance reports on all plans",
+                "Bi-monthly reports on Growth and above",
+                "Deep CRM integration and multi-team routing on Front Office",
+                "Quarterly strategy sessions with our founder on Front Office",
+            ],
+            availableOn: "All plans · depth grows per tier",
+        },
     ];
 
-    const modalRef = useRef<HTMLDivElement>(null);
-    const handleCloseModal = () => {
-        setSelectedOffering(null);
-    }
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-                handleCloseModal();
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        }
-    }, [handleCloseModal]);
-
-    useEffect(() => {
-        setIsClient(true);
-    }, []);
-
-    useEffect(() => {
-        if (!selectedOffering) return;
-
-        const onEscape = (event: KeyboardEvent) => {
-            if (event.key === "Escape") {
-                handleCloseModal();
-            }
-        };
-
-        const previousOverflow = document.body.style.overflow;
-        const previousPaddingRight = document.body.style.paddingRight;
-        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-        document.body.style.overflow = "hidden";
-        if (scrollbarWidth > 0) {
-            document.body.style.paddingRight = `${scrollbarWidth}px`;
-        }
-        document.addEventListener("keydown", onEscape);
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-            document.body.style.paddingRight = previousPaddingRight;
-            document.removeEventListener("keydown", onEscape);
-        };
-    }, [selectedOffering]);
-
-    const modalOverlay = (
-        <AnimatePresence>
-            {selectedOffering && (
-                <motion.div
-                    className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-[2px] flex justify-center items-center px-4"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    aria-modal="true"
-                    role="dialog"
-                >
-                    <motion.div
-                        ref={modalRef}
-                        className="no-scrollbar bg-white rounded-3xl p-8 md:p-10 max-w-3xl w-full relative shadow-2xl max-h-[90vh] overflow-y-auto"
-                        initial={{ opacity: 0, y: 20, scale: 0.97 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.98 }}
-                        transition={{ duration: 0.25 }}
-                    >
-                        <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 rounded-t-3xl bg-gradient-to-r from-sky-500 via-cyan-400 to-emerald-400" />
-
-                        <button
-                            className="absolute top-4 right-5 text-gray-600 hover:text-gray-900 text-4xl hover:cursor-pointer"
-                            onClick={() => setSelectedOffering(null)}
-                            aria-label="Close service details"
-                        >
-                            &times;
-                        </button>
-
-                        <h3 className="text-3xl md:text-4xl font-extrabold mb-4 text-zinc-900">
-                            {selectedOffering.clicked.title}
-                        </h3>
-
-                        <p className="text-zinc-700 leading-relaxed text-lg">
-                            {selectedOffering.clicked.description}
-                        </p>
-                        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {selectedOffering.clicked.sections.map((section) => (
-                                <div key={section.heading} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
-                                    <h4 className="text-lg font-extrabold text-zinc-900 mb-2">{section.heading}</h4>
-                                    <p className="text-zinc-700 leading-relaxed mb-3">{section.summary}</p>
-                                    <ul className="space-y-2 text-zinc-700 text-sm leading-relaxed">
-                                        {section.bullets.map((bullet) => (
-                                            <li key={bullet} className="flex items-start gap-2">
-                                                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zinc-500 shrink-0" />
-                                                <span>{bullet}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-6">
-                            <h4 className="text-sm font-bold uppercase tracking-[0.12em] text-zinc-500 mb-3">What This Includes</h4>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedOffering.clicked.showcase.map((item) => (
-                                    <span key={item} className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-800">
-                                        {item}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-
-                        {selectedOffering.clicked.videos.length > 0 && (
-                            <div className="mt-8 space-y-6">
-                                {selectedOffering.clicked.videos.map((video, index) => (
-                                    <div key={index}>
-                                        <video
-                                            src={video.src}
-                                            autoPlay
-                                            loop
-                                            muted
-                                            playsInline
-                                            className="w-full rounded-xl shadow-md border border-zinc-200"
-                                        />
-                                        {video.body && <p className="text-gray-700 mt-3 leading-relaxed">{video.body}</p>}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
+    const [activeId, setActiveId] = useState<string>(services[0].id);
+    const active = services.find(s => s.id === activeId)!;
 
     return (
-        <motion.section
-            className="relative z-20 py-24 px-4 overflow-hidden bg-gradient-to-b from-slate-50 via-white to-zinc-100"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.15 }}
-        >
-            {isClient ? createPortal(modalOverlay, document.body) : null}
-
-            <motion.div className="relative flex flex-col w-full items-center justify-center mb-6" variants={sectionReveal}>
-                <span className="inline-flex items-center rounded-full border border-zinc-300 bg-white/80 px-4 py-1 text-xs md:text-sm font-semibold tracking-[0.12em] uppercase text-zinc-700 mb-5">
-                    Our Services
-                </span>
-                <h2 className="text-4xl md:text-6xl font-extrabold mb-4 text-center text-zinc-900 leading-tight">
-                    What We <span className="text-[#D4672A]">Offer</span>
-                </h2>
-                <span className="text-sm md:text-base italic text-center mb-12 text-zinc-600">Click any service card to open details</span>
-            </motion.div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-                {offerings.map((offering, index) => (
-                    <motion.div
-                        key={offering.title}
-                        className="h-full hover:cursor-pointer"
-                        onClick={() => handleOfferingClick(offering)}
-                        variants={sectionReveal}
-                        whileHover={{ y: -6 }}
-                        transition={{ duration: 0.2 }}
+        <section style={{ position: "relative", padding: "120px 0" }}>
+            <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
+                <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
+                    <span className="eyebrow" style={{ marginBottom: 20 }}>Our Services</span>
+                    <h2
+                        style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(36px, 5vw, 64px)",
+                            fontWeight: 400,
+                            letterSpacing: "-0.025em",
+                            color: "var(--fg)",
+                            marginTop: 16,
+                            marginBottom: 12,
+                        }}
                     >
-                        <div className="group bg-white/95 p-8 rounded-3xl shadow-lg border border-zinc-200 hover:shadow-2xl transition text-center h-full relative overflow-hidden flex flex-col">
-                            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-500 via-cyan-400 to-emerald-400" />
-                            <div className="absolute top-4 right-4 text-xs font-bold text-zinc-400">0{index + 1}</div>
-                            <div className={`${offering.iconColor} mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-100 group-hover:scale-105 transition`}>
-                                <FontAwesomeIcon icon={offering.icon} size="2x" />
-                            </div>
-                            <h3 className="text-2xl font-black mb-3 text-zinc-900">{offering.title}</h3>
-                            <p className="text-gray-700 leading-relaxed mb-6 flex-1">
-                                {offering.description}
-                            </p>
-                            <span className="relative inline-flex w-full items-center justify-center rounded-full border border-zinc-900 px-4 py-2 text-sm font-semibold text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white transition">
-                                <span className="text-center">Learn More</span>
-                                <span aria-hidden="true" className="absolute right-4 transition-transform group-hover:translate-x-1">&gt;</span>
-                            </span>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
-        </motion.section>
-
-    )
-}
-
-function Technology() {
-    interface Technology {
-        name: string;
-        logo: string;
-        shortDescription: string;
-        detailedDescription: string;
-        usageTitle: string;
-        usagePoints: string[];
-    }
-
-
-    const technologies: Technology[] = [
-        {
-            name: "Next.js",
-            logo: "/techlogos/nextjs.png",
-            shortDescription: "React framework for modern apps",
-            detailedDescription: "Next.js is the backbone of most projects we build. It gives us a clean structure out of the gate, helps pages load fast, and keeps SEO in a great spot. In simple terms: it is the scaffolding that lets us build quickly without the site feeling pieced together.",
-            usageTitle: "Project Scaffolding and App Architecture",
-            usagePoints: [
-                "We build page routing, shared layouts, and metadata in one place so everything stays consistent.",
-                "Marketing pages are pre-rendered for speed, while interactive pages stay dynamic where needed.",
-                "We use API routes and server actions for lightweight backend tasks inside the same project."
-            ]
-        },
-        {
-            name: "Node.js",
-            logo: "/techlogos/nodejs.png",
-            shortDescription: "JavaScript runtime",
-            detailedDescription: "Node.js runs the behind-the-scenes side of your site, from APIs to custom logic. It keeps things fast, dependable, and easy to scale as your business grows. We like it because it plays nicely with the same JavaScript ecosystem we use on the frontend.",
-            usageTitle: "Backend APIs and Business Logic",
-            usagePoints: [
-                "We build custom endpoints for forms, CRM syncing, and third-party integrations.",
-                "Background tasks like notifications and webhook handling run on Node workflows.",
-                "Authentication and permissions logic live here to keep sensitive operations secure."
-            ]
-        },
-        {
-            name: "Tailwind CSS",
-            logo: "/techlogos/tailwindcss.png",
-            shortDescription: "Utility-first CSS",
-            detailedDescription: "Tailwind helps us design faster without sacrificing quality. We can build clean, responsive interfaces that stay consistent across the whole site, and updates are easier because styles are structured in a predictable way. That means fewer visual bugs and faster iteration.",
-            usageTitle: "Design System Execution",
-            usagePoints: [
-                "We create reusable UI patterns for buttons, spacing, typography, and section layouts.",
-                "Every component gets mobile-first breakpoints so screens feel intentional on any device.",
-                "Design tweaks happen directly in components, which speeds up revisions with less CSS drift."
-            ]
-        },
-        {
-            name: "TypeScript",
-            logo: "/techlogos/typescript.png",
-            shortDescription: "Typed JavaScript",
-            detailedDescription: "TypeScript gives our code guardrails. It catches issues early, keeps features predictable, and makes the project easier to maintain over time. For clients, that translates to fewer surprises and a smoother launch process.",
-            usageTitle: "Type Safety and Code Reliability",
-            usagePoints: [
-                "We type API request and response shapes to prevent frontend/backend mismatch bugs.",
-                "Shared interfaces keep forms, database models, and UI components in sync.",
-                "Refactors are safer because the compiler points out broken paths before deployment."
-            ]
-        },
-        {
-            name: "PostgreSQL",
-            logo: "/techlogos/postgresql.png",
-            shortDescription: "Open source database",
-            detailedDescription: "PostgreSQL is our go-to when data needs to be structured, accurate, and reliable. It handles complex queries well and holds up as traffic and data grow. If your project depends on strong reporting or relationships between data, this is usually the right fit.",
-            usageTitle: "Structured Data and Reporting",
-            usagePoints: [
-                "We model relationships like users, orders, and services with strong data constraints.",
-                "Custom queries power admin dashboards, reporting views, and filtered search results.",
-                "Backups, migrations, and indexing are planned up front for long-term stability."
-            ]
-        },
-        {
-            name: "Supabase",
-            logo: "/techlogos/supabase.png",
-            shortDescription: "Open-source Firebase alternative",
-            detailedDescription: "Supabase is our go-to when a project needs a structured, relational backend without the overhead of managing infrastructure. It gives us a full Postgres database with built-in auth, real-time subscriptions, and auto-generated APIs out of the box, letting teams move fast while keeping data integrity intact.",
-            usageTitle: "Structured Backends with Real-Time Capabilities",
-            usagePoints: [
-                "We use Supabase as a full backend layer, leveraging Postgres for relational data with strong consistency guarantees.",
-                "Built-in auth and row-level security let us ship user-facing features without standing up a separate auth service.",
-                "Real-time subscriptions make it a natural fit for collaborative tools, live dashboards, and event-driven features."
-            ]
-        },
-        {
-            name: "AI",
-            logo: "/techlogos/ai.webp",
-            shortDescription: "Artificial Intelligence",
-            detailedDescription: "We use AI where it actually adds value, not just because it is trendy. From automating repetitive tasks to personalizing user experiences, it helps teams work smarter and users get what they need faster. Our focus is practical AI that improves real business outcomes.",
-            usageTitle: "Automation and Personalization",
-            usagePoints: [
-                "We add AI where it saves time, like content drafting, tagging, and response suggestions.",
-                "Search and recommendations can be tuned to show more relevant results to each user.",
-                "Support features like smart triage and answer assist help teams respond faster."
-            ]
-        }
-    ];
-
-    const [selectedTech, setSelectedTech] = useState<Technology>(technologies[0] || null);
-
-    return (
-        <motion.section
-            className="relative z-20 bg-gradient-to-b from-white via-zinc-50 to-white py-24 px-4"
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-        >
-            <div className="max-w-6xl mx-auto">
-                <motion.div className="text-center mb-12" variants={sectionReveal}>
-                    <span className="inline-flex items-center rounded-full border border-zinc-300 bg-white px-4 py-1 text-xs md:text-sm font-semibold tracking-[0.12em] uppercase text-zinc-700 mb-5">
-                        Built With Proven Tools
-                    </span>
-                    <h2 className="text-4xl md:text-6xl font-extrabold mb-4 text-center text-zinc-900 leading-tight">
-                        Technologies We <span className="text-[#D4672A]">Use</span>
+                        What We <em style={{ color: "var(--accent)", fontStyle: "italic" }}>Deliver</em>
                     </h2>
-                    <p className="text-zinc-600 md:text-lg max-w-3xl mx-auto">
-                        We choose each part of the stack for speed, scalability, and long-term maintainability.
-                    </p>
-                </motion.div>
+                    <p className="kicker">Select a service to see what&apos;s included</p>
+                </Reveal>
 
-                <motion.div className="flex flex-wrap justify-center gap-3 md:gap-4 mb-12" variants={sectionReveal}>
-                    {technologies.map((tech) => {
-                        const isActive = selectedTech.name === tech.name;
-                        return (
-                            <motion.button
-                                key={tech.name}
-                                onClick={() => setSelectedTech(tech)}
-                                className={`
-                group flex items-center gap-2 px-5 py-2.5 rounded-full border transition cursor-pointer text-sm md:text-base
-                ${isActive
-                                        ? "bg-zinc-900 text-white border-zinc-900 shadow-lg"
-                                        : "bg-white text-zinc-900 border-zinc-300 hover:border-zinc-500 hover:bg-zinc-100"}
-              `}
-                                variants={sectionReveal}
-                                whileHover={{ y: -2 }}
-                                whileTap={{ scale: 0.98 }}
+                {/* Pill selector */}
+                <Reveal delay={1}>
+                    <div
+                        style={{
+                            display: "flex",
+                            gap: 10,
+                            justifyContent: "center",
+                            flexWrap: "wrap",
+                            marginBottom: 40,
+                        }}
+                    >
+                        {services.map(s => (
+                            <button
+                                key={s.id}
+                                onClick={() => setActiveId(s.id)}
+                                style={{
+                                    border: "1px solid",
+                                    borderColor: activeId === s.id ? "var(--accent)" : "var(--rule)",
+                                    borderRadius: 999,
+                                    padding: "10px 22px",
+                                    background: activeId === s.id ? "var(--accent)" : "var(--surface)",
+                                    color: activeId === s.id ? "#06121a" : "var(--fg-2)",
+                                    fontSize: 13,
+                                    fontFamily: "var(--font-mono)",
+                                    cursor: "pointer",
+                                    transition: "all 0.18s ease",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8,
+                                    letterSpacing: "0.01em",
+                                }}
                             >
-                                <Image
-                                    src={tech.logo}
-                                    alt={`${tech.name} Logo`}
-                                    width={24}
-                                    height={24}
-                                    className={`rounded-full ${isActive ? "bg-white p-0.5" : ""}`}
-                                />
-                                <span>{tech.name}</span>
-                            </motion.button>
-                        );
-                    })}
-                </motion.div>
-
-                <AnimatePresence mode="wait">
-                    {selectedTech && (
-                        <motion.div
-                            key={selectedTech.name}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -20 }}
-                            transition={{ duration: 0.3 }}
-                            className="p-8 md:p-10 bg-white rounded-3xl shadow-2xl border border-zinc-200"
-                        >
-                            <div className="flex flex-col gap-6">
-                                <div className="flex items-center gap-4 md:gap-5">
-                                    <div className="w-16 h-16 md:w-24 md:h-24 flex items-center justify-center rounded-2xl bg-zinc-100 shadow-inner border border-zinc-200 flex-shrink-0">
-                                        <Image
-                                            src={selectedTech.logo}
-                                            alt={`${selectedTech.name} Logo`}
-                                            width={80}
-                                            height={80}
-                                            className="p-2 md:p-3 object-contain"
-                                        />
-                                    </div>
-
-                                    <div className="text-left">
-                                        <h3 className="text-3xl md:text-4xl font-extrabold text-zinc-900 mb-2">
-                                            {selectedTech.name}
-                                        </h3>
-                                        <p className="text-base md:text-lg text-zinc-600">
-                                            {selectedTech.shortDescription}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <p className="text-lg text-zinc-800 leading-relaxed text-left">
-                                    {selectedTech.detailedDescription}
-                                </p>
-
-                                <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 md:p-6">
-                                    <h4 className="text-lg md:text-xl font-bold text-zinc-900 mb-3">
-                                        How We Use It: {selectedTech.usageTitle}
-                                    </h4>
-                                    <ul className="space-y-2 text-zinc-700 leading-relaxed text-left">
-                                        {selectedTech.usagePoints.map((point, index) => (
-                                            <li key={index} className="flex items-start gap-2">
-                                                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-zinc-600 flex-shrink-0" />
-                                                <span>{point}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        </motion.section>
-    );
-}
-
-
-function Projects() {
-    interface Project {
-        title?: string;
-        description?: string;
-        image?: string;
-        link?: string;
-        category?: string;
-    }
-
-    const projects: Project[] = [
-        {
-            title: "Air Service of Florida",
-            description: "A modern, responsive website for a regional industrial air service company. ",
-            image: "/airserviceflorida_1.png",
-            link: "https://airserviceofflorida.com",
-            category: "Marketing"
-
-        },
-        {
-            title: "Atlantic Compressor",
-            description: "A sleek, user-friendly e-commerce platform for a leading provider of industrial compressors and parts.",
-            image: "/atlanticcompressor_1.png",
-            link: "",
-            category: "E-Commerce"
-        }
-    ];
-    return (
-        <>
-            <motion.section
-                className="relative z-20 py-24 px-4 overflow-hidden bg-gradient-to-b from-zinc-100 via-slate-50 to-white"
-                variants={staggerContainer}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, amount: 0.2 }}
-            >
-                <div className="relative max-w-6xl mx-auto">
-                    <motion.div className="text-center mb-14" variants={sectionReveal}>
-                        <span className="inline-flex items-center rounded-full border border-zinc-300 bg-white/80 px-4 py-1 text-xs md:text-sm font-semibold tracking-[0.12em] uppercase text-zinc-700">
-                            Featured Work
-                        </span>
-                        <h2 className="text-4xl md:text-6xl font-extrabold mt-5 mb-5 leading-tight text-zinc-900">
-                            Recent <span className="text-[#D4672A]">Projects</span>
-                        </h2>
-                        <p className="text-lg md:text-xl text-zinc-700 max-w-3xl mx-auto">
-                            Real business outcomes, polished interactions, and production-ready engineering. Here are two launches we are proud of.
-                        </p>
-                    </motion.div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
-                        {projects.map((project, index) => (
-                            <motion.article
-                                key={project.title}
-                                initial={{ opacity: 0, y: 30 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                viewport={{ once: true, amount: 0.3 }}
-                                transition={{ duration: 0.45, delay: index * 0.12 }}
-                                className="group relative isolate rounded-3xl border border-zinc-200 bg-white/90 shadow-xl shadow-zinc-300/40 overflow-hidden"
-                                variants={sectionReveal}
-                            >
-                                {project.image && (
-                                    <div className="relative h-56 overflow-hidden">
-                                        <Image
-                                            src={project.image}
-                                            alt={project.title || "Project Image"}
-                                            width={1200}
-                                            height={700}
-                                            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/10 to-transparent" />
-                                        {project.category && (
-                                            <span className="absolute top-4 left-4 rounded-full bg-white/90 px-3 py-1 text-xs font-bold uppercase tracking-wide text-zinc-900">
-                                                {project.category}
-                                            </span>
-                                        )}
-                                    </div>
-                                )}
-
-                                <div className="p-7 text-left">
-                                    <h3 className="text-2xl md:text-3xl font-black mb-3 text-zinc-900">
-                                        {project.title}
-                                    </h3>
-                                    <p className="text-zinc-700 mb-6 leading-relaxed min-h-[72px]">
-                                        {project.description}
-                                    </p>
-                                    {project.link && (
-                                        <a
-                                            href={project.link}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-2 rounded-full border border-zinc-900 px-5 py-2.5 font-semibold text-zinc-900 transition hover:bg-zinc-900 hover:text-white"
-                                        >
-                                            Visit Website
-                                            <span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
-                                        </a>
-                                    )}
-                                </div>
-                            </motion.article>
+                                <FontAwesomeIcon icon={s.icon} style={{ fontSize: 12 }} />
+                                {s.title}
+                            </button>
                         ))}
                     </div>
-                </div>
-            </motion.section>
-        </>
-    )
-}
+                </Reveal>
 
-function Contact() {
-    return (
-        <>
-            <motion.section
-                className="relative w-full z-20 py-24 px-4 bg-gradient-to-r from-slate-100 via-white to-zinc-100 text-zinc-900 overflow-hidden"
-                variants={sectionReveal}
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: true, amount: 0.2 }}
-            >
-
-                <motion.div
-                    className="relative max-w-6xl mx-auto p-8 md:p-12"
-                    variants={staggerContainer}
-                >
-                    <div className="flex flex-col lg:flex-row gap-10 lg:items-end lg:justify-between">
-                        <div className="max-w-3xl">
-                            <span className="inline-flex items-center rounded-full border border-zinc-300 px-4 py-1 text-xs md:text-sm font-semibold tracking-[0.12em] uppercase text-zinc-700 mb-5">
-                                Let&apos;s Build Something Great
-                            </span>
-                            <h2 className="text-4xl md:text-6xl font-extrabold mb-5 leading-tight">
-                                Ready to <span className="text-[#D4672A]">Elevate</span> Your Digital Presence?
-                            </h2>
-                            <p className="text-lg md:text-xl text-zinc-700 leading-relaxed">
-                                Have a project in mind or just want to explore ideas? We keep the process simple, collaborative, and focused on results your business can feel.
-                            </p>
-
-                            <div className="mt-6 flex flex-wrap gap-3 text-sm text-zinc-700">
-                                <span className="rounded-full border border-zinc-300 bg-zinc-100 px-3 py-1">Fast turnaround</span>
-                                <span className="rounded-full border border-zinc-300 bg-zinc-100 px-3 py-1">Clear communication</span>
-                                <span className="rounded-full border border-zinc-300 bg-zinc-100 px-3 py-1">Built for growth</span>
+                {/* Detail panel */}
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={activeId}
+                        className="glass"
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.22, ease: "easeOut" }}
+                        style={{ padding: "40px 36px", borderRadius: 22, position: "relative", overflow: "hidden" }}
+                    >
+                        {/* Accent top bar */}
+                        <div
+                            style={{
+                                position: "absolute",
+                                inset: "0 0 auto 0",
+                                height: 2,
+                                borderRadius: "22px 22px 0 0",
+                                background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))",
+                            }}
+                        />
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr 1.2fr",
+                                gap: 48,
+                                alignItems: "start",
+                            }}
+                        >
+                            {/* Left: description */}
+                            <div>
+                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", marginBottom: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                                    {active.availableOn}
+                                </div>
+                                <h3
+                                    style={{
+                                        fontFamily: "var(--font-display)",
+                                        fontSize: "clamp(24px, 3vw, 38px)",
+                                        fontWeight: 400,
+                                        letterSpacing: "-0.02em",
+                                        color: "var(--fg)",
+                                        marginBottom: 16,
+                                        lineHeight: 1.1,
+                                    }}
+                                >
+                                    {active.title}
+                                </h3>
+                                <p
+                                    style={{
+                                        fontFamily: "var(--font-display)",
+                                        fontSize: 17,
+                                        fontStyle: "italic",
+                                        color: "var(--accent)",
+                                        marginBottom: 16,
+                                        lineHeight: 1.4,
+                                    }}
+                                >
+                                    {active.tagline}
+                                </p>
+                                <p style={{ color: "var(--fg-2)", lineHeight: 1.7, fontSize: 15 }}>
+                                    {active.description}
+                                </p>
+                            </div>
+                            {/* Right: bullets */}
+                            <div>
+                                <div className="kicker" style={{ marginBottom: 16 }}>What&apos;s included</div>
+                                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+                                    {active.bullets.map((bullet, i) => (
+                                        <li
+                                            key={i}
+                                            style={{
+                                                display: "flex",
+                                                alignItems: "flex-start",
+                                                gap: 12,
+                                                fontSize: 14.5,
+                                                color: "var(--fg-2)",
+                                                lineHeight: 1.5,
+                                            }}
+                                        >
+                                            <span style={{
+                                                marginTop: 5,
+                                                width: 6,
+                                                height: 6,
+                                                borderRadius: "50%",
+                                                background: "var(--accent)",
+                                                flexShrink: 0,
+                                            }} />
+                                            {bullet}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <div style={{ marginTop: 28 }}>
+                                    <a href="/pricing" className="btn primary" style={{ display: "inline-flex" }}>
+                                        View Pricing →
+                                    </a>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 lg:justify-end lg:self-end shrink-0">
-                            <a
-                                href="/pricing"
-                                className="inline-flex justify-center items-center rounded-full bg-zinc-900 text-white px-6 py-3 text-base font-bold hover:bg-zinc-800 transition min-w-[180px]"
-                            >
-                                View Pricing
-                            </a>
-                            <a
-                                href="/projects"
-                                className="inline-flex justify-center items-center rounded-full border border-zinc-400 px-6 py-3 text-base font-semibold text-zinc-900 hover:bg-zinc-100 transition min-w-[180px]"
-                            >
-                                View Our Work
-                            </a>
-                        </div>
-                    </div>
-                </motion.div>
-            </motion.section>
-        </>
-    )
+                    </motion.div>
+                </AnimatePresence>
+            </div>
+        </section>
+    );
 }
 
+/* ── How It Works ─────────────────────────────────────────── */
+/* copy from design handoff TECH_ROWS (df-shared.jsx) */
+const TECH_ROWS = [
+    {
+        simple: "A website that's faster than your competitors'.",
+        tech: "Astro + Tailwind static build, served from Cloudflare's edge. 95+ Lighthouse on mobile, schema-marked-up for local search.",
+    },
+    {
+        simple: "Your number forwards to a smart voice that picks up 24/7.",
+        tech: "Your existing line rolls to a Twilio number. Sub-second streaming to an ElevenLabs voice + OpenAI reasoning loop.",
+    },
+    {
+        simple: "The AI knows YOUR services, hours, prices, service area.",
+        tech: "Custom system prompt + retrieval index of your menu, FAQ, holidays. Updated whenever your business changes.",
+    },
+    {
+        simple: "If a caller wants to book, it actually books — for real.",
+        tech: "Function-calls into Google Calendar, Jobber, ServiceTitan, or Acuity. Holds the slot, returns the confirmation ID.",
+    },
+    {
+        simple: "You get a text. The customer gets a text.",
+        tech: "Twilio SMS to owner + SendGrid email to customer + row in your CRM. End-to-end latency averages 4 seconds.",
+    },
+];
+
+function HowItWorks() {
+    return (
+        <section style={{ position: "relative", padding: "120px 0" }}>
+            <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
+
+                {/* 2-col header */}
+                <Reveal>
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1.2fr",
+                            gap: 60,
+                            alignItems: "end",
+                            marginBottom: 64,
+                        }}
+                        className="block md:grid"
+                    >
+                        <div>
+                            <div className="kicker" style={{ marginBottom: 16 }}>━━ How it works</div>
+                            <h2
+                                style={{
+                                    fontFamily: "var(--font-display)",
+                                    fontSize: "clamp(36px, 5vw, 64px)",
+                                    fontWeight: 400,
+                                    letterSpacing: "-0.025em",
+                                    color: "var(--fg)",
+                                    lineHeight: 1.05,
+                                }}
+                            >
+                                The plain version.{" "}
+                                <em style={{ color: "var(--accent)", fontStyle: "italic" }}>And the geeky one.</em>
+                            </h2>
+                        </div>
+                        <div style={{ paddingBottom: 8 }}>
+                            <p style={{ color: "var(--fg-2)", fontSize: 17, lineHeight: 1.6, maxWidth: "56ch" }}>
+                                Two ways to read the same system. Scroll the table for the plain-English version, or flip to the technical column if you want to know what&apos;s actually running under the hood.
+                            </p>
+                        </div>
+                    </div>
+                </Reveal>
+
+                {/* Table */}
+                <Reveal delay={1}>
+                    <div style={{ width: "100%", overflowX: "auto" }}>
+                        {/* Header row */}
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "auto 1fr 1.1fr",
+                                gap: "0 32px",
+                                padding: "0 0 14px",
+                                borderBottom: "1px solid var(--rule)",
+                                marginBottom: 0,
+                            }}
+                        >
+                            <div className="kicker">━ #</div>
+                            <div className="kicker">━ The simple version</div>
+                            <div className="kicker">━ Under the hood</div>
+                        </div>
+
+                        {/* Data rows */}
+                        {TECH_ROWS.map((row, i) => (
+                            <motion.div
+                                key={i}
+                                style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "auto 1fr 1.1fr",
+                                    gap: "0 32px",
+                                    padding: "24px 0",
+                                    borderBottom: "1px solid var(--rule)",
+                                    transition: "background 0.2s ease",
+                                }}
+                                whileHover={{ background: "var(--surface)" }}
+                            >
+                                <div
+                                    style={{
+                                        fontFamily: "var(--font-display)",
+                                        fontSize: 22,
+                                        fontWeight: 300,
+                                        color: "var(--fg-3)",
+                                        minWidth: 40,
+                                        paddingTop: 2,
+                                    }}
+                                >
+                                    {String(i + 1).padStart(2, "0")}
+                                </div>
+                                <div
+                                    style={{
+                                        fontFamily: "var(--font-display)",
+                                        fontSize: 22,
+                                        fontWeight: 400,
+                                        letterSpacing: "-0.015em",
+                                        color: "var(--fg)",
+                                        lineHeight: 1.3,
+                                    }}
+                                >
+                                    {row.simple}
+                                </div>
+                                <div
+                                    style={{
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 12.5,
+                                        lineHeight: 1.7,
+                                        color: "var(--fg-2)",
+                                        paddingTop: 4,
+                                    }}
+                                >
+                                    {row.tech}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
+/* ── Testimonials — scaffold (no live copy yet) ───────────── */
+function Testimonials() {
+    return (
+        <section style={{ position: "relative", padding: "100px 0 120px", overflow: "hidden" }}>
+            {/* Aurora bleed */}
+            <div className="aurora-bg" style={{ inset: "0 -10% 30% -10%", opacity: 0.45 }}>
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 540,
+                        height: 540,
+                        background: "radial-gradient(circle, rgba(182,168,255,0.5) 0%, transparent 70%)",
+                        left: "30%",
+                        top: "10%",
+                    }}
+                />
+            </div>
+
+            <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)", position: "relative", zIndex: 2 }}>
+                <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
+                    <span className="eyebrow" style={{ marginBottom: 20 }}>What Clients Say</span>
+                    {/* TODO: no copy found for this slot — add section headline */}
+                </Reveal>
+
+                {/* Featured quote — TODO: populate */}
+                <Reveal delay={1}>
+                    <blockquote
+                        className="glass"
+                        style={{
+                            padding: "56px clamp(28px, 5vw, 72px)",
+                            textAlign: "center",
+                            maxWidth: 800,
+                            margin: "0 auto 48px",
+                        }}
+                    >
+                        <p
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(20px, 3vw, 32px)",
+                                fontWeight: 300,
+                                fontStyle: "italic",
+                                color: "var(--fg-2)",
+                                lineHeight: 1.4,
+                                maxWidth: "32ch",
+                                margin: "0 auto 32px",
+                            }}
+                        >
+                            {/* TODO: no copy found for this slot — add featured testimonial quote */}
+                        </p>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                            <div
+                                style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: "50%",
+                                    background: "linear-gradient(135deg, var(--accent), rgba(182,168,255,0.3))",
+                                }}
+                            />
+                            <div style={{ textAlign: "left" }}>
+                                <div style={{ fontSize: 15, fontWeight: 400, color: "var(--fg)" }}>
+                                    {/* TODO: no copy found for this slot — add client name */}
+                                </div>
+                                <div className="kicker">
+                                    {/* TODO: no copy found for this slot — add client role */}
+                                </div>
+                            </div>
+                        </div>
+                    </blockquote>
+                </Reveal>
+
+                {/* Quick stats grid — TODO: populate */}
+                <Reveal delay={2}>
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1px 1fr 1px 1fr",
+                            borderTop: "1px solid var(--rule)",
+                            paddingTop: 40,
+                            maxWidth: 800,
+                            margin: "0 auto",
+                            gap: 0,
+                        }}
+                    >
+                        {[0, 1, 2].map((i) => (
+                            i % 2 === 0 ? (
+                                <div key={i} style={{ padding: "0 24px", textAlign: "center" }}>
+                                    <div
+                                        style={{
+                                            fontFamily: "var(--font-display)",
+                                            fontSize: "clamp(32px, 5vw, 56px)",
+                                            fontWeight: 300,
+                                            color: "var(--accent)",
+                                            letterSpacing: "-0.03em",
+                                        }}
+                                    >
+                                        {/* TODO: no copy found for this slot — add stat value */}
+                                    </div>
+                                    <div style={{ fontSize: 14, color: "var(--fg-2)", marginTop: 6 }}>
+                                        {/* TODO: no copy found for this slot — add stat label */}
+                                    </div>
+                                    <div className="kicker" style={{ marginTop: 4 }}>
+                                        {/* TODO: no copy found for this slot — add attribution */}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div key={i} style={{ width: 1, background: "var(--rule)" }} />
+                            )
+                        ))}
+                    </div>
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
+/* ── CTA / Contact ────────────────────────────────────────── */
+/* copy migrated from original Contact() component */
+function Contact() {
+    return (
+        <section style={{ position: "relative", padding: "80px 0 40px", overflow: "hidden" }}>
+            {/* Aurora blobs */}
+            <div className="aurora-bg" style={{ inset: 0, opacity: 0.7 }}>
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 800,
+                        height: 600,
+                        background: "radial-gradient(circle, rgba(182,168,255,0.5) 0%, transparent 70%)",
+                        left: "10%",
+                        top: "-20%",
+                    }}
+                />
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 600,
+                        height: 600,
+                        background: "radial-gradient(circle, rgba(120,90,255,0.45) 0%, transparent 70%)",
+                        right: "0%",
+                        bottom: "-20%",
+                        animationDelay: "-10s",
+                    }}
+                />
+            </div>
+
+            <div
+                style={{
+                    position: "relative",
+                    zIndex: 2,
+                    maxWidth: 1240,
+                    margin: "0 auto",
+                    padding: "0 max(24px, 4vw)",
+                    textAlign: "center",
+                }}
+            >
+                <Reveal>
+                    <span className="eyebrow" style={{ marginBottom: 24 }}>Let&apos;s Build Something Great</span>
+                    <h2
+                        style={{
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(40px, 6vw, 80px)",
+                            fontWeight: 400,
+                            letterSpacing: "-0.03em",
+                            color: "var(--fg)",
+                            maxWidth: "20ch",
+                            margin: "20px auto 0",
+                            lineHeight: 1.05,
+                        }}
+                    >
+                        Ready to{" "}
+                        <em style={{ color: "var(--accent)", fontStyle: "italic" }}>Elevate</em>
+                        {" "}Your Digital Presence?
+                    </h2>
+                </Reveal>
+
+                <Reveal delay={1}>
+                    <p
+                        style={{
+                            marginTop: 22,
+                            fontSize: 18,
+                            color: "var(--fg-2)",
+                            maxWidth: "52ch",
+                            margin: "22px auto 0",
+                            lineHeight: 1.6,
+                        }}
+                    >
+                        Have a project in mind or just want to explore ideas? We keep the process simple, collaborative, and focused on results your business can feel.
+                    </p>
+                </Reveal>
+
+                <Reveal delay={2}>
+                    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 20 }}>
+                        {["Fast turnaround", "Clear communication", "Built for growth"].map((tag) => (
+                            <span
+                                key={tag}
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: 12,
+                                    color: "var(--fg-3)",
+                                    border: "1px solid var(--rule)",
+                                    borderRadius: 999,
+                                    padding: "5px 14px",
+                                    background: "var(--surface)",
+                                }}
+                            >
+                                {tag}
+                            </span>
+                        ))}
+                    </div>
+                </Reveal>
+
+                <Reveal delay={3}>
+                    <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 14, marginTop: 32 }}>
+                        <a href="/pricing" className="btn primary lg">
+                            View Pricing
+                        </a>
+                        <a href="/projects" className="btn ghost lg">
+                            View Our Work
+                        </a>
+                    </div>
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
+/* ── Page ─────────────────────────────────────────────────── */
 export default function HomePageClient() {
     useEffect(() => {
         if (typeof window === "undefined") return;
-
-        const previousRestoration = window.history.scrollRestoration;
+        const prev = window.history.scrollRestoration;
         window.history.scrollRestoration = "manual";
         window.scrollTo(0, 0);
-
-        return () => {
-            window.history.scrollRestoration = previousRestoration;
-        };
+        return () => { window.history.scrollRestoration = prev; };
     }, []);
 
     return (
-        <div className="w-full text-black bg-white relative">
-
+        <div style={{ width: "100%", background: "var(--bg)" }}>
             <Hero />
-            <Projects />
-
             <Offer />
-            <Technology />
+            <HowItWorks />
+            <Testimonials />
             <Contact />
         </div>
     );

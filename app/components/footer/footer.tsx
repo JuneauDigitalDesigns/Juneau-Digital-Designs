@@ -1,57 +1,89 @@
-import Image from "next/image"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function Footer() {
     const year = new Date().getFullYear()
 
     return (
-        <footer className="relative w-full overflow-hidden border-t border-white/10 bg-gradient-to-b from-[#13233B] to-[#0B1524] text-white">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,rgba(96,165,250,0.14),transparent_38%),radial-gradient(circle_at_85%_80%,rgba(56,189,248,0.12),transparent_34%)]" />
-
-            <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-10 sm:px-6">
-                <div className="flex flex-col gap-6 border-b border-white/10 pb-7 md:flex-row md:items-end md:justify-between">
-                    <div className="max-w-3xl">
-                        <Link href="/" aria-label="Go to home page" className="mb-4 inline-flex items-center gap-4 rounded-xl py-2 transition-colors hover:bg-white/[0.08]">
+        <footer
+            className="relative w-full overflow-hidden"
+            style={{
+                background: "var(--bg)",
+                borderTop: "1px solid var(--rule)",
+                color: "var(--fg)",
+            }}
+        >
+            <div
+                className="relative mx-auto w-full max-w-7xl px-4 sm:px-6"
+                style={{ padding: "64px max(24px, 4vw) 36px" }}
+            >
+                {/* 4-column grid */}
+                <div
+                    className="grid gap-9"
+                    style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+                >
+                    {/* Col 1 — brand */}
+                    <div className="col-span-4 md:col-span-1" style={{ gridColumn: undefined }}>
+                        <Link href="/" aria-label="Go to home page" className="inline-flex items-center gap-3 mb-5">
                             <Image
                                 src="/JDs_nobg.png"
                                 alt="Juneau Digital Designs home"
-                                width={72}
-                                height={72}
-                                className="h-14 w-14 rounded-lg bg-white/10 p-1"
+                                width={52}
+                                height={52}
+                                className="rounded-lg"
+                                style={{ background: "var(--surface)", padding: 4 }}
                             />
-                            <div className="leading-tight">
-                                <p className="text-lg font-semibold text-white">Juneau Digital Designs</p>
-                                <p className="text-xs uppercase tracking-[0.16em] text-white/65">Web Design and Development</p>
-                            </div>
+                            <span
+                                style={{
+                                    fontFamily: "var(--font-display)",
+                                    fontSize: 15,
+                                    fontWeight: 500,
+                                    color: "var(--fg)",
+                                    lineHeight: 1.2,
+                                }}
+                            >
+                                Juneau Digital<br />Designs
+                            </span>
                         </Link>
-
-                        <h2 className="text-2xl font-semibold leading-tight text-white sm:text-3xl">
-                            Building polished digital experiences that convert.
-                        </h2>
-                        <p className="mt-3 text-sm text-white/75 sm:text-base">
+                        <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
                             Thoughtful design, clean code, and a partner-first process from kickoff to launch.
                         </p>
                     </div>
 
-                    <Link
-                        href="/pricing"
-                        className="inline-flex items-center justify-center rounded-xl border border-white/45 bg-white/5 px-5 py-3 text-sm font-semibold transition-colors hover:bg-white hover:text-[#13233B]"
-                    >
-                        See Plans
-                    </Link>
+                    {/* Col 2 — Pages */}
+                    <div className="col-span-2 md:col-span-1">
+                        <div className="kicker" style={{ marginBottom: 14 }}>Pages</div>
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
+                            <li><Link href="/" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Home</Link></li>
+                            <li><Link href="/pricing" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Pricing</Link></li>
+                        </ul>
+                    </div>
+
+                    {/* Col 4 — Legal */}
+                    <div className="col-span-2 md:col-span-1">
+                        <div className="kicker" style={{ marginBottom: 14 }}>Legal</div>
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
+                            <li><Link href="/privacy-policy" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Privacy Policy</Link></li>
+                        </ul>
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-5 text-sm text-white/80 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-                        <Link href="/" className="transition-colors hover:text-white">Home</Link>
-                        <Link href="/projects" className="transition-colors hover:text-white">Projects</Link>
-                        <Link href="/pricing" className="transition-colors hover:text-white">Pricing</Link>
-                        <Link href="/privacy-policy" className="transition-colors hover:text-white">Privacy Policy</Link>
-                    </div>
-
-                    <div className="flex flex-col gap-1 sm:items-end">
-                        <p>&copy; {year} Juneau Digital Designs. All rights reserved.</p>
-                    </div>
+                {/* Copyright bar */}
+                <div
+                    style={{
+                        marginTop: 56,
+                        paddingTop: 22,
+                        borderTop: "1px solid var(--rule)",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 8,
+                        color: "var(--fg-3)",
+                        fontSize: 12,
+                        fontFamily: "var(--font-mono)",
+                    }}
+                >
+                    <span>&copy; {year} Juneau Digital Designs. All rights reserved.</span>
                 </div>
             </div>
         </footer>
