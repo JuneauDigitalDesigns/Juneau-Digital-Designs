@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { mapPayloadToSchema, type OnboardingSubmission } from "@/app/lib/site-schema";
 
 const resendApiKey = process.env.RESEND_API_KEY;
 const resend = resendApiKey ? new Resend(resendApiKey) : null;
@@ -7,6 +8,7 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null;
 const toEmail = process.env.QUOTE_TO_EMAIL;
 const fromEmail = process.env.QUOTE_FROM_EMAIL || "onboarding@resend.dev";
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
+const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
 
 type PlanSlug = "starter" | "growth" | "premium";
 
@@ -243,6 +245,33 @@ const PLAN_LABELS: Record<PlanSlug, string> = {
     growth: "Growth",
     premium: "Premium",
 };
+
+/**
+ * Fire-and-log POST to Make.com. Returns true on 2xx, false otherwise.
+ * Never throws — webhook failures must not block the form response.
+ */
+async function postToMakeWebhook(body: unknown): Promise<boolean> {
+    if (!makeWebhookUrl) {
+        console.warn("[onboarding] MAKE_WEBHOOK_URL not set — skipping webhook");
+        return false;
+    }
+    try {
+        const res = await fetch(makeWebhookUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(() => "<unreadable>");
+            console.error(`[onboarding] Make webhook returned ${res.status}: ${text.slice(0, 200)}`);
+            return false;
+        }
+        return true;
+    } catch (err) {
+        console.error("[onboarding] Make webhook fetch failed:", err);
+        return false;
+    }
+}
 
 export async function POST(request: Request) {
     try {
@@ -492,6 +521,15 @@ export async function POST(request: Request) {
         };
 
         const jsonString = JSON.stringify(submissionData, null, 2);
+
+        // Map to SiteContent shape and POST to Make.com webhook (fire-and-log).
+        // The webhook is the primary intake sink for the provisioning pipeline.
+        // Resend email below remains as a permanent audit channel.
+        const siteContent = mapPayloadToSchema(submissionData as OnboardingSubmission);
+        const webhookOk = await postToMakeWebhook(siteContent);
+        if (!webhookOk) {
+            console.warn(`[onboarding] webhook delivery failed for "${brandName}" — relying on email fallback`);
+        }
 
         // Escape HTML values for the summary table
         const safeBrandName = escapeHtml(brandName);
