@@ -6,9 +6,9 @@ export const metadata: Metadata = {
     description: "Complete your onboarding form to get started with your selected plan.",
 };
 
-type PlanSlug = "starter" | "growth" | "premium";
+type PlanSlug = "starter" | "growth" | "enterprise";
 
-const validPlans: PlanSlug[] = ["starter", "growth", "premium"];
+const validPlans: PlanSlug[] = ["starter", "growth", "enterprise"];
 
 export default async function OnboardingPage({
     searchParams,

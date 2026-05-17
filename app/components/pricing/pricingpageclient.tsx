@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faCheck, faMicrophone } from "@fortawesome/free-solid-svg-icons";
 
-type PlanSlug = "starter" | "growth" | "premium";
+type PlanSlug = "starter" | "growth" | "enterprise";
 
 type PricingTier = {
     slug: PlanSlug;
@@ -20,8 +20,8 @@ const TIERS: PricingTier[] = [
     {
         slug: "starter",
         name: "Starter",
-        price: 97,
-        tagline: "Just need a Website that continues to work? We got you covered.",
+        price: 117,
+        tagline: "Only need a website? This plan gets you a sleek one-pager. You can always upgrade later to add the AI receptionist.",
         features: [
             "Basic 1 page website setup",
             "Web hosting",
@@ -35,25 +35,24 @@ const TIERS: PricingTier[] = [
         slug: "growth",
         name: "Growth",
         price: 297,
-        tagline: "For businesses ready to grow with a powerful online presence and AI-driven capture.",
+        tagline: "For businesses ready to grow with a powerful online presence and AI-driven lead capture.",
         features: [
             "Everything in Starter",
-            "24/7 AI voice receptionist",
             "Ongoing SEO optimization",
             "Bi-monthly performance reports",
         ],
         highlighted: true,
     },
     {
-        slug: "premium",
-        name: "Premium",
-        price: 397,
-        tagline: "A dedicated partner invested in your long-term success.",
+        slug: "enterprise",
+        name: "Enterprise",
+        price: 697,
+        tagline: "A plan for businesses that manage other businesses.",
         features: [
             "Everything in Growth",
-            "Multi-team call routing",
-            "Deep CRM integration",
-            "Custom branded voice",
+            "Up to 3 one-page websites with fully integrated AI receptionist",
+            "Weekly performance reports",
+            "Priority support with 1 business day response time",
             "Quarterly strategy sessions with our founder",
         ],
         highlighted: false,
@@ -157,9 +156,13 @@ export default function PricingPageClient() {
                                 padding: "36px 30px 32px",
                                 minHeight: 460,
                                 borderRadius: 22,
-                                /* Featured card gets accent ring */
                                 ...(tier.highlighted
-                                    ? { boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6)" }
+                                    ? {
+                                        transform: "scale(1.04)",
+                                        zIndex: 1,
+                                        borderTop: "2px solid var(--accent)",
+                                        boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6), 0 0 80px -10px rgba(182,168,255,0.45)",
+                                    }
                                     : {}),
                             }}
                         >
@@ -189,8 +192,9 @@ export default function PricingPageClient() {
                                 <span
                                     style={{
                                         position: "absolute",
-                                        top: -1,
-                                        right: 24,
+                                        top: 0,
+                                        left: "50%",
+                                        transform: "translateX(-50%)",
                                         fontFamily: "var(--font-mono)",
                                         fontSize: 10,
                                         fontWeight: 500,
@@ -198,14 +202,15 @@ export default function PricingPageClient() {
                                         textTransform: "uppercase",
                                         background: "var(--accent)",
                                         color: "#06121a",
-                                        borderRadius: "0 0 10px 10px",
-                                        padding: "4px 12px",
+                                        borderRadius: "0 0 12px 12px",
+                                        padding: "5px 16px",
+                                        whiteSpace: "nowrap",
                                     }}
                                 >
                                     Most Popular
                                 </span>
                             )}
-                            {tier.slug === "premium" && (
+                            {tier.slug === "enterprise" && (
                                 <span
                                     style={{
                                         position: "absolute",
@@ -223,7 +228,7 @@ export default function PricingPageClient() {
                                         padding: "3px 10px",
                                     }}
                                 >
-                                    Premium Support
+                                    Enterprise level Support
                                 </span>
                             )}
 
@@ -262,10 +267,50 @@ export default function PricingPageClient() {
                                     </span>
                                     <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>/month</span>
                                 </div>
+                                {tier.slug === "starter" && (
+                                    <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
+                                        + $100 one-time onboarding fee
+                                    </p>
+                                )}
+                                {tier.slug === "growth" && (
+                                    <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
+                                        Onboarding fee waived for new clients!
+                                    </p>
+                                )}
                                 <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
                                     {tier.tagline}
                                 </p>
                             </div>
+
+                            {/* AI Voice Receptionist callout – Growth only */}
+                            {tier.slug === "growth" && (
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 12,
+                                        marginBottom: 20,
+                                        padding: "14px 16px",
+                                        borderRadius: 14,
+                                        background: "linear-gradient(135deg, rgba(182,168,255,0.18) 0%, rgba(120,90,255,0.12) 100%)",
+                                        border: "1px solid rgba(182,168,255,0.35)",
+                                        boxShadow: "0 0 24px -8px rgba(182,168,255,0.3)",
+                                    }}
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faMicrophone}
+                                        style={{ color: "var(--accent)", width: 18, height: 18, flexShrink: 0 }}
+                                    />
+                                    <div>
+                                        <p style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--accent)", letterSpacing: "-0.01em" }}>
+                                            24/7 AI Voice Receptionist
+                                        </p>
+                                        <p style={{ margin: 0, marginTop: 2, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", letterSpacing: "0.04em" }}>
+                                            Never miss a call — even after hours
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Feature list */}
                             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>

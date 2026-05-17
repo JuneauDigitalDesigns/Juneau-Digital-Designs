@@ -26,6 +26,10 @@
 }
 
 /* ── Base ───────────────────────────────────────────────────── */
+html {
+  overflow-x: hidden;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
@@ -207,13 +211,15 @@ body {
   grid-template-columns: 1fr;
   gap: 20px;
   margin-bottom: 48px;
+  justify-items: center;
+  text-align: center;
 }
 
 @media (min-width: 768px) {
   .hiw-header-grid {
-    grid-template-columns: 1fr 1.2fr;
-    gap: 60px;
-    align-items: end;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: center;
     margin-bottom: 64px;
   }
 }
@@ -313,4 +319,54 @@ select option {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--fg-3);
+}
+
+/* ── Calculator range sliders ───────────────────────────────── */
+.calc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--pct, 0%),
+    rgba(255, 255, 255, 0.10) var(--pct, 0%),
+    rgba(255, 255, 255, 0.10) 100%
+  );
+}
+
+.calc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px rgba(182, 168, 255, 0.20),
+    0 0 16px 2px rgba(182, 168, 255, 0.40);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.calc-slider::-webkit-slider-thumb:hover {
+  box-shadow:
+    0 0 0 4px rgba(182, 168, 255, 0.30),
+    0 0 24px 4px rgba(182, 168, 255, 0.55);
+  transform: scale(1.12);
+}
+
+.calc-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px rgba(182, 168, 255, 0.20),
+    0 0 16px 2px rgba(182, 168, 255, 0.40);
+  cursor: pointer;
 }

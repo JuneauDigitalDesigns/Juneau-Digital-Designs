@@ -20,8 +20,7 @@
     "framer-motion": "^12.23.26",
     "next": "^16.2.3",
     "react": "19.2.1",
-    "react-dom": "19.2.1",
-    "resend": "^4.6.0"
+    "react-dom": "19.2.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

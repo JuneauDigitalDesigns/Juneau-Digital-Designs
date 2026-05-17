@@ -16,7 +16,7 @@ declare global {
     }
 }
 
-type PlanSlug = "starter" | "growth" | "premium";
+type PlanSlug = "starter" | "growth" | "enterprise";
 
 type ImageMeta = { url: string; filename: string; alt: string };
 type HeroBullet = { value: string; label: string };
@@ -123,14 +123,37 @@ type OnboardingFormData = {
     consent: boolean;
     turnstileToken: string;
     website: string;
+    // — Enterprise: additional sites (max 2; 3 sites total) —
+    additionalSites: AdditionalSiteForm[];
+};
+
+type AdditionalSiteForm = {
+    brandName: string;
+    brandShort: string;
+    brandTagline: string;
+    email: string;
+    phone: string;
+    address: string;
+    paletteAccent: string;
+    paletteBg: string;
+    paletteBgSoft: string;
+    paletteInk: string;
+    paletteInkSoft: string;
+    paletteRule: string;
+    heroHeadline: string;
+    heroSub: string;
+    businessHours: string;
+    usp: string;
+    services: ServiceEntry[];
+    faqs: FaqEntry[];
 };
 
 type SubmitState = { type: "idle" | "success" | "error"; message: string };
 
 const PLAN_META: Record<PlanSlug, { label: string; price: string }> = {
-    starter: { label: "Starter", price: "$147/month" },
-    growth: { label: "Growth", price: "$197/month" },
-    premium: { label: "Premium", price: "$247/month" },
+    starter: { label: "Starter", price: "$117/month" },
+    growth: { label: "Growth", price: "$297/month" },
+    enterprise: { label: "Enterprise", price: "$697/month" },
 };
 
 const BLANK_SERVICE: ServiceEntry = { t: "", tag: "", d: "", images: [] };
@@ -140,6 +163,26 @@ const BLANK_PILLAR: Pillar = { k: "", t: "", d: "" };
 const BLANK_ABOUT_STAT: AboutStat = { n: "", l: "" };
 const BLANK_PROJECT: Project = { t: "", loc: "", yr: "", scope: "", size: "", caption: "" };
 const BLANK_FAQ: FaqEntry = { q: "", a: "" };
+const BLANK_ADDITIONAL_SITE: AdditionalSiteForm = {
+    brandName: "",
+    brandShort: "",
+    brandTagline: "",
+    email: "",
+    phone: "",
+    address: "",
+    paletteAccent: "#3B82F6",
+    paletteBg: "#FFFFFF",
+    paletteBgSoft: "#F8FAFC",
+    paletteInk: "#0F172A",
+    paletteInkSoft: "#475569",
+    paletteRule: "#E2E8F0",
+    heroHeadline: "",
+    heroSub: "",
+    businessHours: "",
+    usp: "",
+    services: [{ ...BLANK_SERVICE }],
+    faqs: [{ ...BLANK_FAQ }],
+};
 
 function makeInitialData(plan: PlanSlug): OnboardingFormData {
     return {
@@ -221,11 +264,12 @@ function makeInitialData(plan: PlanSlug): OnboardingFormData {
         consent: false,
         turnstileToken: "",
         website: "",
+        additionalSites: [],
     };
 }
 
 const inputCls =
-    "rounded-xl border w-full px-4 py-3 outline-none transition";
+    "rounded-xl border border-white/[0.12] bg-white/[0.06] w-full px-4 py-3 text-white/90 placeholder:text-white/30 outline-none transition focus:border-[var(--accent)]";
 const labelCls = "flex flex-col gap-2 text-sm font-semibold";
 
 function SectionHeading({ number, title }: { number: string; title: string }) {
@@ -310,6 +354,108 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
 
     function set(field: keyof OnboardingFormData, value: unknown) {
         setFormData((prev) => ({ ...prev, [field]: value }));
+    }
+
+    // Enterprise additional-site helpers
+    function addAdditionalSite() {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: [...prev.additionalSites, { ...BLANK_ADDITIONAL_SITE }],
+        }));
+    }
+    function removeAdditionalSite(index: number) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.filter((_, i) => i !== index),
+        }));
+    }
+    function updateAdditionalSite<K extends keyof AdditionalSiteForm>(
+        index: number,
+        field: K,
+        value: AdditionalSiteForm[K],
+    ) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === index ? { ...s, [field]: value } : s,
+            ),
+        }));
+    }
+    function addAdditionalSiteService(siteIndex: number) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === siteIndex ? { ...s, services: [...s.services, { ...BLANK_SERVICE }] } : s,
+            ),
+        }));
+    }
+    function removeAdditionalSiteService(siteIndex: number, svcIndex: number) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === siteIndex
+                    ? { ...s, services: s.services.filter((_, j) => j !== svcIndex) }
+                    : s,
+            ),
+        }));
+    }
+    function updateAdditionalSiteService(
+        siteIndex: number,
+        svcIndex: number,
+        field: keyof Omit<ServiceEntry, "images">,
+        value: string,
+    ) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === siteIndex
+                    ? {
+                          ...s,
+                          services: s.services.map((sv, j) =>
+                              j === svcIndex ? { ...sv, [field]: value } : sv,
+                          ),
+                      }
+                    : s,
+            ),
+        }));
+    }
+    function addAdditionalSiteFaq(siteIndex: number) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === siteIndex ? { ...s, faqs: [...s.faqs, { ...BLANK_FAQ }] } : s,
+            ),
+        }));
+    }
+    function removeAdditionalSiteFaq(siteIndex: number, faqIndex: number) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === siteIndex
+                    ? { ...s, faqs: s.faqs.filter((_, j) => j !== faqIndex) }
+                    : s,
+            ),
+        }));
+    }
+    function updateAdditionalSiteFaq(
+        siteIndex: number,
+        faqIndex: number,
+        field: keyof FaqEntry,
+        value: string,
+    ) {
+        setFormData((prev) => ({
+            ...prev,
+            additionalSites: prev.additionalSites.map((s, i) =>
+                i === siteIndex
+                    ? {
+                          ...s,
+                          faqs: s.faqs.map((f, j) =>
+                              j === faqIndex ? { ...f, [field]: value } : f,
+                          ),
+                      }
+                    : s,
+            ),
+        }));
     }
 
     // Services helpers
@@ -992,9 +1138,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         type="color"
                                         value={formData.paletteAccent}
                                         onChange={(e) => set("paletteAccent", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-slate-300 p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
                                     />
-                                    <span className="font-mono text-sm text-slate-600">{formData.paletteAccent}</span>
+                                    <span className="font-mono text-sm text-white/60">{formData.paletteAccent}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1004,9 +1150,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         type="color"
                                         value={formData.paletteBg}
                                         onChange={(e) => set("paletteBg", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-slate-300 p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
                                     />
-                                    <span className="font-mono text-sm text-slate-600">{formData.paletteBg}</span>
+                                    <span className="font-mono text-sm text-white/60">{formData.paletteBg}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1016,9 +1162,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         type="color"
                                         value={formData.paletteBgSoft}
                                         onChange={(e) => set("paletteBgSoft", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-slate-300 p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
                                     />
-                                    <span className="font-mono text-sm text-slate-600">{formData.paletteBgSoft}</span>
+                                    <span className="font-mono text-sm text-white/60">{formData.paletteBgSoft}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1028,9 +1174,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         type="color"
                                         value={formData.paletteInk}
                                         onChange={(e) => set("paletteInk", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-slate-300 p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
                                     />
-                                    <span className="font-mono text-sm text-slate-600">{formData.paletteInk}</span>
+                                    <span className="font-mono text-sm text-white/60">{formData.paletteInk}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1040,9 +1186,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         type="color"
                                         value={formData.paletteInkSoft}
                                         onChange={(e) => set("paletteInkSoft", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-slate-300 p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
                                     />
-                                    <span className="font-mono text-sm text-slate-600">{formData.paletteInkSoft}</span>
+                                    <span className="font-mono text-sm text-white/60">{formData.paletteInkSoft}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1052,9 +1198,9 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         type="color"
                                         value={formData.paletteRule}
                                         onChange={(e) => set("paletteRule", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-slate-300 p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
                                     />
-                                    <span className="font-mono text-sm text-slate-600">{formData.paletteRule}</span>
+                                    <span className="font-mono text-sm text-white/60">{formData.paletteRule}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1088,13 +1234,13 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                     <span>Upload your logo</span>
                                     <div className="flex flex-col gap-3">
                                         {formData.images.logo && (
-                                            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                            <div className="flex items-center gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-3">
                                                 <img
                                                     src={formData.images.logo.url}
                                                     alt="Logo preview"
                                                     className="h-12 w-auto max-w-[120px] object-contain rounded"
                                                 />
-                                                <span className="flex-1 truncate text-sm text-slate-600">{formData.images.logo.filename}</span>
+                                                <span className="flex-1 truncate text-sm text-white/60">{formData.images.logo.filename}</span>
                                                 <button
                                                     type="button"
                                                     onClick={removeLogo}
@@ -1105,7 +1251,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                                 </button>
                                             </div>
                                         )}
-                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                             <input
                                                 type="file"
                                                 accept="image/jpeg,image/png,image/webp"
@@ -1340,7 +1486,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                             <button
                                                 type="button"
                                                 onClick={() => removeFrictionReducer("heroFrictionReducers", i)}
-                                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400"
                                                 aria-label="Remove"
                                             >
                                                 <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
@@ -1352,7 +1498,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                     <button
                                         type="button"
                                         onClick={() => addFrictionReducer("heroFrictionReducers")}
-                                        className="mt-1 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50"
+                                        className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                                     >
                                         <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                         Add friction reducer
@@ -1364,7 +1510,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                 {formData.images.heroSlides.length > 0 && (
                                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                                         {formData.images.heroSlides.map((img, i) => (
-                                            <div key={i} className="relative overflow-hidden rounded-lg border border-slate-200">
+                                            <div key={i} className="relative overflow-hidden rounded-lg border border-white/[0.10]">
                                                 <img
                                                     src={img.url}
                                                     alt={img.alt || `Hero ${i + 1}`}
@@ -1384,7 +1530,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                 )}
                                 <div className="flex flex-col gap-2">
                                     {formData.images.heroSlides.length < 10 && (
-                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                             <input
                                                 type="file"
                                                 accept="image/jpeg,image/png,image/webp"
@@ -1452,15 +1598,15 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             <span>Feature / team photo</span>
                             <div className="flex flex-col gap-3">
                                 {formData.images.aboutFeature && (
-                                    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex items-center gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-3">
                                         <img src={formData.images.aboutFeature.url} alt="About feature preview" className="h-14 w-auto max-w-[140px] rounded object-cover" />
-                                        <span className="flex-1 truncate text-sm text-slate-600">{formData.images.aboutFeature.filename}</span>
+                                        <span className="flex-1 truncate text-sm text-white/60">{formData.images.aboutFeature.filename}</span>
                                         <button type="button" onClick={removeAboutFeature} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove photo">
                                             <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
                                 )}
-                                <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                     <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleAboutFeatureUpload} disabled={uploadingSlots.has("about-feature")} />
                                     {uploadingSlots.has("about-feature") ? "Uploading…" : formData.images.aboutFeature ? "Replace photo" : "Choose photo"}
                                 </label>
@@ -1474,7 +1620,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Value pillars <span className="normal-case font-normal text-slate-500">(shown as icon cards in the about section — max 4)</span></p>
                             <div className="space-y-3">
                                 {formData.pillars.map((pillar, i) => (
-                                    <div key={i} className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                    <div key={i} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
                                         {formData.pillars.length > 1 && (
                                             <button type="button" onClick={() => removePillar(i)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove pillar">
                                                 <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
@@ -1498,7 +1644,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                 ))}
                             </div>
                             {formData.pillars.length < 4 && (
-                                <button type="button" onClick={addPillar} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                <button type="button" onClick={addPillar} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                     <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                     Add pillar
                                 </button>
@@ -1520,7 +1666,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                             <input type="text" value={stat.l} onChange={(e) => updateAboutStat(i, "l", e.target.value)} placeholder="Years in business" className={inputCls} />
                                         </label>
                                         {formData.aboutStats.length > 1 && (
-                                            <button type="button" onClick={() => removeAboutStat(i)} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove stat">
+                                            <button type="button" onClick={() => removeAboutStat(i)} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Remove stat">
                                                 <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
                                             </button>
                                         )}
@@ -1528,7 +1674,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                 ))}
                             </div>
                             {formData.aboutStats.length < 4 && (
-                                <button type="button" onClick={addAboutStat} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                <button type="button" onClick={addAboutStat} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                     <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                     Add stat
                                 </button>
@@ -1558,7 +1704,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             {formData.services.map((service, index) => (
                                 <div
                                     key={index}
-                                    className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                                    className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4"
                                 >
                                     {formData.services.length > 1 && (
                                         <button
@@ -1606,7 +1752,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                             {service.images.length > 0 && (
                                                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                                                     {service.images.map((img, imgIdx) => (
-                                                        <div key={imgIdx} className="relative overflow-hidden rounded-lg border border-slate-200">
+                                                        <div key={imgIdx} className="relative overflow-hidden rounded-lg border border-white/[0.10]">
                                                             <img
                                                                 src={img.url}
                                                                 alt={img.alt || `Service photo ${imgIdx + 1}`}
@@ -1626,7 +1772,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                             )}
                                             <div className="flex flex-col gap-2">
                                                 {service.images.length < 5 && (
-                                                    <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                                    <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                                         <input
                                                             type="file"
                                                             accept="image/jpeg,image/png,image/webp"
@@ -1652,7 +1798,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             <button
                                 type="button"
                                 onClick={addService}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
                                 <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                 Add service
@@ -1680,7 +1826,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                         <p className="mb-3 text-sm text-slate-500">Add up to 6 featured projects. Each can have a photo, location, year, and scope.</p>
                         <div className="space-y-4">
                             {formData.projects.map((project, index) => (
-                                <div key={index} className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
                                     {formData.projects.length > 1 && (
                                         <button type="button" onClick={() => removeProject(index)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove project">
                                             <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
@@ -1715,15 +1861,15 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         <div className={`${labelCls} md:col-span-2`}>
                                             <span>Project photo</span>
                                             {project.image && (
-                                                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                                                <div className="flex items-center gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-3">
                                                     <img src={project.image.url} alt={project.image.alt || "Project"} className="h-14 w-auto max-w-[120px] rounded object-cover" />
-                                                    <span className="flex-1 truncate text-sm text-slate-600">{project.image.filename}</span>
+                                                    <span className="flex-1 truncate text-sm text-white/60">{project.image.filename}</span>
                                                     <button type="button" onClick={() => removeProjectImage(index)} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove photo">
                                                         <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
                                                     </button>
                                                 </div>
                                             )}
-                                            <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                            <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                                 <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => handleProjectImageUpload(index, e)} disabled={uploadingSlots.has(`project-${index}`)} />
                                                 {uploadingSlots.has(`project-${index}`) ? "Uploading…" : project.image ? "Replace photo" : "Choose photo"}
                                             </label>
@@ -1735,7 +1881,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             ))}
                         </div>
                         {formData.projects.length < 6 && (
-                            <button type="button" onClick={addProject} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                            <button type="button" onClick={addProject} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                 <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                 Add project
                             </button>
@@ -1758,7 +1904,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                         <p className="mb-3 text-sm text-slate-500">Add up to 3 client quotes for your site.</p>
                         <div className="space-y-4">
                             {formData.testimonials.map((t, index) => (
-                                <div key={index} className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
                                     {formData.testimonials.length > 1 && (
                                         <button
                                             type="button"
@@ -1832,7 +1978,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             <button
                                 type="button"
                                 onClick={addTestimonial}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
                                 <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                 Add testimonial
@@ -1873,7 +2019,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                         <button
                                             type="button"
                                             onClick={() => removeBullet(index)}
-                                            className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                            className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400"
                                             aria-label="Remove stat"
                                         >
                                             <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
@@ -1886,7 +2032,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             <button
                                 type="button"
                                 onClick={addBullet}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
                                 <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                 Add stat
@@ -1914,7 +2060,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                         <p className="mb-3 text-sm text-slate-500">Add up to 6 questions your customers commonly ask.</p>
                         <div className="space-y-4">
                             {formData.faqs.map((faq, index) => (
-                                <div key={index} className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
                                     {formData.faqs.length > 1 && (
                                         <button
                                             type="button"
@@ -1954,7 +2100,7 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                             <button
                                 type="button"
                                 onClick={addFaq}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
                                 <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                 Add question
@@ -1995,14 +2141,14 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                                     {formData.finalCtaFrictionReducers.map((fr, i) => (
                                         <div key={i} className="flex items-center gap-2">
                                             <input type="text" value={fr} onChange={(e) => updateFrictionReducer("finalCtaFrictionReducers", i, e.target.value)} placeholder="e.g. Free estimates" className={inputCls} />
-                                            <button type="button" onClick={() => removeFrictionReducer("finalCtaFrictionReducers", i)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove">
+                                            <button type="button" onClick={() => removeFrictionReducer("finalCtaFrictionReducers", i)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Remove">
                                                 <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
                                 {formData.finalCtaFrictionReducers.length < 4 && (
-                                    <button type="button" onClick={() => addFrictionReducer("finalCtaFrictionReducers")} className="mt-1 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
+                                    <button type="button" onClick={() => addFrictionReducer("finalCtaFrictionReducers")} className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
                                         <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
                                         Add friction reducer
                                     </button>
@@ -2029,21 +2175,200 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                         </div>
                     </section>
 
+                    {/* ── Section 15.5 (Enterprise only): Additional sites ─────── */}
+                    {formData.selectedPlan === "enterprise" && (
+                        <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
+                            <SectionHeading
+                                number="15.5"
+                                title={`Additional sites (Enterprise — Site 1 of ${1 + formData.additionalSites.length})`}
+                            />
+                            <p style={{ marginBottom: 16, fontSize: 14, color: "var(--ink-soft)" }}>
+                                Enterprise bundles up to 3 sites that share one pool of voice minutes.
+                                Add up to 2 more sites here — each gets its own deployed site, phone number,
+                                and AI voice agent. Fields you leave blank inherit from the primary site above.
+                            </p>
+
+                            {formData.additionalSites.map((site, idx) => (
+                                <div
+                                    key={idx}
+                                    style={{
+                                        marginBottom: 24,
+                                        padding: 20,
+                                        border: "1px solid var(--rule)",
+                                        borderRadius: 14,
+                                        background: "var(--bg-soft)",
+                                    }}
+                                >
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                        <h3 style={{ fontSize: 16, fontWeight: 700 }}>
+                                            Site {idx + 2} of {1 + formData.additionalSites.length}
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeAdditionalSite(idx)}
+                                            style={{
+                                                fontSize: 13,
+                                                color: "#dc2626",
+                                                background: "transparent",
+                                                border: "1px solid #dc2626",
+                                                padding: "6px 12px",
+                                                borderRadius: 8,
+                                                cursor: "pointer",
+                                            }}
+                                        >
+                                            × Remove this site
+                                        </button>
+                                    </div>
+
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <label className={labelCls}>
+                                            <span>Business name *</span>
+                                            <input type="text" required value={site.brandName} onChange={(e) => updateAdditionalSite(idx, "brandName", e.target.value)} placeholder="Acme Plumbing — Anchorage" className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Short name (1 word, used as URL slug)</span>
+                                            <input type="text" value={site.brandShort} onChange={(e) => updateAdditionalSite(idx, "brandShort", e.target.value)} placeholder="acme-anchorage" className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Tagline</span>
+                                            <input type="text" value={site.brandTagline} onChange={(e) => updateAdditionalSite(idx, "brandTagline", e.target.value)} placeholder="Reliable service, every season." className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Email *</span>
+                                            <input type="email" required value={site.email} onChange={(e) => updateAdditionalSite(idx, "email", e.target.value)} className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Phone *</span>
+                                            <input type="tel" required value={site.phone} onChange={(e) => updateAdditionalSite(idx, "phone", e.target.value)} placeholder="(907) 555-0142" className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Address</span>
+                                            <input type="text" value={site.address} onChange={(e) => updateAdditionalSite(idx, "address", e.target.value)} className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Business hours</span>
+                                            <input type="text" value={site.businessHours} onChange={(e) => updateAdditionalSite(idx, "businessHours", e.target.value)} placeholder="Mon–Fri 8a–5p" className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Unique selling point (used by the AI agent)</span>
+                                            <input type="text" value={site.usp} onChange={(e) => updateAdditionalSite(idx, "usp", e.target.value)} className={inputCls} />
+                                        </label>
+                                    </div>
+
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                        Brand palette
+                                    </h4>
+                                    <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
+                                        {(["paletteAccent", "paletteBg", "paletteBgSoft", "paletteInk", "paletteInkSoft", "paletteRule"] as const).map((key) => (
+                                            <label key={key} className={labelCls} style={{ fontSize: 12 }}>
+                                                <span>{key.replace("palette", "")}</span>
+                                                <input
+                                                    type="color"
+                                                    value={site[key]}
+                                                    onChange={(e) => updateAdditionalSite(idx, key, e.target.value)}
+                                                    style={{ height: 40, padding: 4, borderRadius: 8 }}
+                                                />
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                        Hero (seeds the homepage + AI greeting)
+                                    </h4>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <label className={labelCls}>
+                                            <span>Hero headline</span>
+                                            <input type="text" value={site.heroHeadline} onChange={(e) => updateAdditionalSite(idx, "heroHeadline", e.target.value)} className={inputCls} />
+                                        </label>
+                                        <label className={labelCls}>
+                                            <span>Hero subhead</span>
+                                            <input type="text" value={site.heroSub} onChange={(e) => updateAdditionalSite(idx, "heroSub", e.target.value)} className={inputCls} />
+                                        </label>
+                                    </div>
+
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                        Services ({site.services.length})
+                                    </h4>
+                                    {site.services.map((svc, svcIdx) => (
+                                        <div key={svcIdx} style={{ marginBottom: 12, padding: 12, border: "1px solid var(--rule)", borderRadius: 10, background: "var(--bg)" }}>
+                                            <div className="grid gap-2 sm:grid-cols-2">
+                                                <input type="text" value={svc.t} onChange={(e) => updateAdditionalSiteService(idx, svcIdx, "t", e.target.value)} placeholder="Service title" className={inputCls} />
+                                                <input type="text" value={svc.tag} onChange={(e) => updateAdditionalSiteService(idx, svcIdx, "tag", e.target.value)} placeholder="Category" className={inputCls} />
+                                            </div>
+                                            <textarea rows={2} value={svc.d} onChange={(e) => updateAdditionalSiteService(idx, svcIdx, "d", e.target.value)} placeholder="Short description (≤ 120 chars)" className={inputCls} style={{ marginTop: 8 }} />
+                                            {site.services.length > 1 && (
+                                                <button type="button" onClick={() => removeAdditionalSiteService(idx, svcIdx)} style={{ marginTop: 6, fontSize: 12, color: "#dc2626", background: "transparent", border: 0, cursor: "pointer" }}>
+                                                    × Remove service
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {site.services.length < 6 && (
+                                        <button type="button" onClick={() => addAdditionalSiteService(idx)} style={{ fontSize: 13, color: "var(--accent)", background: "transparent", border: "1px solid var(--accent)", padding: "6px 12px", borderRadius: 8, cursor: "pointer" }}>
+                                            + Add service
+                                        </button>
+                                    )}
+
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                        FAQs ({site.faqs.length})
+                                    </h4>
+                                    {site.faqs.map((faq, faqIdx) => (
+                                        <div key={faqIdx} style={{ marginBottom: 12, padding: 12, border: "1px solid var(--rule)", borderRadius: 10, background: "var(--bg)" }}>
+                                            <input type="text" value={faq.q} onChange={(e) => updateAdditionalSiteFaq(idx, faqIdx, "q", e.target.value)} placeholder="Question" className={inputCls} />
+                                            <textarea rows={2} value={faq.a} onChange={(e) => updateAdditionalSiteFaq(idx, faqIdx, "a", e.target.value)} placeholder="Answer" className={inputCls} style={{ marginTop: 8 }} />
+                                            {site.faqs.length > 1 && (
+                                                <button type="button" onClick={() => removeAdditionalSiteFaq(idx, faqIdx)} style={{ marginTop: 6, fontSize: 12, color: "#dc2626", background: "transparent", border: 0, cursor: "pointer" }}>
+                                                    × Remove FAQ
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {site.faqs.length < 6 && (
+                                        <button type="button" onClick={() => addAdditionalSiteFaq(idx)} style={{ fontSize: 13, color: "var(--accent)", background: "transparent", border: "1px solid var(--accent)", padding: "6px 12px", borderRadius: 8, cursor: "pointer" }}>
+                                            + Add FAQ
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+
+                            {formData.additionalSites.length < 2 && (
+                                <button
+                                    type="button"
+                                    onClick={addAdditionalSite}
+                                    style={{
+                                        marginTop: 8,
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        color: "var(--accent)",
+                                        background: "transparent",
+                                        border: "2px dashed var(--accent)",
+                                        padding: "12px 20px",
+                                        borderRadius: 12,
+                                        cursor: "pointer",
+                                        width: "100%",
+                                    }}
+                                >
+                                    + Add another site ({1 + formData.additionalSites.length} of 3)
+                                </button>
+                            )}
+                        </section>
+                    )}
+
                     {/* ── Section 16: Consent + Security + Submit ─────────────── */}
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="16" title="Submit" />
 
-                        <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                        <label className="flex items-start gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-4 text-sm text-white/80">
                             <input
                                 required
                                 type="checkbox"
                                 checked={formData.consent}
                                 onChange={(e) => set("consent", e.target.checked)}
-                                className="mt-1 h-4 w-4 rounded border-slate-400 text-slate-900"
+                                className="mt-1 h-4 w-4 rounded border-white/20"
                             />
                             <span>
                                 I agree to the collection and processing of my information as described in the{" "}
-                                <Link href="/privacy-policy" className="font-semibold underline underline-offset-4 hover:text-slate-900">
+                                <Link href="/privacy-policy" className="font-semibold underline underline-offset-4 hover:text-white">
                                     Privacy Policy
                                 </Link>
                                 .
@@ -2051,8 +2376,8 @@ export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
                         </label>
 
                         <div className="mt-5 flex flex-col gap-3">
-                            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="mb-3 text-sm font-semibold text-slate-800">Security verification</p>
+                            <div className="rounded-xl border border-white/[0.10] bg-white/[0.04] p-4">
+                                <p className="mb-3 text-sm font-semibold text-white/90">Security verification</p>
                                 <div ref={turnstileContainerRef} />
                             </div>
 

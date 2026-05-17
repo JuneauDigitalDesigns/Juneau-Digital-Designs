@@ -208,7 +208,10 @@ export interface ContentMeta {
     variation: "D";
     is_placeholder: boolean;
     missing_fields: string[];
-    selectedPlan: "starter" | "growth" | "premium";
+    selectedPlan: "starter" | "growth" | "enterprise";
+    siteIndex?: number;       // 1-based; set for Enterprise sites only
+    siteCount?: number;       // total cluster size; set for Enterprise sites only
+    siblingSlugs?: string[];  // other slug names in the same Enterprise cluster
 }
 
 export interface SiteContent {
@@ -235,7 +238,7 @@ export interface SiteContent {
 export type ImageMeta = { url: string; filename: string; alt: string };
 
 export interface OnboardingSubmission {
-    selectedPlan: "starter" | "growth" | "premium";
+    selectedPlan: "starter" | "growth" | "enterprise";
     contact: {
         brandName: string;
         brandLong: string;
@@ -329,6 +332,41 @@ export interface OnboardingSubmission {
     }>;
     heroBullets: Array<{ value: string; label: string }>;
     faqs: Array<{ q: string; a: string }>;
+    /**
+     * Enterprise tier only: additional sites beyond the primary. Each entry
+     * uses a reduced field set; missing fields inherit from the primary site
+     * during mapping.
+     */
+    additionalSites?: AdditionalSiteEntry[];
+}
+
+export interface AdditionalSiteEntry {
+    brandName: string;
+    brandShort: string;
+    brandTagline: string;
+    email: string;
+    phone: string;
+    address: string;
+    paletteAccent: string;
+    paletteBg: string;
+    paletteBgSoft: string;
+    paletteInk: string;
+    paletteInkSoft: string;
+    paletteRule: string;
+    heroHeadline: string;
+    heroSub: string;
+    businessHours: string;
+    usp: string;
+    services: Array<{ t: string; tag: string; d: string; images: ImageMeta[] }>;
+    faqs: Array<{ q: string; a: string }>;
+}
+
+// ─── Intake envelope ──────────────────────────────────────────────────────────
+
+export interface Intake {
+    plan: "starter" | "growth" | "enterprise";
+    siteCount: number;
+    sites: SiteContent[];
 }
 
 // ─── Mapping ──────────────────────────────────────────────────────────────────
@@ -558,4 +596,140 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
             selectedPlan: p.selectedPlan,
         },
     };
+}
+
+/**
+ * Build an additional Enterprise site by overlaying a reduced-form entry on
+ * top of the primary site's content. Anything not in the additional-site form
+ * inherits from the primary site (typography, SEO defaults, footer copy, nav).
+ */
+function buildAdditionalSite(
+    primary: SiteContent,
+    add: AdditionalSiteEntry,
+    siteIndex: number,
+    siteCount: number,
+    siblingSlugs: string[],
+): SiteContent {
+    const missing: string[] = [];
+    const flag = (path: string, val: string) => {
+        if (!val || !val.trim()) missing.push(path);
+    };
+    flag("brand.tagline", add.brandTagline);
+    flag("brand.address", add.address);
+    flag("hero.headline", add.heroHeadline);
+    flag("hero.sub", add.heroSub);
+    if (add.services.length === 0) missing.push("services.items");
+    if (add.faqs.length === 0) missing.push("faq.items");
+
+    return {
+        ...primary,
+        brand: {
+            ...primary.brand,
+            name: add.brandName,
+            short: or(add.brandShort, add.brandName),
+            long: add.brandName,
+            tagline: add.brandTagline,
+            phone: add.phone,
+            phoneHref: phoneHrefFor(add.phone),
+            email: add.email,
+            address: add.address,
+            palette: {
+                accent: add.paletteAccent,
+                bg: add.paletteBg,
+                bgSoft: add.paletteBgSoft,
+                ink: add.paletteInk,
+                inkSoft: add.paletteInkSoft,
+                rule: add.paletteRule,
+            },
+        },
+        hero: {
+            ...primary.hero,
+            headline: add.heroHeadline,
+            sub: add.heroSub,
+            trust: add.usp,
+        },
+        services: {
+            ...primary.services,
+            items: add.services.map((s, i) => ({
+                n: String(i + 1).padStart(2, "0"),
+                t: s.t,
+                d: s.d,
+                tag: s.tag,
+                image: s.images[0]
+                    ? { url: s.images[0].url, alt: s.images[0].alt }
+                    : null,
+            })),
+        },
+        faq: {
+            ...primary.faq,
+            items: add.faqs,
+        },
+        extensions: {
+            ...primary.extensions,
+            contactDetails: add.address
+                ? { address: add.address, mapsUrl: null }
+                : null,
+            hours: add.businessHours ? { all: add.businessHours } : null,
+        },
+        _meta: {
+            ...primary._meta,
+            generated_at: new Date().toISOString(),
+            missing_fields: missing,
+            siteIndex,
+            siteCount,
+            siblingSlugs,
+        },
+    };
+}
+
+/**
+ * Convert a submission to an Intake envelope. Single-site for starter/growth;
+ * N-site for enterprise.
+ */
+export function mapPayloadToIntake(p: OnboardingSubmission): Intake {
+    const primary = mapPayloadToSchema(p);
+    const additionalEntries = (p.additionalSites ?? []).filter((a) => a && a.brandName);
+
+    if (p.selectedPlan !== "enterprise" || additionalEntries.length === 0) {
+        return {
+            plan: p.selectedPlan,
+            siteCount: 1,
+            sites: [
+                {
+                    ...primary,
+                    _meta: { ...primary._meta, siteIndex: 1, siteCount: 1, siblingSlugs: [] },
+                },
+            ],
+        };
+    }
+
+    const slugify = (s: string) =>
+        s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const baseSlug = slugify(primary.brand.short || primary.brand.name);
+    const allSiteShorts = [primary.brand.short, ...additionalEntries.map((a) => or(a.brandShort, a.brandName))];
+    const siteCount = allSiteShorts.length;
+    const allSlugs = allSiteShorts.map((_, i) => `${baseSlug}-${i + 1}`);
+
+    const sites: SiteContent[] = [
+        {
+            ...primary,
+            _meta: {
+                ...primary._meta,
+                siteIndex: 1,
+                siteCount,
+                siblingSlugs: allSlugs.slice(1),
+            },
+        },
+        ...additionalEntries.map((entry, i) =>
+            buildAdditionalSite(
+                primary,
+                entry,
+                i + 2,
+                siteCount,
+                allSlugs.filter((_, j) => j !== i + 1),
+            ),
+        ),
+    ];
+
+    return { plan: "enterprise", siteCount, sites };
 }

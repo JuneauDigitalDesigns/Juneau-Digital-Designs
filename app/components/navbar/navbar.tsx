@@ -23,45 +23,26 @@ export default function Navbar() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const pages: Pages[] = [
-        { name: "Projects", href: "/projects" },
-    ]
 
     return (
         <div
             ref={navRef}
-            className="sticky top-0 z-50 w-full"
+            className="top-0 z-50 w-full"
             style={{
                 background: "rgba(7, 16, 30, 0.75)",
                 backdropFilter: "blur(28px) saturate(150%)",
                 WebkitBackdropFilter: "blur(28px) saturate(150%)",
-                borderBottom: "1px solid var(--rule)",
+                
             }}
         >
             <div className="mx-auto flex h-16 w-full max-w-7xl items-center px-4 sm:px-6">
                 <Link href="/" aria-label="Go to home page" className="hover:cursor-pointer">
-                    <Image src="/JDs_nobg.png" alt="Juneau Digital Designs home" width={100} height={100} className="h-10 w-10 sm:h-14 sm:w-14" />
+                    <Image src="/JDs_nobg.png" alt="Juneau Digital Designs home" width={100} height={100} className="h-20 w-20 sm:h-25 sm:w-25" />
                 </Link>
 
                 {/* Desktop nav */}
                 <div className="ml-auto hidden items-center gap-7 text-sm md:flex">
-                    {pages.map((page) => (
-                        <Link
-                            key={page.name}
-                            href={page.href}
-                            style={{
-                                color: "var(--fg-2)",
-                                fontSize: 13.5,
-                                fontFamily: "var(--font-body)",
-                                textDecoration: "none",
-                                transition: "color 0.2s ease",
-                            }}
-                            onMouseEnter={e => (e.currentTarget.style.color = "var(--accent)")}
-                            onMouseLeave={e => (e.currentTarget.style.color = "var(--fg-2)")}
-                        >
-                            {page.name}
-                        </Link>
-                    ))}
+                    
                     <Link href="/pricing" className="btn primary" style={{ fontSize: 13.5 }}>
                         View Pricing
                     </Link>
@@ -107,32 +88,6 @@ export default function Navbar() {
                     >
                         <div className="mx-auto w-full max-w-7xl px-4">
                             <p className="kicker px-1 pt-1 pb-3">Navigation</p>
-
-                            <div className="flex flex-col gap-2 mb-3">
-                                {pages.map((page, index) => (
-                                    <motion.div
-                                        key={page.name}
-                                        initial={{ opacity: 0, x: -12 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ duration: 0.3, delay: index * 0.05 }}
-                                    >
-                                        <Link
-                                            href={page.href}
-                                            onClick={() => setShowNav(false)}
-                                            className="group flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium transition-all"
-                                            style={{
-                                                border: "1px solid var(--rule)",
-                                                background: "var(--surface)",
-                                                color: "var(--fg)",
-                                                textDecoration: "none",
-                                            }}
-                                        >
-                                            <span>{page.name}</span>
-                                            <span style={{ color: "var(--fg-3)", transition: "transform 0.2s" }} className="group-hover:translate-x-1">→</span>
-                                        </Link>
-                                    </motion.div>
-                                ))}
-                            </div>
 
                             <Link
                                 className="btn primary w-full justify-center"

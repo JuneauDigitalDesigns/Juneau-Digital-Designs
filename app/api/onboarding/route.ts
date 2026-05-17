@@ -1,16 +1,10 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-import { mapPayloadToSchema, type OnboardingSubmission } from "@/app/lib/site-schema";
+import { mapPayloadToIntake, type OnboardingSubmission, type AdditionalSiteEntry } from "@/app/lib/site-schema";
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-const toEmail = process.env.QUOTE_TO_EMAIL;
-const fromEmail = process.env.QUOTE_FROM_EMAIL || "onboarding@resend.dev";
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
 const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
 
-type PlanSlug = "starter" | "growth" | "premium";
+type PlanSlug = "starter" | "growth" | "enterprise";
 
 type ImageMeta = {
     url?: string;
@@ -148,6 +142,28 @@ type OnboardingPayload = {
     consent?: boolean;
     turnstileToken?: string;
     website?: string;
+    additionalSites?: AdditionalSiteRaw[];
+};
+
+type AdditionalSiteRaw = {
+    brandName?: string;
+    brandShort?: string;
+    brandTagline?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    paletteAccent?: string;
+    paletteBg?: string;
+    paletteBgSoft?: string;
+    paletteInk?: string;
+    paletteInkSoft?: string;
+    paletteRule?: string;
+    heroHeadline?: string;
+    heroSub?: string;
+    businessHours?: string;
+    usp?: string;
+    services?: ServiceEntry[];
+    faqs?: FaqEntry[];
 };
 
 type TurnstileVerifyResponse = {
@@ -203,15 +219,6 @@ function sanitizeImageMeta(
     };
 }
 
-function escapeHtml(value: string): string {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-}
-
 async function verifyTurnstileToken(token: string, remoteIp: string): Promise<boolean> {
     if (!turnstileSecretKey) {
         return false;
@@ -239,12 +246,6 @@ async function verifyTurnstileToken(token: string, remoteIp: string): Promise<bo
     const verifyResult = (await verifyResponse.json()) as TurnstileVerifyResponse;
     return Boolean(verifyResult.success);
 }
-
-const PLAN_LABELS: Record<PlanSlug, string> = {
-    starter: "Starter",
-    growth: "Growth",
-    premium: "Premium",
-};
 
 /**
  * Fire-and-log POST to Make.com. Returns true on 2xx, false otherwise.
@@ -275,7 +276,7 @@ async function postToMakeWebhook(body: unknown): Promise<boolean> {
 
 export async function POST(request: Request) {
     try {
-        if (!resend || !toEmail || !turnstileSecretKey) {
+        if (!turnstileSecretKey || !makeWebhookUrl) {
             return NextResponse.json(
                 { message: "Server is not configured for onboarding submissions yet." },
                 { status: 500 }
@@ -375,7 +376,7 @@ export async function POST(request: Request) {
         const footerLegal = sanitize(body.footerLegal, 300);
         const consent = Boolean(body.consent);
 
-        const validPlans: PlanSlug[] = ["starter", "growth", "premium"];
+        const validPlans: PlanSlug[] = ["starter", "growth", "enterprise"];
         const rawPlan = sanitize(body.selectedPlan, 20);
         const selectedPlan: PlanSlug = validPlans.includes(rawPlan as PlanSlug)
             ? (rawPlan as PlanSlug)
@@ -457,6 +458,53 @@ export async function POST(request: Request) {
               }))
             : [];
 
+        // Sanitize additionalSites (Enterprise tier; up to 2 extra sites for a 3-site cluster max)
+        const additionalSites: AdditionalSiteEntry[] = Array.isArray(body.additionalSites)
+            ? body.additionalSites.slice(0, 2).map((s) => {
+                  const sites = Array.isArray(s?.services)
+                      ? s!.services!.slice(0, 6).map((x) => {
+                            const rawImgs = Array.isArray(x?.images) ? x!.images! : [];
+                            const images = rawImgs
+                                .slice(0, 5)
+                                .map(sanitizeImageMeta)
+                                .filter((y): y is { url: string; filename: string; alt: string } => y !== null);
+                            return {
+                                t: sanitize(x?.t, 120),
+                                tag: sanitize(x?.tag, 80),
+                                d: sanitize(x?.d, 500),
+                                images,
+                            };
+                        })
+                      : [];
+                  const faqsArr = Array.isArray(s?.faqs)
+                      ? s!.faqs!.slice(0, 6).map((f) => ({
+                            q: sanitize(f?.q, 300),
+                            a: sanitize(f?.a, 1000),
+                        }))
+                      : [];
+                  return {
+                      brandName: sanitize(s?.brandName, 160),
+                      brandShort: sanitize(s?.brandShort, 80),
+                      brandTagline: sanitize(s?.brandTagline, 300),
+                      email: sanitize(s?.email, 160),
+                      phone: sanitize(s?.phone, 60),
+                      address: sanitize(s?.address, 300),
+                      paletteAccent: sanitize(s?.paletteAccent, 20),
+                      paletteBg: sanitize(s?.paletteBg, 20),
+                      paletteBgSoft: sanitize(s?.paletteBgSoft, 20),
+                      paletteInk: sanitize(s?.paletteInk, 20),
+                      paletteInkSoft: sanitize(s?.paletteInkSoft, 20),
+                      paletteRule: sanitize(s?.paletteRule, 20),
+                      heroHeadline: sanitize(s?.heroHeadline, 300),
+                      heroSub: sanitize(s?.heroSub, 500),
+                      businessHours: sanitize(s?.businessHours, 300),
+                      usp: sanitize(s?.usp, 500),
+                      services: sites,
+                      faqs: faqsArr,
+                  };
+              }).filter((s) => s.brandName)
+            : [];
+
         // Required field validation
         if (!brandName || !email || !phone || !websiteType) {
             return NextResponse.json(
@@ -492,10 +540,7 @@ export async function POST(request: Request) {
         const logo = rawImages.logo ? (sanitizeImageMeta(rawImages.logo) ?? undefined) : undefined;
         const aboutFeature = rawImages.aboutFeature ? (sanitizeImageMeta(rawImages.aboutFeature) ?? undefined) : undefined;
 
-        const planLabel = PLAN_LABELS[selectedPlan];
-        const subject = `New Onboarding: ${brandName} — ${planLabel} Plan`;
-
-        // Assemble structured data object for the JSON dump
+        // Assemble structured data object
         const submissionData = {
             selectedPlan,
             contact: { brandName, brandLong, brandShort, email, phone, address, license, websiteType },
@@ -518,69 +563,15 @@ export async function POST(request: Request) {
             testimonials,
             heroBullets,
             faqs,
+            additionalSites,
         };
 
-        const jsonString = JSON.stringify(submissionData, null, 2);
-
-        // Map to SiteContent shape and POST to Make.com webhook (fire-and-log).
-        // The webhook is the primary intake sink for the provisioning pipeline.
-        // Resend email below remains as a permanent audit channel.
-        const siteContent = mapPayloadToSchema(submissionData as OnboardingSubmission);
-        const webhookOk = await postToMakeWebhook(siteContent);
+        // Map to Intake envelope ({ plan, siteCount, sites: SiteContent[] }) and POST to Make.com.
+        const intake = mapPayloadToIntake(submissionData as OnboardingSubmission);
+        const webhookOk = await postToMakeWebhook(intake);
         if (!webhookOk) {
-            console.warn(`[onboarding] webhook delivery failed for "${brandName}" — relying on email fallback`);
-        }
-
-        // Escape HTML values for the summary table
-        const safeBrandName = escapeHtml(brandName);
-        const safeWebsiteType = escapeHtml(websiteType);
-        const safeEmail = escapeHtml(email);
-        const safePhone = escapeHtml(phone || "Not provided");
-        const safePlanLabel = escapeHtml(planLabel);
-        const escapedJson = escapeHtml(jsonString);
-
-        const text = [
-            "New onboarding submission",
-            "",
-            `Company Name: ${brandName}`,
-            `Website Type: ${websiteType}`,
-            `Plan Selected: ${planLabel}`,
-            `Email: ${email}`,
-            `Phone: ${phone || "Not provided"}`,
-            "",
-            "Full submission data:",
-            jsonString,
-        ].join("\n");
-
-        const html = `
-            <div style="font-family: Arial, sans-serif; color: #0f172a; max-width: 680px; margin: 0 auto;">
-              <h1 style="font-size: 24px; margin-bottom: 16px;">New Onboarding Submission</h1>
-              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <tbody>
-                  <tr><td style="padding: 8px 0; font-weight: 700; width: 180px;">Company Name</td><td style="padding: 8px 0;">${safeBrandName}</td></tr>
-                  <tr><td style="padding: 8px 0; font-weight: 700;">Website Type</td><td style="padding: 8px 0;">${safeWebsiteType}</td></tr>
-                  <tr><td style="padding: 8px 0; font-weight: 700;">Plan Selected</td><td style="padding: 8px 0;">${safePlanLabel}</td></tr>
-                  <tr><td style="padding: 8px 0; font-weight: 700;">Email</td><td style="padding: 8px 0;"><a href="mailto:${safeEmail}">${safeEmail}</a></td></tr>
-                  <tr><td style="padding: 8px 0; font-weight: 700;">Phone</td><td style="padding: 8px 0;">${safePhone}</td></tr>
-                </tbody>
-              </table>
-              <h2 style="font-size: 18px; margin: 20px 0 8px;">Full Submission Data</h2>
-              <pre style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; font-size: 12px; overflow-x: auto; white-space: pre-wrap;">${escapedJson}</pre>
-            </div>
-        `;
-
-        const { error } = await resend.emails.send({
-            from: fromEmail,
-            to: [toEmail],
-            replyTo: email,
-            subject,
-            text,
-            html,
-        });
-
-        if (error) {
             return NextResponse.json(
-                { message: "There was a problem sending your submission. Please try again." },
+                { message: "There was a problem submitting your request. Please try again." },
                 { status: 500 }
             );
         }

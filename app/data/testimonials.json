@@ -1,0 +1,46 @@
+{
+  "headline": "Trusted by Our Clients",
+  "items": [
+    {
+      "quote": "We were losing customers every month, but the AI receptionist solved that problem and then some!",
+      "author": "John Jones",
+      "role": "Senior Marketer",
+      "company": "Custom Labs"
+    },
+    {
+      "quote": "It solved all of our problems and was an absolute game-changer for our business.",
+      "author": "John Jones",
+      "role": "Senior Marketer",
+      "company": "Custom Labs"
+    },
+    {
+      "quote": "We stopped missing calls and our customers are happier than ever!",
+      "author": "John Jones",
+      "role": "Senior Marketer",
+      "company": "Custom Labs"
+    },
+    {
+      "quote": "We had no idea we were losing so many customers until we got the AI receptionist. It's been a total game-changer for our business.",
+      "author": "John Jones",
+      "role": "Senior Marketer",
+      "company": "Custom Labs"
+    }
+  ],
+  "stats": [
+    {
+      "value": "98%",
+      "label": "Client satisfaction",
+      "attribution": "- Customers like you"
+    },
+    {
+      "value": "2+",
+      "label": "Clients served",
+      "attribution": "and growing"
+    },
+    {
+      "value": "2×",
+      "label": "Average ROI",
+      "attribution": "self-reported"
+    }
+  ]
+}
