@@ -1,6 +1,6 @@
 "use client"
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGlobe, faPhone, faCalendarCheck, faChartBar, IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { faGlobe, faPhone, faCalendarCheck, faChartBar, faCircleInfo, faXmark, faArrowUpRightFromSquare, IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -1020,6 +1020,11 @@ function MissedCallsCalculator() {
     const RECOVERY_MIN = 1, RECOVERY_MAX = 100;
     const JOB_SLIDER_MIN = 0, JOB_SLIDER_MAX = 100;
 
+    // Research-backed conversion factors. See <HowWeCalculateModal /> for sources.
+    const LEAD_RATE = 0.47;         // Invoca: 47% of inbound home-services calls are new leads
+    const CLOSE_RATE = 0.46;        // Supply House Times: 46% lead-to-job conversion when properly handled
+    const AI_RECOVERY_RATE = 0.73;  // ~85% caller engagement × ~86% AI booking parity vs. perfect human handling
+
     // Log scale helpers: slider 0–100 → $50–$500,000
     function sliderToJobValue(pos: number): number {
         return Math.round(50 * Math.pow(10000, pos / 100));
@@ -1031,13 +1036,16 @@ function MissedCallsCalculator() {
     const [missedPerWeek, setMissedPerWeek] = useState(10);
     const [jobSliderPos, setJobSliderPos] = useState(() => jobValueToSlider(800));
     const [currentRecovery, setCurrentRecovery] = useState(20);
+    const [showModal, setShowModal] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
 
     const avgJobValue = sliderToJobValue(jobSliderPos);
 
-    const missedPerYear = missedPerWeek * 52;
-    const unrecoveredPerYear = missedPerYear * (1 - currentRecovery / 100);
-    const revenueOnTable = unrecoveredPerYear * avgJobValue;
-    const recoverableRevenue = revenueOnTable * 0.73;
+    const annualMissed = missedPerWeek * 52;
+    const annualLeadCalls = annualMissed * LEAD_RATE;
+    const unrecoveredLeads = annualLeadCalls * (1 - currentRecovery / 100);
+    const revenueOnTable = unrecoveredLeads * CLOSE_RATE * avgJobValue;
+    const recoverableRevenue = revenueOnTable * AI_RECOVERY_RATE;
 
     function formatDollars(n: number): string {
         if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(n >= 10_000_000 ? 1 : 2)}M`;
@@ -1091,7 +1099,7 @@ function MissedCallsCalculator() {
             >
                 {/* Header */}
                 <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
-                    <span className="eyebrow" style={{ marginBottom: 20 }}>Revenue Calculator</span>
+                    
                     <h2
                         style={{
                             fontFamily: "var(--font-display)",
@@ -1259,7 +1267,7 @@ function MissedCallsCalculator() {
                                         marginBottom: 14,
                                     }}
                                 >
-                                    <span className="kicker">Calls currently recovered</span>
+                                    <span className="kicker">Lead calls you currently recover</span>
                                     <span
                                         style={{
                                             fontFamily: "var(--font-display)",
@@ -1356,14 +1364,346 @@ function MissedCallsCalculator() {
                             </div>
                         </div>
 
-                        {/* Footnote */}
-                        <div style={{ textAlign: "center" }}>
-                            <span className="kicker">━━ Based on 73% AI booking rate · 52 weeks / year</span>
+                        {/* Footnote: trigger + disclaimer */}
+                        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                            <button
+                                ref={triggerRef}
+                                type="button"
+                                onClick={() => setShowModal(true)}
+                                className="kicker calc-modal-trigger"
+                                style={{
+                                    background: "none",
+                                    border: "none",
+                                    padding: "4px 6px",
+                                    color: "var(--accent)",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    textUnderlineOffset: 3,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                }}
+                            >
+                                <FontAwesomeIcon icon={faCircleInfo} />
+                                How we calculate this
+                            </button>
+                            <p
+                                style={{
+                                    fontSize: 11,
+                                    color: "var(--fg-3)",
+                                    lineHeight: 1.5,
+                                    maxWidth: "62ch",
+                                    margin: 0,
+                                }}
+                            >
+                                Illustrative estimates only. Figures are derived from your inputs and publicly available industry research
+                                on inbound-call performance. Actual results vary by market, business model, and execution; this calculator
+                                is not a guarantee or projection of future revenue.
+                            </p>
                         </div>
                     </div>
                 </Reveal>
             </div>
+
+            <HowWeCalculateModal
+                open={showModal}
+                onClose={() => setShowModal(false)}
+                returnFocusRef={triggerRef}
+                missedPerWeek={missedPerWeek}
+                currentRecovery={currentRecovery}
+                avgJobValue={avgJobValue}
+                annualMissed={annualMissed}
+                annualLeadCalls={annualLeadCalls}
+                unrecoveredLeads={unrecoveredLeads}
+                revenueOnTable={revenueOnTable}
+                recoverableRevenue={recoverableRevenue}
+                leadRate={LEAD_RATE}
+                closeRate={CLOSE_RATE}
+                aiRecoveryRate={AI_RECOVERY_RATE}
+                formatDollars={formatDollars}
+            />
         </section>
+    );
+}
+
+/* ── "How we calculate this" modal ───────────────────────── */
+type ModalProps = {
+    open: boolean;
+    onClose: () => void;
+    returnFocusRef: React.RefObject<HTMLButtonElement | null>;
+    missedPerWeek: number;
+    currentRecovery: number;
+    avgJobValue: number;
+    annualMissed: number;
+    annualLeadCalls: number;
+    unrecoveredLeads: number;
+    revenueOnTable: number;
+    recoverableRevenue: number;
+    leadRate: number;
+    closeRate: number;
+    aiRecoveryRate: number;
+    formatDollars: (n: number) => string;
+};
+
+function HowWeCalculateModal({
+    open,
+    onClose,
+    returnFocusRef,
+    missedPerWeek,
+    currentRecovery,
+    avgJobValue,
+    annualMissed,
+    annualLeadCalls,
+    unrecoveredLeads,
+    revenueOnTable,
+    recoverableRevenue,
+    leadRate,
+    closeRate,
+    aiRecoveryRate,
+    formatDollars,
+}: ModalProps) {
+    const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+    // Lock scroll (position-fixed-body technique — works even when <html> is the
+    // scroll container, and preserves scroll position so the page doesn't jump),
+    // handle Escape, and manage focus while open.
+    useEffect(() => {
+        if (!open) return;
+        const scrollY = window.scrollY;
+        const prev = {
+            position: document.body.style.position,
+            top: document.body.style.top,
+            left: document.body.style.left,
+            right: document.body.style.right,
+            width: document.body.style.width,
+        };
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.left = "0";
+        document.body.style.right = "0";
+        document.body.style.width = "100%";
+        closeBtnRef.current?.focus();
+
+        function onKey(e: KeyboardEvent) {
+            if (e.key === "Escape") onClose();
+        }
+        window.addEventListener("keydown", onKey);
+
+        return () => {
+            document.body.style.position = prev.position;
+            document.body.style.top = prev.top;
+            document.body.style.left = prev.left;
+            document.body.style.right = prev.right;
+            document.body.style.width = prev.width;
+            window.scrollTo(0, scrollY);
+            window.removeEventListener("keydown", onKey);
+            returnFocusRef.current?.focus();
+        };
+    }, [open, onClose, returnFocusRef]);
+
+    function avgJobLabel(): string {
+        if (avgJobValue >= 1000) {
+            return `$${(avgJobValue / 1000).toFixed(avgJobValue >= 100_000 ? 0 : 1)}K`;
+        }
+        return `$${avgJobValue.toLocaleString()}`;
+    }
+
+    const steps = [
+        {
+            title: "Your inputs",
+            formula: `${missedPerWeek} missed calls/week × 52 weeks`,
+            running: `${Math.round(annualMissed).toLocaleString()} missed calls / year`,
+            note: null as React.ReactNode | null,
+        },
+        {
+            title: `× ${Math.round(leadRate * 100)}% are real new-business leads`,
+            formula: `${Math.round(annualMissed).toLocaleString()} × ${leadRate}`,
+            running: `${Math.round(annualLeadCalls).toLocaleString()} lead calls / year`,
+            note: (
+                <>
+                    Invoca&apos;s 2025 home-services benchmark: roughly 47% of inbound calls are genuine new-customer leads (the rest
+                    are existing customers, vendors, wrong numbers, etc.).{" "}
+                    <a
+                        className="calc-modal-link"
+                        href="https://www.invoca.com/blog/home-services-marketing-stats"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Source <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
+                    </a>
+                </>
+            ),
+        },
+        {
+            title: `× (100% − ${currentRecovery}% you currently recover)`,
+            formula: `${Math.round(annualLeadCalls).toLocaleString()} × ${(1 - currentRecovery / 100).toFixed(2)}`,
+            running: `${Math.round(unrecoveredLeads).toLocaleString()} unrecovered lead calls / year`,
+            note: (
+                <>
+                    85% of callers whose initial call goes unanswered will not call back, so unrecovered leads stay lost without a
+                    real-time pickup.
+                </>
+            ),
+        },
+        {
+            title: `× ${Math.round(closeRate * 100)}% close rate × ${avgJobLabel()} avg job`,
+            formula: `${Math.round(unrecoveredLeads).toLocaleString()} × ${closeRate} × ${avgJobLabel()}`,
+            running: `${formatDollars(revenueOnTable)} revenue on the table / year`,
+            note: (
+                <>
+                    Supply House Times&apos; home-services call-performance report measured a 46% lead-to-job conversion rate when
+                    inbound calls are properly handled.{" "}
+                    <a
+                        className="calc-modal-link"
+                        href="https://www.supplyht.com/articles/106612-home-services-call-performance-report-46-lead-conversion-rate-segment-benchmarks"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Source <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
+                    </a>
+                </>
+            ),
+        },
+        {
+            title: `× ${Math.round(aiRecoveryRate * 100)}% AI recovery factor`,
+            formula: `${formatDollars(revenueOnTable)} × ${aiRecoveryRate}`,
+            running: `${formatDollars(recoverableRevenue)} recoverable with AI / year`,
+            note: (
+                <>
+                    Composed of ~85% caller engagement (vs. hang-up on AI) × ~86% booking parity with a perfect human receptionist.
+                    Industry-standard AI appointment-booking rate is 40%; best-in-class systems reach 60%.{" "}
+                    <a
+                        className="calc-modal-link"
+                        href="https://www.myaifrontdesk.com/blogs/ai-receptionist-performance-metrics"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Source 1 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
+                    </a>{" "}
+                    ·{" "}
+                    <a
+                        className="calc-modal-link"
+                        href="https://www.getnextphone.com/blog/ai-receptionist-statistics"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Source 2 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
+                    </a>
+                </>
+            ),
+        },
+    ];
+
+    return (
+        <AnimatePresence>
+            {open && (
+                <motion.div
+                    className="calc-modal-backdrop"
+                    onClick={onClose}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                >
+                    <motion.div
+                        className="calc-modal glass"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="calc-modal-title"
+                        onClick={(e) => e.stopPropagation()}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 8 }}
+                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        {/* Accent top bar */}
+                        <div
+                            style={{
+                                position: "absolute",
+                                inset: "0 0 auto 0",
+                                height: 2,
+                                borderRadius: "22px 22px 0 0",
+                                background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))",
+                            }}
+                        />
+
+                        {/* Aurora accent in header */}
+                        <div className="aurora-bg" style={{ borderRadius: 22 }}>
+                            <div
+                                className="aurora-blob"
+                                style={{
+                                    width: 360,
+                                    height: 360,
+                                    background: "radial-gradient(circle, rgba(182,168,255,0.30) 0%, transparent 70%)",
+                                    right: "-10%",
+                                    top: "-15%",
+                                    animationDelay: "-9s",
+                                }}
+                            />
+                        </div>
+
+                        {/* Header */}
+                        <div className="calc-modal-header">
+                            <div>
+                                <span className="eyebrow">Methodology</span>
+                                <h3
+                                    id="calc-modal-title"
+                                    style={{
+                                        fontFamily: "var(--font-display)",
+                                        fontSize: "clamp(24px, 3vw, 32px)",
+                                        fontWeight: 400,
+                                        letterSpacing: "-0.02em",
+                                        margin: "12px 0 4px",
+                                        lineHeight: 1.15,
+                                    }}
+                                >
+                                    How we calculate this
+                                </h3>
+                                <p style={{ color: "var(--fg-2)", fontSize: 14, margin: 0, lineHeight: 1.55 }}>
+                                    The math behind your numbers, with the research it&apos;s grounded in. Adjust the sliders behind this
+                                    panel and every step recalculates.
+                                </p>
+                            </div>
+                            <button
+                                ref={closeBtnRef}
+                                type="button"
+                                onClick={onClose}
+                                className="calc-modal-close"
+                                aria-label="Close methodology dialog"
+                            >
+                                <FontAwesomeIcon icon={faXmark} />
+                            </button>
+                        </div>
+
+                        {/* Steps */}
+                        <ol className="calc-modal-steps">
+                            {steps.map((s, i) => (
+                                <li key={i} className="calc-modal-step">
+                                    <div className="calc-modal-step-num">{i + 1}</div>
+                                    <div className="calc-modal-step-body">
+                                        <div className="calc-modal-step-row">
+                                            <div className="calc-modal-step-title">{s.title}</div>
+                                            <div className="calc-modal-step-running">{s.running}</div>
+                                        </div>
+                                        <div className="calc-modal-step-formula">{s.formula}</div>
+                                        {s.note && <div className="calc-modal-step-note">{s.note}</div>}
+                                    </div>
+                                </li>
+                            ))}
+                        </ol>
+
+                        {/* Footer disclaimer */}
+                        <div className="calc-modal-footer">
+                            <p style={{ fontSize: 12, color: "var(--fg-3)", lineHeight: 1.6, margin: 0 }}>
+                                These figures are educational estimates derived from your inputs and the cited third-party research.
+                                Juneau Digital Designs makes no representation or warranty as to the accuracy of these projections for
+                                any specific business. Past performance and industry averages do not guarantee future results.
+                            </p>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 }
 
