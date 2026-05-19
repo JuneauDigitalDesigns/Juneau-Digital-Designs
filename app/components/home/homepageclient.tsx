@@ -512,11 +512,11 @@ function HowItWorks() {
                 {/* Table */}
                 <Reveal delay={1}>
                     <div style={{ width: "100%" }}>
-                        {/* Header row */}
+                        {/* Header row — desktop only (mobile uses per-row labels) */}
                         <div className="hiw-header-row">
                             <div className="kicker">━ #</div>
-                            <div className="kicker">━ The simple version</div>
-                            <div className="kicker hiw-tech-col">━ Under the hood</div>
+                            <div className="kicker">━ PLAIN</div>
+                            <div className="kicker">━ UNDER THE HOOD</div>
                         </div>
 
                         {/* Data rows */}
@@ -526,41 +526,16 @@ function HowItWorks() {
                                 className="hiw-row"
                                 whileHover={{ background: "var(--surface)" }}
                             >
-                                <div
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: 22,
-                                        fontWeight: 300,
-                                        color: "var(--fg-3)",
-                                        minWidth: 40,
-                                        paddingTop: 2,
-                                    }}
-                                >
-                                    {String(i + 1).padStart(2, "0")}
+                                <div className="hiw-num">{String(i + 1).padStart(2, "0")}</div>
+
+                                <div className="hiw-simple-cell">
+                                    <div className="hiw-cell-label">PLAIN</div>
+                                    <div className="hiw-simple-text">{row.simple}</div>
                                 </div>
-                                <div
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: "clamp(16px, 2.5vw, 22px)",
-                                        fontWeight: 400,
-                                        letterSpacing: "-0.015em",
-                                        color: "var(--fg)",
-                                        lineHeight: 1.3,
-                                    }}
-                                >
-                                    {row.simple}
-                                </div>
-                                <div
-                                    className="hiw-tech-cell"
-                                    style={{
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 12.5,
-                                        lineHeight: 1.7,
-                                        color: "var(--fg-2)",
-                                        paddingTop: 4,
-                                    }}
-                                >
-                                    {row.tech}
+
+                                <div className="hiw-tech-cell">
+                                    <div className="hiw-cell-label hiw-tech-label">UNDER THE HOOD</div>
+                                    <div className="hiw-tech-text">{row.tech}</div>
                                 </div>
                             </motion.div>
                         ))}
