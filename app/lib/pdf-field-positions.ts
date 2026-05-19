@@ -15,6 +15,12 @@ export const FIELDS = {
   page1_clientAddress: { page: 1, x: 130, y: 550, fontSize: 11 },
   page1_effectiveDate: { page: 1, x: 175, y: 510, fontSize: 11 },
 
+  // ── Page 1 ── Selected Plan callout box (drawn above Section 1)
+  page1_planCalloutBox:   { page: 1, x: 60, y: 470, width: 490, height: 56 },
+  page1_planCalloutTitle: { page: 1, x: 75, y: 506, fontSize: 9  },
+  page1_planCalloutValue: { page: 1, x: 75, y: 488, fontSize: 16 },
+  page1_planCalloutSub:   { page: 1, x: 75, y: 476, fontSize: 9  },
+
   // ── Page 11 ── Signature block (Client side; Provider side is pre-signed by JDD)
   page11_clientSigImage: { page: 11, x: 95, y: 178, width: 180, height: 50 },
   page11_clientName:     { page: 11, x: 100, y: 168, fontSize: 11 },

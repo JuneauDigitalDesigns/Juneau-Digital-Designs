@@ -139,8 +139,8 @@ export default function AgreementClient({ plan }: Props) {
                             }}
                         >
                             <iframe
-                                src="/legal/msa-v2.pdf#toolbar=0&navpanes=0"
-                                title="Master Services Agreement v2"
+                                src="/legal/msa-v3.pdf#toolbar=0&navpanes=0"
+                                title="Master Services Agreement v3"
                                 style={{
                                     width: "100%",
                                     height: 480,
@@ -161,7 +161,7 @@ export default function AgreementClient({ plan }: Props) {
                         >
                             Can&apos;t view inline?{" "}
                             <a
-                                href="/legal/msa-v2.pdf"
+                                href="/legal/msa-v3.pdf"
                                 target="_blank"
                                 rel="noreferrer"
                                 style={{ color: "var(--accent)", textDecoration: "underline" }}
