@@ -16,12 +16,15 @@
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
     "@fortawesome/react-fontawesome": "^3.1.1",
     "@stripe/stripe-js": "^9.6.0",
+    "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.3.3",
     "font-awesome": "^4.7.0",
     "framer-motion": "^12.23.26",
     "next": "^16.2.3",
+    "pdf-lib": "^1.17.1",
     "react": "19.2.1",
     "react-dom": "19.2.1",
+    "resend": "^6.12.3",
     "stripe": "^22.1.1"
   },
   "devDependencies": {

@@ -62,26 +62,12 @@ const TIERS: PricingTier[] = [
 
 export default function PricingPageClient() {
     const [loadingPlan, setLoadingPlan] = useState<PlanSlug | null>(null);
-    const [checkoutError, setCheckoutError] = useState<string | null>(null);
+    const [checkoutError] = useState<string | null>(null);
 
-    async function subscribe(slug: PlanSlug) {
+    function subscribe(slug: PlanSlug) {
         setLoadingPlan(slug);
-        setCheckoutError(null);
-        try {
-            const res = await fetch("/api/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan: slug }),
-            });
-            const data = (await res.json()) as { url?: string; error?: string };
-            if (!res.ok || !data.url) {
-                throw new Error(data.error || `Checkout failed (${res.status})`);
-            }
-            window.location.href = data.url;
-        } catch (e) {
-            setCheckoutError(e instanceof Error ? e.message : "Could not start checkout");
-            setLoadingPlan(null);
-        }
+        // Send users to the MSA signing page first; payment happens after signing.
+        window.location.href = `/agreement?plan=${slug}`;
     }
 
     return (

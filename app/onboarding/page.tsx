@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import OnboardingPageClient from "../components/onboarding/onboardingpageclient";
 import { stripe } from "../lib/stripe";
+import { getAgreement } from "../lib/kv";
 
 export const metadata: Metadata = {
     title: "Start Onboarding | Juneau Digital Designs",
@@ -21,16 +22,22 @@ export default async function OnboardingPage({
 }) {
     const { plan, session_id } = await searchParams;
 
-    // Gate: only paid customers can fill the onboarding form.
+    // Gate: only paid customers who have a signed agreement can fill the form.
     if (!session_id) redirect("/pricing");
 
     const session = await stripe.checkout.sessions.retrieve(session_id);
     if (session.payment_status !== "paid") redirect("/pricing");
 
+    const agreement_id = session.metadata?.agreement_id;
+    if (!agreement_id) redirect("/pricing");
+
+    const agreement = await getAgreement(agreement_id);
+    if (!agreement) redirect("/pricing");
+
     const verifiedPlan = (session.metadata?.plan as PlanSlug | undefined)
         ?? (validPlans.includes(plan as PlanSlug) ? (plan as PlanSlug) : "starter");
 
-    const prefillEmail = session.customer_details?.email ?? "";
+    const prefillEmail = agreement.signerEmail || session.customer_details?.email || "";
 
     return <OnboardingPageClient plan={verifiedPlan} prefillEmail={prefillEmail} />;
 }

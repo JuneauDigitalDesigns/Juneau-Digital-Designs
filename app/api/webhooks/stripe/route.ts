@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/app/lib/stripe";
+import { getAgreement } from "@/app/lib/kv";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
@@ -27,13 +28,27 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const makeUrl = process.env.MAKE_WEBHOOK_URL;
+
     if (makeUrl) {
+      const agreementId = session.metadata?.agreement_id;
+      let pdfUrl: string | undefined;
+      if (agreementId) {
+        try {
+          const agreement = await getAgreement(agreementId);
+          pdfUrl = agreement?.pdfUrl;
+        } catch (e) {
+          console.error("[stripe webhook] agreement lookup failed", e);
+        }
+      }
+
       fetch(makeUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "stripe.checkout.completed",
           plan: session.metadata?.plan,
+          agreement_id: agreementId,
+          agreement_pdf_url: pdfUrl,
           email: session.customer_details?.email,
           customer: session.customer,
           subscription: session.subscription,
