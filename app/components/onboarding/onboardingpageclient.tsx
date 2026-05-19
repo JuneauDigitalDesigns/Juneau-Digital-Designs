@@ -184,12 +184,12 @@ const BLANK_ADDITIONAL_SITE: AdditionalSiteForm = {
     faqs: [{ ...BLANK_FAQ }],
 };
 
-function makeInitialData(plan: PlanSlug): OnboardingFormData {
+function makeInitialData(plan: PlanSlug, prefillEmail = ""): OnboardingFormData {
     return {
         brandName: "",
         brandLong: "",
         brandShort: "",
-        email: "",
+        email: prefillEmail,
         phone: "",
         address: "",
         license: "",
@@ -316,9 +316,9 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
     );
 }
 
-export default function OnboardingPageClient({ plan }: { plan: PlanSlug }) {
+export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan: PlanSlug; prefillEmail?: string }) {
     const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    const [formData, setFormData] = useState<OnboardingFormData>(() => makeInitialData(plan));
+    const [formData, setFormData] = useState<OnboardingFormData>(() => makeInitialData(plan, prefillEmail));
     const [submitting, setSubmitting] = useState(false);
     const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
     const [submitState, setSubmitState] = useState<SubmitState>({ type: "idle", message: "" });

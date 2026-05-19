@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -60,6 +61,29 @@ const TIERS: PricingTier[] = [
 ];
 
 export default function PricingPageClient() {
+    const [loadingPlan, setLoadingPlan] = useState<PlanSlug | null>(null);
+    const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+    async function subscribe(slug: PlanSlug) {
+        setLoadingPlan(slug);
+        setCheckoutError(null);
+        try {
+            const res = await fetch("/api/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ plan: slug }),
+            });
+            const data = (await res.json()) as { url?: string; error?: string };
+            if (!res.ok || !data.url) {
+                throw new Error(data.error || `Checkout failed (${res.status})`);
+            }
+            window.location.href = data.url;
+        } catch (e) {
+            setCheckoutError(e instanceof Error ? e.message : "Could not start checkout");
+            setLoadingPlan(null);
+        }
+    }
+
     return (
         <main
             style={{
@@ -330,13 +354,20 @@ export default function PricingPageClient() {
 
                             {/* CTA */}
                             <div style={{ marginTop: 28 }}>
-                                <Link
-                                    href={`/onboarding?plan=${tier.slug}`}
+                                <button
+                                    type="button"
+                                    onClick={() => subscribe(tier.slug)}
+                                    disabled={loadingPlan !== null}
                                     className={tier.highlighted ? "btn primary" : "btn ghost"}
-                                    style={{ width: "100%", justifyContent: "center" }}
+                                    style={{ width: "100%", justifyContent: "center", cursor: loadingPlan ? "wait" : "pointer" }}
                                 >
-                                    Get started with {tier.name}
-                                </Link>
+                                    {loadingPlan === tier.slug ? "Redirecting…" : `Get started with ${tier.name}`}
+                                </button>
+                                {checkoutError && loadingPlan === null && (
+                                    <p style={{ marginTop: 10, fontSize: 12, color: "#FF6961" }}>
+                                        {checkoutError}
+                                    </p>
+                                )}
                             </div>
                         </motion.div>
                     ))}
