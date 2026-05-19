@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     additionalSites: body.additionalSites,
     pdfUrl,
     audit,
-    agreementVersion: "v3",
+    agreementVersion: "v2",
   };
 
   try {

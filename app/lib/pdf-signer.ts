@@ -6,12 +6,12 @@ import { createHash } from "node:crypto";
 import { FIELDS } from "./pdf-field-positions";
 import type { AgreementSubmission, AgreementAudit } from "./agreement-types";
 
-const MSA_PATH = resolve(process.cwd(), "public", "legal", "msa-v3.pdf");
+const MSA_PATH = resolve(process.cwd(), "public", "legal", "msa-v2.pdf");
 
-const PLAN_PRICING: Record<string, { monthly: string; setup: string; label: string; sub: string }> = {
-  starter:    { monthly: "$117", setup: "$100", label: "STARTER",    sub: "Website + hosting + maintenance + monthly reports" },
-  growth:     { monthly: "$297", setup: "—",    label: "GROWTH",     sub: "Starter plan + AI voice agent (inbound + outbound + summaries)" },
-  enterprise: { monthly: "$697", setup: "—",    label: "ENTERPRISE", sub: "Growth plan for up to three sites with pooled call volume + priority support" },
+const PLAN_PRICING: Record<string, { monthly: string; setup: string }> = {
+  starter:    { monthly: "$117", setup: "$100" },
+  growth:     { monthly: "$297", setup: "—" },
+  enterprise: { monthly: "$697", setup: "—" },
 };
 
 /**
@@ -45,32 +45,6 @@ export async function generateSignedPdf(
   draw(p1, submission.clientAddress, FIELDS.page1_clientAddress, font);
   draw(p1, today, FIELDS.page1_effectiveDate, font);
 
-  // ── Page 1: Selected-Plan callout box ──
-  const pricing = PLAN_PRICING[submission.plan];
-  const box = FIELDS.page1_planCalloutBox;
-  // Light purple accent background
-  p1.drawRectangle({
-    x: box.x, y: box.y, width: box.width, height: box.height,
-    color: rgb(0.95, 0.94, 1.0),
-    borderColor: rgb(0.71, 0.66, 1.0),
-    borderWidth: 1,
-  });
-  p1.drawText("SELECTED PLAN", {
-    x: FIELDS.page1_planCalloutTitle.x,
-    y: FIELDS.page1_planCalloutTitle.y,
-    size: 9, font: fontBold, color: rgb(0.4, 0.35, 0.75),
-  });
-  p1.drawText(`${pricing.label} — ${pricing.monthly}/month${submission.plan === "starter" ? " + $100 setup" : ""}`, {
-    x: FIELDS.page1_planCalloutValue.x,
-    y: FIELDS.page1_planCalloutValue.y,
-    size: 16, font: fontBold, color: rgb(0.1, 0.1, 0.15),
-  });
-  p1.drawText(pricing.sub, {
-    x: FIELDS.page1_planCalloutSub.x,
-    y: FIELDS.page1_planCalloutSub.y,
-    size: 9, font, color: rgb(0.3, 0.3, 0.4),
-  });
-
   // ── Page 11: Client signature block ──
   const p11 = pages[10];
 
@@ -90,21 +64,15 @@ export async function generateSignedPdf(
 
   // ── Page 13: Schedule A selections ──
   const p13 = pages[12];
+  const pricing = PLAN_PRICING[submission.plan];
 
   const planBoxes = {
     starter:    FIELDS.page13_planCheckboxStarter,
     growth:     FIELDS.page13_planCheckboxGrowth,
     enterprise: FIELDS.page13_planCheckboxEnterprise,
   };
-  const checkbox = planBoxes[submission.plan];
-  // Filled square instead of an "x" — visually unambiguous
-  p13.drawRectangle({
-    x: checkbox.x,
-    y: checkbox.y,
-    width: 8,
-    height: 8,
-    color: rgb(0.1, 0.1, 0.15),
-  });
+  const box = planBoxes[submission.plan];
+  p13.drawText("x", { x: box.x, y: box.y, size: 12, font: fontBold });
 
   draw(p13, pricing.monthly, FIELDS.page13_monthlyFee, font);
   draw(p13, pricing.setup,   FIELDS.page13_setupFee,   font);
