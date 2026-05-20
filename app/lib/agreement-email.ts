@@ -66,17 +66,19 @@ export async function sendSignedAgreementEmails(
   }
 
   // JDD internal email — full PDF including audit trail
-  if (jddInbox) {
-    try {
-      await resend.emails.send({
-        from: fromAddress,
-        to: [jddInbox],
-        subject,
-        html,
-        attachments: [{ filename, content: Buffer.from(fullPdfBuffer).toString("base64") }],
-      });
-    } catch (err) {
-      console.error("[agreement-email] JDD send failed", jddInbox, err);
-    }
+  if (!jddInbox) {
+    console.warn("[agreement-email] QUOTE_TO_EMAIL not set — skipping JDD internal copy");
+    return;
+  }
+  try {
+    await resend.emails.send({
+      from: fromAddress,
+      to: [jddInbox],
+      subject,
+      html,
+      attachments: [{ filename, content: Buffer.from(fullPdfBuffer).toString("base64") }],
+    });
+  } catch (err) {
+    console.error("[agreement-email] JDD send failed", jddInbox, err);
   }
 }
