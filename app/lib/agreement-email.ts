@@ -9,12 +9,12 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 /**
- * Email the signed PDF to both the client and JDD's QUOTE_TO_EMAIL inbox.
+ * Email the signed PDF (no audit page) to the client signer.
+ * The JDD/business copy is delivered separately by the Make.com agreement scenario.
  * Failures are logged but don't throw — the agreement is already stored.
  */
 export async function sendSignedAgreementEmails(
   record: AgreementRecord,
-  fullPdfBuffer: Uint8Array,
   clientPdfBuffer: Uint8Array,
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -23,7 +23,6 @@ export async function sendSignedAgreementEmails(
     return;
   }
   const fromAddress = process.env.QUOTE_FROM_EMAIL || "onboarding@resend.dev";
-  const jddInbox = process.env.QUOTE_TO_EMAIL;
 
   const resend = new Resend(apiKey);
 
@@ -68,27 +67,5 @@ export async function sendSignedAgreementEmails(
     }
   } catch (err) {
     console.error("[agreement-email] client send threw", record.signerEmail, err);
-  }
-
-  // JDD internal email — full PDF including audit trail
-  if (!jddInbox) {
-    console.warn("[agreement-email] QUOTE_TO_EMAIL not set — skipping JDD internal copy");
-    return;
-  }
-  try {
-    const result = await resend.emails.send({
-      from: fromAddress,
-      to: [jddInbox],
-      subject,
-      html,
-      attachments: [{ filename, content: Buffer.from(fullPdfBuffer).toString("base64") }],
-    });
-    if (result.error) {
-      console.error("[agreement-email] JDD send rejected by Resend", jddInbox, result.error);
-    } else {
-      console.log("[agreement-email] JDD send ok", jddInbox, result.data?.id);
-    }
-  } catch (err) {
-    console.error("[agreement-email] JDD send threw", jddInbox, err);
   }
 }
