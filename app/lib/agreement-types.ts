@@ -8,7 +8,7 @@ export interface AgreementSubmission {
   signerName: string;
   signerTitle: string;
   signerEmail: string;
-  launchDate: string; // YYYY-MM-DD
+  launchDate?: string; // YYYY-MM-DD (optional — not collected on form)
   additionalSites: string[]; // for Enterprise
   signatureDataUrl: string; // data:image/png;base64,...
 }
@@ -29,7 +29,7 @@ export interface AgreementRecord {
   signerName: string;
   signerTitle: string;
   signerEmail: string;
-  launchDate: string;
+  launchDate?: string;
   additionalSites: string[];
   pdfUrl: string;
   audit: AgreementAudit;

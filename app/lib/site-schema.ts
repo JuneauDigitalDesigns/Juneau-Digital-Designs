@@ -212,6 +212,9 @@ export interface ContentMeta {
     siteIndex?: number;       // 1-based; set for Enterprise sites only
     siteCount?: number;       // total cluster size; set for Enterprise sites only
     siblingSlugs?: string[];  // other slug names in the same Enterprise cluster
+    formMode?: "basic" | "detailed";
+    scrapeExistingWebsite?: boolean;
+    scrapeWebsiteDomain?: string;
 }
 
 export interface SiteContent {
@@ -338,6 +341,12 @@ export interface OnboardingSubmission {
      * during mapping.
      */
     additionalSites?: AdditionalSiteEntry[];
+    /** Basic vs. Detailed onboarding mode selected by the client. */
+    formMode?: "basic" | "detailed";
+    /** Whether the client wants their existing website scraped for content. */
+    scrapeExistingWebsite?: boolean;
+    /** Domain of existing website to scrape (when scrapeExistingWebsite is true). */
+    scrapeWebsiteDomain?: string;
 }
 
 export interface AdditionalSiteEntry {
@@ -398,18 +407,40 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
         if (!val || !val.trim()) missing.push(path);
     };
 
-    // Required-ish (forms with empty results still flag for human review)
-    flag("brand.tagline", p.businessDetails.brandTagline);
-    flag("brand.address", p.contact.address);
-    flag("hero.headline", p.hero.heroHeadline);
-    flag("hero.sub", p.hero.heroSub);
-    flag("about.body", p.about.aboutBody);
-    flag("seo.title", p.seo.seoTitle);
-    flag("seo.description", p.seo.seoDescription);
+    if (p.formMode === "basic") {
+        // Basic mode — all non-contact fields are intentionally skipped; flag all for human review
+        missing.push(
+            "business.industry", "business.established", "brand.tagline", "business.usp",
+            "business.notableClients", "business.businessHours", "business.certifications", "business.awards",
+            "branding.palette", "branding.hasLogo", "branding.logo",
+            "announcement",
+            "seo.title", "seo.description", "seo.canonical", "seo.googleAnalyticsId", "seo.facebookPixelId",
+            "extensions.mapsUrl", "extensions.bookingUrl", "extensions.portalUrl",
+            "social.linkedin", "social.instagram", "social.facebook", "social.youtube",
+            "hero.eyebrow", "hero.headline", "hero.headlineEmphasis", "hero.sub",
+            "hero.cta", "hero.secondaryCta", "hero.badge", "hero.frictionReducers", "hero.bullets", "hero.slides",
+            "about.eyebrow", "about.title", "about.body", "about.pillars", "about.stats", "about.featureImage",
+            "services.eyebrow", "services.title", "services.sub", "services.items",
+            "work.eyebrow", "work.title", "work.sub", "work.projects",
+            "testimonials.eyebrow", "testimonials.title", "testimonials.items",
+            "faq.eyebrow", "faq.title", "faq.sub", "faq.items",
+            "finalCta.eyebrow", "finalCta.headline", "finalCta.sub", "finalCta.cta", "finalCta.secondary", "finalCta.frictionReducers",
+            "footer.blurb", "footer.legal",
+        );
+    } else {
+        // Detailed / default mode — flag only genuinely empty required fields
+        flag("brand.tagline", p.businessDetails.brandTagline);
+        flag("brand.address", p.contact.address);
+        flag("hero.headline", p.hero.heroHeadline);
+        flag("hero.sub", p.hero.heroSub);
+        flag("about.body", p.about.aboutBody);
+        flag("seo.title", p.seo.seoTitle);
+        flag("seo.description", p.seo.seoDescription);
 
-    if (p.services.length === 0) missing.push("services.items");
-    if (p.testimonials.length === 0) missing.push("testimonials.items");
-    if (p.faqs.length === 0) missing.push("faq.items");
+        if (p.services.length === 0) missing.push("services.items");
+        if (p.testimonials.length === 0) missing.push("testimonials.items");
+        if (p.faqs.length === 0) missing.push("faq.items");
+    }
 
     return {
         brand: {
@@ -594,6 +625,9 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
             is_placeholder: false,
             missing_fields: missing,
             selectedPlan: p.selectedPlan,
+            ...(p.formMode ? { formMode: p.formMode } : {}),
+            ...(p.scrapeExistingWebsite != null ? { scrapeExistingWebsite: p.scrapeExistingWebsite } : {}),
+            ...(p.scrapeWebsiteDomain ? { scrapeWebsiteDomain: p.scrapeWebsiteDomain } : {}),
         },
     };
 }

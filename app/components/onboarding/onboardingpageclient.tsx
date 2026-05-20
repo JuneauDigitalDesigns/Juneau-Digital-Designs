@@ -118,6 +118,10 @@ type OnboardingFormData = {
     footerLegal: string;
     // — Images —
     images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
+    // — Form mode —
+    formMode: "basic" | "detailed";
+    scrapeExistingWebsite: boolean;
+    scrapeWebsiteDomain: string;
     // — Form meta —
     selectedPlan: PlanSlug;
     consent: boolean;
@@ -260,6 +264,9 @@ function makeInitialData(plan: PlanSlug, prefillEmail = ""): OnboardingFormData 
         footerBlurb: "",
         footerLegal: "",
         images: { heroSlides: [], logo: undefined },
+        formMode: "basic",
+        scrapeExistingWebsite: false,
+        scrapeWebsiteDomain: "",
         selectedPlan: plan,
         consent: false,
         turnstileToken: "",
@@ -937,6 +944,42 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                         />
                     </label>
 
+                    {/* ── Onboarding mode ──────────────────────────────────────── */}
+                    <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
+                        <p style={{ lineHeight: 1.75, fontSize: 15, color: "var(--fg-2)", marginBottom: 20 }}>
+                            Both options will get your site built and launched. If you have the time, we strongly
+                            recommend completing the{" "}
+                            <span style={{ fontWeight: 700, color: "var(--fg)" }}>Detailed</span>{" "}
+                            version — it gives us a much richer picture of your business and helps us capture
+                            your intent more accurately, resulting in a far richer final website.
+                        </p>
+                        <div className="flex flex-wrap gap-3">
+                            {(["basic", "detailed"] as const).map((mode) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => set("formMode", mode)}
+                                    className="flex flex-col items-start rounded-2xl border px-5 py-4 text-left transition"
+                                    style={{
+                                        minWidth: 160,
+                                        ...(formData.formMode === mode
+                                            ? { border: "2px solid var(--accent)", background: "rgba(182,168,255,0.1)", color: "var(--fg)" }
+                                            : { border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }),
+                                    }}
+                                >
+                                    <span style={{ fontWeight: 700, fontSize: 15 }}>
+                                        {mode === "basic" ? "Basic" : "Detailed"}
+                                    </span>
+                                    <span style={{ fontSize: 13, marginTop: 4, color: formData.formMode === mode ? "var(--fg-2)" : "var(--fg-3)" }}>
+                                        {mode === "basic"
+                                            ? "Contact info only — quick to complete"
+                                            : "All sections — recommended for the richest result"}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+
                     {/* ── Section 1: Contact Info ─────────────────────────────── */}
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="1" title="Contact Information" />
@@ -1022,15 +1065,48 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                 >
                                     <option>New website</option>
                                     <option>Website redesign</option>
-                                    <option>E-commerce</option>
-                                    <option>Full stack application</option>
-                                    <option>Not sure yet</option>
+                                    <option>Not sure</option>
                                 </select>
                             </label>
                         </div>
+
+                        {/* Existing website scrape option (Basic mode only) */}
+                        {formData.formMode === "basic" && (
+                            <div className="mt-5 rounded-2xl border border-white/[0.10] bg-white/[0.04] p-5 space-y-4">
+                                <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                    Existing website
+                                </p>
+                                <label className="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.scrapeExistingWebsite}
+                                        onChange={(e) => set("scrapeExistingWebsite", e.target.checked)}
+                                        className="mt-1 h-4 w-4 rounded border-white/20"
+                                    />
+                                    <span style={{ fontSize: 14, color: "var(--fg-2)", lineHeight: 1.6 }}>
+                                        I have an existing website — scrape it for content, branding, and metadata to use as a starting point for the new site.
+                                    </span>
+                                </label>
+                                {formData.scrapeExistingWebsite && (
+                                    <label className={labelCls}>
+                                        <span>Existing website domain</span>
+                                        <input
+                                            type="text"
+                                            value={formData.scrapeWebsiteDomain}
+                                            onChange={(e) => set("scrapeWebsiteDomain", e.target.value)}
+                                            placeholder="e.g. yourbusiness.com"
+                                            className={inputCls}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                        )}
                     </section>
 
                     {/* ── Section 2: Business Details ─────────────────────────── */}
+                    {formData.formMode === "detailed" && (<>
+
+                    {/* ── Section 2: Business Details (detailed only) ─────────── */}
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="2" title="Business Details" />
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -2353,6 +2429,8 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                             )}
                         </section>
                     )}
+
+                    </>)}
 
                     {/* ── Section 16: Consent + Security + Submit ─────────────── */}
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>

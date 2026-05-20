@@ -3,36 +3,46 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { FIELDS } from "./pdf-field-positions";
+import { PLAN_FIELDS } from "./pdf-field-positions";
 import type { AgreementSubmission, AgreementAudit } from "./agreement-types";
 
-const MSA_PATH = resolve(process.cwd(), "public", "legal", "msa-v2.pdf");
+const PROVIDER_SIG_PATH = resolve(process.cwd(), "public", "signature.png");
 
-const PLAN_PRICING: Record<string, { monthly: string; setup: string }> = {
-  starter:    { monthly: "$117", setup: "$100" },
-  growth:     { monthly: "$297", setup: "—" },
-  enterprise: { monthly: "$697", setup: "—" },
+const PDF_PATHS: Record<"starter" | "growth" | "enterprise", string> = {
+  starter:    resolve(process.cwd(), "public", "legal", "JDD_agreement_starter_v3.1.pdf"),
+  growth:     resolve(process.cwd(), "public", "legal", "JDD_agreement_growth_v3.1.pdf"),
+  enterprise: resolve(process.cwd(), "public", "legal", "JDD_agreement_enterprise_v3.1.pdf"),
+};
+
+const PLAN_MIN_PAGES: Record<"starter" | "growth" | "enterprise", number> = {
+  starter:    16,
+  growth:     20,
+  enterprise: 23,
 };
 
 /**
- * Loads the unsigned MSA, stamps the client's info + signature image onto the
- * existing fields, and appends an audit-trail page. Returns the resulting PDF
- * bytes for upload to Vercel Blob.
+ * Loads the plan-specific unsigned MSA, stamps the client's info + signature
+ * image onto the existing fields, and appends an audit-trail page. Returns
+ * the resulting PDF bytes for upload to Vercel Blob.
  */
 export async function generateSignedPdf(
   submission: AgreementSubmission,
   audit: AgreementAudit,
   agreementId: string,
 ): Promise<Uint8Array> {
-  const original = await readFile(MSA_PATH);
+  const pdfPath = PDF_PATHS[submission.plan];
+  const original = await readFile(pdfPath);
   const pdf = await PDFDocument.load(original);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
   const pages = pdf.getPages();
-  if (pages.length < 13) {
-    throw new Error(`Expected ≥13 pages in MSA, got ${pages.length}`);
+  const minPages = PLAN_MIN_PAGES[submission.plan];
+  if (pages.length < minPages) {
+    throw new Error(`Expected ≥${minPages} pages in ${submission.plan} MSA, got ${pages.length}`);
   }
+
+  const F = PLAN_FIELDS[submission.plan];
 
   const today = new Date().toLocaleDateString("en-US", {
     year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
@@ -40,49 +50,48 @@ export async function generateSignedPdf(
 
   // ── Page 1: Header ──
   const p1 = pages[0];
-  draw(p1, submission.clientLegalName, FIELDS.page1_clientName, font);
-  draw(p1, submission.clientEntityType, FIELDS.page1_clientEntity, font);
-  draw(p1, submission.clientAddress, FIELDS.page1_clientAddress, font);
-  draw(p1, today, FIELDS.page1_effectiveDate, font);
+  draw(p1, submission.clientLegalName, F.page1_clientName, font);
+  draw(p1, submission.clientEntityType, F.page1_clientEntity, font);
+  draw(p1, submission.clientAddress, F.page1_clientAddress, font);
+  draw(p1, today, F.page1_effectiveDate, font);
 
-  // ── Page 11: Client signature block ──
-  const p11 = pages[10];
+  // ── Provider (JDD) signature block ──
+  const providerSigBytes = await readFile(PROVIDER_SIG_PATH);
+  const providerSigImage = await pdf.embedPng(providerSigBytes);
+  const pProvider = pages[F.provider_sigImage.page - 1];
+  pProvider.drawImage(providerSigImage, {
+    x: F.provider_sigImage.x,
+    y: F.provider_sigImage.y,
+    width: F.provider_sigImage.width,
+    height: F.provider_sigImage.height,
+  });
+  draw(pProvider, "Xander Juneau", F.provider_name, font);
+  draw(pProvider, "Founder", F.provider_title, font);
+  draw(pProvider, today, F.provider_date, font);
 
-  // Embed signature PNG
+  // ── Signature block — page A: sig image + signer name ──
+  const pSigA = pages[F.sigA_clientSigImage.page - 1];
   const sigDataUrl = submission.signatureDataUrl;
   if (sigDataUrl.startsWith("data:image/png;base64,")) {
     const sigBytes = Buffer.from(sigDataUrl.split(",")[1], "base64");
     const sigImage = await pdf.embedPng(sigBytes);
-    const s = FIELDS.page11_clientSigImage;
-    p11.drawImage(sigImage, { x: s.x, y: s.y, width: s.width, height: s.height });
+    const s = F.sigA_clientSigImage;
+    pSigA.drawImage(sigImage, { x: s.x, y: s.y, width: s.width, height: s.height });
   }
+  draw(pSigA, submission.signerName, F.sigA_clientName, font);
 
-  draw(p11, submission.signerName, FIELDS.page11_clientName, font);
-  draw(p11, submission.signerTitle, FIELDS.page11_clientTitle, font);
-  draw(p11, submission.clientLegalName, FIELDS.page11_clientBusiness, font);
-  draw(p11, today, FIELDS.page11_clientDate, font);
+  // ── Signature block — page B: title / business / date ──
+  const pSigB = pages[F.sigB_clientTitle.page - 1];
+  draw(pSigB, submission.signerTitle, F.sigB_clientTitle, font);
+  draw(pSigB, submission.clientLegalName, F.sigB_clientBusiness, font);
+  draw(pSigB, today, F.sigB_clientDate, font);
 
-  // ── Page 13: Schedule A selections ──
-  const p13 = pages[12];
-  const pricing = PLAN_PRICING[submission.plan];
-
-  const planBoxes = {
-    starter:    FIELDS.page13_planCheckboxStarter,
-    growth:     FIELDS.page13_planCheckboxGrowth,
-    enterprise: FIELDS.page13_planCheckboxEnterprise,
-  };
-  const box = planBoxes[submission.plan];
-  p13.drawText("x", { x: box.x, y: box.y, size: 12, font: fontBold });
-
-  draw(p13, pricing.monthly, FIELDS.page13_monthlyFee, font);
-  draw(p13, pricing.setup,   FIELDS.page13_setupFee,   font);
-  draw(p13, formatDate(submission.launchDate), FIELDS.page13_launchDate, font);
-
+  // ── Schedule A: site names (enterprise only) ──
   if (submission.plan === "enterprise") {
     const [s1 = "", s2 = "", s3 = ""] = submission.additionalSites;
-    if (s1) draw(p13, s1, FIELDS.page13_site1, font);
-    if (s2) draw(p13, s2, FIELDS.page13_site2, font);
-    if (s3) draw(p13, s3, FIELDS.page13_site3, font);
+    if (s1 && F.schedA_site1) draw(pages[F.schedA_site1.page - 1], s1, F.schedA_site1, font);
+    if (s2 && F.schedA_site2) draw(pages[F.schedA_site2.page - 1], s2, F.schedA_site2, font);
+    if (s3 && F.schedA_site3) draw(pages[F.schedA_site3.page - 1], s3, F.schedA_site3, font);
   }
 
   // ── Append audit-trail page ──
@@ -97,7 +106,7 @@ export async function generateSignedPdf(
     color: rgb(0.7, 0.7, 0.7),
   });
   y -= 32;
-  audit_p.drawText("Electronic signature record for Master Services Agreement v2.0", {
+  audit_p.drawText("Electronic signature record for Master Services Agreement v3.1", {
     x: 72, y, size: 11, font,
   });
   y -= 30;
@@ -152,20 +161,27 @@ export function hashSubmission(submission: AgreementSubmission): string {
   return createHash("sha256").update(canon).digest("hex");
 }
 
+/**
+ * Returns a copy of the PDF with the last page (audit trail) removed.
+ * Copies all pages except the last into a fresh document — reliable across all pdf-lib versions.
+ * Used to produce the client-facing copy that excludes internal audit data.
+ */
+export async function stripLastPage(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const src = await PDFDocument.load(pdfBytes);
+  const pageCount = src.getPageCount();
+  const dest = await PDFDocument.create();
+  const indices = Array.from({ length: pageCount - 1 }, (_, i) => i);
+  const copied = await dest.copyPages(src, indices);
+  copied.forEach((p) => dest.addPage(p));
+  return dest.save();
+}
+
 // ── helpers ──
 
 type FieldPos = { x: number; y: number; fontSize?: number };
 
 function draw(page: ReturnType<PDFDocument["getPages"]>[number], text: string, pos: FieldPos, font: Awaited<ReturnType<PDFDocument["embedFont"]>>) {
   page.drawText(text, { x: pos.x, y: pos.y, size: pos.fontSize ?? 11, font });
-}
-
-function formatDate(yyyymmdd: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(yyyymmdd)) return yyyymmdd;
-  const [y, m, d] = yyyymmdd.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
-    year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
-  });
 }
 
 function truncate(s: string, n: number): string {

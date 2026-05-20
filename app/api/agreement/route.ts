@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
-import { generateSignedPdf, hashSubmission } from "@/app/lib/pdf-signer";
+import { generateSignedPdf, hashSubmission, stripLastPage } from "@/app/lib/pdf-signer";
 import { saveAgreement } from "@/app/lib/kv";
 import { sendSignedAgreementEmails } from "@/app/lib/agreement-email";
 import type {
@@ -64,11 +64,10 @@ export async function POST(req: Request) {
     signerName: body.signerName,
     signerTitle: body.signerTitle,
     signerEmail: body.signerEmail,
-    launchDate: body.launchDate,
     additionalSites: body.additionalSites,
     pdfUrl,
     audit,
-    agreementVersion: "v2",
+    agreementVersion: "v3.1",
   };
 
   try {
@@ -79,9 +78,10 @@ export async function POST(req: Request) {
   }
 
   // Email is fire-and-forget; failure is logged but doesn't block the response.
-  sendSignedAgreementEmails(record, pdfBytes).catch((e) =>
-    console.error("[/api/agreement] email failed", e),
-  );
+  // Strip the audit-trail page before sending to the client.
+  stripLastPage(pdfBytes)
+    .then((clientPdfBytes) => sendSignedAgreementEmails(record, pdfBytes, clientPdfBytes))
+    .catch((e) => console.error("[/api/agreement] email failed", e));
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
 }
@@ -100,7 +100,6 @@ function validate(body: AgreementSubmission): string | null {
   if (!nonEmpty(body.signerName)) return "Missing signer name";
   if (!nonEmpty(body.signerTitle)) return "Missing signer title";
   if (!validEmail(body.signerEmail)) return "Invalid signer email";
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.launchDate)) return "Invalid launch date";
   if (!body.signatureDataUrl?.startsWith("data:image/png;base64,")) {
     return "Missing or invalid signature";
   }
