@@ -4,6 +4,18 @@ import { mapPayloadToIntake, type OnboardingSubmission, type AdditionalSiteEntry
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
 const makeWebhookUrl = process.env.MAKE_INTAKE_WEBHOOK_URL;
 
+/** Deep-clone replacing every empty string with null. Empty arrays/objects pass through. */
+function normalizeEmpties(value: unknown): unknown {
+    if (value === "") return null;
+    if (Array.isArray(value)) return value.map(normalizeEmpties);
+    if (value !== null && typeof value === "object") {
+        return Object.fromEntries(
+            Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, normalizeEmpties(v)]),
+        );
+    }
+    return value;
+}
+
 type PlanSlug = "starter" | "growth" | "enterprise";
 
 type ImageMeta = {
@@ -584,7 +596,7 @@ export async function POST(request: Request) {
         const intake = mapPayloadToIntake(submissionData as OnboardingSubmission);
         const webhookPayload = {
             ...intake,
-            _payload_json: JSON.stringify(intake, null, 2),
+            _payload_json: JSON.stringify(normalizeEmpties(intake), null, 2),
         };
         const webhookOk = await postToMakeWebhook(webhookPayload);
         if (!webhookOk) {
