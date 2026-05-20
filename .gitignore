@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Claude Code internals
 .claude/
+
+.vercel
+.env*.local

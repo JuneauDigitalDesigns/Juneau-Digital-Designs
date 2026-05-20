@@ -143,6 +143,9 @@ type OnboardingPayload = {
     turnstileToken?: string;
     website?: string;
     additionalSites?: AdditionalSiteRaw[];
+    formMode?: string;
+    scrapeExistingWebsite?: boolean;
+    scrapeWebsiteDomain?: string;
 };
 
 type AdditionalSiteRaw = {
@@ -376,6 +379,11 @@ export async function POST(request: Request) {
         const footerLegal = sanitize(body.footerLegal, 300);
         const consent = Boolean(body.consent);
 
+        const rawFormMode = sanitize(body.formMode, 20);
+        const formMode: "basic" | "detailed" = rawFormMode === "basic" ? "basic" : "detailed";
+        const scrapeExistingWebsite = Boolean(body.scrapeExistingWebsite);
+        const scrapeWebsiteDomain = sanitize(body.scrapeWebsiteDomain, 500);
+
         const validPlans: PlanSlug[] = ["starter", "growth", "enterprise"];
         const rawPlan = sanitize(body.selectedPlan, 20);
         const selectedPlan: PlanSlug = validPlans.includes(rawPlan as PlanSlug)
@@ -564,6 +572,9 @@ export async function POST(request: Request) {
             heroBullets,
             faqs,
             additionalSites,
+            formMode,
+            scrapeExistingWebsite,
+            scrapeWebsiteDomain,
         };
 
         // Map to Intake envelope ({ plan, siteCount, sites: SiteContent[] }) and POST to Make.com.

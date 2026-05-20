@@ -22,7 +22,6 @@ export default function AgreementClient({ plan }: Props) {
         signerName: "",
         signerTitle: "",
         signerEmail: "",
-        launchDate: "",
         site1: "",
         site2: "",
         site3: "",
@@ -47,7 +46,7 @@ export default function AgreementClient({ plan }: Props) {
             setError("Please draw your signature.");
             return;
         }
-        if (!form.clientLegalName || !form.clientAddress || !form.signerName || !form.signerTitle || !form.signerEmail || !form.launchDate) {
+        if (!form.clientLegalName || !form.clientAddress || !form.signerName || !form.signerTitle || !form.signerEmail) {
             setError("Please complete all fields above.");
             return;
         }
@@ -75,7 +74,6 @@ export default function AgreementClient({ plan }: Props) {
                     signerName: form.signerName.trim(),
                     signerTitle: form.signerTitle.trim(),
                     signerEmail: form.signerEmail.trim(),
-                    launchDate: form.launchDate,
                     additionalSites,
                     signatureDataUrl,
                 }),
@@ -139,8 +137,8 @@ export default function AgreementClient({ plan }: Props) {
                             }}
                         >
                             <iframe
-                                src="/legal/msa-v2.pdf#toolbar=0&navpanes=0"
-                                title="Master Services Agreement v2"
+                                src={`/legal/JDD_agreement_${plan}_v3.1.pdf#toolbar=0&navpanes=0`}
+                                title={`Master Services Agreement — ${plan} plan`}
                                 style={{
                                     width: "100%",
                                     height: 480,
@@ -161,7 +159,7 @@ export default function AgreementClient({ plan }: Props) {
                         >
                             Can&apos;t view inline?{" "}
                             <a
-                                href="/legal/msa-v2.pdf"
+                                href={`/legal/JDD_agreement_${plan}_v3.1.pdf`}
                                 target="_blank"
                                 rel="noreferrer"
                                 style={{ color: "var(--accent)", textDecoration: "underline" }}
@@ -187,13 +185,6 @@ export default function AgreementClient({ plan }: Props) {
                                     value={form.clientEntityType}
                                     onChange={(v) => update("clientEntityType", v)}
                                     options={ENTITY_TYPES}
-                                />
-                                <Field
-                                    label="Target launch date"
-                                    type="date"
-                                    value={form.launchDate}
-                                    onChange={(v) => update("launchDate", v)}
-                                    required
                                 />
                             </FieldRow>
                             <Field

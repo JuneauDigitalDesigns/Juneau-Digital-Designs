@@ -14,7 +14,8 @@ const PLAN_LABEL: Record<string, string> = {
  */
 export async function sendSignedAgreementEmails(
   record: AgreementRecord,
-  pdfBuffer: Uint8Array,
+  fullPdfBuffer: Uint8Array,
+  clientPdfBuffer: Uint8Array,
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -49,25 +50,33 @@ export async function sendSignedAgreementEmails(
     </div>
   `;
 
-  const recipients = new Set<string>([record.signerEmail]);
-  if (jddInbox) recipients.add(jddInbox);
+  const filename = `MSA-${record.clientLegalName.replace(/\W+/g, "_")}.pdf`;
 
-  const attachments = [
-    {
-      filename: `MSA-${record.clientLegalName.replace(/\W+/g, "_")}.pdf`,
-      content: Buffer.from(pdfBuffer).toString("base64"),
-    },
-  ];
-
+  // Client email — no audit trail
   try {
     await resend.emails.send({
       from: fromAddress,
-      to: [...recipients],
+      to: [record.signerEmail],
       subject,
       html,
-      attachments,
+      attachments: [{ filename, content: Buffer.from(clientPdfBuffer).toString("base64") }],
     });
   } catch (err) {
-    console.error("[agreement-email] send failed", err);
+    console.error("[agreement-email] client send failed", record.signerEmail, err);
+  }
+
+  // JDD internal email — full PDF including audit trail
+  if (jddInbox) {
+    try {
+      await resend.emails.send({
+        from: fromAddress,
+        to: [jddInbox],
+        subject,
+        html,
+        attachments: [{ filename, content: Buffer.from(fullPdfBuffer).toString("base64") }],
+      });
+    } catch (err) {
+      console.error("[agreement-email] JDD send failed", jddInbox, err);
+    }
   }
 }
