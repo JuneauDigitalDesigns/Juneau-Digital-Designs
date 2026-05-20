@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { mapPayloadToIntake, type OnboardingSubmission, type AdditionalSiteEntry } from "@/app/lib/site-schema";
 
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
-const makeWebhookUrl = process.env.MAKE_WEBHOOK_URL;
+const makeWebhookUrl = process.env.MAKE_INTAKE_WEBHOOK_URL;
 
 type PlanSlug = "starter" | "growth" | "enterprise";
 
@@ -259,7 +259,7 @@ async function verifyTurnstileToken(token: string, remoteIp: string): Promise<bo
  */
 async function postToMakeWebhook(body: unknown): Promise<boolean> {
     if (!makeWebhookUrl) {
-        console.warn("[onboarding] MAKE_WEBHOOK_URL not set — skipping webhook");
+        console.warn("[onboarding] MAKE_INTAKE_WEBHOOK_URL not set — skipping webhook");
         return false;
     }
     try {
