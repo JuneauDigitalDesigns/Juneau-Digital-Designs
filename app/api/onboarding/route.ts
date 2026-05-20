@@ -247,6 +247,9 @@ async function verifyTurnstileToken(token: string, remoteIp: string): Promise<bo
     }
 
     const verifyResult = (await verifyResponse.json()) as TurnstileVerifyResponse;
+    if (!verifyResult.success) {
+        console.error("[onboarding] Turnstile verification failed:", verifyResult["error-codes"]);
+    }
     return Boolean(verifyResult.success);
 }
 
