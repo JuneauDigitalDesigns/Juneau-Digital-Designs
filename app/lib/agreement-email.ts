@@ -54,15 +54,20 @@ export async function sendSignedAgreementEmails(
 
   // Client email — no audit trail
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: fromAddress,
       to: [record.signerEmail],
       subject,
       html,
       attachments: [{ filename, content: Buffer.from(clientPdfBuffer).toString("base64") }],
     });
+    if (result.error) {
+      console.error("[agreement-email] client send rejected by Resend", record.signerEmail, result.error);
+    } else {
+      console.log("[agreement-email] client send ok", record.signerEmail, result.data?.id);
+    }
   } catch (err) {
-    console.error("[agreement-email] client send failed", record.signerEmail, err);
+    console.error("[agreement-email] client send threw", record.signerEmail, err);
   }
 
   // JDD internal email — full PDF including audit trail
@@ -71,14 +76,19 @@ export async function sendSignedAgreementEmails(
     return;
   }
   try {
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: fromAddress,
       to: [jddInbox],
       subject,
       html,
       attachments: [{ filename, content: Buffer.from(fullPdfBuffer).toString("base64") }],
     });
+    if (result.error) {
+      console.error("[agreement-email] JDD send rejected by Resend", jddInbox, result.error);
+    } else {
+      console.log("[agreement-email] JDD send ok", jddInbox, result.data?.id);
+    }
   } catch (err) {
-    console.error("[agreement-email] JDD send failed", jddInbox, err);
+    console.error("[agreement-email] JDD send threw", jddInbox, err);
   }
 }

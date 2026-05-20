@@ -582,7 +582,11 @@ export async function POST(request: Request) {
 
         // Map to Intake envelope ({ plan, siteCount, sites: SiteContent[] }) and POST to Make.com.
         const intake = mapPayloadToIntake(submissionData as OnboardingSubmission);
-        const webhookOk = await postToMakeWebhook(intake);
+        const webhookPayload = {
+            ...intake,
+            _payload_json: JSON.stringify(intake, null, 2),
+        };
+        const webhookOk = await postToMakeWebhook(webhookPayload);
         if (!webhookOk) {
             return NextResponse.json(
                 { message: "There was a problem submitting your request. Please try again." },
