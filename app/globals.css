@@ -2,8 +2,8 @@
 
 /* ── Aurora Glass design tokens ────────────────────────────── */
 :root {
-  --accent: #B6A8FF;
-  --accent-glow: rgba(182, 168, 255, 0.25);
+  --accent: #F5EDD6;
+  --accent-glow: rgba(245, 237, 214, 0.25);
   --glass-bg: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.12);
   --surface: rgba(255, 255, 255, 0.04);
@@ -15,8 +15,8 @@
   --fg-3: rgba(244, 246, 251, 0.48);
   --rule: rgba(244, 246, 251, 0.10);
   --rule-strong: rgba(244, 246, 251, 0.24);
-  --font-display: var(--font-space-grotesk), 'Space Grotesk', sans-serif;
-  --font-body: var(--font-inter), 'Inter', sans-serif;
+  --font-display: var(--font-bebas-neue), 'Bebas Neue', sans-serif;
+  --font-body: var(--font-ibm-plex-sans), 'IBM Plex Sans', sans-serif;
   --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
 }
 
@@ -54,40 +54,19 @@ body {
     0 30px 80px -30px rgba(0, 0, 0, 0.6);
 }
 
-/* ── Aurora blob animation ─────────────────────────────────── */
-@keyframes aurora-drift {
-  0%   { transform: translate(0, 0)        scale(1); }
-  50%  { transform: translate(40px, 30px)  scale(1.15); }
-  100% { transform: translate(-30px, 50px) scale(0.95); }
-}
-
-.aurora-bg {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.aurora-blob {
-  position: absolute;
-  border-radius: 50%;
-  mix-blend-mode: screen;
-  filter: blur(80px);
-  animation: aurora-drift 24s ease-in-out infinite alternate;
-}
-
-/* ── Aurora grid overlay ───────────────────────────────────── */
+/* ── Geometric dot background ─────────────────────────────── */
 .aurora-grid {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background:
-    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px) 0 0 / 64px 64px,
-    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px) 0 0 / 64px 64px;
-  mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
+  background-image:
+    radial-gradient(circle, rgba(245, 237, 214, 0.09) 1px, transparent 1px),
+    radial-gradient(circle, rgba(245, 237, 214, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px, 80px 80px;
+  background-position: 0 0, 20px 20px;
+  mask-image: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.75) 20%, transparent 68%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.75) 20%, transparent 68%);
 }
 
 /* ── Eyebrow pill ───────────────────────────────────────────── */
@@ -267,7 +246,8 @@ body {
 .hiw-num {
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 300;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   color: var(--fg-3);
   min-width: 40px;
   padding-top: 2px;
@@ -339,7 +319,7 @@ textarea:focus,
 select:focus {
   border-color: var(--accent) !important;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(182, 168, 255, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(245, 237, 214, 0.2) !important;
 }
 
 select option {
@@ -382,15 +362,15 @@ select option {
   border-radius: 50%;
   background: var(--accent);
   box-shadow:
-    0 0 0 3px rgba(182, 168, 255, 0.20),
-    0 0 16px 2px rgba(182, 168, 255, 0.40);
+    0 0 0 3px rgba(245, 237, 214, 0.20),
+    0 0 16px 2px rgba(245, 237, 214, 0.30);
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .calc-slider::-webkit-slider-thumb:hover {
   box-shadow:
-    0 0 0 4px rgba(182, 168, 255, 0.30),
-    0 0 24px 4px rgba(182, 168, 255, 0.55);
+    0 0 0 4px rgba(245, 237, 214, 0.25),
+    0 0 24px 4px rgba(245, 237, 214, 0.40);
   transform: scale(1.12);
 }
 
@@ -401,8 +381,8 @@ select option {
   border-radius: 50%;
   background: var(--accent);
   box-shadow:
-    0 0 0 3px rgba(182, 168, 255, 0.20),
-    0 0 16px 2px rgba(182, 168, 255, 0.40);
+    0 0 0 3px rgba(245, 237, 214, 0.20),
+    0 0 16px 2px rgba(245, 237, 214, 0.30);
   cursor: pointer;
 }
 
@@ -474,7 +454,7 @@ select option {
 .calc-modal-close:hover {
   color: var(--fg);
   border-color: var(--accent);
-  background: rgba(182, 168, 255, 0.08);
+  background: rgba(245, 237, 214, 0.08);
 }
 
 .calc-modal-close:focus-visible {
@@ -509,8 +489,8 @@ select option {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: rgba(182, 168, 255, 0.12);
-  border: 1px solid rgba(182, 168, 255, 0.30);
+  background: rgba(245, 237, 214, 0.10);
+  border: 1px solid rgba(245, 237, 214, 0.25);
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -590,4 +570,280 @@ select option {
   .calc-modal-step-running {
     font-size: 14.5px;
   }
+}
+
+/* ── Hero 60/40 split layout ────────────────────────────────── */
+.hero-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .hero-split {
+    grid-template-columns: 3fr 2fr;
+    gap: 64px;
+  }
+}
+
+/* ── Aurora-bg stub — hides leftover blob wrappers ─────────── */
+.aurora-bg {
+  display: none;
+}
+
+/* ── Slide-in-left reveal variant (for horizontal sections) ── */
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-left.is-in {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.reveal-left[data-delay="1"] { transition-delay: 0.08s; }
+.reveal-left[data-delay="2"] { transition-delay: 0.16s; }
+.reveal-left[data-delay="3"] { transition-delay: 0.24s; }
+
+/* ── Marquee keyframes ───────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+.marquee-container {
+  overflow: hidden;
+  width: 100%;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 22s linear infinite;
+}
+
+.marquee-container:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+.marquee-reverse {
+  animation-direction: reverse;
+}
+
+/* Kinetic divider marquee */
+.kinetic-marquee-track {
+  display: flex;
+  width: max-content;
+  align-items: center;
+  animation: marquee 28s linear infinite;
+}
+
+/* ── Pulse-ring animation ────────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0   rgba(245, 237, 214, 0); }
+  30%  { box-shadow: 0 0 0 20px rgba(245, 237, 214, 0.12); }
+  100% { box-shadow: 0 0 0 40px rgba(245, 237, 214, 0); }
+}
+
+.pulse-ring {
+  animation: pulse-ring 0.8s ease-out;
+}
+
+/* ── Hero asymmetric 55/45 split ────────────────────────── */
+.hero-split-asymmetric {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .hero-split-asymmetric {
+    grid-template-columns: 55fr 45fr;
+    gap: 64px;
+    align-items: stretch;
+  }
+}
+
+.hero-image-container {
+  position: relative;
+  min-height: 320px;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .hero-image-container {
+    min-height: 500px;
+  }
+}
+
+/* ── Bento grid (services) ───────────────────────────────── */
+.bento-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .bento-cell-hero {
+    grid-row: 1 / 3;
+    grid-column: 1;
+  }
+
+  .bento-cell-right {
+    grid-column: 2;
+  }
+
+  .bento-cell-full {
+    grid-column: 1 / -1;
+  }
+}
+
+.spotlight-card {
+  cursor: default;
+  transition: border-color 0.2s ease;
+}
+
+/* ── HowItWorks mode toggle (mobile only) ────────────────── */
+.hiw-mode-toggle {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--rule);
+}
+
+@media (min-width: 768px) {
+  .hiw-mode-toggle {
+    display: none;
+  }
+}
+
+.hiw-mode-btn {
+  position: relative;
+  padding: 10px 20px;
+  background: none;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.hiw-mode-btn.active {
+  color: var(--fg);
+}
+
+/* Mobile: hide inactive HIW column based on data-hiw-mode on section */
+@media (max-width: 767px) {
+  [data-hiw-mode="technical"] .hiw-simple-cell { display: none !important; }
+  [data-hiw-mode="plain"] .hiw-tech-cell { display: none !important; }
+}
+
+/* ── Testimonial marquee cards ───────────────────────────── */
+.testimonial-card {
+  min-width: clamp(260px, 32vw, 380px);
+  flex-shrink: 0;
+  padding: clamp(20px, 2.5vw, 28px);
+  border-radius: 16px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.testimonial-track {
+  gap: 16px;
+  animation-duration: 38s;
+}
+
+/* ── Calculator 2-col layout ─────────────────────────────── */
+.calc-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  padding: 40px 36px;
+  border-radius: 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .calc-layout {
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: start;
+  }
+}
+
+/* ── Calc accordion ──────────────────────────────────────── */
+.calc-accordion {
+  margin-top: 20px;
+}
+
+.calc-accordion > summary {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--accent);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.calc-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+
+.calc-accordion[open] > summary {
+  margin-bottom: 16px;
+}
+
+.calc-accordion-content {
+  padding: 0;
+}
+
+/* ── Reduced motion: disable all marquees + pulse ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .kinetic-marquee-track {
+    animation: none !important;
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pulse-ring {
+    animation: none !important;
+  }
+}
+
+/* ── Logo marquee item spacing ───────────────────────────── */
+.logo-marquee-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 40px;
+  flex-shrink: 0;
 }

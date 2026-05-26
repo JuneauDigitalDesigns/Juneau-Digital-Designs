@@ -1,10 +1,67 @@
-"use client"
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGlobe, faPhone, faCalendarCheck, faChartBar, faCircleInfo, faXmark, faArrowUpRightFromSquare, IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+﻿"use client"
+/* Z-index constants: navbar: 50 | grain: 60 | modals: 70 */
 
-/* ── Scroll reveal hook ───────────────────────────────────── */
+import Image from "next/image";
+import { useState, useEffect, useRef } from "react";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useMotionValue,
+  useReducedMotion,
+  animate,
+} from "framer-motion";
+import {
+  Globe,
+  Phone,
+  ChartBar,
+  HardDrives,
+  Info,
+  ArrowSquareOut,
+} from "@phosphor-icons/react";
+import testimonialsData from "@/app/data/testimonials.json";
+
+
+interface TestimonialItem {
+    quote: string;
+    author: string;
+    role: string;
+    company: string;
+}
+interface TestimonialStat {
+    value: string;
+    label: string;
+    attribution: string;
+}
+interface TestimonialsData {
+    headline: string;
+    items: TestimonialItem[];
+    stats: TestimonialStat[];
+}
+const tData = testimonialsData as TestimonialsData;
+
+
+const SPRING = { type: "spring", stiffness: 100, damping: 20 } as const;
+
+const HERO_WORDS = ["Built,", "hosted,", "maintained,"];
+
+const LOGOS = [
+    { slug: "vercel", label: "Vercel" },
+    { slug: "nextdotjs", label: "Next.js" },
+    { slug: "stripe", label: "Stripe" },
+    { slug: "elevenlabs", label: "ElevenLabs" },
+    { slug: "anthropic", label: "Anthropic" },
+    { slug: "airtable", label: "Airtable" },
+];
+
+const KINETIC_ITEMS = [
+    "Built for local business",
+    "AI answering 24/7",
+    "Zero missed leads",
+    "Fully managed",
+];
+
+
 function useReveal(options: IntersectionObserverInit = {}) {
     const ref = useRef<HTMLElement>(null);
     useEffect(() => {
@@ -33,18 +90,21 @@ function Reveal({
     className = "",
     style,
     as: Tag = "div",
+    variant = "up",
 }: {
     children: React.ReactNode;
     delay?: number;
     className?: string;
     style?: React.CSSProperties;
     as?: React.ElementType;
+    variant?: "up" | "left";
 }) {
     const ref = useReveal();
+    const revealClass = variant === "left" ? "reveal-left" : "reveal";
     return (
         <Tag
             ref={ref}
-            className={`reveal ${className}`}
+            className={`${revealClass} ${className}`}
             data-delay={delay || undefined}
             style={style}
         >
@@ -53,48 +113,10 @@ function Reveal({
     );
 }
 
-/* ── Animated counter ────────────────────────────────────── */
-function useCounter(
-    target: number,
-    { duration = 1600, decimals = 0 }: { duration?: number; decimals?: number } = {}
-): [React.RefObject<HTMLSpanElement | null>, string] {
-    const [value, setValue] = useState(0);
-    const ref = useRef<HTMLSpanElement>(null);
-    const startedRef = useRef(false);
-
-    useEffect(() => {
-        const el = ref.current;
-        if (!el) return;
-        const io = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((e) => {
-                    if (!e.isIntersecting || startedRef.current) return;
-                    startedRef.current = true;
-                    const t0 = performance.now();
-                    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-                    const step = (now: number) => {
-                        const t = Math.min(1, (now - t0) / duration);
-                        setValue(target * ease(t));
-                        if (t < 1) requestAnimationFrame(step);
-                        else setValue(target);
-                    };
-                    requestAnimationFrame(step);
-                });
-            },
-            { threshold: 0.3 }
-        );
-        io.observe(el);
-        return () => io.disconnect();
-    }, [target, duration]);
-
-    const display =
-        decimals > 0 ? value.toFixed(decimals) : Math.round(value).toLocaleString();
-    return [ref, display];
-}
-
+/* â”€â”€ Animated counter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function CounterEl({
     to,
-    duration,
+    duration = 1.6,
     decimals = 0,
     suffix = "",
 }: {
@@ -103,63 +125,110 @@ function CounterEl({
     decimals?: number;
     suffix?: string;
 }) {
-    const [ref, val] = useCounter(to, { duration, decimals });
-    return <span ref={ref}>{val}{suffix}</span>;
+    const nodeRef = useRef<HTMLSpanElement>(null);
+    const startedRef = useRef(false);
+    useEffect(() => {
+        const el = nodeRef.current;
+        if (!el) return;
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((e) => {
+                    if (!e.isIntersecting || startedRef.current) return;
+                    startedRef.current = true;
+                    animate(0, to, {
+                        duration,
+                        ease: [0.22, 1, 0.36, 1],
+                        onUpdate: (v) => {
+                            el.textContent =
+                                (decimals > 0 ? v.toFixed(decimals) : Math.round(v).toLocaleString()) + suffix;
+                        },
+                    });
+                });
+            },
+            { threshold: 0.3 }
+        );
+        io.observe(el);
+        return () => io.disconnect();
+    }, [to, duration, decimals, suffix]);
+    return <span ref={nodeRef}>0{suffix}</span>;
 }
 
-/* ── Hero ─────────────────────────────────────────────────── */
+/* â”€â”€ Spotlight border card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+function SpotlightBorderCard({
+    children,
+    className = "",
+    style,
+}: {
+    children: React.ReactNode;
+    className?: string;
+    style?: React.CSSProperties;
+}) {
+    const cardRef = useRef<HTMLDivElement>(null);
+    const spotRef = useRef<HTMLDivElement>(null);
+    const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const card = cardRef.current;
+        const spot = spotRef.current;
+        if (!card || !spot) return;
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        spot.style.background = `radial-gradient(300px circle at ${x}px ${y}px, rgba(245,237,214,0.12), transparent 70%)`;
+    };
+    return (
+        <div
+            ref={cardRef}
+            className={`spotlight-card ${className}`}
+            style={{ position: "relative", overflow: "hidden", ...style }}
+            onMouseMove={handleMouseMove}
+        >
+            <div
+                ref={spotRef}
+                style={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                    zIndex: 0,
+                    transition: "background 0.05s",
+                }}
+            />
+            <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
+        </div>
+    );
+}
+
 function Hero() {
+    const sectionRef = useRef<HTMLElement>(null);
+    const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
+    const imgY = useTransform(scrollYProgress, [0, 1], ["0%", "18%"]);
+    const prefersReducedMotion = useReducedMotion();
+    const mx = useMotionValue(0);
+    const my = useMotionValue(0);
+    function handleMagnet(e: React.MouseEvent<HTMLAnchorElement>) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        mx.set((e.clientX - cx) * 0.35);
+        my.set((e.clientY - cy) * 0.35);
+    }
+    function resetMagnet() {
+        mx.set(0);
+        my.set(0);
+    }
     return (
         <section
+            ref={sectionRef}
             style={{
                 position: "relative",
                 overflow: "hidden",
-                padding: "140px 0 100px",
-                minHeight: "80vh",
+                minHeight: "100dvh",
                 display: "flex",
                 alignItems: "center",
             }}
         >
-            {/* Aurora grid overlay */}
+            {/* Geometric dot pattern */}
             <div className="aurora-grid" />
 
-            {/* Aurora blob background */}
-            <div className="aurora-bg">
-                <div
-                    className="aurora-blob"
-                    style={{
-                        width: 620,
-                        height: 620,
-                        background: "radial-gradient(circle, rgba(182,168,255,0.55) 0%, transparent 70%)",
-                        left: "5%",
-                        top: "10%",
-                    }}
-                />
-                <div
-                    className="aurora-blob"
-                    style={{
-                        width: 540,
-                        height: 540,
-                        background: "radial-gradient(circle, rgba(120,90,255,0.45) 0%, transparent 70%)",
-                        right: "8%",
-                        top: "0%",
-                        animationDelay: "-8s",
-                    }}
-                />
-                <div
-                    className="aurora-blob"
-                    style={{
-                        width: 700,
-                        height: 700,
-                        background: "radial-gradient(circle, rgba(38,80,180,0.5) 0%, transparent 70%)",
-                        left: "30%",
-                        top: "30%",
-                        animationDelay: "-14s",
-                    }}
-                />
-            </div>
-
-            {/* Bottom fade — blends aurora into next section */}
+            {/* Bottom fade */}
             <div
                 style={{
                     position: "absolute",
@@ -173,7 +242,7 @@ function Hero() {
                 }}
             />
 
-            {/* Content */}
+            {/* Split grid content */}
             <div
                 style={{
                     position: "relative",
@@ -181,292 +250,351 @@ function Hero() {
                     width: "100%",
                     maxWidth: 1240,
                     margin: "0 auto",
-                    padding: "0 max(24px, 4vw)",
-                    textAlign: "center",
+                    padding: "120px max(24px, 4vw) 100px",
                 }}
             >
-                <Reveal>
-                    <h1
-                        style={{
-                            fontFamily: "var(--font-display)",
-                            fontSize: "clamp(48px, 7vw, 96px)",
-                            fontWeight: 400,
-                            lineHeight: 0.98,
-                            letterSpacing: "-0.035em",
-                            color: "var(--fg)",
-                            marginBottom: 28,
-                        }}
-                    >
-                        We build your site.
-                        <span
+                <div className="hero-split-asymmetric">
+                    {/* Left 55%: headline + CTA */}
+                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                        <motion.h1
+                            initial="hidden"
+                            animate="visible"
+                            variants={{
+                                hidden: {},
+                                visible: { transition: { staggerChildren: 0.08 } },
+                            }}
                             style={{
-                                display: "block",
-                                fontStyle: "italic",
-                                color: "var(--accent)",
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(56px, 8vw, 112px)",
+                                fontWeight: 400,
+                                lineHeight: 1.0,
+                                letterSpacing: "0.04em",
+                                color: "var(--fg)",
+                                marginBottom: 20,
                             }}
                         >
-                            Your site books your clients.
-                        </span>
-                    </h1>
-                </Reveal>
+                            {HERO_WORDS.map((word) => (
+                                <motion.span
+                                    key={word}
+                                    variants={{
+                                        hidden: { opacity: 0, y: 32 },
+                                        visible: { opacity: 1, y: 0, transition: SPRING },
+                                    }}
+                                    style={{ display: "inline-block", marginRight: "0.25em" }}
+                                >
+                                    {word}
+                                </motion.span>
+                            ))}
+                            <motion.span
+                                variants={{
+                                    hidden: { opacity: 0, y: 32 },
+                                    visible: { opacity: 1, y: 0, transition: SPRING },
+                                }}
+                                style={{
+                                    display: "block",
+                                    fontFamily: "var(--font-body)",
+                                    fontStyle: "italic",
+                                    fontWeight: 300,
+                                    fontSize: "clamp(24px, 3.5vw, 48px)",
+                                    letterSpacing: "-0.01em",
+                                    lineHeight: 1.3,
+                                    color: "var(--accent)",
+                                    marginTop: 12,
+                                }}
+                            >
+                                and always answering.
+                            </motion.span>
+                        </motion.h1>
 
-                <Reveal delay={2}>
-                    <p
-                        style={{
-                            fontSize: 18,
-                            lineHeight: 1.6,
-                            color: "var(--fg-2)",
-                            maxWidth: "54ch",
-                            margin: "0 auto 36px",
-                        }}
-                    >
-                        A normal website loses leads. Our sites are built with a powerful AI voice receptionist baked in, so you never miss a call — even at 2 a.m. on a Sunday.
-                    </p>
-                </Reveal>
+                        <Reveal delay={2} style={{ marginTop: 8 }}>
+                            <p
+                                style={{
+                                    fontSize: 18,
+                                    lineHeight: 1.7,
+                                    color: "var(--fg-2)",
+                                    maxWidth: "42ch",
+                                    marginBottom: 32,
+                                }}
+                            >
+                                We own every piece — website, hosting, upkeep, and AI receptionist — so there&apos;s no gap between your marketing and the customers who tried to reach you.
+                            </p>
+                        </Reveal>
 
-                <Reveal delay={3} style={{ marginBottom: 80 }}>
-                    <a href="/pricing" className="btn primary lg">
-                        Get Started
-                    </a>
-                </Reveal>
+                        <Reveal delay={3}>
+                            <motion.a
+                                href="/pricing"
+                                className="btn primary lg"
+                                style={{ display: "inline-flex", x: mx, y: my }}
+                                onMouseMove={handleMagnet}
+                                onMouseLeave={resetMagnet}
+                                transition={SPRING}
+                            >
+                                Get Started
+                            </motion.a>
+                        </Reveal>
+                    </div>
 
+                    {/* Right 45%: hero image */}
+                    <div className="hero-image-container" style={{ position: "relative" }}>
+                        <motion.div
+                            style={{
+                                position: "absolute",
+                                inset: 0,
+                                y: prefersReducedMotion ? 0 : imgY,
+                                borderRadius: 20,
+                                overflow: "hidden",
+                            }}
+                        >
+                            <Image
+                                src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=1334&auto=format&fit=crop"
+                                alt="Digital agency workspace"
+                                fill
+                                priority
+                                sizes="(max-width: 768px) 100vw, 45vw"
+                                style={{ objectFit: "cover" }}
+                            />
+                            <div
+                                style={{
+                                    position: "absolute",
+                                    inset: 0,
+                                    background: "linear-gradient(135deg, rgba(7,16,30,0.35) 0%, rgba(7,16,30,0.1) 100%)",
+                                }}
+                            />
+                        </motion.div>
+                    </div>
+                </div>
             </div>
         </section>
     );
 }
 
-/* ── Services / What We Offer ─────────────────────────────── */
-function Offer() {
-    interface Service {
-        id: string;
-        title: string;
-        icon: IconDefinition;
-        tagline: string;
-        description: string;
-        bullets: string[];
-        availableOn: string;
+/* ── Logo marquee ───────────────────────────────────────────── */
+function LogoMarquee() {
+    const prefersReducedMotion = useReducedMotion();
+    const repeated = Array.from({ length: 8 }, () => LOGOS).flat();
+    if (prefersReducedMotion) {
+        return (
+            <section style={{ padding: "48px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }}>
+                <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap", opacity: 0.6 }}>
+                    {LOGOS.map((l) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            key={l.slug}
+                            src={`https://cdn.simpleicons.org/${l.slug}/F5EDD6`}
+                            alt={l.label}
+                            width={32}
+                            height={32}
+                            style={{ opacity: 0.7 }}
+                        />
+                    ))}
+                </div>
+            </section>
+        );
     }
+    return (
+        <section style={{ padding: "48px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)", overflow: "hidden" }}>
+            <div className="marquee-container" aria-hidden="true">
+                <div className="marquee-track">
+                    {repeated.map((l, i) => (
+                        <span key={i} className="logo-marquee-item">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={`https://cdn.simpleicons.org/${l.slug}/F5EDD6`}
+                                alt={l.label}
+                                width={32}
+                                height={32}
+                                style={{ opacity: 0.65, display: "block" }}
+                            />
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+}
 
-    const services: Service[] = [
-        {
-            id: "website",
-            title: "Website & Local SEO",
-            icon: faGlobe,
-            tagline: "A site that ranks, loads fast, and converts.",
-            description: "We build a custom, lightning-fast website served from Vercel's global edge — not a template, not a builder. Every page is structured for local search, scored for 95+ Lighthouse on mobile, and wired with schema markup so Google knows exactly who you are and where you serve.",
-            bullets: [
-                "Custom one-page website built for your brand and market",
-                "Vercel edge delivery — faster than your competitors' hosting",
-                "95+ Lighthouse mobile score, schema markup for local search",
-                "Google Business Profile optimization",
-                
-            ],
-            availableOn: "All plans",
-        },
-        {
-            id: "receptionist",
-            title: "AI Voice Receptionist",
-            icon: faPhone,
-            tagline: "Every call answered. Every caller qualified. 24/7.",
-            description: "Your existing number rolls to a Twilio line that streams in under a second to an ElevenLabs voice powered by an OpenAI reasoning loop. It knows your services, hours, prices, and service area — and it books real appointments, not just takes messages.",
-            bullets: [
-                "24/7 AI voice answers every inbound call under 1.4 seconds",
-                "Trained on your exact services, pricing, hours, and service area",
-                "Qualifies callers before transferring or booking",
-                "Owner SMS alert sent in under 60 seconds per captured lead",
-                "Monthly call review and AI tuning session included",
-                "Smart contact forms with instant lead capture and follow-up",
-            ],
-            availableOn: "Growth & Enterprise plans",
-        },
-        {
-            id: "dashboard",
-            title: "Owner Dashboard & Reports",
-            icon: faChartBar,
-            tagline: "Every call, booking, and dollar — visible at a glance.",
-            description: "Your dashboard shows every call, and every booking. Monthly performance reports are included on all plans. Growth clients get bi-monthly deep-dives. Enterprise clients get quarterly strategy sessions with our founder — no tickets, no bots.",
-            bullets: [
-                "View all calls and bookings in a simple dashboard",
-                "Real-time call log and booking feed",
-                "Daily and Weekly performance reports with insights",
-                
-                
-            ],
-            availableOn: "Growth & Enterprise plans",
-        },
-    ];
-
-    const [activeId, setActiveId] = useState<string>(services[0].id);
-    const active = services.find(s => s.id === activeId)!;
-
+/* ── Services bento grid ───────────────────────────────────────────── */
+function SpotlightGrid() {
     return (
         <section style={{ position: "relative", padding: "120px 0" }}>
             <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
                 <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
-                    <span className="eyebrow" style={{ marginBottom: 20 }}>Our Services</span>
+                    
                     <h2
                         style={{
                             fontFamily: "var(--font-display)",
                             fontSize: "clamp(36px, 5vw, 64px)",
                             fontWeight: 400,
-                            letterSpacing: "-0.025em",
+                            letterSpacing: "0.03em",
                             color: "var(--fg)",
                             marginTop: 16,
                             marginBottom: 12,
                         }}
                     >
-                        What We <em style={{ color: "var(--accent)", fontStyle: "italic" }}>Deliver</em>
+                        What We <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>Deliver</em>
                     </h2>
-                    <p className="kicker">Select a service to see what&apos;s included</p>
                 </Reveal>
 
-                {/* Pill selector */}
-                <Reveal delay={1}>
-                    <div
-                        style={{
-                            display: "flex",
-                            gap: 10,
-                            justifyContent: "center",
-                            flexWrap: "wrap",
-                            marginBottom: 40,
-                        }}
-                    >
-                        {services.map(s => (
-                            <button
-                                key={s.id}
-                                onClick={() => setActiveId(s.id)}
-                                style={{
-                                    border: "1px solid",
-                                    borderColor: activeId === s.id ? "var(--accent)" : "var(--rule)",
-                                    borderRadius: 999,
-                                    padding: "10px 22px",
-                                    background: activeId === s.id ? "var(--accent)" : "var(--surface)",
-                                    color: activeId === s.id ? "#06121a" : "var(--fg-2)",
-                                    fontSize: 13,
-                                    fontFamily: "var(--font-mono)",
-                                    cursor: "pointer",
-                                    transition: "all 0.18s ease",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                    letterSpacing: "0.01em",
-                                }}
-                            >
-                                <FontAwesomeIcon icon={s.icon} style={{ fontSize: 12 }} />
-                                {s.title}
-                            </button>
-                        ))}
-                    </div>
-                </Reveal>
-
-                {/* Detail panel */}
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={activeId}
-                        className="glass"
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.22, ease: "easeOut" }}
-                        style={{ padding: "40px 36px", borderRadius: 22, position: "relative", overflow: "hidden" }}
-                    >
-                        {/* Accent top bar */}
+                <div className="bento-grid">
+                    {/* Cell 1: Website & SEO â€” hero cell (tall, left) */}
+                    <SpotlightBorderCard className="glass bento-cell-hero" style={{ padding: "40px 36px", display: "flex", flexDirection: "column" }}>
+                        <Globe weight="duotone" size={32} color="var(--accent)" />
+                        <h3
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(28px, 3.5vw, 42px)",
+                                fontWeight: 400,
+                                letterSpacing: "0.03em",
+                                color: "var(--fg)",
+                                margin: "20px 0 12px",
+                                lineHeight: 1.1,
+                            }}
+                        >
+                            Website &amp; Local SEO
+                        </h3>
+                        <p style={{ color: "var(--fg-2)", fontSize: 15, lineHeight: 1.7 }}>
+                            Custom Next.js build served from Vercel&apos;s global edge. 95+ Lighthouse mobile, schema markup, Google Business Profile optimisation.
+                        </p>
                         <div
                             style={{
-                                position: "absolute",
-                                inset: "0 0 auto 0",
-                                height: 2,
-                                borderRadius: "22px 22px 0 0",
-                                background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))",
+                                fontFamily: "var(--font-mono)",
+                                fontSize: 11,
+                                color: "var(--accent)",
+                                letterSpacing: "0.1em",
+                                textTransform: "uppercase",
+                                marginTop: "auto",
+                                paddingTop: 24,
                             }}
-                        />
-                        <div className="grid-2col-responsive" style={{ alignItems: "start" }}>
-                            {/* Left: description */}
-                            <div>
-                                <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", marginBottom: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                                    {active.availableOn}
-                                </div>
-                                <h3
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: "clamp(24px, 3vw, 38px)",
-                                        fontWeight: 400,
-                                        letterSpacing: "-0.02em",
-                                        color: "var(--fg)",
-                                        marginBottom: 16,
-                                        lineHeight: 1.1,
-                                    }}
-                                >
-                                    {active.title}
-                                </h3>
-                                <p
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: 17,
-                                        fontStyle: "italic",
-                                        color: "var(--accent)",
-                                        marginBottom: 16,
-                                        lineHeight: 1.4,
-                                    }}
-                                >
-                                    {active.tagline}
-                                </p>
-                                <p style={{ color: "var(--fg-2)", lineHeight: 1.7, fontSize: 15 }}>
-                                    {active.description}
-                                </p>
-                            </div>
-                            {/* Right: bullets */}
-                            <div>
-                                <div className="kicker" style={{ marginBottom: 16 }}>What&apos;s included</div>
-                                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-                                    {active.bullets.map((bullet, i) => (
-                                        <li
-                                            key={i}
-                                            style={{
-                                                display: "flex",
-                                                alignItems: "flex-start",
-                                                gap: 12,
-                                                fontSize: 14.5,
-                                                color: "var(--fg-2)",
-                                                lineHeight: 1.5,
-                                            }}
-                                        >
-                                            <span style={{
-                                                marginTop: 5,
-                                                width: 6,
-                                                height: 6,
-                                                borderRadius: "50%",
-                                                background: "var(--accent)",
-                                                flexShrink: 0,
-                                            }} />
-                                            {bullet}
-                                        </li>
-                                    ))}
-                                </ul>
-                                <div style={{ marginTop: 28 }}>
-                                    <a href="/pricing" className="btn primary" style={{ display: "inline-flex" }}>
-                                        View Pricing →
-                                    </a>
-                                </div>
-                            </div>
+                        >
+                            All plans
                         </div>
-                    </motion.div>
-                </AnimatePresence>
+                    </SpotlightBorderCard>
+
+                    {/* Cell 2: AI Voice â€” right top */}
+                    <SpotlightBorderCard className="glass" style={{ padding: "36px 32px", display: "flex", flexDirection: "column" }}>
+                        <Phone weight="duotone" size={32} color="var(--accent)" />
+                        <h3
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(24px, 2.8vw, 34px)",
+                                fontWeight: 400,
+                                letterSpacing: "0.03em",
+                                color: "var(--fg)",
+                                margin: "16px 0 10px",
+                                lineHeight: 1.1,
+                            }}
+                        >
+                            AI Voice Receptionist
+                        </h3>
+                        <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.65 }}>
+                            24/7 AI voice â€” answers under 1.4 s, qualifies callers, books real appointments.
+                        </p>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 28, color: "var(--accent)", marginTop: "auto", paddingTop: 16, letterSpacing: "-0.02em" }}>
+                            &lt;1.4s
+                        </div>
+                    </SpotlightBorderCard>
+
+                    {/* Cell 3: Dashboard & Reports â€” right bottom */}
+                    <SpotlightBorderCard className="glass" style={{ padding: "36px 32px", display: "flex", flexDirection: "column" }}>
+                        <ChartBar weight="duotone" size={32} color="var(--accent)" />
+                        <h3
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(24px, 2.8vw, 34px)",
+                                fontWeight: 400,
+                                letterSpacing: "0.03em",
+                                color: "var(--fg)",
+                                margin: "16px 0 10px",
+                                lineHeight: 1.1,
+                            }}
+                        >
+                            Dashboard &amp; Reports
+                        </h3>
+                        <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.65 }}>
+                            Every call, booking, and dollar visible at a glance. Daily, weekly, and monthly reports included.
+                        </p>
+                        <div style={{ fontFamily: "var(--font-mono)", fontSize: 28, color: "var(--accent)", marginTop: "auto", paddingTop: 16, letterSpacing: "-0.02em" }}>
+                            Real-time
+                        </div>
+                    </SpotlightBorderCard>
+
+                    {/* Cell 4: Hosting â€” full-width bottom */}
+                    <SpotlightBorderCard className="glass bento-cell-full" style={{ padding: "32px 36px", display: "flex", alignItems: "center", gap: 32, flexWrap: "wrap" }}>
+                        <HardDrives weight="duotone" size={32} color="var(--accent)" style={{ flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 180 }}>
+                            <h3
+                                style={{
+                                    fontFamily: "var(--font-display)",
+                                    fontSize: "clamp(22px, 2.5vw, 30px)",
+                                    fontWeight: 400,
+                                    letterSpacing: "0.03em",
+                                    color: "var(--fg)",
+                                    margin: "0 0 8px",
+                                    lineHeight: 1.1,
+                                }}
+                            >
+                                Managed Hosting &amp; Uptime
+                            </h3>
+                            <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.65, margin: 0 }}>
+                                Fully managed hosting, 99.9% uptime, automatic backups, and security monitoring. Always fast, always on.
+                            </p>
+                        </div>
+                        <a href="/pricing" className="btn primary" style={{ flexShrink: 0, display: "inline-flex", alignItems: "center" }}>
+                            View Pricing <ArrowSquareOut weight="bold" size={14} style={{ marginLeft: 6 }} />
+                        </a>
+                    </SpotlightBorderCard>
+                </div>
             </div>
         </section>
     );
 }
 
-/* ── How It Works ─────────────────────────────────────────── */
-/* copy from design handoff TECH_ROWS (df-shared.jsx) */
+
+function KineticMarquee() {
+    const prefersReducedMotion = useReducedMotion();
+    if (prefersReducedMotion) {
+        return (
+            <div style={{ padding: "32px 0", textAlign: "center", color: "var(--fg-3)", fontFamily: "var(--font-mono)", fontSize: 13 }}>
+                {KINETIC_ITEMS.join("·")}
+            </div>
+        );
+    }
+    const tripled = [...KINETIC_ITEMS, ...KINETIC_ITEMS, ...KINETIC_ITEMS];
+    return (
+        <div style={{ overflow: "hidden", padding: "32px 0", borderTop: "1px solid var(--rule)", borderBottom: "1px solid var(--rule)" }} aria-hidden="true">
+            <div className="marquee-container">
+                <div className="marquee-track kinetic-marquee-track">
+                    {tripled.map((item, i) => (
+                        <span
+                            key={i}
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: "clamp(18px, 2.5vw, 28px)",
+                                color: i % 2 === 0 ? "var(--fg)" : "var(--fg-3)",
+                                letterSpacing: "0.06em",
+                                padding: "0 40px",
+                                whiteSpace: "nowrap",
+                            }}
+                        >
+                            {item}
+                            <span style={{ color: "var(--accent)", marginLeft: 40 }}>·</span>
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 const TECH_ROWS = [
     {
         simple: "A website that's faster than your competitors'.",
-        tech: "Astro + Tailwind static build, served from Cloudflare's edge. 95+ Lighthouse on mobile, schema-marked-up for local search.",
+        tech: "Next.JS + Tailwind static build, served from Vercel's edge. 95+ Lighthouse on mobile, schema-marked-up for local search.",
     },
     {
         simple: "Your number forwards to a smart voice that picks up 24/7.",
-        tech: "Your existing line rolls to a Twilio number. Sub-second streaming to an ElevenLabs voice + OpenAI reasoning loop.",
+        tech: "Your existing line rolls to a Twilio number. Sub-second streaming to an ElevenLabs voice + OpenAI reasoning loop via RetellAI",
     },
     {
         simple: "The AI knows YOUR services, hours, prices, service area.",
@@ -474,49 +602,80 @@ const TECH_ROWS = [
     },
     {
         simple: "If a caller wants to book, it actually books — for real.",
-        tech: "The AI qualifies the caller, then creates a new entry on Airtable. You visit your dashboard to review and confirm the booking — no bots, no fake appointments.",
+        tech: "The AI qualifies the caller, then creates a new entry on Airtable. You visit your dashboard via Looker to review and confirm the booking — no bots, no fake appointments.",
     },
     {
-        simple: "You no longer miss leads from calls, even at 2 a.m. on a Sunday.",
+        simple: "You no longer miss leads from calls, even at 11:42 p.m. on a Wednesday.",
         tech: "Every call is answered under 1.4 seconds. Booking is handled without your involvement.",
     },
 ];
 
 function HowItWorks() {
+    const [mode, setMode] = useState<"plain" | "technical">("plain");
     return (
-        <section style={{ position: "relative", padding: "120px 0" }}>
+        <section style={{ position: "relative", padding: "120px 0" }} data-hiw-mode={mode}>
             <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
 
                 {/* 2-col header */}
                 <Reveal>
                     <div className="hiw-header-grid">
                         <div style={{ width: "100%" }}>
-                            <div className="kicker" style={{ marginBottom: 16 }}>━━ How it works</div>
+                            
                             <h2
                                 style={{
                                     fontFamily: "var(--font-display)",
                                     fontSize: "clamp(36px, 5vw, 64px)",
                                     fontWeight: 400,
-                                    letterSpacing: "-0.025em",
+                                    letterSpacing: "0.03em",
                                     color: "var(--fg)",
                                     lineHeight: 1.05,
                                 }}
                             >
                                 The plain version.{" "}
-                                <em style={{ color: "var(--accent)", fontStyle: "italic" }}>And the technical one.</em>
+                                <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>And the technical one.</em>
                             </h2>
                         </div>
                     </div>
                 </Reveal>
 
-                {/* Table */}
+                {/* Mobile mode toggle */}
                 <Reveal delay={1}>
+                    <div className="hiw-mode-toggle">
+                        {(["plain", "technical"] as const).map((m) => (
+                            <button
+                                key={m}
+                                className={`hiw-mode-btn${mode === m ? " active" : ""}`}
+                                onClick={() => setMode(m)}
+                                style={{ position: "relative" }}
+                            >
+                                {m === "plain" ? "Plain English" : "Technical"}
+                                {mode === m && (
+                                    <motion.div
+                                        layoutId="mode-indicator"
+                                        style={{
+                                            position: "absolute",
+                                            bottom: -2,
+                                            left: 0,
+                                            right: 0,
+                                            height: 2,
+                                            background: "var(--accent)",
+                                            borderRadius: 1,
+                                        }}
+                                    />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                </Reveal>
+
+                {/* Table */}
+                <Reveal delay={1} variant="left">
                     <div style={{ width: "100%" }}>
-                        {/* Header row — desktop only (mobile uses per-row labels) */}
+                        {/* Header row — desktop only */}
                         <div className="hiw-header-row">
-                            <div className="kicker">━ #</div>
-                            <div className="kicker">━ PLAIN</div>
-                            <div className="kicker">━ UNDER THE HOOD</div>
+                            <div className="kicker">#</div>
+                            <div className="kicker">PLAIN</div>
+                            <div className="kicker">UNDER THE HOOD</div>
                         </div>
 
                         {/* Data rows */}
@@ -524,6 +683,10 @@ function HowItWorks() {
                             <motion.div
                                 key={i}
                                 className="hiw-row"
+                                initial={{ opacity: 0, y: 16 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true, amount: 0.25 }}
+                                transition={{ duration: 0.4, delay: i * 0.06 }}
                                 whileHover={{ background: "var(--surface)" }}
                             >
                                 <div className="hiw-num">{String(i + 1).padStart(2, "0")}</div>
@@ -546,248 +709,110 @@ function HowItWorks() {
     );
 }
 
-/* ── Testimonials data types ──────────────────────────────── */
-interface TestimonialItem {
-    quote: string;
-    author: string;
-    role: string;
-    company: string;
-}
-interface TestimonialStat {
-    value: string;
-    label: string;
-    attribution: string;
-}
-interface TestimonialsData {
-    headline: string;
-    items: TestimonialItem[];
-    stats: TestimonialStat[];
-}
-
-/* ── Testimonial carousel ─────────────────────────────────── */
-function TestimonialCarousel({ items }: { items: TestimonialItem[] }) {
-    const [activeIdx, setActiveIdx] = useState(0);
-    const [showArrows, setShowArrows] = useState(true);
-    const touchStartX = useRef<number | null>(null);
-    const len = items.length;
-
-    const prev = () => setActiveIdx((i) => (i - 1 + len) % len);
-    const next = () => setActiveIdx((i) => (i + 1) % len);
-
-    useEffect(() => {
-        const check = () => setShowArrows(window.innerWidth >= 640);
-        check();
-        window.addEventListener("resize", check);
-        return () => window.removeEventListener("resize", check);
-    }, []);
-
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartX.current = e.touches[0].clientX;
-    };
-
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (touchStartX.current === null) return;
-        const delta = e.changedTouches[0].clientX - touchStartX.current;
-        if (Math.abs(delta) > 50) delta < 0 ? next() : prev();
-        touchStartX.current = null;
-    };
-
+/* ── Testimonial marquee ───────────────────────────────────────────── */
+function TestimonialCard({ item }: { item: TestimonialItem }) {
     return (
-        <div
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+        <blockquote
+            className="glass testimonial-card"
             style={{
-                position: "relative",
-                perspective: 1200,
-                maxWidth: 800,
-                margin: "0 auto 48px",
-                height: "clamp(260px, 36vw, 340px)",
-                overflow: "visible",
+                padding: "clamp(20px, 3vw, 32px)",
+                borderRadius: 16,
+                margin: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+                flexShrink: 0,
             }}
         >
-            {items.map((item, i) => {
-                const offset = ((i - activeIdx + len) % len + len) % len;
-                // Normalize offset so cards on the "left" side get negative offset
-                const normalizedOffset = offset > len / 2 ? offset - len : offset;
-                const isActive = normalizedOffset === 0;
-                const isAdjacent = Math.abs(normalizedOffset) === 1;
-                const isVisible = isActive || isAdjacent;
+            <p
+                style={{
+                    fontFamily: "var(--font-body)",
+                    fontSize: "clamp(14px, 1.6vw, 16px)",
+                    fontStyle: "italic",
+                    fontWeight: 300,
+                    color: "var(--fg-2)",
+                    lineHeight: 1.6,
+                    margin: 0,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                } as React.CSSProperties}
+            >
+                {item.quote}
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                    style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: "linear-gradient(135deg, var(--accent), rgba(245,237,214,0.3))",
+                        flexShrink: 0,
+                    }}
+                />
+                <div>
+                    <div style={{ fontSize: 14, fontWeight: 400, color: "var(--fg)" }}>
+                        {item.author}
+                    </div>
+                    <div className="kicker">
+                        {item.role}{item.company ? `, ${item.company}` : ""}
+                    </div>
+                </div>
+            </div>
+        </blockquote>
+    );
+}
 
-                // Clamp so hidden cards park behind adjacent cards instead of flying in from off-screen
-                const clampedPos = Math.max(-1, Math.min(1, normalizedOffset));
-                const rotateY = showArrows ? clampedPos * 35 : 0;
-                const translateX = showArrows ? clampedPos * 55 : 0;
-                const scale = isActive ? 1 : 0.88;
-                const opacity = isActive ? 1 : isAdjacent ? 0.65 : 0;
-                const zIndex = isActive ? 10 : isAdjacent ? 5 : 0;
-
-                return (
-                    <motion.blockquote
-                        key={i}
-                        className="glass"
-                        animate={{
-                            rotateY,
-                            x: `${translateX}%`,
-                            scale,
-                            opacity,
-                            zIndex,
-                        }}
-                        transition={{ duration: 0.45, ease: "easeInOut" }}
-                        style={{
-                            position: "absolute",
-                            inset: 0,
-                            padding: "clamp(28px, 4vw, 56px) clamp(28px, 5vw, 72px)",
-                            textAlign: "center",
-                            margin: 0,
-                            transformOrigin: "center center",
-                            pointerEvents: isVisible ? "auto" : "none",
-                            cursor: isAdjacent
-                                ? (normalizedOffset < 0 ? "w-resize" : "e-resize")
-                                : "default",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "linear-gradient(180deg, rgba(12,24,40,0.97) 0%, rgba(7,16,30,0.99) 100%)",
-                        }}
-                        onClick={isAdjacent ? (normalizedOffset < 0 ? prev : next) : undefined}
-                    >
-                        <p
-                            style={{
-                                fontFamily: "var(--font-display)",
-                                fontSize: "clamp(18px, 2.8vw, 28px)",
-                                fontWeight: 300,
-                                fontStyle: "italic",
-                                color: "var(--fg-2)",
-                                lineHeight: 1.4,
-                                maxWidth: "32ch",
-                                margin: "0 auto 28px",
-                            }}
-                        >
-                            {item.quote}
-                        </p>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                            <div
-                                style={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: "50%",
-                                    background: "linear-gradient(135deg, var(--accent), rgba(182,168,255,0.3))",
-                                    flexShrink: 0,
-                                }}
-                            />
-                            <div style={{ textAlign: "left" }}>
-                                <div style={{ fontSize: 15, fontWeight: 400, color: "var(--fg)" }}>
-                                    {item.author}
-                                </div>
-                                <div className="kicker">
-                                    {item.role}{item.company ? ` — ${item.company}` : ""}
-                                </div>
-                            </div>
-                        </div>
-                    </motion.blockquote>
-                );
-            })}
-
-            {/* Arrow buttons — hidden on small screens (<640px), swipe handles navigation there */}
-            {len > 1 && showArrows && (
-                <>
-                    <button
-                        onClick={prev}
-                        aria-label="Previous testimonial"
-                        style={{
-                            position: "absolute",
-                            left: -72,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            zIndex: 20,
-                            background: "linear-gradient(135deg, rgba(182,168,255,0.3) 0%, rgba(120,90,255,0.25) 100%)",
-                            border: "1.5px solid rgba(182,168,255,0.75)",
-                            borderRadius: "50%",
-                            width: 48,
-                            height: 48,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "var(--accent)",
-                            fontSize: 20,
-                            boxShadow: "0 4px 24px rgba(120,90,255,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
-                            transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.18s",
-                        }}
-                        onMouseEnter={(e) => {
-                            const btn = e.currentTarget as HTMLButtonElement;
-                            btn.style.background = "linear-gradient(135deg, rgba(182,168,255,0.28) 0%, rgba(120,90,255,0.18) 100%)";
-                            btn.style.borderColor = "var(--accent)";
-                            btn.style.boxShadow = "0 6px 32px rgba(120,90,255,0.32), inset 0 1px 0 rgba(255,255,255,0.12)";
-                            btn.style.transform = "translateY(-50%) scale(1.1)";
-                        }}
-                        onMouseLeave={(e) => {
-                            const btn = e.currentTarget as HTMLButtonElement;
-                            btn.style.background = "linear-gradient(135deg, rgba(182,168,255,0.15) 0%, rgba(120,90,255,0.08) 100%)";
-                            btn.style.borderColor = "rgba(182,168,255,0.45)";
-                            btn.style.boxShadow = "0 4px 24px rgba(120,90,255,0.18), inset 0 1px 0 rgba(255,255,255,0.08)";
-                            btn.style.transform = "translateY(-50%) scale(1)";
-                        }}
-                    >
-                        ←
-                    </button>
-                    <button
-                        onClick={next}
-                        aria-label="Next testimonial"
-                        style={{
-                            position: "absolute",
-                            right: -72,
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            zIndex: 20,
-                            background: "linear-gradient(135deg, rgba(182,168,255,0.15) 0%, rgba(120,90,255,0.08) 100%)",
-                            border: "1.5px solid rgba(182,168,255,0.45)",
-                            borderRadius: "50%",
-                            width: 48,
-                            height: 48,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "var(--accent)",
-                            fontSize: 20,
-                            boxShadow: "0 4px 24px rgba(120,90,255,0.18), inset 0 1px 0 rgba(255,255,255,0.08)",
-                            transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s, transform 0.18s",
-                        }}
-                        onMouseEnter={(e) => {
-                            const btn = e.currentTarget as HTMLButtonElement;
-                            btn.style.background = "linear-gradient(135deg, rgba(182,168,255,0.28) 0%, rgba(120,90,255,0.18) 100%)";
-                            btn.style.borderColor = "var(--accent)";
-                            btn.style.boxShadow = "0 6px 32px rgba(120,90,255,0.32), inset 0 1px 0 rgba(255,255,255,0.12)";
-                            btn.style.transform = "translateY(-50%) scale(1.1)";
-                        }}
-                        onMouseLeave={(e) => {
-                            const btn = e.currentTarget as HTMLButtonElement;
-                            btn.style.background = "linear-gradient(135deg, rgba(182,168,255,0.15) 0%, rgba(120,90,255,0.08) 100%)";
-                            btn.style.borderColor = "rgba(182,168,255,0.45)";
-                            btn.style.boxShadow = "0 4px 24px rgba(120,90,255,0.18), inset 0 1px 0 rgba(255,255,255,0.08)";
-                            btn.style.transform = "translateY(-50%) scale(1)";
-                        }}
-                    >
-                        →
-                    </button>
-                </>
-            )}
+function TestimonialMarquee({ items }: { items: TestimonialItem[] }) {
+    const prefersReducedMotion = useReducedMotion();
+    if (prefersReducedMotion) {
+        return (
+            <div
+                style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                    gap: 16,
+                    marginBottom: 48,
+                }}
+            >
+                {items.map((item, i) => (
+                    <TestimonialCard key={i} item={item} />
+                ))}
+            </div>
+        );
+    }
+    const tripled = [...items, ...items, ...items];
+    const mid = Math.ceil(tripled.length / 2);
+    const row1 = tripled.slice(0, mid);
+    const row2 = tripled.slice(mid);
+    return (
+        <div style={{ overflow: "hidden", marginBottom: 48 }}>
+            {/* Row 1 â€” scrolls left */}
+            <div className="marquee-container" style={{ marginBottom: 16 }}>
+                <div className="marquee-track testimonial-track">
+                    {row1.map((item, i) => (
+                        <TestimonialCard key={i} item={item} />
+                    ))}
+                </div>
+            </div>
+            {/* Row 2 â€” scrolls right */}
+            <div className="marquee-container">
+                <div className="marquee-track testimonial-track marquee-reverse">
+                    {row2.map((item, i) => (
+                        <TestimonialCard key={i} item={item} />
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }
 
-/* ── Testimonials ─────────────────────────────────────────── */
-// Single source of truth: app/data/testimonials.json
-// Add a new entry by appending an object to the "items" array.
-import testimonialsData from "@/app/data/testimonials.json";
-const tData = testimonialsData as TestimonialsData;
-
+/* â”€â”€ Testimonials â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Testimonials() {
     return (
         <section style={{ position: "relative", padding: "100px 0 120px", overflow: "hidden" }}>
-            {/* Bottom fade — blends aurora into next section */}
+            {/* Bottom fade â€” blends aurora into next section */}
             <div
                 style={{
                     position: "absolute",
@@ -807,7 +832,7 @@ function Testimonials() {
                     style={{
                         width: 540,
                         height: 540,
-                        background: "radial-gradient(circle, rgba(182,168,255,0.5) 0%, transparent 70%)",
+                        background: "radial-gradient(circle, rgba(245,237,214,0.18) 0%, transparent 70%)",
                         left: "30%",
                         top: "10%",
                     }}
@@ -816,13 +841,13 @@ function Testimonials() {
 
             <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)", position: "relative", zIndex: 2 }}>
                 <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
-                    <span className="eyebrow" style={{ marginBottom: 20 }}>What Clients Say</span>
+                    
                     <h2
                         style={{
                             fontFamily: "var(--font-display)",
                             fontSize: "clamp(36px, 5vw, 64px)",
                             fontWeight: 400,
-                            letterSpacing: "-0.025em",
+                            letterSpacing: "0.03em",
                             color: "var(--fg)",
                             marginTop: 16,
                             marginBottom: 0,
@@ -832,9 +857,9 @@ function Testimonials() {
                     </h2>
                 </Reveal>
 
-                {/* 3D rotating card carousel */}
+                {/* Dual-row marquee */}
                 <Reveal delay={1}>
-                    <TestimonialCarousel items={tData.items} />
+                    <TestimonialMarquee items={tData.items} />
                 </Reveal>
 
                 {/* Stats grid */}
@@ -850,30 +875,38 @@ function Testimonials() {
                             gap: 0,
                         }}
                     >
-                        {tData.stats.flatMap((stat, i) => [
-                            <div key={`stat-${i}`} style={{ padding: "0 24px", textAlign: "center" }}>
-                                <div
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: "clamp(32px, 5vw, 56px)",
-                                        fontWeight: 300,
-                                        color: "var(--accent)",
-                                        letterSpacing: "-0.03em",
-                                    }}
-                                >
-                                    {stat.value}
-                                </div>
-                                <div style={{ fontSize: 14, color: "var(--fg-2)", marginTop: 6 }}>
-                                    {stat.label}
-                                </div>
-                                <div className="kicker" style={{ marginTop: 4 }}>
-                                    {stat.attribution}
-                                </div>
-                            </div>,
-                            i < tData.stats.length - 1
-                                ? <div key={`div-${i}`} style={{ width: 1, background: "var(--rule)" }} />
-                                : null,
-                        ])}
+                        {tData.stats.flatMap((stat, i) => {
+                            const m = stat.value.match(/^(\d+(?:\.\d+)?)(.*)/);
+                            const numVal = m ? parseFloat(m[1]) : 0;
+                            const suffix = m ? m[2] : stat.value;
+                            const isDecimal = m ? m[1].includes(".") : false;
+                            return [
+                                <div key={`stat-${i}`} style={{ padding: "0 24px", textAlign: "center" }}>
+                                    <div
+                                        style={{
+                                            fontFamily: "var(--font-display)",
+                                            fontSize: "clamp(32px, 5vw, 56px)",
+                                            fontWeight: 400,
+                                            color: "var(--accent)",
+                                            letterSpacing: "0.04em",
+                                        }}
+                                    >
+                                        {numVal > 0
+                                            ? <CounterEl to={numVal} decimals={isDecimal ? 1 : 0} suffix={suffix} />
+                                            : stat.value}
+                                    </div>
+                                    <div style={{ fontSize: 14, color: "var(--fg-2)", marginTop: 6 }}>
+                                        {stat.label}
+                                    </div>
+                                    <div className="kicker" style={{ marginTop: 4 }}>
+                                        {stat.attribution}
+                                    </div>
+                                </div>,
+                                i < tData.stats.length - 1
+                                    ? <div key={`div-${i}`} style={{ width: 1, background: "var(--rule)" }} />
+                                    : null,
+                            ];
+                        })}
                     </div>
                 </Reveal>
             </div>
@@ -881,9 +914,19 @@ function Testimonials() {
     );
 }
 
-/* ── CTA / Contact ────────────────────────────────────────── */
-/* copy migrated from original Contact() component */
+
 function Contact() {
+    const btnRef = useRef<HTMLAnchorElement>(null);
+    const bx = useMotionValue(0);
+    const by = useMotionValue(0);
+
+    function onMouseMove(e: React.MouseEvent<HTMLAnchorElement>) {
+        const el = e.currentTarget.getBoundingClientRect();
+        bx.set((e.clientX - el.left - el.width / 2) * 0.3);
+        by.set((e.clientY - el.top - el.height / 2) * 0.3);
+    }
+    function onMouseLeave() { bx.set(0); by.set(0); }
+
     return (
         <section style={{ position: "relative", padding: "80px 0 40px", overflow: "hidden" }}>
             {/* Aurora blobs */}
@@ -922,22 +965,21 @@ function Contact() {
                 }}
             >
                 <Reveal>
-                    <span className="eyebrow" style={{ marginBottom: 24 }}>Let&apos;s Build Something Great</span>
+                    
                     <h2
                         style={{
                             fontFamily: "var(--font-display)",
                             fontSize: "clamp(40px, 6vw, 80px)",
                             fontWeight: 400,
-                            letterSpacing: "-0.03em",
+                            letterSpacing: "0.03em",
                             color: "var(--fg)",
                             maxWidth: "20ch",
                             margin: "20px auto 0",
                             lineHeight: 1.05,
                         }}
                     >
-                        Ready to{" "}
-                        <em style={{ color: "var(--accent)", fontStyle: "italic" }}>Elevate</em>
-                        {" "}Your Digital Presence?
+                        Your business never stops {" "}
+                        <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>answering.</em>
                     </h2>
                 </Reveal>
 
@@ -952,7 +994,7 @@ function Contact() {
                             lineHeight: 1.6,
                         }}
                     >
-                        Have a project in mind or just want to explore ideas? We keep the process simple, collaborative, and focused on results your business can feel.
+                        Modern websites, reliable hosting, ongoing maintenance, and AI-assisted reception built to capture more opportunities — without adding more to your plate.
                     </p>
                 </Reveal>
 
@@ -979,9 +1021,17 @@ function Contact() {
 
                 <Reveal delay={3}>
                     <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 14, marginTop: 32 }}>
-                        <a href="/pricing" className="btn primary lg">
+                        <motion.a
+                            ref={btnRef}
+                            href="/pricing"
+                            className="btn primary lg"
+                            style={{ x: bx, y: by }}
+                            onMouseMove={onMouseMove}
+                            onMouseLeave={onMouseLeave}
+                            transition={SPRING}
+                        >
                             View Pricing
-                        </a>
+                        </motion.a>
                     </div>
                 </Reveal>
             </div>
@@ -989,18 +1039,18 @@ function Contact() {
     );
 }
 
-/* ── Missed Calls Revenue Calculator ────────────────────── */
+/* â”€â”€ Missed Calls Revenue Calculator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function MissedCallsCalculator() {
     const MISSED_MIN = 1, MISSED_MAX = 50;
     const RECOVERY_MIN = 1, RECOVERY_MAX = 100;
     const JOB_SLIDER_MIN = 0, JOB_SLIDER_MAX = 100;
 
-    // Research-backed conversion factors. See <HowWeCalculateModal /> for sources.
+    // Research-backed conversion factors.
     const LEAD_RATE = 0.47;         // Invoca: 47% of inbound home-services calls are new leads
     const CLOSE_RATE = 0.46;        // Supply House Times: 46% lead-to-job conversion when properly handled
     const AI_RECOVERY_RATE = 0.73;  // ~85% caller engagement × ~86% AI booking parity vs. perfect human handling
 
-    // Log scale helpers: slider 0–100 → $50–$500,000
+    // Log scale helpers: slider 0â€“100 â†’ $50â€“$500,000
     function sliderToJobValue(pos: number): number {
         return Math.round(50 * Math.pow(10000, pos / 100));
     }
@@ -1011,8 +1061,6 @@ function MissedCallsCalculator() {
     const [missedPerWeek, setMissedPerWeek] = useState(10);
     const [jobSliderPos, setJobSliderPos] = useState(() => jobValueToSlider(800));
     const [currentRecovery, setCurrentRecovery] = useState(20);
-    const [showModal, setShowModal] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
 
     const avgJobValue = sliderToJobValue(jobSliderPos);
 
@@ -1031,6 +1079,7 @@ function MissedCallsCalculator() {
     const missedPct = ((missedPerWeek - MISSED_MIN) / (MISSED_MAX - MISSED_MIN)) * 100;
     const jobPct = jobSliderPos;
     const recoveryPct = ((currentRecovery - RECOVERY_MIN) / (RECOVERY_MAX - RECOVERY_MIN)) * 100;
+    const revenueFormatted = formatDollars(revenueOnTable);
 
     return (
         <section style={{ position: "relative", padding: "120px 0", overflow: "hidden" }}>
@@ -1042,647 +1091,173 @@ function MissedCallsCalculator() {
                 <div
                     className="aurora-blob"
                     style={{
-                        width: 560,
-                        height: 560,
-                        background: "radial-gradient(circle, rgba(182,168,255,0.40) 0%, transparent 70%)",
-                        right: "5%",
-                        top: "0%",
-                        animationDelay: "-6s",
+                        width: 560, height: 560,
+                        background: "radial-gradient(circle, rgba(245,237,214,0.18) 0%, transparent 70%)",
+                        right: "5%", top: "0%", animationDelay: "-6s",
                     }}
                 />
                 <div
                     className="aurora-blob"
                     style={{
-                        width: 480,
-                        height: 480,
-                        background: "radial-gradient(circle, rgba(38,80,180,0.45) 0%, transparent 70%)",
-                        left: "2%",
-                        bottom: "10%",
-                        animationDelay: "-16s",
+                        width: 480, height: 480,
+                        background: "radial-gradient(circle, rgba(245,237,214,0.10) 0%, transparent 70%)",
+                        left: "2%", bottom: "10%", animationDelay: "-16s",
                     }}
                 />
             </div>
 
-            <div
-                style={{
-                    position: "relative",
-                    zIndex: 2,
-                    maxWidth: 1240,
-                    margin: "0 auto",
-                    padding: "0 max(24px, 4vw)",
-                }}
-            >
+            <div style={{ position: "relative", zIndex: 2, maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
                 {/* Header */}
                 <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
-                    
                     <h2
                         style={{
                             fontFamily: "var(--font-display)",
                             fontSize: "clamp(36px, 5vw, 64px)",
                             fontWeight: 400,
-                            letterSpacing: "-0.025em",
+                            letterSpacing: "0.03em",
                             color: "var(--fg)",
-                            marginTop: 16,
-                            marginBottom: 12,
-                            lineHeight: 1.1,
+                            marginTop: 16, marginBottom: 12, lineHeight: 1.1,
                         }}
                     >
                         How much are missed calls{" "}
-                        <em style={{ color: "var(--accent)", fontStyle: "italic" }}>costing you?</em>
+                        <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>costing you?</em>
                     </h2>
-                    <p
-                        style={{
-                            color: "var(--fg-2)",
-                            fontSize: 16,
-                            maxWidth: "50ch",
-                            margin: "0 auto",
-                            lineHeight: 1.6,
-                        }}
-                    >
+                    <p style={{ color: "var(--fg-2)", fontSize: 16, maxWidth: "50ch", margin: "0 auto", lineHeight: 1.6 }}>
                         Move the sliders to match your business. See your real numbers instantly.
                     </p>
                 </Reveal>
 
-                {/* Glass card */}
+                {/* Glass card â€” 2-col layout */}
                 <Reveal delay={1}>
                     <div
-                        className="glass"
-                        style={{
-                            padding: "40px 36px",
-                            borderRadius: 22,
-                            position: "relative",
-                            overflow: "hidden",
-                        }}
+                        className="glass calc-layout"
+                        style={{ padding: "40px 36px", borderRadius: 22, position: "relative", overflow: "hidden" }}
                     >
                         {/* Accent top bar */}
-                        <div
-                            style={{
-                                position: "absolute",
-                                inset: "0 0 auto 0",
-                                height: 2,
-                                borderRadius: "22px 22px 0 0",
-                                background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))",
-                            }}
-                        />
+                        <div style={{ position: "absolute", inset: "0 0 auto 0", height: 2, borderRadius: "22px 22px 0 0", background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))" }} />
 
-                        {/* Sliders */}
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                                gap: "40px 48px",
-                                marginBottom: 48,
-                            }}
-                        >
+                        {/* LEFT: sliders */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
                             {/* Slider 1: Missed calls / week */}
                             <div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "baseline",
-                                        marginBottom: 14,
-                                    }}
-                                >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
                                     <span className="kicker">Missed calls / week</span>
-                                    <span
-                                        style={{
-                                            fontFamily: "var(--font-display)",
-                                            fontSize: 28,
-                                            fontWeight: 400,
-                                            color: "var(--fg)",
-                                            letterSpacing: "-0.02em",
-                                        }}
-                                    >
-                                        {missedPerWeek}
-                                    </span>
+                                    <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 400, color: "var(--fg)", letterSpacing: "0.02em" }}>{missedPerWeek}</span>
                                 </div>
-                                <input
-                                    type="range"
-                                    className="calc-slider"
-                                    min={MISSED_MIN}
-                                    max={MISSED_MAX}
-                                    step={1}
-                                    value={missedPerWeek}
+                                <input type="range" className="calc-slider" min={MISSED_MIN} max={MISSED_MAX} step={1} value={missedPerWeek}
                                     onChange={e => setMissedPerWeek(Number(e.target.value))}
-                                    style={{ "--pct": `${missedPct}%` } as React.CSSProperties}
-                                />
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        marginTop: 8,
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10,
-                                        color: "var(--fg-3)",
-                                        letterSpacing: "0.1em",
-                                    }}
-                                >
+                                    style={{ "--pct": `${missedPct}%` } as React.CSSProperties} />
+                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em" }}>
                                     <span>1</span><span>50</span>
                                 </div>
                             </div>
 
                             {/* Slider 2: Average job value */}
                             <div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "baseline",
-                                        marginBottom: 14,
-                                    }}
-                                >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
                                     <span className="kicker">Avg job value</span>
-                                    <span
-                                        style={{
-                                            fontFamily: "var(--font-display)",
-                                            fontSize: 28,
-                                            fontWeight: 400,
-                                            color: "var(--fg)",
-                                            letterSpacing: "-0.02em",
-                                        }}
-                                    >
+                                    <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 400, color: "var(--fg)", letterSpacing: "0.02em" }}>
                                         {avgJobValue >= 1000
                                             ? `$${(avgJobValue / 1000).toFixed(avgJobValue >= 100000 ? 0 : 1)}K`
                                             : `$${avgJobValue.toLocaleString()}`}
                                     </span>
                                 </div>
-                                <input
-                                    type="range"
-                                    className="calc-slider"
-                                    min={JOB_SLIDER_MIN}
-                                    max={JOB_SLIDER_MAX}
-                                    step={0.5}
-                                    value={jobSliderPos}
+                                <input type="range" className="calc-slider" min={JOB_SLIDER_MIN} max={JOB_SLIDER_MAX} step={0.5} value={jobSliderPos}
                                     onChange={e => setJobSliderPos(Number(e.target.value))}
-                                    style={{ "--pct": `${jobPct}%` } as React.CSSProperties}
-                                />
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        marginTop: 8,
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10,
-                                        color: "var(--fg-3)",
-                                        letterSpacing: "0.1em",
-                                    }}
-                                >
+                                    style={{ "--pct": `${jobPct}%` } as React.CSSProperties} />
+                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em" }}>
                                     <span>$50</span><span>$500K</span>
                                 </div>
                             </div>
 
                             {/* Slider 3: Current recovery rate */}
                             <div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "baseline",
-                                        marginBottom: 14,
-                                    }}
-                                >
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
                                     <span className="kicker">Lead calls you currently recover</span>
-                                    <span
-                                        style={{
-                                            fontFamily: "var(--font-display)",
-                                            fontSize: 28,
-                                            fontWeight: 400,
-                                            color: currentRecovery >= 90 ? "var(--accent)" : "var(--fg)",
-                                            letterSpacing: "-0.02em",
-                                            transition: "color 0.2s ease",
-                                        }}
-                                    >
-                                        {currentRecovery}%
-                                    </span>
+                                    <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 400, color: currentRecovery >= 90 ? "var(--accent)" : "var(--fg)", letterSpacing: "0.02em", transition: "color 0.2s ease" }}>{currentRecovery}%</span>
                                 </div>
-                                <input
-                                    type="range"
-                                    className="calc-slider"
-                                    min={RECOVERY_MIN}
-                                    max={RECOVERY_MAX}
-                                    step={1}
-                                    value={currentRecovery}
+                                <input type="range" className="calc-slider" min={RECOVERY_MIN} max={RECOVERY_MAX} step={1} value={currentRecovery}
                                     onChange={e => setCurrentRecovery(Number(e.target.value))}
-                                    style={{ "--pct": `${recoveryPct}%` } as React.CSSProperties}
-                                />
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        marginTop: 8,
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10,
-                                        color: "var(--fg-3)",
-                                        letterSpacing: "0.1em",
-                                    }}
-                                >
+                                    style={{ "--pct": `${recoveryPct}%` } as React.CSSProperties} />
+                                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em" }}>
                                     <span>1%</span><span>100%</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Results divider */}
-                        <div style={{ borderTop: "1px solid var(--rule)", marginBottom: 40 }} />
-
-                        {/* Result figures */}
-                        <div
-                            style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1px 1fr",
-                                gap: "0 32px",
-                                alignItems: "center",
-                                marginBottom: 28,
-                            }}
-                        >
-                            {/* Left: Revenue on table */}
-                            <div style={{ textAlign: "center" }}>
+                        {/* RIGHT: results */}
+                        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 32 }}>
+                            {/* Revenue on table */}
+                            <div>
                                 <div className="kicker" style={{ marginBottom: 12 }}>Revenue Left on the Table</div>
                                 <div
+                                    key={revenueFormatted}
                                     style={{
                                         fontFamily: "var(--font-display)",
-                                        fontSize: "clamp(40px, 6vw, 80px)",
-                                        fontWeight: 400,
-                                        lineHeight: 1,
-                                        letterSpacing: "-0.04em",
+                                        fontSize: "clamp(48px, 7vw, 88px)",
+                                        fontWeight: 400, lineHeight: 1, letterSpacing: "0.04em",
                                         background: "linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.55) 100%)",
-                                        WebkitBackgroundClip: "text",
-                                        backgroundClip: "text",
-                                        color: "transparent",
+                                        WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
                                     }}
                                 >
-                                    {formatDollars(revenueOnTable)}
+                                    {revenueFormatted}
                                 </div>
                                 <div className="kicker" style={{ marginTop: 8 }}>per year</div>
                             </div>
 
-                            {/* Vertical rule */}
-                            <div style={{ background: "var(--rule)", height: 80, borderRadius: 1 }} />
+                            <div style={{ width: "100%", height: 1, background: "var(--rule)" }} />
 
-                            {/* Right: Recoverable via AI */}
-                            <div style={{ textAlign: "center" }}>
+                            {/* Recoverable via AI */}
+                            <div>
                                 <div className="kicker" style={{ marginBottom: 12 }}>Recoverable via AI Receptionist</div>
-                                <div
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: "clamp(40px, 6vw, 80px)",
-                                        fontWeight: 400,
-                                        lineHeight: 1,
-                                        letterSpacing: "-0.04em",
-                                        color: "var(--accent)",
-                                        textShadow: "0 0 40px var(--accent-glow)",
-                                    }}
-                                >
+                                <div style={{ fontFamily: "var(--font-display)", fontSize: "clamp(48px, 7vw, 88px)", fontWeight: 400, lineHeight: 1, letterSpacing: "0.04em", color: "var(--accent)", textShadow: "0 0 40px var(--accent-glow)" }}>
                                     {formatDollars(recoverableRevenue)}
                                 </div>
                                 <div className="kicker" style={{ marginTop: 8 }}>per year</div>
                             </div>
-                        </div>
 
-                        {/* Footnote: trigger + disclaimer */}
-                        <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
-                            <button
-                                ref={triggerRef}
-                                type="button"
-                                onClick={() => setShowModal(true)}
-                                className="kicker calc-modal-trigger"
-                                style={{
-                                    background: "none",
-                                    border: "none",
-                                    padding: "4px 6px",
-                                    color: "var(--accent)",
-                                    cursor: "pointer",
-                                    textDecoration: "underline",
-                                    textUnderlineOffset: 3,
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                }}
-                            >
-                                <FontAwesomeIcon icon={faCircleInfo} />
-                                How we calculate this
-                            </button>
-                            <p
-                                style={{
-                                    fontSize: 11,
-                                    color: "var(--fg-3)",
-                                    lineHeight: 1.5,
-                                    maxWidth: "62ch",
-                                    margin: 0,
-                                }}
-                            >
-                                Illustrative estimates only. Figures are derived from your inputs and publicly available industry research
-                                on inbound-call performance. Actual results vary by market, business model, and execution; this calculator
-                                is not a guarantee or projection of future revenue.
+                            {/* Accordion: How we calculate this */}
+                            <details className="calc-accordion">
+                                <summary>
+                                    <Info size={16} weight="duotone" style={{ color: "var(--accent)", flexShrink: 0 }} />
+                                    How we calculate this
+                                </summary>
+                                <div className="calc-accordion-body">
+                                    <p style={{ marginBottom: 12, color: "var(--fg-2)", fontSize: 13, lineHeight: 1.6 }}>
+                                        Estimates based on your inputs and published industry research. Results vary by market and business.
+                                    </p>
+                                    <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+                                        <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                            <strong style={{ color: "var(--fg)" }}>{missedPerWeek} calls/week × 52</strong> = {Math.round(annualMissed).toLocaleString()} missed/year
+                                        </li>
+                                        <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                            × <strong style={{ color: "var(--fg)" }}>47% new-business leads</strong> (Invoca 2025) = {Math.round(annualLeadCalls).toLocaleString()} lead calls
+                                        </li>
+                                        <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                            × <strong style={{ color: "var(--fg)" }}>{Math.round((1 - currentRecovery / 100) * 100)}% unrecovered</strong> = {Math.round(unrecoveredLeads).toLocaleString()} lost leads
+                                        </li>
+                                        <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                            × <strong style={{ color: "var(--fg)" }}>46% close rate</strong> × avg job value = {formatDollars(revenueOnTable)}
+                                        </li>
+                                        <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                            × <strong style={{ color: "var(--fg)" }}>73% AI recovery</strong> = {formatDollars(recoverableRevenue)}
+                                        </li>
+                                    </ol>
+                                </div>
+                            </details>
+
+                            <p style={{ fontSize: 11, color: "var(--fg-3)", lineHeight: 1.5, margin: 0 }}>
+                                Illustrative estimates only. Actual results vary by market, business model, and execution.
                             </p>
                         </div>
                     </div>
                 </Reveal>
             </div>
-
-            <HowWeCalculateModal
-                open={showModal}
-                onClose={() => setShowModal(false)}
-                returnFocusRef={triggerRef}
-                missedPerWeek={missedPerWeek}
-                currentRecovery={currentRecovery}
-                avgJobValue={avgJobValue}
-                annualMissed={annualMissed}
-                annualLeadCalls={annualLeadCalls}
-                unrecoveredLeads={unrecoveredLeads}
-                revenueOnTable={revenueOnTable}
-                recoverableRevenue={recoverableRevenue}
-                leadRate={LEAD_RATE}
-                closeRate={CLOSE_RATE}
-                aiRecoveryRate={AI_RECOVERY_RATE}
-                formatDollars={formatDollars}
-            />
         </section>
     );
 }
 
-/* ── "How we calculate this" modal ───────────────────────── */
-type ModalProps = {
-    open: boolean;
-    onClose: () => void;
-    returnFocusRef: React.RefObject<HTMLButtonElement | null>;
-    missedPerWeek: number;
-    currentRecovery: number;
-    avgJobValue: number;
-    annualMissed: number;
-    annualLeadCalls: number;
-    unrecoveredLeads: number;
-    revenueOnTable: number;
-    recoverableRevenue: number;
-    leadRate: number;
-    closeRate: number;
-    aiRecoveryRate: number;
-    formatDollars: (n: number) => string;
-};
-
-function HowWeCalculateModal({
-    open,
-    onClose,
-    returnFocusRef,
-    missedPerWeek,
-    currentRecovery,
-    avgJobValue,
-    annualMissed,
-    annualLeadCalls,
-    unrecoveredLeads,
-    revenueOnTable,
-    recoverableRevenue,
-    leadRate,
-    closeRate,
-    aiRecoveryRate,
-    formatDollars,
-}: ModalProps) {
-    const closeBtnRef = useRef<HTMLButtonElement>(null);
-
-    // Lock scroll (position-fixed-body technique — works even when <html> is the
-    // scroll container, and preserves scroll position so the page doesn't jump),
-    // handle Escape, and manage focus while open.
-    useEffect(() => {
-        if (!open) return;
-        const scrollY = window.scrollY;
-        const prev = {
-            position: document.body.style.position,
-            top: document.body.style.top,
-            left: document.body.style.left,
-            right: document.body.style.right,
-            width: document.body.style.width,
-        };
-        document.body.style.position = "fixed";
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.left = "0";
-        document.body.style.right = "0";
-        document.body.style.width = "100%";
-        closeBtnRef.current?.focus();
-
-        function onKey(e: KeyboardEvent) {
-            if (e.key === "Escape") onClose();
-        }
-        window.addEventListener("keydown", onKey);
-
-        return () => {
-            document.body.style.position = prev.position;
-            document.body.style.top = prev.top;
-            document.body.style.left = prev.left;
-            document.body.style.right = prev.right;
-            document.body.style.width = prev.width;
-            window.scrollTo(0, scrollY);
-            window.removeEventListener("keydown", onKey);
-            returnFocusRef.current?.focus();
-        };
-    }, [open, onClose, returnFocusRef]);
-
-    function avgJobLabel(): string {
-        if (avgJobValue >= 1000) {
-            return `$${(avgJobValue / 1000).toFixed(avgJobValue >= 100_000 ? 0 : 1)}K`;
-        }
-        return `$${avgJobValue.toLocaleString()}`;
-    }
-
-    const steps = [
-        {
-            title: "Your inputs",
-            formula: `${missedPerWeek} missed calls/week × 52 weeks`,
-            running: `${Math.round(annualMissed).toLocaleString()} missed calls / year`,
-            note: null as React.ReactNode | null,
-        },
-        {
-            title: `× ${Math.round(leadRate * 100)}% are real new-business leads`,
-            formula: `${Math.round(annualMissed).toLocaleString()} × ${leadRate}`,
-            running: `${Math.round(annualLeadCalls).toLocaleString()} lead calls / year`,
-            note: (
-                <>
-                    Invoca&apos;s 2025 home-services benchmark: roughly 47% of inbound calls are genuine new-customer leads (the rest
-                    are existing customers, vendors, wrong numbers, etc.).{" "}
-                    <a
-                        className="calc-modal-link"
-                        href="https://www.invoca.com/blog/home-services-marketing-stats"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Source <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
-                    </a>
-                </>
-            ),
-        },
-        {
-            title: `× (100% − ${currentRecovery}% you currently recover)`,
-            formula: `${Math.round(annualLeadCalls).toLocaleString()} × ${(1 - currentRecovery / 100).toFixed(2)}`,
-            running: `${Math.round(unrecoveredLeads).toLocaleString()} unrecovered lead calls / year`,
-            note: (
-                <>
-                    85% of callers whose initial call goes unanswered will not call back, so unrecovered leads stay lost without a
-                    real-time pickup.
-                </>
-            ),
-        },
-        {
-            title: `× ${Math.round(closeRate * 100)}% close rate × ${avgJobLabel()} avg job`,
-            formula: `${Math.round(unrecoveredLeads).toLocaleString()} × ${closeRate} × ${avgJobLabel()}`,
-            running: `${formatDollars(revenueOnTable)} revenue on the table / year`,
-            note: (
-                <>
-                    Supply House Times&apos; home-services call-performance report measured a 46% lead-to-job conversion rate when
-                    inbound calls are properly handled.{" "}
-                    <a
-                        className="calc-modal-link"
-                        href="https://www.supplyht.com/articles/106612-home-services-call-performance-report-46-lead-conversion-rate-segment-benchmarks"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Source <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
-                    </a>
-                </>
-            ),
-        },
-        {
-            title: `× ${Math.round(aiRecoveryRate * 100)}% AI recovery factor`,
-            formula: `${formatDollars(revenueOnTable)} × ${aiRecoveryRate}`,
-            running: `${formatDollars(recoverableRevenue)} recoverable with AI / year`,
-            note: (
-                <>
-                    Composed of ~85% caller engagement (vs. hang-up on AI) × ~86% booking parity with a perfect human receptionist.
-                    Industry-standard AI appointment-booking rate is 40%; best-in-class systems reach 60%.{" "}
-                    <a
-                        className="calc-modal-link"
-                        href="https://www.myaifrontdesk.com/blogs/ai-receptionist-performance-metrics"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Source 1 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
-                    </a>{" "}
-                    ·{" "}
-                    <a
-                        className="calc-modal-link"
-                        href="https://www.getnextphone.com/blog/ai-receptionist-statistics"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Source 2 <FontAwesomeIcon icon={faArrowUpRightFromSquare} style={{ fontSize: 9 }} />
-                    </a>
-                </>
-            ),
-        },
-    ];
-
-    return (
-        <AnimatePresence>
-            {open && (
-                <motion.div
-                    className="calc-modal-backdrop"
-                    onClick={onClose}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                >
-                    <motion.div
-                        className="calc-modal glass"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="calc-modal-title"
-                        onClick={(e) => e.stopPropagation()}
-                        initial={{ opacity: 0, y: 12 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 8 }}
-                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                        {/* Accent top bar */}
-                        <div
-                            style={{
-                                position: "absolute",
-                                inset: "0 0 auto 0",
-                                height: 2,
-                                borderRadius: "22px 22px 0 0",
-                                background: "linear-gradient(90deg, var(--accent), rgba(182,168,255,0.3))",
-                            }}
-                        />
-
-                        {/* Aurora accent in header */}
-                        <div className="aurora-bg" style={{ borderRadius: 22 }}>
-                            <div
-                                className="aurora-blob"
-                                style={{
-                                    width: 360,
-                                    height: 360,
-                                    background: "radial-gradient(circle, rgba(182,168,255,0.30) 0%, transparent 70%)",
-                                    right: "-10%",
-                                    top: "-15%",
-                                    animationDelay: "-9s",
-                                }}
-                            />
-                        </div>
-
-                        {/* Header */}
-                        <div className="calc-modal-header">
-                            <div>
-                                <span className="eyebrow">Methodology</span>
-                                <h3
-                                    id="calc-modal-title"
-                                    style={{
-                                        fontFamily: "var(--font-display)",
-                                        fontSize: "clamp(24px, 3vw, 32px)",
-                                        fontWeight: 400,
-                                        letterSpacing: "-0.02em",
-                                        margin: "12px 0 4px",
-                                        lineHeight: 1.15,
-                                    }}
-                                >
-                                    How we calculate this
-                                </h3>
-                                <p style={{ color: "var(--fg-2)", fontSize: 14, margin: 0, lineHeight: 1.55 }}>
-                                    The math behind your numbers, with the research it&apos;s grounded in. Adjust the sliders behind this
-                                    panel and every step recalculates.
-                                </p>
-                            </div>
-                            <button
-                                ref={closeBtnRef}
-                                type="button"
-                                onClick={onClose}
-                                className="calc-modal-close"
-                                aria-label="Close methodology dialog"
-                            >
-                                <FontAwesomeIcon icon={faXmark} />
-                            </button>
-                        </div>
-
-                        {/* Steps */}
-                        <ol className="calc-modal-steps">
-                            {steps.map((s, i) => (
-                                <li key={i} className="calc-modal-step">
-                                    <div className="calc-modal-step-num">{i + 1}</div>
-                                    <div className="calc-modal-step-body">
-                                        <div className="calc-modal-step-row">
-                                            <div className="calc-modal-step-title">{s.title}</div>
-                                            <div className="calc-modal-step-running">{s.running}</div>
-                                        </div>
-                                        <div className="calc-modal-step-formula">{s.formula}</div>
-                                        {s.note && <div className="calc-modal-step-note">{s.note}</div>}
-                                    </div>
-                                </li>
-                            ))}
-                        </ol>
-
-                        {/* Footer disclaimer */}
-                        <div className="calc-modal-footer">
-                            <p style={{ fontSize: 12, color: "var(--fg-3)", lineHeight: 1.6, margin: 0 }}>
-                                These figures are educational estimates derived from your inputs and the cited third-party research.
-                                Juneau Digital Designs makes no representation or warranty as to the accuracy of these projections for
-                                any specific business. Past performance and industry averages do not guarantee future results.
-                            </p>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
-    );
-}
-
-/* ── Page ─────────────────────────────────────────────────── */
+/* -- Page ---------------------------------------------- */
 export default function HomePageClient() {
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -1695,10 +1270,12 @@ export default function HomePageClient() {
     return (
         <div style={{ width: "100%", background: "var(--bg)" }}>
             <Hero />
-            <MissedCallsCalculator />
-            <Offer />
+            <LogoMarquee />
+            <SpotlightGrid />
+            <KineticMarquee />
             <HowItWorks />
             <Testimonials />
+            <MissedCallsCalculator />
             <Contact />
         </div>
     );

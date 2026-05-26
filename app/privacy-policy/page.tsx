@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
                     inset: 0,
                     pointerEvents: "none",
                     zIndex: 0,
-                    background: "radial-gradient(ellipse at 60% 10%, rgba(182,168,255,0.12) 0%, transparent 60%)",
+                    background: "radial-gradient(ellipse at 60% 10%, rgba(245,237,214,0.07) 0%, transparent 60%)",
                 }}
             />
 
@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
                         fontFamily: "var(--font-display)",
                         fontSize: "clamp(28px, 4vw, 44px)",
                         fontWeight: 400,
-                        letterSpacing: "-0.025em",
+                        letterSpacing: "0.03em",
                         color: "var(--fg)",
                         marginBottom: 8,
                     }}
