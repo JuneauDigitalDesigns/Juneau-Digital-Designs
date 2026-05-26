@@ -113,7 +113,7 @@ export default function AgreementClient({ plan }: Props) {
                         fontFamily: "var(--font-display)",
                         fontSize: "clamp(28px, 4vw, 44px)",
                         fontWeight: 400,
-                        letterSpacing: "-0.025em",
+                        letterSpacing: "0.03em",
                         color: "var(--fg)",
                         lineHeight: 1.1,
                         marginBottom: 10,

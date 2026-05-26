@@ -87,7 +87,7 @@ export default function PricingPageClient() {
                     style={{
                         width: 700,
                         height: 700,
-                        background: "radial-gradient(circle, rgba(182,168,255,0.45) 0%, transparent 70%)",
+                        background: "radial-gradient(circle, rgba(245,237,214,0.18) 0%, transparent 70%)",
                         left: "15%",
                         top: "-10%",
                     }}
@@ -97,7 +97,7 @@ export default function PricingPageClient() {
                     style={{
                         width: 500,
                         height: 500,
-                        background: "radial-gradient(circle, rgba(120,90,255,0.35) 0%, transparent 70%)",
+                        background: "radial-gradient(circle, rgba(245,237,214,0.10) 0%, transparent 70%)",
                         right: "10%",
                         bottom: "10%",
                         animationDelay: "-10s",
@@ -121,14 +121,14 @@ export default function PricingPageClient() {
                             fontFamily: "var(--font-display)",
                             fontSize: "clamp(36px, 5vw, 64px)",
                             fontWeight: 400,
-                            letterSpacing: "-0.03em",
+                            letterSpacing: "0.04em",
                             color: "var(--fg)",
                             marginTop: 16,
                             marginBottom: 16,
                             lineHeight: 1.05,
                         }}
                     >
-                        Simple, <em style={{ color: "var(--accent)", fontStyle: "italic" }}>transparent</em> plans.
+                        Simple, <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
                     </h1>
                     <p
                         style={{
@@ -171,7 +171,7 @@ export default function PricingPageClient() {
                                         transform: "scale(1.04)",
                                         zIndex: 1,
                                         borderTop: "2px solid var(--accent)",
-                                        boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6), 0 0 80px -10px rgba(182,168,255,0.45)",
+                                        boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6), 0 0 80px -10px rgba(245,237,214,0.25)",
                                     }
                                     : {}),
                             }}
@@ -190,7 +190,7 @@ export default function PricingPageClient() {
                                         textTransform: "uppercase",
                                         color: "var(--accent)",
                                         border: "1px solid var(--accent-glow)",
-                                        background: "rgba(182,168,255,0.1)",
+                                        background: "rgba(245,237,214,0.08)",
                                         borderRadius: 999,
                                         padding: "3px 10px",
                                     }}
@@ -267,9 +267,9 @@ export default function PricingPageClient() {
                                         style={{
                                             fontFamily: "var(--font-display)",
                                             fontSize: 52,
-                                            fontWeight: 300,
+                                            fontWeight: 400,
                                             color: "var(--fg)",
-                                            letterSpacing: "-0.03em",
+                                            letterSpacing: "0.04em",
                                             lineHeight: 1,
                                         }}
                                     >
@@ -302,9 +302,9 @@ export default function PricingPageClient() {
                                         marginBottom: 20,
                                         padding: "14px 16px",
                                         borderRadius: 14,
-                                        background: "linear-gradient(135deg, rgba(182,168,255,0.18) 0%, rgba(120,90,255,0.12) 100%)",
-                                        border: "1px solid rgba(182,168,255,0.35)",
-                                        boxShadow: "0 0 24px -8px rgba(182,168,255,0.3)",
+                                        background: "linear-gradient(135deg, rgba(245,237,214,0.12) 0%, rgba(245,237,214,0.06) 100%)",
+                                        border: "1px solid rgba(245,237,214,0.25)",
+                                        boxShadow: "0 0 24px -8px rgba(245,237,214,0.15)",
                                     }}
                                 >
                                     <FontAwesomeIcon

@@ -15,6 +15,7 @@
     "@fortawesome/free-regular-svg-icons": "^7.1.0",
     "@fortawesome/free-solid-svg-icons": "^7.1.0",
     "@fortawesome/react-fontawesome": "^3.1.1",
+    "@phosphor-icons/react": "^2.1.10",
     "@stripe/stripe-js": "^9.6.0",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.3.3",
@@ -30,7 +31,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/react": "^19",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^16.2.3",

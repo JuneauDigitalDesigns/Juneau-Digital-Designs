@@ -918,7 +918,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                             fontFamily: "var(--font-display)",
                             fontSize: "clamp(28px, 4vw, 40px)",
                             fontWeight: 400,
-                            letterSpacing: "-0.025em",
+                            letterSpacing: "0.03em",
                             color: "var(--fg)",
                             marginTop: 16,
                             marginBottom: 12,
