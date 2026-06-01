@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCheck, faMicrophone } from "@fortawesome/free-solid-svg-icons";
+import { Check, Microphone } from "@phosphor-icons/react";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
 
@@ -80,30 +79,6 @@ export default function PricingPageClient() {
                 padding: "100px max(24px, 4vw)",
             }}
         >
-            {/* Aurora blob background */}
-            <div className="aurora-bg">
-                <div
-                    className="aurora-blob"
-                    style={{
-                        width: 700,
-                        height: 700,
-                        background: "radial-gradient(circle, rgba(245,237,214,0.18) 0%, transparent 70%)",
-                        left: "15%",
-                        top: "-10%",
-                    }}
-                />
-                <div
-                    className="aurora-blob"
-                    style={{
-                        width: 500,
-                        height: 500,
-                        background: "radial-gradient(circle, rgba(245,237,214,0.10) 0%, transparent 70%)",
-                        right: "10%",
-                        bottom: "10%",
-                        animationDelay: "-10s",
-                    }}
-                />
-            </div>
             <div className="aurora-grid" />
 
             <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative", zIndex: 2 }}>
@@ -118,14 +93,9 @@ export default function PricingPageClient() {
                     <span className="eyebrow" style={{ marginBottom: 20 }}>Pricing</span>
                     <h1
                         style={{
-                            fontFamily: "var(--font-display)",
-                            fontSize: "clamp(36px, 5vw, 64px)",
-                            fontWeight: 400,
-                            letterSpacing: "0.04em",
-                            color: "var(--fg)",
+                            fontSize: "var(--text-4xl)",
                             marginTop: 16,
                             marginBottom: 16,
-                            lineHeight: 1.05,
                         }}
                     >
                         Simple, <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
@@ -267,9 +237,9 @@ export default function PricingPageClient() {
                                         style={{
                                             fontFamily: "var(--font-display)",
                                             fontSize: 52,
-                                            fontWeight: 400,
+                                            fontWeight: 600,
                                             color: "var(--fg)",
-                                            letterSpacing: "0.04em",
+                                            letterSpacing: "var(--tracking-tightest)",
                                             lineHeight: 1,
                                         }}
                                     >
@@ -307,9 +277,10 @@ export default function PricingPageClient() {
                                         boxShadow: "0 0 24px -8px rgba(245,237,214,0.15)",
                                     }}
                                 >
-                                    <FontAwesomeIcon
-                                        icon={faMicrophone}
-                                        style={{ color: "var(--accent)", width: 18, height: 18, flexShrink: 0 }}
+                                    <Microphone
+                                        weight="duotone"
+                                        size={18}
+                                        style={{ color: "var(--accent)", flexShrink: 0 }}
                                     />
                                     <div>
                                         <p style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--accent)", letterSpacing: "-0.01em" }}>
@@ -329,9 +300,10 @@ export default function PricingPageClient() {
                                         key={feature}
                                         style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg-2)" }}
                                     >
-                                        <FontAwesomeIcon
-                                            icon={faCheck}
-                                            style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0, width: 14 }}
+                                        <Check
+                                            weight="bold"
+                                            size={14}
+                                            style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }}
                                         />
                                         <span>{feature}</span>
                                     </li>

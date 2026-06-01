@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "./components/navbar/navbar";
 import Footer from "./components/footer/footer";
 
-const bebasNeue = Bebas_Neue({
-  variable: "--font-bebas-neue",
-  subsets: ["latin"],
-  weight: ["400"],
+const cabinetGrotesk = localFont({
+  src: "./fonts/CabinetGrotesk-Variable.woff2",
+  variable: "--font-cabinet",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
 });
 
 const ibmPlexSans = IBM_Plex_Sans({
@@ -35,7 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${bebasNeue.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable} antialiased overflow-x-hidden`}
+        className={`${cabinetGrotesk.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable} antialiased overflow-x-hidden`}
       >
         {/* Grain overlay — fixed full-viewport texture, z-60, non-interactive */}
         <div
