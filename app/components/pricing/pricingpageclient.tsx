@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Check, Microphone } from "@phosphor-icons/react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCheck, faMicrophone } from "@fortawesome/free-solid-svg-icons";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
 
@@ -79,6 +80,30 @@ export default function PricingPageClient() {
                 padding: "100px max(24px, 4vw)",
             }}
         >
+            {/* Aurora blob background */}
+            <div className="aurora-bg">
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 700,
+                        height: 700,
+                        background: "radial-gradient(circle, rgba(182,168,255,0.45) 0%, transparent 70%)",
+                        left: "15%",
+                        top: "-10%",
+                    }}
+                />
+                <div
+                    className="aurora-blob"
+                    style={{
+                        width: 500,
+                        height: 500,
+                        background: "radial-gradient(circle, rgba(120,90,255,0.35) 0%, transparent 70%)",
+                        right: "10%",
+                        bottom: "10%",
+                        animationDelay: "-10s",
+                    }}
+                />
+            </div>
             <div className="aurora-grid" />
 
             <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative", zIndex: 2 }}>
@@ -93,12 +118,17 @@ export default function PricingPageClient() {
                     <span className="eyebrow" style={{ marginBottom: 20 }}>Pricing</span>
                     <h1
                         style={{
-                            fontSize: "var(--text-4xl)",
+                            fontFamily: "var(--font-display)",
+                            fontSize: "clamp(36px, 5vw, 64px)",
+                            fontWeight: 400,
+                            letterSpacing: "-0.03em",
+                            color: "var(--fg)",
                             marginTop: 16,
                             marginBottom: 16,
+                            lineHeight: 1.05,
                         }}
                     >
-                        Simple, <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
+                        Simple, <em style={{ color: "var(--accent)", fontStyle: "italic" }}>transparent</em> plans.
                     </h1>
                     <p
                         style={{
@@ -141,7 +171,7 @@ export default function PricingPageClient() {
                                         transform: "scale(1.04)",
                                         zIndex: 1,
                                         borderTop: "2px solid var(--accent)",
-                                        boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6), 0 0 80px -10px rgba(245,237,214,0.25)",
+                                        boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6), 0 0 80px -10px rgba(182,168,255,0.45)",
                                     }
                                     : {}),
                             }}
@@ -160,7 +190,7 @@ export default function PricingPageClient() {
                                         textTransform: "uppercase",
                                         color: "var(--accent)",
                                         border: "1px solid var(--accent-glow)",
-                                        background: "rgba(245,237,214,0.08)",
+                                        background: "rgba(182,168,255,0.1)",
                                         borderRadius: 999,
                                         padding: "3px 10px",
                                     }}
@@ -237,9 +267,9 @@ export default function PricingPageClient() {
                                         style={{
                                             fontFamily: "var(--font-display)",
                                             fontSize: 52,
-                                            fontWeight: 600,
+                                            fontWeight: 300,
                                             color: "var(--fg)",
-                                            letterSpacing: "var(--tracking-tightest)",
+                                            letterSpacing: "-0.03em",
                                             lineHeight: 1,
                                         }}
                                     >
@@ -272,15 +302,14 @@ export default function PricingPageClient() {
                                         marginBottom: 20,
                                         padding: "14px 16px",
                                         borderRadius: 14,
-                                        background: "linear-gradient(135deg, rgba(245,237,214,0.12) 0%, rgba(245,237,214,0.06) 100%)",
-                                        border: "1px solid rgba(245,237,214,0.25)",
-                                        boxShadow: "0 0 24px -8px rgba(245,237,214,0.15)",
+                                        background: "linear-gradient(135deg, rgba(182,168,255,0.18) 0%, rgba(120,90,255,0.12) 100%)",
+                                        border: "1px solid rgba(182,168,255,0.35)",
+                                        boxShadow: "0 0 24px -8px rgba(182,168,255,0.3)",
                                     }}
                                 >
-                                    <Microphone
-                                        weight="duotone"
-                                        size={18}
-                                        style={{ color: "var(--accent)", flexShrink: 0 }}
+                                    <FontAwesomeIcon
+                                        icon={faMicrophone}
+                                        style={{ color: "var(--accent)", width: 18, height: 18, flexShrink: 0 }}
                                     />
                                     <div>
                                         <p style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--accent)", letterSpacing: "-0.01em" }}>
@@ -300,10 +329,9 @@ export default function PricingPageClient() {
                                         key={feature}
                                         style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg-2)" }}
                                     >
-                                        <Check
-                                            weight="bold"
-                                            size={14}
-                                            style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }}
+                                        <FontAwesomeIcon
+                                            icon={faCheck}
+                                            style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0, width: 14 }}
                                         />
                                         <span>{feature}</span>
                                     </li>

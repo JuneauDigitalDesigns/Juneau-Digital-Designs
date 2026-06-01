@@ -2,8 +2,8 @@
 
 /* ── Aurora Glass design tokens ────────────────────────────── */
 :root {
-  --accent: #F5EDD6;
-  --accent-glow: rgba(245, 237, 214, 0.25);
+  --accent: #B6A8FF;
+  --accent-glow: rgba(182, 168, 255, 0.25);
   --glass-bg: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.12);
   --surface: rgba(255, 255, 255, 0.04);
@@ -15,54 +15,9 @@
   --fg-3: rgba(244, 246, 251, 0.48);
   --rule: rgba(244, 246, 251, 0.10);
   --rule-strong: rgba(244, 246, 251, 0.24);
-  --font-display: var(--font-cabinet), 'Cabinet Grotesk', sans-serif;
-  --font-body: var(--font-ibm-plex-sans), 'IBM Plex Sans', sans-serif;
+  --font-display: var(--font-space-grotesk), 'Space Grotesk', sans-serif;
+  --font-body: var(--font-inter), 'Inter', sans-serif;
   --font-mono: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
-
-  /* ── Type scale (perfect-fourth-ish, clamp-driven) ────────── */
-  --text-xs:   11px;
-  --text-sm:   13px;
-  --text-base: 15px;
-  --text-lg:   18px;
-  --text-xl:   clamp(20px, 2vw,    24px);
-  --text-2xl:  clamp(28px, 3vw,    36px);
-  --text-3xl:  clamp(40px, 4.5vw,  56px);
-  --text-4xl:  clamp(56px, 6.5vw,  88px);
-  --text-5xl:  clamp(72px, 9vw,    128px);
-  --text-6xl:  clamp(96px, 14vw,   220px);
-
-  /* ── Tracking ────────────────────────────────────────────── */
-  --tracking-tightest: -0.04em;
-  --tracking-tight:    -0.02em;
-  --tracking-base:      0em;
-  --tracking-wide:      0.08em;
-  --tracking-widest:    0.14em;
-
-  /* ── Leading ─────────────────────────────────────────────── */
-  --leading-none:    1.0;
-  --leading-tight:   1.05;
-  --leading-snug:    1.2;
-  --leading-base:    1.5;
-  --leading-relaxed: 1.7;
-}
-
-/* ── Global heading defaults ───────────────────────────────── */
-@layer base {
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: var(--tracking-tight);
-    line-height: var(--leading-tight);
-    color: var(--fg);
-  }
-  h1 {
-    font-size: var(--text-5xl);
-    font-weight: 600;
-    letter-spacing: var(--tracking-tightest);
-  }
-  h2 { font-size: var(--text-3xl); }
-  h3 { font-size: var(--text-2xl); font-weight: 500; }
-  h4 { font-size: var(--text-xl); }
 }
 
 @theme inline {
@@ -99,19 +54,40 @@ body {
     0 30px 80px -30px rgba(0, 0, 0, 0.6);
 }
 
-/* ── Geometric dot background ─────────────────────────────── */
+/* ── Aurora blob animation ─────────────────────────────────── */
+@keyframes aurora-drift {
+  0%   { transform: translate(0, 0)        scale(1); }
+  50%  { transform: translate(40px, 30px)  scale(1.15); }
+  100% { transform: translate(-30px, 50px) scale(0.95); }
+}
+
+.aurora-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  filter: blur(80px);
+  animation: aurora-drift 24s ease-in-out infinite alternate;
+}
+
+/* ── Aurora grid overlay ───────────────────────────────────── */
 .aurora-grid {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    radial-gradient(circle, rgba(245, 237, 214, 0.09) 1px, transparent 1px),
-    radial-gradient(circle, rgba(245, 237, 214, 0.05) 1px, transparent 1px);
-  background-size: 40px 40px, 80px 80px;
-  background-position: 0 0, 20px 20px;
-  mask-image: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.75) 20%, transparent 68%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.75) 20%, transparent 68%);
+  background:
+    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px) 0 0 / 64px 64px,
+    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px) 0 0 / 64px 64px;
+  mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%);
 }
 
 /* ── Eyebrow pill ───────────────────────────────────────────── */
@@ -291,8 +267,7 @@ body {
 .hiw-num {
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 400;
-  letter-spacing: 0.04em;
+  font-weight: 300;
   color: var(--fg-3);
   min-width: 40px;
   padding-top: 2px;
@@ -364,7 +339,7 @@ textarea:focus,
 select:focus {
   border-color: var(--accent) !important;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(245, 237, 214, 0.2) !important;
+  box-shadow: 0 0 0 2px rgba(182, 168, 255, 0.2) !important;
 }
 
 select option {
@@ -407,15 +382,15 @@ select option {
   border-radius: 50%;
   background: var(--accent);
   box-shadow:
-    0 0 0 3px rgba(245, 237, 214, 0.20),
-    0 0 16px 2px rgba(245, 237, 214, 0.30);
+    0 0 0 3px rgba(182, 168, 255, 0.20),
+    0 0 16px 2px rgba(182, 168, 255, 0.40);
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .calc-slider::-webkit-slider-thumb:hover {
   box-shadow:
-    0 0 0 4px rgba(245, 237, 214, 0.25),
-    0 0 24px 4px rgba(245, 237, 214, 0.40);
+    0 0 0 4px rgba(182, 168, 255, 0.30),
+    0 0 24px 4px rgba(182, 168, 255, 0.55);
   transform: scale(1.12);
 }
 
@@ -426,8 +401,8 @@ select option {
   border-radius: 50%;
   background: var(--accent);
   box-shadow:
-    0 0 0 3px rgba(245, 237, 214, 0.20),
-    0 0 16px 2px rgba(245, 237, 214, 0.30);
+    0 0 0 3px rgba(182, 168, 255, 0.20),
+    0 0 16px 2px rgba(182, 168, 255, 0.40);
   cursor: pointer;
 }
 
@@ -499,7 +474,7 @@ select option {
 .calc-modal-close:hover {
   color: var(--fg);
   border-color: var(--accent);
-  background: rgba(245, 237, 214, 0.08);
+  background: rgba(182, 168, 255, 0.08);
 }
 
 .calc-modal-close:focus-visible {
@@ -534,8 +509,8 @@ select option {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: rgba(245, 237, 214, 0.10);
-  border: 1px solid rgba(245, 237, 214, 0.25);
+  background: rgba(182, 168, 255, 0.12);
+  border: 1px solid rgba(182, 168, 255, 0.30);
   color: var(--accent);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -615,410 +590,4 @@ select option {
   .calc-modal-step-running {
     font-size: 14.5px;
   }
-}
-
-/* ── Hero 60/40 split layout ────────────────────────────────── */
-.hero-split {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 40px;
-  align-items: center;
-}
-
-@media (min-width: 768px) {
-  .hero-split {
-    grid-template-columns: 3fr 2fr;
-    gap: 64px;
-  }
-}
-
-/* ── Slide-in-left reveal variant (for horizontal sections) ── */
-.reveal-left {
-  opacity: 0;
-  transform: translateX(-24px);
-  transition:
-    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reveal-left.is-in {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.reveal-left[data-delay="1"] { transition-delay: 0.08s; }
-.reveal-left[data-delay="2"] { transition-delay: 0.16s; }
-.reveal-left[data-delay="3"] { transition-delay: 0.24s; }
-
-/* ── Marquee keyframes ───────────────────────────────────── */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-
-.marquee-container {
-  overflow: hidden;
-  width: 100%;
-}
-
-.marquee-track {
-  display: flex;
-  width: max-content;
-  animation: marquee 45s linear infinite;
-}
-
-.marquee-container:hover .marquee-track {
-  animation-play-state: paused;
-}
-
-.marquee-reverse {
-  animation-direction: reverse;
-}
-
-/* Kinetic divider marquee */
-.kinetic-marquee-track {
-  display: flex;
-  width: max-content;
-  align-items: center;
-  animation: marquee 55s linear infinite;
-}
-
-/* ── Pulse-ring animation ────────────────────────────────── */
-@keyframes pulse-ring {
-  0%   { box-shadow: 0 0 0 0   rgba(245, 237, 214, 0); }
-  30%  { box-shadow: 0 0 0 20px rgba(245, 237, 214, 0.12); }
-  100% { box-shadow: 0 0 0 40px rgba(245, 237, 214, 0); }
-}
-
-.pulse-ring {
-  animation: pulse-ring 0.8s ease-out;
-}
-
-/* ── Hero asymmetric 55/45 split ────────────────────────── */
-.hero-split-asymmetric {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 40px;
-  align-items: center;
-}
-
-@media (min-width: 768px) {
-  .hero-split-asymmetric {
-    grid-template-columns: 55fr 45fr;
-    gap: 64px;
-    align-items: stretch;
-  }
-}
-
-.hero-image-container {
-  position: relative;
-  min-height: 320px;
-  border-radius: 20px;
-  overflow: hidden;
-}
-
-@media (min-width: 768px) {
-  .hero-image-container {
-    min-height: 500px;
-  }
-}
-
-/* ── Hero full-bleed treatment ("Orchestrated Signal") ───── */
-.hero-content-fullbleed {
-  width: 100%;
-}
-
-@media (min-width: 768px) {
-  /* Constrain copy to the left so the full-bleed image breathes on the right */
-  .hero-content-fullbleed {
-    max-width: 620px;
-  }
-}
-
-/* Scrim (left→right) for text legibility + radial vignette that dissolves the
-   image edges into --bg so it melds borderlessly with the page. */
-.hero-fullbleed-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      105deg,
-      var(--bg) 26%,
-      rgba(7, 16, 30, 0.68) 56%,
-      rgba(7, 16, 30, 0.45) 100%
-    ),
-    radial-gradient(
-      ellipse 75% 70% at 68% 45%,
-      transparent 20%,
-      var(--bg) 92%
-    );
-}
-
-/* Mobile: the image sits directly behind the text, so darken more for contrast. */
-@media (max-width: 767px) {
-  .hero-fullbleed-overlay {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(7, 16, 30, 0.82) 0%,
-        rgba(7, 16, 30, 0.72) 50%,
-        rgba(7, 16, 30, 0.90) 100%
-      ),
-      radial-gradient(
-        ellipse 120% 80% at 50% 40%,
-        transparent 18%,
-        var(--bg) 95%
-      );
-  }
-}
-
-/* ── Bento grid (services) ───────────────────────────────── */
-.bento-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  position: relative;
-}
-
-@media (min-width: 1024px) {
-  .bento-grid {
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 16px;
-  }
-
-  .bento-cell-hero {
-    grid-row: 1 / 3;
-    grid-column: 1;
-  }
-
-  .bento-cell-right {
-    grid-column: 2;
-  }
-
-  .bento-cell-full {
-    grid-column: 1 / -1;
-  }
-}
-
-.spotlight-card {
-  cursor: default;
-  transition: border-color 0.2s ease;
-  will-change: transform;
-}
-
-/* ── 3D tilt + depth (Direction A) ───────────────────────── */
-/* Perspective lives on the grid item; the card tilts inside it. */
-.bento-tilt-wrap {
-  position: relative;
-  z-index: 1;
-  perspective: 1200px;
-}
-
-/* Depth planes — icon / title / stat float toward the viewer so they
-   parallax against the body copy as the card tilts. Subtle by design. */
-.bento-depth-icon  { transform: translateZ(34px); }
-.bento-depth-title { transform: translateZ(20px); }
-.bento-depth-stat  { transform: translateZ(40px); }
-
-/* ── Border pulse (Direction C) ──────────────────────────── */
-/* A single bright segment travels slowly around each card's rounded
-   border. Lives inside the tilting card so it stays on the surface. */
-.border-pulse {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: visible;
-  border-radius: inherit;
-}
-
-.border-pulse-rect {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  opacity: 0.9;
-  /* layered bloom so the short segment reads as a glowing point of light */
-  filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 10px var(--accent-glow));
-  /* pathLength=100 → dash units are % of perimeter, identical on every card.
-     Short lit segment (~5%) = a comet, not a streak. */
-  stroke-dasharray: 5 95;
-  stroke-dashoffset: 100;
-}
-
-/* Slow and calm: one full lap every 18s */
-@media (prefers-reduced-motion: no-preference) {
-  .border-pulse-rect {
-    animation: border-travel 18s linear infinite;
-  }
-}
-
-/* Even quarter-lap phase offsets so the four pulses aren't synced.
-   The .section-spotlight div is the grid's first child, so the four cards
-   are the 2nd–5th elements; nth-of-type(2) keeps the default 0 delay. */
-.bento-tilt-wrap:nth-of-type(3) .border-pulse-rect { animation-delay: -4.5s; }
-.bento-tilt-wrap:nth-of-type(4) .border-pulse-rect { animation-delay: -9s; }
-.bento-tilt-wrap:nth-of-type(5) .border-pulse-rect { animation-delay: -13.5s; }
-
-@keyframes border-travel {
-  to { stroke-dashoffset: 0; }
-}
-
-/* ── Section spotlight ───────────────────────────────────── */
-/* One warm light that follows the cursor across the whole grid. The radial
-   gradient is written inline by the mousemove handler; cleared on leave. */
-.section-spotlight {
-  position: absolute;
-  inset: 0;
-  z-index: 2;            /* above the cards (.bento-tilt-wrap z-index: 1) */
-  pointer-events: none;
-  border-radius: 22px;
-  background: transparent;
-  transition: background 0.12s ease;
-}
-
-/* ── HowItWorks mode toggle (mobile only) ────────────────── */
-.hiw-mode-toggle {
-  display: flex;
-  gap: 0;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--rule);
-}
-
-@media (min-width: 768px) {
-  .hiw-mode-toggle {
-    display: none;
-  }
-}
-
-.hiw-mode-btn {
-  position: relative;
-  padding: 10px 20px;
-  background: none;
-  border: none;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.hiw-mode-btn.active {
-  color: var(--fg);
-}
-
-/* Mobile: hide inactive HIW column based on data-hiw-mode on section */
-@media (max-width: 767px) {
-  [data-hiw-mode="technical"] .hiw-simple-cell { display: none !important; }
-  [data-hiw-mode="plain"] .hiw-tech-cell { display: none !important; }
-}
-
-/* ── Testimonial marquee cards ───────────────────────────── */
-.testimonial-card {
-  min-width: clamp(260px, 32vw, 380px);
-  flex-shrink: 0;
-  padding: clamp(20px, 2.5vw, 28px);
-  border-radius: 16px;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.testimonial-track {
-  gap: 16px;
-  animation-duration: 70s;
-}
-
-/* ── Calculator 2-col layout ─────────────────────────────── */
-.calc-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 40px;
-  padding: 40px 36px;
-  border-radius: 22px;
-  position: relative;
-  overflow: hidden;
-}
-
-@media (min-width: 1024px) {
-  .calc-layout {
-    grid-template-columns: 1fr 1fr;
-    gap: 56px;
-    align-items: start;
-  }
-}
-
-/* ── Calc accordion ──────────────────────────────────────── */
-.calc-accordion {
-  margin-top: 20px;
-}
-
-.calc-accordion > summary {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--accent);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.calc-accordion > summary::-webkit-details-marker {
-  display: none;
-}
-
-.calc-accordion[open] > summary {
-  margin-bottom: 16px;
-}
-
-.calc-accordion-content {
-  padding: 0;
-}
-
-/* ── Reduced motion: disable all marquees + pulse ────────── */
-@media (prefers-reduced-motion: reduce) {
-  .marquee-track,
-  .kinetic-marquee-track {
-    animation: none !important;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: center;
-  }
-
-  .pulse-ring {
-    animation: none !important;
-  }
-
-  /* Tilt depth + signal pulses collapse to static */
-  .bento-depth-icon,
-  .bento-depth-title,
-  .bento-depth-stat {
-    transform: none !important;
-  }
-
-  .border-pulse {
-    display: none;
-  }
-}
-
-/* ── Logo marquee item spacing ───────────────────────────── */
-.logo-marquee-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 40px;
-  flex-shrink: 0;
 }

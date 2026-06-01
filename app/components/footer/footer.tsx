@@ -17,10 +17,13 @@ export default function Footer() {
                 className="relative mx-auto w-full max-w-7xl px-4 sm:px-6"
                 style={{ padding: "64px max(24px, 4vw) 36px" }}
             >
-                {/* 3-column grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-9">
+                {/* 4-column grid */}
+                <div
+                    className="grid gap-9"
+                    style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+                >
                     {/* Col 1 — brand */}
-                    <div>
+                    <div className="col-span-4 md:col-span-1" style={{ gridColumn: undefined }}>
                         <Link href="/" aria-label="Go to home page" className="inline-flex items-center gap-3 mb-5">
                             <Image
                                 src="/JDs_nobg.png"
@@ -48,7 +51,7 @@ export default function Footer() {
                     </div>
 
                     {/* Col 2 — Pages */}
-                    <div>
+                    <div className="col-span-2 md:col-span-1">
                         <div className="kicker" style={{ marginBottom: 14 }}>Pages</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
                             <li><Link href="/" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Home</Link></li>
@@ -56,8 +59,8 @@ export default function Footer() {
                         </ul>
                     </div>
 
-                    {/* Col 3 — Legal */}
-                    <div>
+                    {/* Col 4 — Legal */}
+                    <div className="col-span-2 md:col-span-1">
                         <div className="kicker" style={{ marginBottom: 14 }}>Legal</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
                             <li><Link href="/privacy-policy" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Privacy Policy</Link></li>

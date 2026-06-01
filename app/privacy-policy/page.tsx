@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
                     inset: 0,
                     pointerEvents: "none",
                     zIndex: 0,
-                    background: "radial-gradient(ellipse at 60% 10%, rgba(245,237,214,0.07) 0%, transparent 60%)",
+                    background: "radial-gradient(ellipse at 60% 10%, rgba(182,168,255,0.12) 0%, transparent 60%)",
                 }}
             />
 
@@ -35,7 +35,16 @@ export default function PrivacyPolicyPage() {
                     padding: "clamp(28px, 5vw, 56px)",
                 }}
             >
-                <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: 8 }}>
+                <h1
+                    style={{
+                        fontFamily: "var(--font-display)",
+                        fontSize: "clamp(28px, 4vw, 44px)",
+                        fontWeight: 400,
+                        letterSpacing: "-0.025em",
+                        color: "var(--fg)",
+                        marginBottom: 8,
+                    }}
+                >
                     Privacy Policy
                 </h1>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)", marginBottom: 40 }}>
@@ -212,7 +221,15 @@ export default function PrivacyPolicyPage() {
                             borderTop: "1px solid var(--rule)",
                         }}
                     >
-                        <h2 style={{ fontSize: 18, marginBottom: 12 }}>
+                        <h2
+                            style={{
+                                fontFamily: "var(--font-display)",
+                                fontSize: 18,
+                                fontWeight: 500,
+                                color: "var(--fg)",
+                                marginBottom: 12,
+                            }}
+                        >
                             {section.heading}
                         </h2>
                         <div style={{ color: "var(--fg-2)", lineHeight: 1.7, fontSize: 15 }}>
