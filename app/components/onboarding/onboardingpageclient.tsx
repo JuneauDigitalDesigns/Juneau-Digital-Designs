@@ -3,9 +3,8 @@
 import Link from "next/link";
 import Script from "next/script";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Plus, Trash } from "@phosphor-icons/react";
 import { upload } from "@vercel/blob/client";
-import { faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 
 declare global {
     interface Window {
@@ -309,14 +308,7 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
             >
                 {number}
             </span>
-            <h2
-                style={{
-                    fontSize: 15,
-                    fontWeight: 600,
-                    color: "var(--fg)",
-                    fontFamily: "var(--font-display)",
-                }}
-            >
+            <h2 style={{ fontSize: 15, fontWeight: 600 }}>
                 {title}
             </h2>
         </div>
@@ -843,7 +835,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                             }}
                         >✓</span>
                     </div>
-                    <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 400, color: "var(--fg)", marginBottom: 12 }}>You&apos;re all set!</h1>
+                    <h1 style={{ fontSize: "var(--text-2xl)", marginBottom: 12 }}>You&apos;re all set!</h1>
                     <p style={{ color: "var(--fg-2)", lineHeight: 1.6 }}>
                         Your onboarding form has been submitted. We&apos;ll review your information and reach out within 1 business day to get things moving.
                     </p>
@@ -864,19 +856,6 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                 overflow: "hidden",
             }}
         >
-            {/* Aurora backdrop */}
-            <div className="aurora-bg" style={{ opacity: 0.5 }}>
-                <div
-                    className="aurora-blob"
-                    style={{
-                        width: 600,
-                        height: 600,
-                        background: "radial-gradient(circle, rgba(182,168,255,0.4) 0%, transparent 70%)",
-                        right: "-5%",
-                        top: "5%",
-                    }}
-                />
-            </div>
             <Script
                 src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
                 strategy="afterInteractive"
@@ -913,17 +892,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                 {/* Page header */}
                 <div className="mb-10">
                     <span className="eyebrow">Onboarding</span>
-                    <h1
-                        style={{
-                            fontFamily: "var(--font-display)",
-                            fontSize: "clamp(28px, 4vw, 40px)",
-                            fontWeight: 400,
-                            letterSpacing: "0.03em",
-                            color: "var(--fg)",
-                            marginTop: 16,
-                            marginBottom: 12,
-                        }}
-                    >
+                    <h1 style={{ fontSize: "var(--text-3xl)", marginTop: 16, marginBottom: 12 }}>
                         Tell us about your business
                     </h1>
                     <p style={{ color: "var(--fg-2)", lineHeight: 1.6, fontSize: 15 }}>
@@ -1323,7 +1292,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                                     className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                                                     aria-label="Remove logo"
                                                 >
-                                                    <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                                    <Trash weight="bold" className="h-3.5 w-3.5" />
                                                 </button>
                                             </div>
                                         )}
@@ -1565,7 +1534,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400"
                                                 aria-label="Remove"
                                             >
-                                                <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                                <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     ))}
@@ -1576,7 +1545,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                         onClick={() => addFrictionReducer("heroFrictionReducers")}
                                         className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                                     >
-                                        <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                        <Plus weight="bold" className="h-3.5 w-3.5" />
                                         Add friction reducer
                                     </button>
                                 )}
@@ -1598,7 +1567,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                                     className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
                                                     aria-label="Remove photo"
                                                 >
-                                                    <FontAwesomeIcon icon={faTrash} className="h-2.5 w-2.5" />
+                                                    <Trash weight="bold" className="h-2.5 w-2.5" />
                                                 </button>
                                             </div>
                                         ))}
@@ -1678,7 +1647,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                         <img src={formData.images.aboutFeature.url} alt="About feature preview" className="h-14 w-auto max-w-[140px] rounded object-cover" />
                                         <span className="flex-1 truncate text-sm text-white/60">{formData.images.aboutFeature.filename}</span>
                                         <button type="button" onClick={removeAboutFeature} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove photo">
-                                            <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                            <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
                                 )}
@@ -1699,7 +1668,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                     <div key={i} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
                                         {formData.pillars.length > 1 && (
                                             <button type="button" onClick={() => removePillar(i)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove pillar">
-                                                <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                                <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         )}
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -1721,7 +1690,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                             </div>
                             {formData.pillars.length < 4 && (
                                 <button type="button" onClick={addPillar} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
-                                    <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                    <Plus weight="bold" className="h-3.5 w-3.5" />
                                     Add pillar
                                 </button>
                             )}
@@ -1743,7 +1712,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                         </label>
                                         {formData.aboutStats.length > 1 && (
                                             <button type="button" onClick={() => removeAboutStat(i)} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Remove stat">
-                                                <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                                <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         )}
                                     </div>
@@ -1751,7 +1720,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                             </div>
                             {formData.aboutStats.length < 4 && (
                                 <button type="button" onClick={addAboutStat} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
-                                    <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                    <Plus weight="bold" className="h-3.5 w-3.5" />
                                     Add stat
                                 </button>
                             )}
@@ -1789,7 +1758,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                             className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                                             aria-label="Remove service"
                                         >
-                                            <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                            <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     )}
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1840,7 +1809,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                                                 className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600"
                                                                 aria-label="Remove photo"
                                                             >
-                                                                <FontAwesomeIcon icon={faTrash} className="h-2.5 w-2.5" />
+                                                                <Trash weight="bold" className="h-2.5 w-2.5" />
                                                             </button>
                                                         </div>
                                                     ))}
@@ -1876,7 +1845,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                 onClick={addService}
                                 className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
-                                <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add service
                             </button>
                         )}
@@ -1905,7 +1874,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                 <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
                                     {formData.projects.length > 1 && (
                                         <button type="button" onClick={() => removeProject(index)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove project">
-                                            <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                            <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     )}
                                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1941,7 +1910,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                                     <img src={project.image.url} alt={project.image.alt || "Project"} className="h-14 w-auto max-w-[120px] rounded object-cover" />
                                                     <span className="flex-1 truncate text-sm text-white/60">{project.image.filename}</span>
                                                     <button type="button" onClick={() => removeProjectImage(index)} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove photo">
-                                                        <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                                        <Trash weight="bold" className="h-3.5 w-3.5" />
                                                     </button>
                                                 </div>
                                             )}
@@ -1958,7 +1927,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                         </div>
                         {formData.projects.length < 6 && (
                             <button type="button" onClick={addProject} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
-                                <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add project
                             </button>
                         )}
@@ -1988,7 +1957,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                             className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                                             aria-label="Remove testimonial"
                                         >
-                                            <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                            <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     )}
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2056,7 +2025,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                 onClick={addTestimonial}
                                 className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
-                                <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add testimonial
                             </button>
                         )}
@@ -2098,7 +2067,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                             className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400"
                                             aria-label="Remove stat"
                                         >
-                                            <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                            <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     )}
                                 </div>
@@ -2110,7 +2079,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                 onClick={addBullet}
                                 className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
-                                <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add stat
                             </button>
                         )}
@@ -2144,7 +2113,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                             className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                                             aria-label="Remove FAQ"
                                         >
-                                            <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                            <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     )}
                                     <div className="grid grid-cols-1 gap-4">
@@ -2178,7 +2147,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                 onClick={addFaq}
                                 className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
                             >
-                                <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add question
                             </button>
                         )}
@@ -2218,14 +2187,14 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                                         <div key={i} className="flex items-center gap-2">
                                             <input type="text" value={fr} onChange={(e) => updateFrictionReducer("finalCtaFrictionReducers", i, e.target.value)} placeholder="e.g. Free estimates" className={inputCls} />
                                             <button type="button" onClick={() => removeFrictionReducer("finalCtaFrictionReducers", i)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Remove">
-                                                <FontAwesomeIcon icon={faTrash} className="h-3.5 w-3.5" />
+                                                <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
                                 {formData.finalCtaFrictionReducers.length < 4 && (
                                     <button type="button" onClick={() => addFrictionReducer("finalCtaFrictionReducers")} className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
-                                        <FontAwesomeIcon icon={faPlus} className="h-3.5 w-3.5" />
+                                        <Plus weight="bold" className="h-3.5 w-3.5" />
                                         Add friction reducer
                                     </button>
                                 )}

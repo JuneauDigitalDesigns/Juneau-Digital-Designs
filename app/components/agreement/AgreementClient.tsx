@@ -108,17 +108,7 @@ export default function AgreementClient({ plan }: Props) {
                     <PlanChip plan={plan} />
                 </div>
 
-                <h1
-                    style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "clamp(28px, 4vw, 44px)",
-                        fontWeight: 400,
-                        letterSpacing: "0.03em",
-                        color: "var(--fg)",
-                        lineHeight: 1.1,
-                        marginBottom: 10,
-                    }}
-                >
+                <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: 10 }}>
                     Master Services Agreement.
                 </h1>
                 <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
