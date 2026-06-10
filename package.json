@@ -9,15 +9,19 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.4.3",
+    "@google-analytics/data": "^6.1.0",
     "@phosphor-icons/react": "^2.1.10",
     "@stripe/stripe-js": "^9.6.0",
+    "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.3.3",
     "framer-motion": "^12.23.26",
     "next": "^16.2.3",
     "pdf-lib": "^1.17.1",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "recharts": "^3.8.1",
     "resend": "^6.12.3",
     "stripe": "^22.1.1"
   },
