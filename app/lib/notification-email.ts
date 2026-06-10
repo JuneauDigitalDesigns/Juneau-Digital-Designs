@@ -1,17 +1,17 @@
 import "server-only";
 import { Resend } from "resend";
+import type { AgreementRecord } from "./agreement-types";
 
-export interface StripeNotificationData {
+export interface PaymentDetails {
   plan?: string | null;
   customerName?: string | null;
   customerEmail?: string | null;
   amountTotal?: number | null;
   subscriptionId?: string | null;
-  agreementPdfUrl?: string | null;
   sessionId?: string | null;
 }
 
-export interface OnboardingNotificationData {
+export interface ClientCompleteNotificationData {
   brandName: string;
   email: string;
   phone: string;
@@ -19,6 +19,9 @@ export interface OnboardingNotificationData {
   websiteType: string;
   servicesCount: number;
   payloadJson: string;
+  payment?: PaymentDetails | null;
+  agreement?: AgreementRecord | null;
+  agreementPdf?: Buffer | null;
 }
 
 function getCtx(): { resend: Resend; from: string; to: string } | null {
@@ -36,94 +39,98 @@ function getCtx(): { resend: Resend; from: string; to: string } | null {
 }
 
 const row = (label: string, value: string) =>
-  `<tr><td style="padding:6px 12px 6px 0;color:#555;font-size:13px;white-space:nowrap;">${label}</td><td style="padding:6px 0;font-size:13px;color:#111;">${value}</td></tr>`;
+  `<tr><td style="padding:6px 12px 6px 0;color:#555;font-size:13px;white-space:nowrap;vertical-align:top;">${label}</td><td style="padding:6px 0;font-size:13px;color:#111;word-break:break-all;">${value}</td></tr>`;
 
-/**
- * Notify the JDD owner that a Stripe checkout completed.
- * Fire-and-forget safe — never throws.
- */
-export async function sendStripeNotification(data: StripeNotificationData): Promise<void> {
-  const ctx = getCtx();
-  if (!ctx) return;
+const section = (title: string, rows: string) => `
+      <h3 style="margin:22px 0 6px;font-size:14px;font-weight:600;">${title}</h3>
+      <div style="background:#f6f6f7;border-radius:8px;padding:14px 16px;">
+        <table cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>
+      </div>`;
 
-  const planLabel = data.plan
-    ? data.plan.charAt(0).toUpperCase() + data.plan.slice(1)
-    : "Unknown";
-  const customerName = data.customerName || data.customerEmail || "Unknown Customer";
-  const amount =
-    data.amountTotal != null ? `$${(data.amountTotal / 100).toFixed(2)}` : "—";
-  const subject = `New JDD Payment — ${planLabel} — ${customerName}`;
-  const pdfLink = data.agreementPdfUrl
-    ? `<a href="${data.agreementPdfUrl}" style="color:#0070f3;">View signed PDF</a>`
-    : "—";
-
-  const html = `
-    <div style="font-family:system-ui,-apple-system,sans-serif;color:#111;line-height:1.55;max-width:560px;">
-      <h2 style="margin:0 0 16px;font-weight:600;">New Payment Received</h2>
-      <div style="background:#f6f6f7;border-radius:8px;padding:14px 16px;margin:18px 0;">
-        <table cellpadding="0" cellspacing="0" style="width:100%">
-          ${row("Plan", planLabel)}
-          ${row("Customer", customerName)}
-          ${row("Email", data.customerEmail || "—")}
-          ${row("Amount", amount)}
-          ${row("Subscription", data.subscriptionId || "—")}
-          ${row("Session", data.sessionId || "—")}
-          ${row("Agreement PDF", pdfLink)}
-        </table>
-      </div>
-    </div>
-  `;
-
-  try {
-    const result = await ctx.resend.emails.send({
-      from: ctx.from,
-      to: [ctx.to],
-      subject,
-      html,
-    });
-    if (result.error) {
-      console.error("[notification-email] stripe notification rejected", result.error);
-    } else {
-      console.log("[notification-email] stripe notification sent", result.data?.id);
-    }
-  } catch (err) {
-    console.error("[notification-email] stripe notification threw", err);
-  }
+function capitalize(value: string): string {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 }
 
 /**
- * Notify the JDD owner that an onboarding form was submitted.
- * Attaches the full intake payload as a JSON file.
+ * The single operator email sent when a client completes onboarding.
+ * Covers payment confirmation, the signed agreement (PDF attached when available),
+ * and the onboarding intake (JSON attached).
  * Fire-and-forget safe — never throws.
  */
-export async function sendOnboardingNotification(
-  data: OnboardingNotificationData,
+export async function sendClientCompleteNotification(
+  data: ClientCompleteNotificationData,
 ): Promise<void> {
   const ctx = getCtx();
   if (!ctx) return;
 
   const date = new Date().toISOString().slice(0, 10);
   const safeName = data.brandName.replace(/\W+/g, "_");
-  const subject = `New JDD Onboarding — ${data.brandName}`;
-  const attachmentFilename = `onboarding-${safeName}-${date}.json`;
-  const planLabel = data.plan.charAt(0).toUpperCase() + data.plan.slice(1);
+  const planLabel = capitalize(data.payment?.plan || data.plan);
+  const subject = `[JDD Internal] New Client — ${planLabel} — ${data.brandName}`;
+
+  const paymentRows = data.payment
+    ? [
+        row("Plan", planLabel),
+        row("Customer", data.payment.customerName || data.payment.customerEmail || "—"),
+        row("Email", data.payment.customerEmail || "—"),
+        row(
+          "Amount",
+          data.payment.amountTotal != null
+            ? `$${(data.payment.amountTotal / 100).toFixed(2)}`
+            : "—",
+        ),
+        row("Subscription", data.payment.subscriptionId || "—"),
+        row("Session", data.payment.sessionId || "—"),
+      ].join("")
+    : row("Status", "Payment details unavailable — check the Stripe dashboard.");
+
+  const agreementRows = data.agreement
+    ? [
+        row("Business", data.agreement.clientLegalName),
+        row("Signer", `${data.agreement.signerName} (${data.agreement.signerTitle})`),
+        row("Signed at", data.agreement.audit.signedAt),
+        row("Agreement ID", data.agreement.id),
+        row("SHA-256", data.agreement.audit.payloadHash),
+        row(
+          "Signed PDF",
+          data.agreementPdf
+            ? "Attached (with audit trail)"
+            : `<a href="${data.agreement.pdfUrl}" style="color:#0070f3;">View signed PDF</a>`,
+        ),
+      ].join("")
+    : row("Status", "Agreement record unavailable.");
+
+  const onboardingRows = [
+    row("Brand", data.brandName),
+    row("Email", data.email),
+    row("Phone", data.phone),
+    row("Website Type", data.websiteType),
+    row("Services", String(data.servicesCount)),
+  ].join("");
 
   const html = `
     <div style="font-family:system-ui,-apple-system,sans-serif;color:#111;line-height:1.55;max-width:560px;">
-      <h2 style="margin:0 0 16px;font-weight:600;">New Onboarding Submission</h2>
-      <div style="background:#f6f6f7;border-radius:8px;padding:14px 16px;margin:18px 0;">
-        <table cellpadding="0" cellspacing="0" style="width:100%">
-          ${row("Brand", data.brandName)}
-          ${row("Email", data.email)}
-          ${row("Phone", data.phone)}
-          ${row("Plan", planLabel)}
-          ${row("Website Type", data.websiteType)}
-          ${row("Services", String(data.servicesCount))}
-        </table>
-      </div>
+      <h2 style="margin:0 0 4px;font-weight:600;">New Client — ${data.brandName}</h2>
+      <p style="margin:0;color:#555;font-size:13px;">Signed, paid, and onboarded.</p>
+      ${section("Payment", paymentRows)}
+      ${section("Agreement", agreementRows)}
+      ${section("Onboarding", onboardingRows)}
       <p style="color:#888;font-size:12px;margin-top:16px;">Full intake payload attached as JSON.</p>
     </div>
   `;
+
+  const attachments: { filename: string; content: string }[] = [
+    {
+      filename: `onboarding-${safeName}-${date}.json`,
+      content: Buffer.from(data.payloadJson).toString("base64"),
+    },
+  ];
+  if (data.agreementPdf) {
+    attachments.unshift({
+      filename: `JDD_MSA_${safeName}_internal.pdf`,
+      content: data.agreementPdf.toString("base64"),
+    });
+  }
 
   try {
     const result = await ctx.resend.emails.send({
@@ -131,19 +138,14 @@ export async function sendOnboardingNotification(
       to: [ctx.to],
       subject,
       html,
-      attachments: [
-        {
-          filename: attachmentFilename,
-          content: Buffer.from(data.payloadJson).toString("base64"),
-        },
-      ],
+      attachments,
     });
     if (result.error) {
-      console.error("[notification-email] onboarding notification rejected", result.error);
+      console.error("[notification-email] client-complete notification rejected", result.error);
     } else {
-      console.log("[notification-email] onboarding notification sent", result.data?.id);
+      console.log("[notification-email] client-complete notification sent", result.data?.id);
     }
   } catch (err) {
-    console.error("[notification-email] onboarding notification threw", err);
+    console.error("[notification-email] client-complete notification threw", err);
   }
 }

@@ -16,6 +16,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vercel/blob": "^2.3.3",
+    "@vercel/speed-insights": "^2.0.0",
     "framer-motion": "^12.23.26",
     "next": "^16.2.3",
     "pdf-lib": "^1.17.1",

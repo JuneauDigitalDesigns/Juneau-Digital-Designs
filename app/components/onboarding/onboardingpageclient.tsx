@@ -826,7 +826,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
             const response = await fetch("/api/onboarding", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({ ...formData, sessionId }),
             });
 
             const data = (await response.json()) as { message?: string };
