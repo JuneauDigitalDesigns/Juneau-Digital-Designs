@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { mapPayloadToIntake, type OnboardingSubmission, type AdditionalSiteEntry } from "@/app/lib/site-schema";
+import { sendOnboardingNotification } from "@/app/lib/notification-email";
 
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
-const makeWebhookUrl = process.env.MAKE_INTAKE_WEBHOOK_URL;
 
 /** Deep-clone replacing every empty string with null. Empty arrays/objects pass through. */
 function normalizeEmpties(value: unknown): unknown {
@@ -265,36 +265,9 @@ async function verifyTurnstileToken(token: string, remoteIp: string): Promise<bo
     return Boolean(verifyResult.success);
 }
 
-/**
- * Fire-and-log POST to Make.com. Returns true on 2xx, false otherwise.
- * Never throws — webhook failures must not block the form response.
- */
-async function postToMakeWebhook(body: unknown): Promise<boolean> {
-    if (!makeWebhookUrl) {
-        console.warn("[onboarding] MAKE_INTAKE_WEBHOOK_URL not set — skipping webhook");
-        return false;
-    }
-    try {
-        const res = await fetch(makeWebhookUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
-        if (!res.ok) {
-            const text = await res.text().catch(() => "<unreadable>");
-            console.error(`[onboarding] Make webhook returned ${res.status}: ${text.slice(0, 200)}`);
-            return false;
-        }
-        return true;
-    } catch (err) {
-        console.error("[onboarding] Make webhook fetch failed:", err);
-        return false;
-    }
-}
-
 export async function POST(request: Request) {
     try {
-        if (!turnstileSecretKey || !makeWebhookUrl) {
+        if (!turnstileSecretKey) {
             return NextResponse.json(
                 { message: "Server is not configured for onboarding submissions yet." },
                 { status: 500 }
@@ -592,19 +565,22 @@ export async function POST(request: Request) {
             scrapeWebsiteDomain,
         };
 
-        // Map to Intake envelope ({ plan, siteCount, sites: SiteContent[] }) and POST to Make.com.
+        // Map to Intake envelope and notify owner via Resend.
         const intake = mapPayloadToIntake(submissionData as OnboardingSubmission);
         const webhookPayload = {
             ...intake,
             _payload_json: JSON.stringify(normalizeEmpties(intake), null, 2),
         };
-        const webhookOk = await postToMakeWebhook(webhookPayload);
-        if (!webhookOk) {
-            return NextResponse.json(
-                { message: "There was a problem submitting your request. Please try again." },
-                { status: 500 }
-            );
-        }
+        // Notify owner — fire-and-forget, email failure must not block the user's response.
+        sendOnboardingNotification({
+            brandName,
+            email,
+            phone,
+            plan: selectedPlan,
+            websiteType,
+            servicesCount: services.length,
+            payloadJson: webhookPayload._payload_json,
+        }).catch((e) => console.error("[onboarding] notification email failed", e));
 
         return NextResponse.json({ message: "Onboarding submission sent successfully." }, { status: 200 });
     } catch {
