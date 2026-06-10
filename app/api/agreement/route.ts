@@ -78,9 +78,9 @@ export async function POST(req: Request) {
   }
 
   // Email is fire-and-forget; failure is logged but doesn't block the response.
-  // Strip the audit-trail page before sending to the client.
+  // Strip the audit-trail page before sending to the client; pass full pdfBytes for owner copy.
   stripLastPage(pdfBytes)
-    .then((clientPdfBytes) => sendSignedAgreementEmails(record, clientPdfBytes))
+    .then((clientPdfBytes) => sendSignedAgreementEmails(record, clientPdfBytes, pdfBytes))
     .catch((e) => console.error("[/api/agreement] email failed", e));
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
