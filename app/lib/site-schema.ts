@@ -53,7 +53,7 @@ export interface Testimonial {
     q: string;
     a: string;
     r: string;
-    company: string | null;
+    company?: string | null;
     stars: number;
 }
 
@@ -80,7 +80,6 @@ export interface HeroContent {
     badge: string | null;
     frictionReducers: string[];
     heroBullets: Array<{ value: string; label: string }>;
-    rotatingImages: Array<{ caption: string; tone: "light" | "mid" | "dark" | "ink" }>;
 }
 
 export interface AboutContent {
@@ -149,7 +148,6 @@ export interface BrandPalette {
 export interface BrandTypography {
     fontSans: string;
     fontHeading: string;
-    fontMono?: string;
     headingWeight: number;
     bodyWeight: number;
     headingTracking?: string;
@@ -186,18 +184,11 @@ export interface ExtensionsContent {
     hours: Record<string, string> | null;
     bookingUrl: string | null;
     portalUrl: string | null;
-    socialMedia: {
-        linkedin: string | null;
-        instagram: string | null;
-        facebook: string | null;
-        youtube: string | null;
-    } | null;
 }
 
 export interface SiteImages {
     hero: { portrait?: string; slides?: Array<{ url: string; alt: string }> };
     about: { feature?: string };
-    work: { cards: string[] };
     testimonials: { avatars?: string[] };
     footer: { logoImage?: string };
 }
@@ -482,7 +473,12 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
             { label: "Book", href: "#cta" },
         ],
         announcement: orNull(p.announcement),
-        trust: { label: "Trusted by", logos: [] },
+        trust: {
+            label: "Trusted by",
+            logos: p.businessDetails.notableClients
+                ? p.businessDetails.notableClients.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean)
+                : [],
+        },
         hero: {
             eyebrow: p.hero.heroEyebrow,
             headline: p.hero.heroHeadline,
@@ -496,7 +492,6 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
             badge: orNull(p.hero.heroBadge),
             frictionReducers: p.hero.heroFrictionReducers,
             heroBullets: p.heroBullets,
-            rotatingImages: [],
         },
         about: {
             eyebrow: p.about.aboutEyebrow,
@@ -563,7 +558,20 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
         },
         footer: {
             blurb: p.footer.footerBlurb,
-            cols: [],
+            cols: (() => {
+                const serviceLinks = p.services.map((s) => ({ label: s.t, href: "#services" }));
+                const companyLinks = [
+                    { label: "About Us", href: "#about" },
+                    { label: "Our Work", href: "#work" },
+                    { label: "Reviews", href: "#testimonials" },
+                    { label: "FAQ", href: "#faq" },
+                    { label: "Contact Us", href: "#cta" },
+                ];
+                const cols = [];
+                if (serviceLinks.length) cols.push({ h: "Services", links: serviceLinks });
+                cols.push({ h: "Company", links: companyLinks });
+                return cols;
+            })(),
             social: [
                 p.socialMedia.linkedin
                     ? { label: "LinkedIn", href: p.socialMedia.linkedin }
@@ -601,12 +609,6 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
                 : null,
             bookingUrl: orNull(p.extensions.bookingUrl),
             portalUrl: orNull(p.extensions.portalUrl),
-            socialMedia: {
-                linkedin: orNull(p.socialMedia.linkedin),
-                instagram: orNull(p.socialMedia.instagram),
-                facebook: orNull(p.socialMedia.facebook),
-                youtube: orNull(p.socialMedia.youtube),
-            },
         },
         images: {
             hero: {
@@ -614,7 +616,6 @@ export function mapPayloadToSchema(p: OnboardingSubmission): SiteContent {
                 slides: p.images.heroSlides.map((img) => ({ url: img.url, alt: img.alt })),
             },
             about: { feature: p.images.aboutFeature?.url },
-            work: { cards: [] },
             testimonials: {},
             footer: { logoImage: p.images.logo?.url },
         },

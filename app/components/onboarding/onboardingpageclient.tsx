@@ -315,9 +315,36 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
     );
 }
 
-export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan: PlanSlug; prefillEmail?: string }) {
+const STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function safeStorageKey(sessionId: string): string | null {
+    return /^cs_[a-zA-Z0-9_]+$/.test(sessionId) ? `jdd-onboarding-${sessionId}` : null;
+}
+
+export default function OnboardingPageClient({ plan, prefillEmail = "", sessionId = "" }: { plan: PlanSlug; prefillEmail?: string; sessionId?: string }) {
     const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    const [formData, setFormData] = useState<OnboardingFormData>(() => makeInitialData(plan, prefillEmail));
+    const [formData, setFormData] = useState<OnboardingFormData>(() => {
+        const base = makeInitialData(plan, prefillEmail);
+        const key = safeStorageKey(sessionId);
+        if (!key || typeof window === "undefined") return base;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return base;
+            const { savedAt, ...saved } = JSON.parse(raw) as Partial<OnboardingFormData> & { savedAt?: string };
+            if (savedAt && Date.now() - new Date(savedAt).getTime() > STORAGE_TTL_MS) {
+                localStorage.removeItem(key);
+                return base;
+            }
+            return { ...base, ...saved, turnstileToken: "", consent: false, website: "" };
+        } catch {
+            return base;
+        }
+    });
+    const [restored, setRestored] = useState(() => {
+        const key = safeStorageKey(sessionId);
+        if (!key || typeof window === "undefined") return false;
+        return Boolean(localStorage.getItem(key));
+    });
     const [submitting, setSubmitting] = useState(false);
     const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
     const [submitState, setSubmitState] = useState<SubmitState>({ type: "idle", message: "" });
@@ -350,6 +377,17 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
             theme: "light",
         });
     }, [turnstileScriptLoaded, turnstileSiteKey]);
+
+    useEffect(() => {
+        const key = safeStorageKey(sessionId);
+        if (!key) return;
+        const id = setTimeout(() => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { turnstileToken, consent, website, ...persistable } = formData;
+            localStorage.setItem(key, JSON.stringify({ ...persistable, savedAt: new Date().toISOString() }));
+        }, 800);
+        return () => clearTimeout(id);
+    }, [formData, sessionId]);
 
     function set(field: keyof OnboardingFormData, value: unknown) {
         setFormData((prev) => ({ ...prev, [field]: value }));
@@ -798,6 +836,8 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
             }
 
             setSubmitState({ type: "success", message: "" });
+            const storageKey = safeStorageKey(sessionId);
+            if (storageKey) localStorage.removeItem(storageKey);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Something went wrong.";
             setSubmitState({ type: "error", message });
@@ -899,6 +939,35 @@ export default function OnboardingPageClient({ plan, prefillEmail = "" }: { plan
                         Fill out as much or as little as you have right now. We&apos;ll follow up on anything we need. Required fields are marked with <span style={{ fontWeight: 700, color: "#ff7b7b" }}>*</span>.
                     </p>
                 </div>
+
+                {restored && (
+                    <div className="mb-6 flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink">
+                        <span className="mt-0.5 shrink-0 text-accent">✓</span>
+                        <p className="flex-1">
+                            Welcome back — your progress has been restored.{" "}
+                            <button
+                                type="button"
+                                className="underline hover:no-underline"
+                                onClick={() => {
+                                    const key = safeStorageKey(sessionId);
+                                    if (key) localStorage.removeItem(key);
+                                    setFormData(makeInitialData(plan, prefillEmail));
+                                    setRestored(false);
+                                }}
+                            >
+                                Start fresh instead
+                            </button>
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setRestored(false)}
+                            className="shrink-0 text-inkSoft hover:text-ink"
+                            aria-label="Dismiss"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="space-y-10" noValidate>
 

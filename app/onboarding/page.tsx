@@ -39,5 +39,5 @@ export default async function OnboardingPage({
 
     const prefillEmail = agreement.signerEmail || session.customer_details?.email || "";
 
-    return <OnboardingPageClient plan={verifiedPlan} prefillEmail={prefillEmail} />;
+    return <OnboardingPageClient plan={verifiedPlan} prefillEmail={prefillEmail} sessionId={session_id} />;
 }
