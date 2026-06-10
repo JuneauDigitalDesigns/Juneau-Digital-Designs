@@ -9,13 +9,13 @@ const PLAN_LABEL: Record<string, string> = {
 };
 
 /**
- * Email the signed PDF to both the client signer (no audit page) and the JDD owner (full PDF with audit trail).
+ * Email the signed PDF to the client signer (no audit page). The owner copy is
+ * delivered later as part of the combined client-complete notification.
  * Failures are logged but don't throw — the agreement is already stored.
  */
-export async function sendSignedAgreementEmails(
+export async function sendClientAgreementEmail(
   record: AgreementRecord,
   clientPdfBuffer: Uint8Array,
-  ownerPdfBuffer?: Uint8Array,
 ): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
@@ -67,28 +67,5 @@ export async function sendSignedAgreementEmails(
     }
   } catch (err) {
     console.error("[agreement-email] client send threw", record.signerEmail, err);
-  }
-
-  // Owner email — full PDF with audit trail intact
-  const ownerEmail = process.env.QUOTE_TO_EMAIL;
-  if (ownerPdfBuffer && ownerEmail) {
-    const ownerSubject = `[JDD Internal] Signed MSA — ${record.clientLegalName}`;
-    const ownerFilename = `JDD_MSA_${record.clientLegalName.replace(/\W+/g, "_")}_internal.pdf`;
-    try {
-      const ownerResult = await resend.emails.send({
-        from: fromAddress,
-        to: [ownerEmail],
-        subject: ownerSubject,
-        html,
-        attachments: [{ filename: ownerFilename, content: Buffer.from(ownerPdfBuffer).toString("base64") }],
-      });
-      if (ownerResult.error) {
-        console.error("[agreement-email] owner send rejected by Resend", ownerEmail, ownerResult.error);
-      } else {
-        console.log("[agreement-email] owner send ok", ownerEmail, ownerResult.data?.id);
-      }
-    } catch (err) {
-      console.error("[agreement-email] owner send threw", ownerEmail, err);
-    }
   }
 }

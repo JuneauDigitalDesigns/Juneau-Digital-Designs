@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { generateSignedPdf, hashSubmission, stripLastPage } from "@/app/lib/pdf-signer";
 import { saveAgreement } from "@/app/lib/kv";
-import { sendSignedAgreementEmails } from "@/app/lib/agreement-email";
+import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import type {
   AgreementAudit,
   AgreementRecord,
@@ -77,11 +77,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
   }
 
-  // Email is fire-and-forget; failure is logged but doesn't block the response.
-  // Strip the audit-trail page before sending to the client; pass full pdfBytes for owner copy.
-  stripLastPage(pdfBytes)
-    .then((clientPdfBytes) => sendSignedAgreementEmails(record, clientPdfBytes, pdfBytes))
-    .catch((e) => console.error("[/api/agreement] email failed", e));
+  // Email runs after the response via after() — Vercel keeps the function alive
+  // for it (a plain fire-and-forget promise gets killed when the lambda freezes).
+  // Strip the audit-trail page before sending to the client.
+  after(() =>
+    stripLastPage(pdfBytes)
+      .then((clientPdfBytes) => sendClientAgreementEmail(record, clientPdfBytes))
+      .catch((e) => console.error("[/api/agreement] email failed", e)),
+  );
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
 }

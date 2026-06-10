@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "./components/navbar/navbar";
 import Footer from "./components/footer/footer";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const cabinetGrotesk = localFont({
   src: "./fonts/CabinetGrotesk-Variable.woff2",
@@ -57,6 +58,7 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Footer />
+        <SpeedInsights />
       </body>
     </html>
   );

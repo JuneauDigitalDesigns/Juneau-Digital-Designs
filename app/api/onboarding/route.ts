@@ -1,6 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { mapPayloadToIntake, type OnboardingSubmission, type AdditionalSiteEntry } from "@/app/lib/site-schema";
-import { sendOnboardingNotification } from "@/app/lib/notification-email";
+import {
+    sendClientCompleteNotification,
+    type PaymentDetails,
+} from "@/app/lib/notification-email";
+import { stripe } from "@/app/lib/stripe";
+import { getAgreement } from "@/app/lib/kv";
+import type { AgreementRecord } from "@/app/lib/agreement-types";
 
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
 
@@ -158,6 +164,7 @@ type OnboardingPayload = {
     formMode?: string;
     scrapeExistingWebsite?: boolean;
     scrapeWebsiteDomain?: string;
+    sessionId?: string;
 };
 
 type AdditionalSiteRaw = {
@@ -232,6 +239,69 @@ function sanitizeImageMeta(
         filename: sanitizeFilename(obj.filename),
         alt: sanitize(obj.alt, 200),
     };
+}
+
+/**
+ * Resolve the Stripe payment and signed-agreement context for the combined
+ * operator email. Every lookup degrades gracefully — a failure is logged and
+ * the email still goes out with whatever sections are available.
+ */
+async function gatherClientContext(sessionId: string): Promise<{
+    payment: PaymentDetails | null;
+    agreement: AgreementRecord | null;
+    agreementPdf: Buffer | null;
+}> {
+    let payment: PaymentDetails | null = null;
+    let agreement: AgreementRecord | null = null;
+    let agreementPdf: Buffer | null = null;
+
+    if (!sessionId) {
+        return { payment, agreement, agreementPdf };
+    }
+
+    let agreementId: string | undefined;
+    try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        if (session.payment_status === "paid") {
+            payment = {
+                plan: session.metadata?.plan,
+                customerName: session.customer_details?.name,
+                customerEmail: session.customer_details?.email,
+                amountTotal: session.amount_total,
+                subscriptionId:
+                    typeof session.subscription === "string" ? session.subscription : undefined,
+                sessionId: session.id,
+            };
+            agreementId = session.metadata?.agreement_id;
+        } else {
+            console.warn("[onboarding] session not paid — skipping payment section", sessionId);
+        }
+    } catch (e) {
+        console.error("[onboarding] stripe session lookup failed", sessionId, e);
+    }
+
+    if (agreementId) {
+        try {
+            agreement = await getAgreement(agreementId);
+        } catch (e) {
+            console.error("[onboarding] agreement lookup failed", agreementId, e);
+        }
+    }
+
+    if (agreement?.pdfUrl) {
+        try {
+            const res = await fetch(agreement.pdfUrl);
+            if (res.ok) {
+                agreementPdf = Buffer.from(await res.arrayBuffer());
+            } else {
+                console.error("[onboarding] agreement PDF fetch returned", res.status, agreement.pdfUrl);
+            }
+        } catch (e) {
+            console.error("[onboarding] agreement PDF fetch failed", agreement.pdfUrl, e);
+        }
+    }
+
+    return { payment, agreement, agreementPdf };
 }
 
 async function verifyTurnstileToken(token: string, remoteIp: string): Promise<boolean> {
@@ -565,22 +635,32 @@ export async function POST(request: Request) {
             scrapeWebsiteDomain,
         };
 
+        // Same cs_… shape the client enforces in safeStorageKey.
+        const rawSessionId = sanitize(body.sessionId, 200);
+        const sessionId = /^cs_[a-zA-Z0-9_]+$/.test(rawSessionId) ? rawSessionId : "";
+
         // Map to Intake envelope and notify owner via Resend.
         const intake = mapPayloadToIntake(submissionData as OnboardingSubmission);
-        const webhookPayload = {
-            ...intake,
-            _payload_json: JSON.stringify(normalizeEmpties(intake), null, 2),
-        };
-        // Notify owner — fire-and-forget, email failure must not block the user's response.
-        sendOnboardingNotification({
-            brandName,
-            email,
-            phone,
-            plan: selectedPlan,
-            websiteType,
-            servicesCount: services.length,
-            payloadJson: webhookPayload._payload_json,
-        }).catch((e) => console.error("[onboarding] notification email failed", e));
+        const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
+
+        // The single operator email (payment + agreement PDF + intake JSON) runs
+        // after the response via after() — Vercel keeps the function alive for it
+        // (a plain fire-and-forget promise gets killed when the lambda freezes).
+        after(async () => {
+            const { payment, agreement, agreementPdf } = await gatherClientContext(sessionId);
+            await sendClientCompleteNotification({
+                brandName,
+                email,
+                phone,
+                plan: selectedPlan,
+                websiteType,
+                servicesCount: services.length,
+                payloadJson,
+                payment,
+                agreement,
+                agreementPdf,
+            }).catch((e) => console.error("[onboarding] notification email failed", e));
+        });
 
         return NextResponse.json({ message: "Onboarding submission sent successfully." }, { status: 200 });
     } catch {
