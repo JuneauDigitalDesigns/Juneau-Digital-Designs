@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { AgreementRecord } from "./agreement-types";
+import { brandedEmailHtml } from "./email-template";
 
 export interface PaymentDetails {
   plan?: string | null;
@@ -108,16 +109,16 @@ export async function sendClientCompleteNotification(
     row("Services", String(data.servicesCount)),
   ].join("");
 
-  const html = `
-    <div style="font-family:system-ui,-apple-system,sans-serif;color:#111;line-height:1.55;max-width:560px;">
-      <h2 style="margin:0 0 4px;font-weight:600;">New Client — ${data.brandName}</h2>
-      <p style="margin:0;color:#555;font-size:13px;">Signed, paid, and onboarded.</p>
+  const html = brandedEmailHtml({
+    title: `New Client — ${data.brandName}`,
+    subtitle: "Signed, paid, and onboarded.",
+    body: `
       ${section("Payment", paymentRows)}
       ${section("Agreement", agreementRows)}
       ${section("Onboarding", onboardingRows)}
       <p style="color:#888;font-size:12px;margin-top:16px;">Full intake payload attached as JSON.</p>
-    </div>
-  `;
+    `,
+  });
 
   const attachments: { filename: string; content: string }[] = [
     {
