@@ -1128,6 +1128,9 @@ select option {
   align-items: center;
 }
 
+/* allow grid items to shrink below content min-width (prevents headline overflow) */
+.hero-grid > * { min-width: 0; }
+
 @media (min-width: 900px) {
   .hero-grid {
     /* copy ≈ 63%, panel ≈ 37% → panel reads thinner */

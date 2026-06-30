@@ -81,7 +81,7 @@ function Hero() {
           <span className="anim-blink" style={{ width: 9, height: 9, borderRadius: 999, background: "var(--accent-2)", display: "inline-block" }} />
           The line is always open
         </p>
-        <h1 style={{ fontWeight: 900, fontSize: "clamp(64px,10vw,92px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+        <h1 style={{ fontWeight: 900, fontSize: "clamp(44px,12vw,92px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase" }}>
           We pick <span style={{ color: "var(--accent-2)" }}>up.</span>
         </h1>
         <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px 0 32px" }}>
