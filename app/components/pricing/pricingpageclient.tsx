@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { Check, Microphone } from "@phosphor-icons/react";
 
@@ -90,15 +89,17 @@ export default function PricingPageClient() {
                     transition={{ duration: 0.55, ease: "easeOut" }}
                     style={{ marginBottom: 60, textAlign: "center" }}
                 >
-                    <span className="eyebrow" style={{ marginBottom: 20 }}>Pricing</span>
+                    
+                    
                     <h1
                         style={{
                             fontSize: "var(--text-4xl)",
                             marginTop: 16,
                             marginBottom: 16,
+                            textTransform: "uppercase",
                         }}
                     >
-                        Simple, <em style={{ color: "var(--accent)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
+                        Simple, <em style={{ color: "var(--accent-2)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
                     </h1>
                     <p
                         style={{
@@ -140,34 +141,13 @@ export default function PricingPageClient() {
                                     ? {
                                         transform: "scale(1.04)",
                                         zIndex: 1,
-                                        borderTop: "2px solid var(--accent)",
-                                        boxShadow: "0 0 0 1px var(--accent) inset, inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 80px -30px rgba(0,0,0,0.6), 0 0 80px -10px rgba(245,237,214,0.25)",
+                                        borderTop: "2px solid var(--accent-2)",
+                                        boxShadow: "0 0 0 1px var(--accent-2) inset, 0 30px 80px -30px rgba(0,0,0,0.35), 0 0 60px -10px var(--accent-glow)",
                                     }
                                     : {}),
                             }}
                         >
                             {/* Badges */}
-                            {tier.slug === "starter" && (
-                                <span
-                                    style={{
-                                        position: "absolute",
-                                        top: 16,
-                                        right: 20,
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10,
-                                        fontWeight: 500,
-                                        letterSpacing: "0.12em",
-                                        textTransform: "uppercase",
-                                        color: "var(--accent)",
-                                        border: "1px solid var(--accent-glow)",
-                                        background: "rgba(245,237,214,0.08)",
-                                        borderRadius: 999,
-                                        padding: "3px 10px",
-                                    }}
-                                >
-                                    New Client Offer!
-                                </span>
-                            )}
                             {tier.highlighted && (
                                 <span
                                     style={{
@@ -180,8 +160,8 @@ export default function PricingPageClient() {
                                         fontWeight: 500,
                                         letterSpacing: "0.12em",
                                         textTransform: "uppercase",
-                                        background: "var(--accent)",
-                                        color: "#06121a",
+                                        background: "var(--accent-2)",
+                                        color: "#fff",
                                         borderRadius: "0 0 12px 12px",
                                         padding: "5px 16px",
                                         whiteSpace: "nowrap",
@@ -272,9 +252,8 @@ export default function PricingPageClient() {
                                         marginBottom: 20,
                                         padding: "14px 16px",
                                         borderRadius: 14,
-                                        background: "linear-gradient(135deg, rgba(245,237,214,0.12) 0%, rgba(245,237,214,0.06) 100%)",
-                                        border: "1px solid rgba(245,237,214,0.25)",
-                                        boxShadow: "0 0 24px -8px rgba(245,237,214,0.15)",
+                                        background: "var(--surface)",
+                                        border: "1px solid var(--rule)",
                                     }}
                                 >
                                     <Microphone
@@ -303,7 +282,7 @@ export default function PricingPageClient() {
                                         <Check
                                             weight="bold"
                                             size={14}
-                                            style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }}
+                                            style={{ color: "var(--online)", marginTop: 2, flexShrink: 0 }}
                                         />
                                         <span>{feature}</span>
                                     </li>
@@ -322,7 +301,7 @@ export default function PricingPageClient() {
                                     {loadingPlan === tier.slug ? "Redirecting…" : `Get started with ${tier.name}`}
                                 </button>
                                 {checkoutError && loadingPlan === null && (
-                                    <p style={{ marginTop: 10, fontSize: 12, color: "#FF6961" }}>
+                                    <p style={{ marginTop: 10, fontSize: 12, color: "var(--accent-2)" }}>
                                         {checkoutError}
                                     </p>
                                 )}
@@ -330,26 +309,6 @@ export default function PricingPageClient() {
                         </motion.div>
                     ))}
                 </div>
-
-                {/* Footer note */}
-                <motion.p
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: "easeOut", delay: 0.4 }}
-                    style={{
-                        marginTop: 40,
-                        textAlign: "center",
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 13,
-                        color: "var(--fg-3)",
-                    }}
-                >
-                    Questions? Reach out via the contact form on our{" "}
-                    <Link href="/" style={{ color: "var(--accent)", textDecoration: "underline" }}>
-                        home page
-                    </Link>
-                    .
-                </motion.p>
             </div>
         </main>
     );

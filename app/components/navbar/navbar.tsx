@@ -1,16 +1,12 @@
-"use client"
-import Image from "next/image"
-import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-
-interface Pages {
-    name: string;
-    href: string;
-}
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import ThemeToggle from "../theme/ThemeToggle";
 
 export default function Navbar() {
-    const [showNav, setShowNav] = useState(false)
+    const [showNav, setShowNav] = useState(false);
     const navRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -23,29 +19,30 @@ export default function Navbar() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-
     return (
         <div
             ref={navRef}
-            className="top-0 z-50 w-full"
+            className="sticky top-0 z-50 w-full"
             style={{
-                background: "rgba(7, 16, 30, 0.75)",
+                background: "var(--nav-bg)",
                 backdropFilter: "blur(28px) saturate(150%)",
                 WebkitBackdropFilter: "blur(28px) saturate(150%)",
-                
+                borderBottom: "1px solid var(--rule)",
             }}
         >
-            <div className="mx-auto flex h-16 w-full max-w-7xl items-center px-4 sm:px-6">
-                <Link href="/" aria-label="Go to home page" className="hover:cursor-pointer">
-                    <Image src="/JDs_nobg.png" alt="Juneau Digital Designs home" width={100} height={100} className="h-20 w-20 sm:h-25 sm:w-25" />
+            <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
+                <Link href="/" aria-label="Go to home page" className="flex items-center gap-3 hover:cursor-pointer">
+                    {/* light mode → JD_dark wordmark · dark mode → JD_light wordmark */}
+                    <Image src="/JDD_mark.png" alt="Juneau Digital Designs home" width={886} height={347} priority className="logo-light h-12 w-auto sm:h-16" />
+                    <Image src="/JDD_mark_1.png" alt="Juneau Digital Designs home" width={886} height={347} priority className="logo-dark h-12 w-auto sm:h-16" />
                 </Link>
 
-                {/* Desktop nav */}
-                <div className="ml-auto hidden items-center gap-7 text-sm md:flex">
-                    
-                    <Link href="/pricing" className="btn primary" style={{ fontSize: 13.5 }}>
+                {/* Desktop nav — toggle pinned far right */}
+                <div className="ml-auto hidden items-center gap-4 md:flex">
+                    <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
                         View Pricing
                     </Link>
+                    <ThemeToggle />
                 </div>
 
                 {/* Mobile hamburger */}
@@ -79,16 +76,18 @@ export default function Navbar() {
                         transition={{ duration: 0.175, ease: "easeOut" }}
                         className="absolute w-full md:hidden pb-6 pt-3"
                         style={{
-                            background: "rgba(7, 16, 30, 0.97)",
+                            background: "var(--nav-bg-solid)",
                             backdropFilter: "blur(28px) saturate(150%)",
                             WebkitBackdropFilter: "blur(28px) saturate(150%)",
                             borderBottom: "1px solid var(--rule)",
                             color: "var(--fg)",
                         }}
                     >
-                        <div className="mx-auto w-full max-w-7xl px-4">
-                            <p className="kicker px-1 pt-1 pb-3">Navigation</p>
-
+                        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
+                            <div className="flex items-center justify-between">
+                                <span className="kicker">Theme</span>
+                                <ThemeToggle />
+                            </div>
                             <Link
                                 className="btn primary w-full justify-center"
                                 href="/pricing"
@@ -101,5 +100,5 @@ export default function Navbar() {
                 )}
             </AnimatePresence>
         </div>
-    )
+    );
 }

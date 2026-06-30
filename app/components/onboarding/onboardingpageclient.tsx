@@ -275,8 +275,14 @@ function makeInitialData(plan: PlanSlug, prefillEmail = ""): OnboardingFormData 
 }
 
 const inputCls =
-    "rounded-xl border border-white/[0.12] bg-white/[0.06] w-full px-4 py-3 text-white/90 placeholder:text-white/30 outline-none transition focus:border-[var(--accent)]";
-const labelCls = "flex flex-col gap-2 text-sm font-semibold";
+    "rounded-xl border border-[var(--rule)] bg-[var(--surface)] w-full px-4 py-3 text-[var(--fg)] placeholder:text-[var(--fg-3)] outline-none transition focus:border-[var(--accent)]";
+const labelCls = "flex flex-col gap-2 text-sm font-semibold text-[var(--fg)]";
+const cardCls = "relative rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4";
+const addBtnCls = "inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
+const removeBtnCls = "absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]";
+const removeRowBtnCls = "mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--rule)] text-[var(--fg-3)] transition hover:text-[var(--accent-2)]";
+const previewCls = "flex items-center gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-3";
+const uploadBtnCls = "w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]";
 
 function SectionHeading({ number, title }: { number: string; title: string }) {
     return (
@@ -300,7 +306,7 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
                     justifyContent: "center",
                     borderRadius: "50%",
                     background: "var(--accent)",
-                    color: "#06121a",
+                    color: "var(--on-accent)",
                     fontSize: 11,
                     fontWeight: 700,
                     fontFamily: "var(--font-mono)",
@@ -374,7 +380,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
             "error-callback": () => {
                 setFormData((prev) => ({ ...prev, turnstileToken: "" }));
             },
-            theme: "light",
+            theme: "auto",
         });
     }, [turnstileScriptLoaded, turnstileSiteKey]);
 
@@ -868,7 +874,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 alignItems: "center",
                                 justifyContent: "center",
                                 borderRadius: "50%",
-                                background: "rgba(182,168,255,0.15)",
+                                background: "var(--surface)",
                                 border: "1px solid var(--accent-glow)",
                                 fontSize: 28,
                                 color: "var(--accent)",
@@ -908,7 +914,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                     position: "sticky",
                     top: 64,
                     zIndex: 40,
-                    background: "rgba(7,16,30,0.9)",
+                    background: "var(--nav-bg-solid)",
                     backdropFilter: "blur(16px)",
                     WebkitBackdropFilter: "blur(16px)",
                     borderBottom: "1px solid var(--rule)",
@@ -941,13 +947,14 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                 </div>
 
                 {restored && (
-                    <div className="mb-6 flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink">
-                        <span className="mt-0.5 shrink-0 text-accent">✓</span>
+                    <div className="mb-6 flex items-start gap-3 rounded-lg px-4 py-3 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
+                        <span className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>✓</span>
                         <p className="flex-1">
                             Welcome back — your progress has been restored.{" "}
                             <button
                                 type="button"
                                 className="underline hover:no-underline"
+                                style={{ color: "var(--accent)" }}
                                 onClick={() => {
                                     const key = safeStorageKey(sessionId);
                                     if (key) localStorage.removeItem(key);
@@ -961,7 +968,8 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                         <button
                             type="button"
                             onClick={() => setRestored(false)}
-                            className="shrink-0 text-inkSoft hover:text-ink"
+                            className="shrink-0"
+                            style={{ color: "var(--fg-3)" }}
                             aria-label="Dismiss"
                         >
                             ✕
@@ -1001,7 +1009,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                     style={{
                                         minWidth: 160,
                                         ...(formData.formMode === mode
-                                            ? { border: "2px solid var(--accent)", background: "rgba(182,168,255,0.1)", color: "var(--fg)" }
+                                            ? { border: "2px solid var(--accent)", background: "var(--surface)", color: "var(--fg)" }
                                             : { border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }),
                                     }}
                                 >
@@ -1110,7 +1118,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
 
                         {/* Existing website scrape option (Basic mode only) */}
                         {formData.formMode === "basic" && (
-                            <div className="mt-5 rounded-2xl border border-white/[0.10] bg-white/[0.04] p-5 space-y-4">
+                            <div className="mt-5 rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-5 space-y-4">
                                 <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
                                     Existing website
                                 </p>
@@ -1119,7 +1127,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="checkbox"
                                         checked={formData.scrapeExistingWebsite}
                                         onChange={(e) => set("scrapeExistingWebsite", e.target.checked)}
-                                        className="mt-1 h-4 w-4 rounded border-white/20"
+                                        className="mt-1 h-4 w-4 rounded border-[var(--rule-strong)]"
                                     />
                                     <span style={{ fontSize: 14, color: "var(--fg-2)", lineHeight: 1.6 }}>
                                         I have an existing website — scrape it for content, branding, and metadata to use as a starting point for the new site.
@@ -1252,9 +1260,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="color"
                                         value={formData.paletteAccent}
                                         onChange={(e) => set("paletteAccent", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--rule)] p-1"
                                     />
-                                    <span className="font-mono text-sm text-white/60">{formData.paletteAccent}</span>
+                                    <span className="font-mono text-sm text-[var(--fg-3)]">{formData.paletteAccent}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1264,9 +1272,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="color"
                                         value={formData.paletteBg}
                                         onChange={(e) => set("paletteBg", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--rule)] p-1"
                                     />
-                                    <span className="font-mono text-sm text-white/60">{formData.paletteBg}</span>
+                                    <span className="font-mono text-sm text-[var(--fg-3)]">{formData.paletteBg}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1276,9 +1284,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="color"
                                         value={formData.paletteBgSoft}
                                         onChange={(e) => set("paletteBgSoft", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--rule)] p-1"
                                     />
-                                    <span className="font-mono text-sm text-white/60">{formData.paletteBgSoft}</span>
+                                    <span className="font-mono text-sm text-[var(--fg-3)]">{formData.paletteBgSoft}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1288,9 +1296,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="color"
                                         value={formData.paletteInk}
                                         onChange={(e) => set("paletteInk", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--rule)] p-1"
                                     />
-                                    <span className="font-mono text-sm text-white/60">{formData.paletteInk}</span>
+                                    <span className="font-mono text-sm text-[var(--fg-3)]">{formData.paletteInk}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1300,9 +1308,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="color"
                                         value={formData.paletteInkSoft}
                                         onChange={(e) => set("paletteInkSoft", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--rule)] p-1"
                                     />
-                                    <span className="font-mono text-sm text-white/60">{formData.paletteInkSoft}</span>
+                                    <span className="font-mono text-sm text-[var(--fg-3)]">{formData.paletteInkSoft}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1312,9 +1320,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         type="color"
                                         value={formData.paletteRule}
                                         onChange={(e) => set("paletteRule", e.target.value)}
-                                        className="h-11 w-16 cursor-pointer rounded-lg border border-white/[0.12] p-1"
+                                        className="h-11 w-16 cursor-pointer rounded-lg border border-[var(--rule)] p-1"
                                     />
-                                    <span className="font-mono text-sm text-white/60">{formData.paletteRule}</span>
+                                    <span className="font-mono text-sm text-[var(--fg-3)]">{formData.paletteRule}</span>
                                 </div>
                             </div>
                             <div className={labelCls}>
@@ -1326,7 +1334,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                             className="cursor-pointer rounded-xl border px-5 py-2.5 text-sm font-semibold transition"
                                             style={
                                                 formData.hasLogo === val
-                                                    ? { border: "1px solid var(--accent)", background: "rgba(182,168,255,0.15)", color: "var(--accent)" }
+                                                    ? { border: "1px solid var(--accent)", background: "var(--surface)", color: "var(--accent)" }
                                                     : { border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }
                                             }
                                         >
@@ -1348,24 +1356,24 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                     <span>Upload your logo</span>
                                     <div className="flex flex-col gap-3">
                                         {formData.images.logo && (
-                                            <div className="flex items-center gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-3">
+                                            <div className="flex items-center gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-3">
                                                 <img
                                                     src={formData.images.logo.url}
                                                     alt="Logo preview"
                                                     className="h-12 w-auto max-w-[120px] object-contain rounded"
                                                 />
-                                                <span className="flex-1 truncate text-sm text-white/60">{formData.images.logo.filename}</span>
+                                                <span className="flex-1 truncate text-sm text-[var(--fg-3)]">{formData.images.logo.filename}</span>
                                                 <button
                                                     type="button"
                                                     onClick={removeLogo}
-                                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]"
                                                     aria-label="Remove logo"
                                                 >
                                                     <Trash weight="bold" className="h-3.5 w-3.5" />
                                                 </button>
                                             </div>
                                         )}
-                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                             <input
                                                 type="file"
                                                 accept="image/jpeg,image/png,image/webp"
@@ -1378,7 +1386,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         {uploadErrors["logo"] && (
                                             <p className="text-sm text-red-600">{uploadErrors["logo"]}</p>
                                         )}
-                                        <p className="text-xs text-slate-500">JPEG, PNG, or WebP · Max 10 MB</p>
+                                        <p className="text-xs text-[var(--fg-3)]">JPEG, PNG, or WebP · Max 10 MB</p>
                                     </div>
                                 </div>
                             )}
@@ -1389,10 +1397,10 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="4" title="Online Presence" />
 
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">SEO</p>
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--fg-3)]">SEO</p>
                         <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={`${labelCls} md:col-span-2`}>
-                                <span>Page title <span className="font-normal text-slate-500">(browser tab / search result headline)</span></span>
+                                <span>Page title <span className="font-normal text-[var(--fg-3)]">(browser tab / search result headline)</span></span>
                                 <input
                                     type="text"
                                     value={formData.seoTitle}
@@ -1443,7 +1451,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             </label>
                         </div>
 
-                        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Extensions</p>
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--fg-3)]">Extensions</p>
                         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                             <label className={labelCls}>
                                 <span>Google Maps URL</span>
@@ -1512,7 +1520,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                         </p>
                         <div className="grid grid-cols-1 gap-5">
                             <label className={labelCls}>
-                                <span>Eyebrow <span className="font-normal text-slate-500">(small label above headline)</span></span>
+                                <span>Eyebrow <span className="font-normal text-[var(--fg-3)]">(small label above headline)</span></span>
                                 <input
                                     type="text"
                                     value={formData.heroEyebrow}
@@ -1533,7 +1541,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                     />
                                 </label>
                                 <label className={labelCls}>
-                                    <span>Headline emphasis <span className="font-normal text-slate-500">(highlighted word / phrase)</span></span>
+                                    <span>Headline emphasis <span className="font-normal text-[var(--fg-3)]">(highlighted word / phrase)</span></span>
                                     <input
                                         type="text"
                                         value={formData.heroHeadlineEmphasis}
@@ -1576,7 +1584,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 </label>
                             </div>
                             <label className={labelCls}>
-                                <span>Trust badge <span className="font-normal text-slate-500">(short credibility line near the CTA)</span></span>
+                                <span>Trust badge <span className="font-normal text-[var(--fg-3)]">(short credibility line near the CTA)</span></span>
                                 <input
                                     type="text"
                                     value={formData.heroBadge}
@@ -1586,7 +1594,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 />
                             </label>
                             <div className={labelCls}>
-                                <span>Friction reducers <span className="font-normal text-slate-500">(reassurances shown near the CTA)</span></span>
+                                <span>Friction reducers <span className="font-normal text-[var(--fg-3)]">(reassurances shown near the CTA)</span></span>
                                 <div className="space-y-2">
                                     {formData.heroFrictionReducers.map((fr, i) => (
                                         <div key={i} className="flex items-center gap-2">
@@ -1600,7 +1608,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                             <button
                                                 type="button"
                                                 onClick={() => removeFrictionReducer("heroFrictionReducers", i)}
-                                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400"
+                                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--rule)] text-[var(--fg-3)] transition hover:text-[var(--accent-2)]"
                                                 aria-label="Remove"
                                             >
                                                 <Trash weight="bold" className="h-3.5 w-3.5" />
@@ -1612,7 +1620,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                     <button
                                         type="button"
                                         onClick={() => addFrictionReducer("heroFrictionReducers")}
-                                        className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
+                                        className="mt-1 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                                     >
                                         <Plus weight="bold" className="h-3.5 w-3.5" />
                                         Add friction reducer
@@ -1624,7 +1632,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 {formData.images.heroSlides.length > 0 && (
                                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                                         {formData.images.heroSlides.map((img, i) => (
-                                            <div key={i} className="relative overflow-hidden rounded-lg border border-white/[0.10]">
+                                            <div key={i} className="relative overflow-hidden rounded-lg border border-[var(--rule)]">
                                                 <img
                                                     src={img.url}
                                                     alt={img.alt || `Hero ${i + 1}`}
@@ -1644,7 +1652,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 )}
                                 <div className="flex flex-col gap-2">
                                     {formData.images.heroSlides.length < 10 && (
-                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                        <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                             <input
                                                 type="file"
                                                 accept="image/jpeg,image/png,image/webp"
@@ -1656,13 +1664,13 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                             {uploadingSlots.has("hero") ? "Uploading…" : "Add photos"}
                                         </label>
                                     )}
-                                    <p className="text-xs text-slate-500">
+                                    <p className="text-xs text-[var(--fg-3)]">
                                         {formData.images.heroSlides.length}/10 uploaded · We recommend uploading at least 3 hero photos for the slideshow.
                                     </p>
                                     {uploadErrors["hero"] && (
                                         <p className="text-sm text-red-600">{uploadErrors["hero"]}</p>
                                     )}
-                                    <p className="text-xs text-slate-400">JPEG, PNG, or WebP · Max 10 MB per photo</p>
+                                    <p className="text-xs text-[var(--fg-3)]">JPEG, PNG, or WebP · Max 10 MB per photo</p>
                                 </div>
                             </div>
                         </div>
@@ -1712,37 +1720,37 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             <span>Feature / team photo</span>
                             <div className="flex flex-col gap-3">
                                 {formData.images.aboutFeature && (
-                                    <div className="flex items-center gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-3">
+                                    <div className="flex items-center gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-3">
                                         <img src={formData.images.aboutFeature.url} alt="About feature preview" className="h-14 w-auto max-w-[140px] rounded object-cover" />
-                                        <span className="flex-1 truncate text-sm text-white/60">{formData.images.aboutFeature.filename}</span>
-                                        <button type="button" onClick={removeAboutFeature} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove photo">
+                                        <span className="flex-1 truncate text-sm text-[var(--fg-3)]">{formData.images.aboutFeature.filename}</span>
+                                        <button type="button" onClick={removeAboutFeature} className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]" aria-label="Remove photo">
                                             <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
                                 )}
-                                <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                     <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleAboutFeatureUpload} disabled={uploadingSlots.has("about-feature")} />
                                     {uploadingSlots.has("about-feature") ? "Uploading…" : formData.images.aboutFeature ? "Replace photo" : "Choose photo"}
                                 </label>
                                 {uploadErrors["about-feature"] && <p className="text-sm text-red-600">{uploadErrors["about-feature"]}</p>}
-                                <p className="text-xs text-slate-400">JPEG, PNG, or WebP · Max 10 MB</p>
+                                <p className="text-xs text-[var(--fg-3)]">JPEG, PNG, or WebP · Max 10 MB</p>
                             </div>
                         </div>
 
                         {/* Pillars */}
                         <div className="mt-6">
-                            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Value pillars <span className="normal-case font-normal text-slate-500">(shown as icon cards in the about section — max 4)</span></p>
+                            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--fg-3)]">Value pillars <span className="normal-case font-normal text-[var(--fg-3)]">(shown as icon cards in the about section — max 4)</span></p>
                             <div className="space-y-3">
                                 {formData.pillars.map((pillar, i) => (
-                                    <div key={i} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
+                                    <div key={i} className="relative rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                                         {formData.pillars.length > 1 && (
-                                            <button type="button" onClick={() => removePillar(i)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove pillar">
+                                            <button type="button" onClick={() => removePillar(i)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]" aria-label="Remove pillar">
                                                 <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         )}
                                         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                                             <label className={labelCls}>
-                                                <span>Icon key <span className="font-normal text-slate-500">(e.g. shield)</span></span>
+                                                <span>Icon key <span className="font-normal text-[var(--fg-3)]">(e.g. shield)</span></span>
                                                 <input type="text" value={pillar.k} onChange={(e) => updatePillar(i, "k", e.target.value)} placeholder="shield" className={inputCls} />
                                             </label>
                                             <label className={labelCls}>
@@ -1758,7 +1766,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 ))}
                             </div>
                             {formData.pillars.length < 4 && (
-                                <button type="button" onClick={addPillar} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                <button type="button" onClick={addPillar} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                     <Plus weight="bold" className="h-3.5 w-3.5" />
                                     Add pillar
                                 </button>
@@ -1767,7 +1775,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
 
                         {/* About stats */}
                         <div className="mt-6">
-                            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-400">About stats <span className="normal-case font-normal text-slate-500">(numbers shown in the about section — max 4)</span></p>
+                            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--fg-3)]">About stats <span className="normal-case font-normal text-[var(--fg-3)]">(numbers shown in the about section — max 4)</span></p>
                             <div className="space-y-2">
                                 {formData.aboutStats.map((stat, i) => (
                                     <div key={i} className="flex items-end gap-3">
@@ -1780,7 +1788,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                             <input type="text" value={stat.l} onChange={(e) => updateAboutStat(i, "l", e.target.value)} placeholder="Years in business" className={inputCls} />
                                         </label>
                                         {formData.aboutStats.length > 1 && (
-                                            <button type="button" onClick={() => removeAboutStat(i)} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Remove stat">
+                                            <button type="button" onClick={() => removeAboutStat(i)} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--rule)] text-[var(--fg-3)] transition hover:text-[var(--accent-2)]" aria-label="Remove stat">
                                                 <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         )}
@@ -1788,7 +1796,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 ))}
                             </div>
                             {formData.aboutStats.length < 4 && (
-                                <button type="button" onClick={addAboutStat} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                <button type="button" onClick={addAboutStat} className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                     <Plus weight="bold" className="h-3.5 w-3.5" />
                                     Add stat
                                 </button>
@@ -1813,18 +1821,18 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 <input type="text" value={formData.servicesSub} onChange={(e) => set("servicesSub", e.target.value)} placeholder="A short sentence introducing your services" className={inputCls} />
                             </label>
                         </div>
-                        <p className="mb-3 text-sm text-slate-500">Add up to 6 services you want featured on your site.</p>
+                        <p className="mb-3 text-sm text-[var(--fg-3)]">Add up to 6 services you want featured on your site.</p>
                         <div className="space-y-4">
                             {formData.services.map((service, index) => (
                                 <div
                                     key={index}
-                                    className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4"
+                                    className="relative rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4"
                                 >
                                     {formData.services.length > 1 && (
                                         <button
                                             type="button"
                                             onClick={() => removeService(index)}
-                                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]"
                                             aria-label="Remove service"
                                         >
                                             <Trash weight="bold" className="h-3.5 w-3.5" />
@@ -1866,7 +1874,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                             {service.images.length > 0 && (
                                                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                                                     {service.images.map((img, imgIdx) => (
-                                                        <div key={imgIdx} className="relative overflow-hidden rounded-lg border border-white/[0.10]">
+                                                        <div key={imgIdx} className="relative overflow-hidden rounded-lg border border-[var(--rule)]">
                                                             <img
                                                                 src={img.url}
                                                                 alt={img.alt || `Service photo ${imgIdx + 1}`}
@@ -1886,7 +1894,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                             )}
                                             <div className="flex flex-col gap-2">
                                                 {service.images.length < 5 && (
-                                                    <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                                    <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                                         <input
                                                             type="file"
                                                             accept="image/jpeg,image/png,image/webp"
@@ -1901,7 +1909,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                                 {uploadErrors[`service-${index}`] && (
                                                     <p className="text-sm text-red-600">{uploadErrors[`service-${index}`]}</p>
                                                 )}
-                                                <p className="text-xs text-slate-400">{service.images.length}/5 · JPEG, PNG, or WebP · Max 10 MB each</p>
+                                                <p className="text-xs text-[var(--fg-3)]">{service.images.length}/5 · JPEG, PNG, or WebP · Max 10 MB each</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1912,7 +1920,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             <button
                                 type="button"
                                 onClick={addService}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                             >
                                 <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add service
@@ -1937,12 +1945,12 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 <input type="text" value={formData.workSub} onChange={(e) => set("workSub", e.target.value)} placeholder="A brief sentence showcasing your project portfolio" className={inputCls} />
                             </label>
                         </div>
-                        <p className="mb-3 text-sm text-slate-500">Add up to 6 featured projects. Each can have a photo, location, year, and scope.</p>
+                        <p className="mb-3 text-sm text-[var(--fg-3)]">Add up to 6 featured projects. Each can have a photo, location, year, and scope.</p>
                         <div className="space-y-4">
                             {formData.projects.map((project, index) => (
-                                <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
+                                <div key={index} className="relative rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                                     {formData.projects.length > 1 && (
-                                        <button type="button" onClick={() => removeProject(index)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove project">
+                                        <button type="button" onClick={() => removeProject(index)} className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]" aria-label="Remove project">
                                             <Trash weight="bold" className="h-3.5 w-3.5" />
                                         </button>
                                     )}
@@ -1975,27 +1983,27 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         <div className={`${labelCls} md:col-span-2`}>
                                             <span>Project photo</span>
                                             {project.image && (
-                                                <div className="flex items-center gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-3">
+                                                <div className="flex items-center gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-3">
                                                     <img src={project.image.url} alt={project.image.alt || "Project"} className="h-14 w-auto max-w-[120px] rounded object-cover" />
-                                                    <span className="flex-1 truncate text-sm text-white/60">{project.image.filename}</span>
-                                                    <button type="button" onClick={() => removeProjectImage(index)} className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500" aria-label="Remove photo">
+                                                    <span className="flex-1 truncate text-sm text-[var(--fg-3)]">{project.image.filename}</span>
+                                                    <button type="button" onClick={() => removeProjectImage(index)} className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]" aria-label="Remove photo">
                                                         <Trash weight="bold" className="h-3.5 w-3.5" />
                                                     </button>
                                                 </div>
                                             )}
-                                            <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                            <label className="w-fit cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                                 <input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(e) => handleProjectImageUpload(index, e)} disabled={uploadingSlots.has(`project-${index}`)} />
                                                 {uploadingSlots.has(`project-${index}`) ? "Uploading…" : project.image ? "Replace photo" : "Choose photo"}
                                             </label>
                                             {uploadErrors[`project-${index}`] && <p className="text-sm text-red-600">{uploadErrors[`project-${index}`]}</p>}
-                                            <p className="text-xs text-slate-400">JPEG, PNG, or WebP · Max 10 MB</p>
+                                            <p className="text-xs text-[var(--fg-3)]">JPEG, PNG, or WebP · Max 10 MB</p>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
                         {formData.projects.length < 6 && (
-                            <button type="button" onClick={addProject} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                            <button type="button" onClick={addProject} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                 <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add project
                             </button>
@@ -2015,15 +2023,15 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 <input type="text" value={formData.testimonialsTitle} onChange={(e) => set("testimonialsTitle", e.target.value)} placeholder="e.g. Trusted by locals" className={inputCls} />
                             </label>
                         </div>
-                        <p className="mb-3 text-sm text-slate-500">Add up to 3 client quotes for your site.</p>
+                        <p className="mb-3 text-sm text-[var(--fg-3)]">Add up to 3 client quotes for your site.</p>
                         <div className="space-y-4">
                             {formData.testimonials.map((t, index) => (
-                                <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
+                                <div key={index} className="relative rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                                     {formData.testimonials.length > 1 && (
                                         <button
                                             type="button"
                                             onClick={() => removeTestimonial(index)}
-                                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]"
                                             aria-label="Remove testimonial"
                                         >
                                             <Trash weight="bold" className="h-3.5 w-3.5" />
@@ -2092,7 +2100,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             <button
                                 type="button"
                                 onClick={addTestimonial}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                             >
                                 <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add testimonial
@@ -2133,7 +2141,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         <button
                                             type="button"
                                             onClick={() => removeBullet(index)}
-                                            className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400"
+                                            className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--rule)] text-[var(--fg-3)] transition hover:text-[var(--accent-2)]"
                                             aria-label="Remove stat"
                                         >
                                             <Trash weight="bold" className="h-3.5 w-3.5" />
@@ -2146,7 +2154,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             <button
                                 type="button"
                                 onClick={addBullet}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                             >
                                 <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add stat
@@ -2171,15 +2179,15 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 <input type="text" value={formData.faqSub} onChange={(e) => set("faqSub", e.target.value)} placeholder="A sentence introducing your FAQ section" className={inputCls} />
                             </label>
                         </div>
-                        <p className="mb-3 text-sm text-slate-500">Add up to 6 questions your customers commonly ask.</p>
+                        <p className="mb-3 text-sm text-[var(--fg-3)]">Add up to 6 questions your customers commonly ask.</p>
                         <div className="space-y-4">
                             {formData.faqs.map((faq, index) => (
-                                <div key={index} className="relative rounded-2xl border border-white/[0.10] bg-white/[0.04] p-4">
+                                <div key={index} className="relative rounded-2xl border border-[var(--rule)] bg-[var(--surface)] p-4">
                                     {formData.faqs.length > 1 && (
                                         <button
                                             type="button"
                                             onClick={() => removeFaq(index)}
-                                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+                                            className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--fg-3)] transition hover:text-[var(--accent-2)]"
                                             aria-label="Remove FAQ"
                                         >
                                             <Trash weight="bold" className="h-3.5 w-3.5" />
@@ -2214,7 +2222,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             <button
                                 type="button"
                                 onClick={addFaq}
-                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10"
+                                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
                             >
                                 <Plus weight="bold" className="h-3.5 w-3.5" />
                                 Add question
@@ -2250,19 +2258,19 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 <input type="text" value={formData.finalCtaSecondary} onChange={(e) => set("finalCtaSecondary", e.target.value)} placeholder="e.g. Call us now" className={inputCls} />
                             </label>
                             <div className={`${labelCls} md:col-span-2`}>
-                                <span>Friction reducers <span className="font-normal text-slate-500">(reassurances near the CTA button — max 4)</span></span>
+                                <span>Friction reducers <span className="font-normal text-[var(--fg-3)]">(reassurances near the CTA button — max 4)</span></span>
                                 <div className="space-y-2">
                                     {formData.finalCtaFrictionReducers.map((fr, i) => (
                                         <div key={i} className="flex items-center gap-2">
                                             <input type="text" value={fr} onChange={(e) => updateFrictionReducer("finalCtaFrictionReducers", i, e.target.value)} placeholder="e.g. Free estimates" className={inputCls} />
-                                            <button type="button" onClick={() => removeFrictionReducer("finalCtaFrictionReducers", i)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] text-white/50 transition hover:bg-red-500/10 hover:text-red-400" aria-label="Remove">
+                                            <button type="button" onClick={() => removeFrictionReducer("finalCtaFrictionReducers", i)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[var(--rule)] text-[var(--fg-3)] transition hover:text-[var(--accent-2)]" aria-label="Remove">
                                                 <Trash weight="bold" className="h-3.5 w-3.5" />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
                                 {formData.finalCtaFrictionReducers.length < 4 && (
-                                    <button type="button" onClick={() => addFrictionReducer("finalCtaFrictionReducers")} className="mt-1 inline-flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.06] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/20 hover:bg-white/10">
+                                    <button type="button" onClick={() => addFrictionReducer("finalCtaFrictionReducers")} className="mt-1 inline-flex items-center gap-2 rounded-xl border border-[var(--rule-strong)] bg-[var(--surface)] px-4 py-2.5 text-sm font-semibold text-[var(--fg-2)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                                         <Plus weight="bold" className="h-3.5 w-3.5" />
                                         Add friction reducer
                                     </button>
@@ -2279,7 +2287,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                         </p>
                         <div className="grid grid-cols-1 gap-5">
                             <label className={labelCls}>
-                                <span>Footer blurb <span className="font-normal text-slate-500">(1–2 sentences about your business)</span></span>
+                                <span>Footer blurb <span className="font-normal text-[var(--fg-3)]">(1–2 sentences about your business)</span></span>
                                 <textarea rows={3} value={formData.footerBlurb} onChange={(e) => set("footerBlurb", e.target.value)} placeholder="A short description of your business for the footer." className={inputCls} />
                             </label>
                             <label className={labelCls}>
@@ -2296,7 +2304,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                 number="15.5"
                                 title={`Additional sites (Enterprise — Site 1 of ${1 + formData.additionalSites.length})`}
                             />
-                            <p style={{ marginBottom: 16, fontSize: 14, color: "var(--ink-soft)" }}>
+                            <p style={{ marginBottom: 16, fontSize: 14, color: "var(--fg-3)" }}>
                                 Enterprise bundles up to 3 sites that share one pool of voice minutes.
                                 Add up to 2 more sites here — each gets its own deployed site, phone number,
                                 and AI voice agent. Fields you leave blank inherit from the primary site above.
@@ -2310,7 +2318,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         padding: 20,
                                         border: "1px solid var(--rule)",
                                         borderRadius: 14,
-                                        background: "var(--bg-soft)",
+                                        background: "var(--surface)",
                                     }}
                                 >
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -2353,7 +2361,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         </label>
                                         <label className={labelCls}>
                                             <span>Phone *</span>
-                                            <input type="tel" required value={site.phone} onChange={(e) => updateAdditionalSite(idx, "phone", e.target.value)} placeholder="(907) 555-0142" className={inputCls} />
+                                            <input type="tel" required value={site.phone} onChange={(e) => updateAdditionalSite(idx, "phone", e.target.value)} placeholder="(930) 222-1343" className={inputCls} />
                                         </label>
                                         <label className={labelCls}>
                                             <span>Address</span>
@@ -2369,7 +2377,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         </label>
                                     </div>
 
-                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-3)" }}>
                                         Brand palette
                                     </h4>
                                     <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
@@ -2386,7 +2394,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         ))}
                                     </div>
 
-                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-3)" }}>
                                         Hero (seeds the homepage + AI greeting)
                                     </h4>
                                     <div className="grid gap-3 sm:grid-cols-2">
@@ -2400,7 +2408,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         </label>
                                     </div>
 
-                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-3)" }}>
                                         Services ({site.services.length})
                                     </h4>
                                     {site.services.map((svc, svcIdx) => (
@@ -2423,7 +2431,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         </button>
                                     )}
 
-                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-soft)" }}>
+                                    <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-3)" }}>
                                         FAQs ({site.faqs.length})
                                     </h4>
                                     {site.faqs.map((faq, faqIdx) => (
@@ -2474,17 +2482,17 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
                         <SectionHeading number="16" title="Submit" />
 
-                        <label className="flex items-start gap-3 rounded-xl border border-white/[0.10] bg-white/[0.04] p-4 text-sm text-white/80">
+                        <label className="flex items-start gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 text-sm" style={{ color: "var(--fg-2)" }}>
                             <input
                                 required
                                 type="checkbox"
                                 checked={formData.consent}
                                 onChange={(e) => set("consent", e.target.checked)}
-                                className="mt-1 h-4 w-4 rounded border-white/20"
+                                className="mt-1 h-4 w-4 rounded border-[var(--rule-strong)]"
                             />
                             <span>
                                 I agree to the collection and processing of my information as described in the{" "}
-                                <Link href="/privacy-policy" className="font-semibold underline underline-offset-4 hover:text-white">
+                                <Link href="/privacy-policy" className="font-semibold underline underline-offset-4" style={{ color: "var(--fg)" }}>
                                     Privacy Policy
                                 </Link>
                                 .
@@ -2492,8 +2500,8 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                         </label>
 
                         <div className="mt-5 flex flex-col gap-3">
-                            <div className="rounded-xl border border-white/[0.10] bg-white/[0.04] p-4">
-                                <p className="mb-3 text-sm font-semibold text-white/90">Security verification</p>
+                            <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                                <p className="mb-3 text-sm font-semibold" style={{ color: "var(--fg)" }}>Security verification</p>
                                 <div ref={turnstileContainerRef} />
                             </div>
 

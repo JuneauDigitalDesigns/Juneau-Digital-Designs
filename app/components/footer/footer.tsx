@@ -21,29 +21,13 @@ export default function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-9">
                     {/* Col 1 — brand */}
                     <div>
-                        <Link href="/" aria-label="Go to home page" className="inline-flex items-center gap-3 mb-5">
-                            <Image
-                                src="/JDs_nobg.png"
-                                alt="Juneau Digital Designs home"
-                                width={52}
-                                height={52}
-                                className="rounded-lg"
-                                style={{ background: "var(--surface)", padding: 4 }}
-                            />
-                            <span
-                                style={{
-                                    fontFamily: "var(--font-display)",
-                                    fontSize: 15,
-                                    fontWeight: 500,
-                                    color: "var(--fg)",
-                                    lineHeight: 1.2,
-                                }}
-                            >
-                                Juneau Digital<br />Designs
-                            </span>
+                        <Link href="/" aria-label="Go to home page" className="inline-flex items-center mb-5">
+                            {/* light mode → JD_dark wordmark · dark mode → JD_light wordmark */}
+                            <Image src="/JDD_mark.png" alt="Juneau Digital Designs home" width={886} height={347} className="logo-light h-18 w-auto" />
+                            <Image src="/JDD_mark_1.png" alt="Juneau Digital Designs home" width={886} height={347} className="logo-dark h-18 w-auto" />
                         </Link>
                         <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
-                            Thoughtful design, clean code, and a partner-first process from kickoff to launch.
+                            Websites, hosting, and a 24/7 AI receptionist — so the phone always gets answered.
                         </p>
                     </div>
 
@@ -51,8 +35,8 @@ export default function Footer() {
                     <div>
                         <div className="kicker" style={{ marginBottom: 14 }}>Pages</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
-                            <li><Link href="/" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Home</Link></li>
-                            <li><Link href="/pricing" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Pricing</Link></li>
+                            <li><Link href="/" className="footer-link">Home</Link></li>
+                            <li><Link href="/pricing" className="footer-link">Pricing</Link></li>
                         </ul>
                     </div>
 
@@ -60,7 +44,7 @@ export default function Footer() {
                     <div>
                         <div className="kicker" style={{ marginBottom: 14 }}>Legal</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
-                            <li><Link href="/privacy-policy" style={{ color: "inherit", textDecoration: "none", transition: "color 0.2s" }} className="hover:text-white">Privacy Policy</Link></li>
+                            <li><Link href="/privacy-policy" className="footer-link">Privacy Policy</Link></li>
                         </ul>
                     </div>
                 </div>
@@ -81,6 +65,7 @@ export default function Footer() {
                     }}
                 >
                     <span>&copy; {year} Juneau Digital Designs. All rights reserved.</span>
+                    <span>WEBSITES / HOSTING / AI RECEPTIONIST</span>
                 </div>
             </div>
         </footer>

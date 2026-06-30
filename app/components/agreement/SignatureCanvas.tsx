@@ -23,7 +23,7 @@ const SignatureCanvas = forwardRef<SignatureCanvasHandle>(function SignatureCanv
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
-        ctx.strokeStyle = "#EDEDEE";
+        ctx.strokeStyle = "#1a1810";
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
