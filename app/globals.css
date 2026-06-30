@@ -1135,6 +1135,63 @@ select option {
   }
 }
 
+/* ── Hero CTA button group ───────────────────────────────── */
+.hero-cta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+@media (max-width: 640px) {
+  .hero-cta {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .hero-cta-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Outcomes strip ──────────────────────────────────────── */
+.outcomes-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.outcomes-grid > div {
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* right column: no right border */
+.outcomes-grid > div:nth-child(2n) {
+  border-right: none;
+}
+
+/* bottom row (last 2 items): no bottom border */
+.outcomes-grid > div:nth-last-child(-n+2) {
+  border-bottom: none;
+}
+
+@media (min-width: 640px) {
+  .outcomes-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  /* on 4-col all items reset to right border, no bottom border */
+  .outcomes-grid > div {
+    border-right: 1px solid var(--rule);
+    border-bottom: none;
+  }
+  /* last item loses its right border */
+  .outcomes-grid > div:last-child {
+    border-right: none;
+  }
+}
+
 /* ── Calc accordion ──────────────────────────────────────── */
 .calc-accordion {
   margin-top: 20px;

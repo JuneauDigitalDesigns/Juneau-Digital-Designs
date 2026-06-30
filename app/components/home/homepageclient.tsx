@@ -81,18 +81,18 @@ function Hero() {
           <span className="anim-blink" style={{ width: 9, height: 9, borderRadius: 999, background: "var(--accent-2)", display: "inline-block" }} />
           The line is always open
         </p>
-        <h1 style={{ fontWeight: 900, fontSize: "clamp(40px,7.5vw,92px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+        <h1 style={{ fontWeight: 900, fontSize: "clamp(64px,10vw,92px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
           We pick <span style={{ color: "var(--accent-2)" }}>up.</span>
         </h1>
         <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px 0 32px" }}>
-          Juneau Digital builds and hosts your website, then runs a 24/7 AI receptionist on your line. While you&apos;re on the job, the phone still gets answered, the lead still gets booked, and you still get the text.
+          Juneau Digital builds and hosts your website, then runs a 24/7 AI receptionist on your line. Your phone gets answered when you can&apos;t, and you get a text.
         </p>
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-          <div style={{ position: "relative" }}>
-            <a href={DEMO_TEL} className="btn primary lg">Try it now</a>
-            <span style={{ position: "absolute", top: "calc(100% + 6px)", left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Give our agent a call</span>
+        <div className="hero-cta">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+            <a href={DEMO_TEL} className="btn primary lg hero-cta-btn">Try it now</a>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Give our agent a call</span>
           </div>
-          <a href="/pricing" className="btn ghost">View Pricing</a>
+          <a href="/pricing" className="btn ghost hero-cta-btn">View Pricing</a>
         </div>
       </div>
 
