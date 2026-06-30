@@ -93,10 +93,11 @@ export default function PricingPageClient() {
                     
                     <h1
                         style={{
-                            fontSize: "var(--text-4xl)",
+                            fontSize: "clamp(24px, 8vw, 88px)",
                             marginTop: 16,
                             marginBottom: 16,
                             textTransform: "uppercase",
+                            overflowWrap: "break-word",
                         }}
                     >
                         Simple, <em style={{ color: "var(--accent-2)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
@@ -172,6 +173,7 @@ export default function PricingPageClient() {
                             )}
                             {tier.slug === "enterprise" && (
                                 <span
+                                    className="hide-on-mobile"
                                     style={{
                                         position: "absolute",
                                         top: 16,
@@ -298,7 +300,11 @@ export default function PricingPageClient() {
                                     className={tier.highlighted ? "btn primary" : "btn ghost"}
                                     style={{ width: "100%", justifyContent: "center", cursor: loadingPlan ? "wait" : "pointer" }}
                                 >
-                                    {loadingPlan === tier.slug ? "Redirecting…" : `Get started with ${tier.name}`}
+                                    {loadingPlan === tier.slug
+                                        ? "Redirecting…"
+                                        : tier.slug === "growth"
+                                            ? "Get started with Growth"
+                                            : <><span className="show-desktop">Get started with {tier.name}</span><span className="show-mobile">Select</span></>}
                                 </button>
                                 {checkoutError && loadingPlan === null && (
                                     <p style={{ marginTop: 10, fontSize: 12, color: "var(--accent-2)" }}>

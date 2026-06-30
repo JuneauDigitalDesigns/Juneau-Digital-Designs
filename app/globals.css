@@ -259,6 +259,9 @@ body {
 
 /* ── "Two operators, one line" pen-stroke underline ─────────── */
 .two-op-heading { display: flex; flex-direction: column; align-items: flex-start; }
+@media (max-width: 767px) {
+  .two-op-heading { align-items: center; text-align: center; }
+}
 .two-op-line { position: relative; display: inline-block; white-space: nowrap; }
 .pen-stroke {
   position: absolute;
@@ -1161,38 +1164,16 @@ select option {
 .outcomes-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--rule-strong);
-  border-bottom: 1px solid var(--rule-strong);
-}
-
-.outcomes-grid > div {
-  border-right: 1px solid var(--rule);
-  border-bottom: 1px solid var(--rule);
-}
-
-/* right column: no right border */
-.outcomes-grid > div:nth-child(2n) {
-  border-right: none;
-}
-
-/* bottom row (last 2 items): no bottom border */
-.outcomes-grid > div:nth-last-child(-n+2) {
-  border-bottom: none;
 }
 
 @media (min-width: 640px) {
   .outcomes-grid {
     grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 1px solid var(--rule-strong);
   }
-  /* on 4-col all items reset to right border, no bottom border */
-  .outcomes-grid > div {
-    border-right: 1px solid var(--rule);
-    border-bottom: none;
-  }
-  /* last item loses its right border */
-  .outcomes-grid > div:last-child {
-    border-right: none;
-  }
+  .outcomes-grid > div { border-right: 1px solid var(--rule); }
+  .outcomes-grid > div:last-child { border-right: none; }
 }
 
 /* ── Calc accordion ──────────────────────────────────────── */
@@ -1263,4 +1244,12 @@ select option {
   justify-content: center;
   padding: 0 40px;
   flex-shrink: 0;
+}
+
+/* ── Responsive visibility utilities ────────────────────── */
+.show-mobile { display: none; }
+@media (max-width: 639px) {
+  .show-mobile { display: inline; }
+  .show-desktop { display: none; }
+  .hide-on-mobile { display: none !important; }
 }

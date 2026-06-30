@@ -89,10 +89,10 @@ function Hero() {
         </p>
         <div className="hero-cta">
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
-            <a href={DEMO_TEL} className="btn primary lg hero-cta-btn">Try it now</a>
+            <a href={DEMO_TEL} className="btn primary lg hero-cta-btn anim-ringpulse-slow" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>Try it now</a>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Give our agent a call</span>
           </div>
-          <a href="/pricing" className="btn ghost hero-cta-btn">View Pricing</a>
+          <a href="/pricing" style={{ fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".08em", color: "var(--fg-3)", textDecoration: "none" }}>View pricing →</a>
         </div>
       </div>
 
@@ -363,9 +363,9 @@ const OUTCOMES = [
 function OutcomesStrip() {
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(32px,4vw,56px) clamp(18px,4vw,56px)" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 0, borderTop: "1px solid var(--rule-strong)", borderBottom: "1px solid var(--rule-strong)" }}>
+      <div className="outcomes-grid">
         {OUTCOMES.map((o, i) => (
-          <div key={i} style={{ padding: "28px 22px", borderRight: i < OUTCOMES.length - 1 ? "1px solid var(--rule)" : "none" }}>
+          <div key={i} style={{ padding: "28px 22px" }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "clamp(36px,5vw,64px)", lineHeight: 0.85, color: "var(--accent-2)" }}>{o.stat}</div>
             <p style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 10, lineHeight: 1.4 }}>{o.label}</p>
           </div>
