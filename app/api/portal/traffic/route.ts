@@ -1,22 +1,40 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { BetaAnalyticsDataClient } from "@google-analytics/data";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
 import type { PortalUserMetadata } from "@/app/portal/page";
 
 export const runtime = "nodejs";
 
-function getAnalyticsClient(): BetaAnalyticsDataClient {
-    const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-    if (!keyJson) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not set");
-    const credentials = JSON.parse(keyJson) as {
-        client_email: string;
-        private_key: string;
-    };
-    return new BetaAnalyticsDataClient({ credentials });
+const WA_BASE = "https://api.vercel.com/v1/query/web-analytics/visits/aggregate";
+
+interface WARow {
+    timestamp?: string;
+    referrerHostname?: string;
+    route?: string;
+    pageviews?: number;
+    visitors?: number;
 }
 
-export async function GET() {
+// One grouped Web Analytics query (visits/aggregate) for the given project.
+async function waQuery(
+    token: string,
+    params: Record<string, string>,
+    by: string,
+    extra: Record<string, string> = {},
+): Promise<WARow[]> {
+    const qs = new URLSearchParams({ ...params, by, ...extra });
+    const res = await fetch(`${WA_BASE}?${qs.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        next: { revalidate: 0 },
+    });
+    if (!res.ok) {
+        throw new Error(`Web Analytics ${by} query failed (${res.status})`);
+    }
+    const body = await res.json() as { data?: WARow[] };
+    return body.data ?? [];
+}
+
+export async function GET(request: Request) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -28,55 +46,62 @@ export async function GET() {
     const user = await client.users.getUser(userId);
     const meta = user.publicMetadata as Partial<PortalUserMetadata>;
 
-    if (!meta.ga4PropertyId) {
+    // Enterprise accounts pass ?site=<slug> to scope to one site's project.
+    const siteParam = new URL(request.url).searchParams.get("site");
+    const projectId = siteParam
+        ? meta.sites?.find((s) => s.slug === siteParam)?.vercelProjectId ?? null
+        : meta.vercelProjectId ?? null;
+
+    if (!projectId) {
         return NextResponse.json({ noData: true });
     }
 
-    const analytics = getAnalyticsClient();
+    const token = process.env.VERCEL_TOKEN;
+    if (!token) return NextResponse.json({ error: "Analytics not configured" }, { status: 500 });
 
-    const [overviewResponse, sourcesResponse, pagesResponse] = await Promise.all([
-        // 30-day overview: sessions + new users by date
-        analytics.runReport({
-            property: meta.ga4PropertyId,
-            dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
-            dimensions: [{ name: "date" }],
-            metrics: [{ name: "sessions" }, { name: "newUsers" }],
-            orderBys: [{ dimension: { dimensionName: "date" }, desc: false }],
-        }),
-        // Traffic sources
-        analytics.runReport({
-            property: meta.ga4PropertyId,
-            dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
-            dimensions: [{ name: "sessionDefaultChannelGroup" }],
-            metrics: [{ name: "sessions" }],
-            orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-            limit: 6,
-        }),
-        // Top pages
-        analytics.runReport({
-            property: meta.ga4PropertyId,
-            dateRanges: [{ startDate: "30daysAgo", endDate: "today" }],
-            dimensions: [{ name: "pagePath" }],
-            metrics: [{ name: "screenPageViews" }],
-            orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
-            limit: 10,
-        }),
-    ]);
+    // 30-day window (YYYY-MM-DD, inclusive of today).
+    const until = new Date();
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
-    const daily = (overviewResponse[0].rows ?? []).map((row) => ({
-        date: row.dimensionValues?.[0]?.value ?? "",
-        sessions: Number(row.metricValues?.[0]?.value ?? 0),
-        newUsers: Number(row.metricValues?.[1]?.value ?? 0),
+    const params: Record<string, string> = {
+        projectId,
+        since: fmt(since),
+        until: fmt(until),
+    };
+    const teamId = process.env.VERCEL_TEAM_ID;
+    if (teamId) params.teamId = teamId;
+
+    let dailyRows: WARow[];
+    let sourceRows: WARow[];
+    let pageRows: WARow[];
+    try {
+        [dailyRows, sourceRows, pageRows] = await Promise.all([
+            waQuery(token, params, "day"),
+            waQuery(token, params, "referrerHostname", { limit: "6" }),
+            waQuery(token, params, "route", { limit: "10" }),
+        ]);
+    } catch {
+        return NextResponse.json({ error: "Failed to fetch traffic data" }, { status: 502 });
+    }
+
+    // Vercel reports page views + unique visitors; the UI labels these
+    // "Sessions" and "New Visitors" respectively.
+    const daily = dailyRows.map((row) => ({
+        date: (row.timestamp ?? "").slice(0, 10).replace(/-/g, ""), // YYYYMMDD
+        sessions: row.pageviews ?? 0,
+        newUsers: row.visitors ?? 0,
     }));
 
-    const sources = (sourcesResponse[0].rows ?? []).map((row) => ({
-        channel: row.dimensionValues?.[0]?.value ?? "Unknown",
-        sessions: Number(row.metricValues?.[0]?.value ?? 0),
+    const sources = sourceRows.map((row) => ({
+        channel: row.referrerHostname || "Direct",
+        sessions: row.pageviews ?? 0,
     }));
 
-    const pages = (pagesResponse[0].rows ?? []).map((row) => ({
-        path: row.dimensionValues?.[0]?.value ?? "/",
-        views: Number(row.metricValues?.[0]?.value ?? 0),
+    const pages = pageRows.map((row) => ({
+        path: row.route ?? "/",
+        views: row.pageviews ?? 0,
     }));
 
     const totalSessions = daily.reduce((s, d) => s + d.sessions, 0);

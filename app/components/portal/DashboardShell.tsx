@@ -11,12 +11,12 @@ import SiteSelector from "./SiteSelector";
 type Tab = "performance" | "calls" | "traffic";
 
 export default function DashboardShell(props: PortalClientProps) {
-    const { plan, hasCallData, hasGA4, isEnterprise, sites } = props;
+    const { name, plan, hasCallData, hasTraffic, isEnterprise, sites } = props;
 
     const tabs: { id: Tab; label: string; available: boolean }[] = [
         { id: "performance", label: "Performance", available: true },
         { id: "calls", label: "Call Log", available: hasCallData },
-        { id: "traffic", label: "Traffic", available: hasGA4 },
+        { id: "traffic", label: "Traffic", available: hasTraffic },
     ];
 
     const firstAvailable = tabs.find((t) => t.available)?.id ?? "performance";
@@ -24,6 +24,11 @@ export default function DashboardShell(props: PortalClientProps) {
     const [selectedSite, setSelectedSite] = useState<string | null>(
         isEnterprise && sites?.length ? sites[0].slug : null
     );
+
+    // Enterprise accounts span multiple sites — show the selected site's brand
+    // name in the header; otherwise the single account/brand name.
+    const headerName =
+        (isEnterprise && selectedSite && sites?.find((s) => s.slug === selectedSite)?.name) || name;
 
     const planLabel: Record<typeof plan, string> = {
         starter: "Starter",
@@ -40,7 +45,7 @@ export default function DashboardShell(props: PortalClientProps) {
             >
                 <div className="flex items-center gap-4">
                     <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-                        Client Portal
+                        {headerName}
                     </span>
                     <span
                         className="text-xs px-2 py-0.5 rounded-full border"
@@ -102,8 +107,8 @@ export default function DashboardShell(props: PortalClientProps) {
                 {activeTab === "calls" && hasCallData && (
                     <CallsSection selectedSite={selectedSite} isEnterprise={isEnterprise} />
                 )}
-                {activeTab === "traffic" && hasGA4 && (
-                    <TrafficSection />
+                {activeTab === "traffic" && hasTraffic && (
+                    <TrafficSection selectedSite={selectedSite} />
                 )}
             </main>
         </div>

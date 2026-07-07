@@ -22,21 +22,22 @@ interface TrafficData {
     error?: string;
 }
 
-export default function TrafficSection() {
+export default function TrafficSection({ selectedSite }: { selectedSite: string | null }) {
     const [data, setData] = useState<TrafficData | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         setLoading(true);
-        fetch("/api/portal/traffic")
+        const qs = selectedSite ? `?site=${encodeURIComponent(selectedSite)}` : "";
+        fetch(`/api/portal/traffic${qs}`)
             .then((r) => r.json())
             .then((d) => { setData(d); setLoading(false); })
             .catch(() => { setData({ daily: [], sources: [], pages: [], totalSessions: 0, totalNewUsers: 0, error: "Failed to load" }); setLoading(false); });
-    }, []);
+    }, [selectedSite]);
 
     if (loading) return <LoadingState />;
     if (!data || data.error) return <ErrorState message={data?.error} />;
-    if (data.noData) return <NoGA4State />;
+    if (data.noData) return <NoDataState />;
 
     const tooltipStyle = {
         contentStyle: { background: "#0d1b2e", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6, fontSize: 12 },
@@ -168,12 +169,12 @@ function ErrorState({ message }: { message?: string }) {
     );
 }
 
-function NoGA4State() {
+function NoDataState() {
     return (
         <div className="flex flex-col items-center justify-center h-48 gap-3 text-center" style={{ color: "var(--fg-3)" }}>
             <span className="text-3xl">📊</span>
             <p className="text-sm max-w-sm">
-                Analytics not connected yet. Your account manager will link your Google Analytics property — check back soon.
+                Analytics not connected yet. Once your site starts receiving visitors, traffic will appear here — check back soon.
             </p>
         </div>
     );

@@ -2,7 +2,8 @@
 
 interface Site {
     slug: string;
-    hasGA4: boolean;
+    name: string;
+    hasTraffic: boolean;
 }
 
 interface SiteSelectorProps {
@@ -25,7 +26,7 @@ export default function SiteSelector({ sites, selected, onChange }: SiteSelector
         >
             {sites.map((s) => (
                 <option key={s.slug} value={s.slug} style={{ background: "#0d1b2e" }}>
-                    {s.slug}
+                    {s.name}
                 </option>
             ))}
         </select>
