@@ -6,6 +6,7 @@ import {
 } from "@/app/lib/notification-email";
 import { stripe } from "@/app/lib/stripe";
 import { getAgreement } from "@/app/lib/kv";
+import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
 import type { AgreementRecord } from "@/app/lib/agreement-types";
 
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
@@ -642,6 +643,27 @@ export async function POST(request: Request) {
         // Map to Intake envelope and notify owner via Resend.
         const intake = mapPayloadToIntake(submissionData as OnboardingSubmission);
         const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
+
+        // Push the intake onto the KV queue so the local jdd-ops console can pull it
+        // (replaces the JSON-by-email hand-carry). Awaited in-path for reliability, but a
+        // queue failure must never block the response — the operator email below still
+        // fires as the audit-trail fallback. Gate off with INTAKE_QUEUE_ENABLED=false.
+        if (process.env.INTAKE_QUEUE_ENABLED !== "false") {
+            try {
+                await enqueueIntake({
+                    id: crypto.randomUUID(),
+                    receivedAt: Date.now(),
+                    status: "pending",
+                    plan: selectedPlan,
+                    brandName,
+                    slugGuess: slugifyBrand(brandShort || brandName),
+                    sessionId,
+                    intake: normalizeEmpties(intake),
+                });
+            } catch (e) {
+                console.error("[onboarding] intake queue push failed", e);
+            }
+        }
 
         // The single operator email (payment + agreement PDF + intake JSON) runs
         // after the response via after() — Vercel keeps the function alive for it
