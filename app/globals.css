@@ -1146,12 +1146,13 @@ select option {
   display: flex;
   gap: 14px;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: flex-end;
 }
 
 @media (max-width: 640px) {
   .hero-cta {
     flex-direction: column;
+    align-items: flex-start;
     gap: 16px;
   }
   .hero-cta-btn {

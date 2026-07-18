@@ -16,7 +16,9 @@ const PAGESPEED_TTL = 86_400;
 
 function pagespeedKey(slug: string): string {
     const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
-    return `pagespeed:${slug}:${date}`;
+    // `v2` bump: invalidates pre-fix entries that cached all-zero results from the
+    // wrong response nesting. Old `pagespeed:{slug}:{date}` keys TTL out within 24h.
+    return `pagespeed:v2:${slug}:${date}`;
 }
 
 export async function getCachedPagespeed(slug: string): Promise<Record<string, unknown> | null> {

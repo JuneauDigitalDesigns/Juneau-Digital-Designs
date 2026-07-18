@@ -13,15 +13,19 @@ interface PagespeedAudit {
     numericValue?: number;
 }
 
+// PageSpeed Insights v5 nests the Lighthouse data under `lighthouseResult`.
 interface PagespeedApiResponse {
-    categories?: {
-        performance?: PagespeedCategory;
-    };
-    audits?: {
-        "largest-contentful-paint"?: PagespeedAudit;
-        "cumulative-layout-shift"?: PagespeedAudit;
-        "interaction-to-next-paint"?: PagespeedAudit;
-        "first-contentful-paint"?: PagespeedAudit;
+    lighthouseResult?: {
+        categories?: {
+            performance?: PagespeedCategory;
+        };
+        audits?: {
+            "largest-contentful-paint"?: PagespeedAudit;
+            "cumulative-layout-shift"?: PagespeedAudit;
+            "interaction-to-next-paint"?: PagespeedAudit;
+            "first-contentful-paint"?: PagespeedAudit;
+        };
+        runtimeError?: { code?: string; message?: string };
     };
 }
 
@@ -60,10 +64,23 @@ export async function GET() {
     }
 
     const data = await res.json() as PagespeedApiResponse;
-    const audits = data.audits ?? {};
+    const lh = data.lighthouseResult;
+
+    // Bail without caching if the analysis didn't produce a usable score (missing
+    // lighthouseResult, a runtimeError like ERRORED_DOCUMENT_REQUEST, or a null score).
+    // Caching an empty result here is what previously poisoned the daily cache.
+    const score = lh?.categories?.performance?.score;
+    if (!lh || lh.runtimeError || score == null) {
+        return NextResponse.json(
+            { error: lh?.runtimeError?.message ?? "PageSpeed returned no score" },
+            { status: 502 },
+        );
+    }
+
+    const audits = lh.audits ?? {};
 
     const result = {
-        score: Math.round((data.categories?.performance?.score ?? 0) * 100),
+        score: Math.round(score * 100),
         lcp: audits["largest-contentful-paint"]?.numericValue ?? null,
         cls: audits["cumulative-layout-shift"]?.numericValue ?? null,
         inp: audits["interaction-to-next-paint"]?.numericValue ?? null,

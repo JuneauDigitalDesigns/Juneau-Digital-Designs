@@ -1,6 +1,5 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { stripe } from "@/app/lib/stripe";
-import { clerkClient } from "@clerk/nextjs/server";
 import type Stripe from "stripe";
 
 export const runtime = "nodejs";
@@ -34,29 +33,12 @@ export async function POST(req: Request) {
       session.customer_details?.email,
     );
 
-    // Invite customer to the Clerk portal. Runs via after() so the lambda
-    // isn't frozen mid-flight; the result is logged because ignoreExisting
-    // silently skips sending when the email already has a user/invitation.
-    const customerEmail = session.customer_details?.email;
-    if (customerEmail) {
-      after(async () => {
-        try {
-          const client = await clerkClient();
-          const invitation = await client.invitations.createInvitation({
-            emailAddress: customerEmail,
-            ignoreExisting: true,
-          });
-          console.log(
-            "[stripe webhook] clerk invite",
-            invitation.id,
-            invitation.status,
-            customerEmail,
-          );
-        } catch (e) {
-          console.error("[stripe webhook] clerk invite failed", customerEmail, e);
-        }
-      });
-    }
+    // Portal access is no longer granted by a Clerk invitation here. After
+    // onboarding, /api/onboarding stashes an email-keyed pending-client record,
+    // the client self-serve signs up at /portal/sign-up, and the Clerk
+    // user.created webhook (with a portal-load fallback) provisions their
+    // "building" portal. Sending an invitation too would conflict with the
+    // self-serve sign-up flow.
   }
 
   return NextResponse.json({ received: true });

@@ -7,7 +7,7 @@ import LiveSwitchboardPanel from "./LiveSwitchboardPanel";
 
 const DEMO_TEL = "tel:+19302221343";
 const DEMO_TEL_DISPLAY = "(930) 222-1343";
-const TRADES = ["Plumbers", "Contractors", "Landscapers", "HVAC", "Roofers", "Electricians"];
+const TRADES = ["Plumbers rely on it", "HVAC crews use it", "Roofers trust it", "Contractors book with it", "Electricians run on it", "Landscapers love it"];
 
 /* ── Scroll reveal ──────────────────────────────────────────── */
 function useReveal(options: IntersectionObserverInit = {}) {
@@ -65,34 +65,18 @@ function Hero() {
     >
       {/* copy (first in DOM → appears above panel on mobile) */}
       <div>
-        <p
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 13,
-            letterSpacing: ".12em",
-            textTransform: "uppercase",
-            color: "var(--accent-2)",
-            marginBottom: 22,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <span className="anim-blink" style={{ width: 9, height: 9, borderRadius: 999, background: "var(--accent-2)", display: "inline-block" }} />
-          The line is always open
-        </p>
         <h1 style={{ fontWeight: 900, fontSize: "clamp(44px,12vw,92px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase" }}>
-          We pick <span style={{ color: "var(--accent-2)" }}>up.</span>
+          Every missed call<br /><span style={{ color: "var(--accent-2)" }}>is a lost job.</span>
         </h1>
         <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px 0 32px" }}>
-          Juneau Digital builds and hosts your website, then runs a 24/7 AI receptionist on your line. Your phone gets answered when you can&apos;t, and you get a text.
+          We build your website and run a 24/7 AI receptionist on your number. When you can&apos;t pick up, it does — books the job, answers questions, and texts you a summary.
         </p>
-        <div className="hero-cta">
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="hero-cta">
             <a href={DEMO_TEL} className="btn primary lg hero-cta-btn anim-ringpulse-slow" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>Try it now</a>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Give our agent a call</span>
+            <a href="/pricing" className="btn ghost hero-cta-btn">View pricing →</a>
           </div>
-          <a href="/pricing" style={{ fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".08em", color: "var(--fg-3)", textDecoration: "none" }}>View pricing →</a>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Give our agent a call</span>
         </div>
       </div>
 
@@ -310,25 +294,14 @@ function TwoOperators() {
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
       <Reveal>
         <h2 className="two-op-heading" style={{ fontWeight: 800, fontSize: "clamp(34px,5vw,64px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-          <span className="two-op-line">
-            Two operators,
-            <svg className="pen-stroke pen-stroke-1" viewBox="0 0 300 14" preserveAspectRatio="none" aria-hidden="true">
-              <path pathLength={1} d="M0 8 Q150 5 300 9" fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
-            </svg>
-          </span>
-          <span className="two-op-line">
-            one line
-            <svg className="pen-stroke pen-stroke-2" viewBox="0 0 300 14" preserveAspectRatio="none" aria-hidden="true">
-              <path pathLength={1} d="M2 8 Q150 2 298 9" fill="none" vectorEffect="non-scaling-stroke" strokeLinecap="round" />
-            </svg>
-          </span>
+          The website and the receptionist.
         </h2>
       </Reveal>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
         {/* Operator 01 — Website */}
         <Reveal as="article" style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "clamp(26px,3vw,38px)", display: "flex", flexDirection: "column", gap: 18, background: "var(--panel)" }}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: ".12em", color: "var(--accent)" }}>OPERATOR 01 // THE WEBSITE</div>
-          <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase" }}>Built by hand, hosted by us, touched by you never</h3>
+          <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase" }}>Built once. Runs forever.</h3>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--fg-2)" }}>Fast, findable on Google, and made to look like the real you. We build it, host it, back it up and keep it current. Your only job is to keep doing the job.</p>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-3)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
             <span>&rarr; live in ~2 weeks</span>
@@ -340,7 +313,7 @@ function TwoOperators() {
         {/* Operator 02 — Receptionist (inverted, premium) */}
         <Reveal as="article" delay={1} className="surface-invert" style={{ border: "1px solid", borderRadius: 8, padding: "clamp(26px,3vw,38px)", display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: ".12em", color: "var(--invert-accent)" }}>OPERATOR 02 // THE RECEPTIONIST</div>
-          <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase", color: "var(--invert-fg)" }}>Answers in two rings, knows your trade, never sleeps</h3>
+          <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase", color: "var(--invert-fg)" }}>Picks up in two rings. Books the job. Texts you.</h3>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--invert-fg-2)" }}>When you can&apos;t pick up, it does. Answers questions, books the job, and texts you the details before the caller hangs up. 3am, Sunday, holidays. Always on.</p>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--invert-fg-2)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
             <span>&rarr; 24/7, every single day</span>
@@ -356,13 +329,16 @@ function TwoOperators() {
 /* ── Outcomes strip (replaces LogoMarquee) ──────────────────── */
 const OUTCOMES = [
   { stat: "<1.4s", label: "average answer time" },
-  { stat: "99.9%", label: "managed uptime" },
-  { stat: "24/7", label: "every day, every holiday" },
-  { stat: "0", label: "missed calls go to voicemail" },
+  { stat: "99.9%", label: "website always live" },
+  { stat: "24/7", label: "no days off" },
+  { stat: "100%", label: "of calls answered" },
 ];
 function OutcomesStrip() {
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(32px,4vw,56px) clamp(18px,4vw,56px)" }}>
+      <Reveal style={{ marginBottom: "clamp(24px,3vw,40px)" }}>
+        <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase" }}>By the numbers.</h2>
+      </Reveal>
       <div className="outcomes-grid">
         {OUTCOMES.map((o, i) => (
           <div key={i} style={{ padding: "28px 22px" }}>
@@ -409,9 +385,9 @@ export default function HomePageClient() {
   return (
     <div style={{ width: "100%", background: "var(--bg)" }}>
       <Hero />
+      <TwoOperators />
       <TradesTicker />
       <MissedCallsCalculator />
-      <TwoOperators />
       <OutcomesStrip />
       <DialCTA />
     </div>
