@@ -1,5 +1,8 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
+import type { QueuedIntake } from "@jdd/schema";
+
+export type { QueuedIntake };
 
 /**
  * Intake queue (producer side).
@@ -27,17 +30,6 @@ function getRedis(): Redis {
 const INTAKE_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days, mirrors agreement TTL
 const itemKey = (id: string) => `jdd:intake:item:${id}`;
 const INDEX_KEY = "jdd:intake:index";
-
-export interface QueuedIntake {
-  id: string;
-  receivedAt: number; // epoch ms — doubles as the sorted-set score
-  status: "pending" | "imported";
-  plan: string;
-  brandName: string;
-  slugGuess: string;
-  sessionId: string;
-  intake: unknown; // the full Intake envelope { plan, siteCount, sites }
-}
 
 /** Slugify a brand name into a safe default slug the console can accept or override. */
 export function slugifyBrand(name: string): string {

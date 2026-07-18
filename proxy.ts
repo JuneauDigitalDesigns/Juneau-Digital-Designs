@@ -1,13 +1,13 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPortalRoute = createRouteMatcher(["/portal(.*)", "/api/portal/(.*)"]);
-// The sign-in page lives under /portal, so it must be excluded from protection —
-// otherwise auth.protect() redirects the unauthenticated visitor from the sign-in
-// page back to the sign-in page, looping until the URL overflows (HTTP 431).
-const isSignInRoute = createRouteMatcher(["/portal/sign-in(.*)"]);
+// The sign-in AND sign-up pages live under /portal, so they must be excluded from
+// protection — otherwise auth.protect() redirects the unauthenticated visitor from
+// the auth page back to sign-in, looping until the URL overflows (HTTP 431).
+const isAuthRoute = createRouteMatcher(["/portal/sign-in(.*)", "/portal/sign-up(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-    if (isPortalRoute(req) && !isSignInRoute(req)) {
+    if (isPortalRoute(req) && !isAuthRoute(req)) {
         await auth.protect();
     }
 });

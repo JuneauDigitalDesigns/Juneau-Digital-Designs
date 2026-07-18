@@ -7,5 +7,15 @@ export const metadata: Metadata = {
 };
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
-    return <ClerkProvider afterSignOutUrl="/">{children}</ClerkProvider>;
+    return (
+        <ClerkProvider
+            afterSignOutUrl="/"
+            signInUrl="/portal/sign-in"
+            signUpUrl="/portal/sign-up"
+            signUpFallbackRedirectUrl="/portal"
+            signInFallbackRedirectUrl="/portal"
+        >
+            {children}
+        </ClerkProvider>
+    );
 }

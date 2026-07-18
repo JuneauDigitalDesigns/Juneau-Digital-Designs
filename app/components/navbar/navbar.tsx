@@ -42,6 +42,9 @@ export default function Navbar() {
                     <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
                         View Pricing
                     </Link>
+                    <Link href="/portal" className="btn primary" style={{ fontSize: 14 }}>
+                        Portal
+                    </Link>
                     <ThemeToggle />
                 </div>
 
