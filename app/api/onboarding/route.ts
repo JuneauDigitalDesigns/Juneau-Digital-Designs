@@ -106,6 +106,9 @@ function sanitizePalette(raw: unknown): PalettePick {
     const mood = sanitize(obj.bgMood, 20);
     return {
         mode: "custom",
+        // Kept on custom picks purely as provenance — resolvePalette ignores it, but
+        // it tells the console which preset a customized palette started from.
+        presetId: sanitize(obj.presetId, 60),
         baseColor: sanitize(obj.baseColor, 20),
         accentColor: sanitize(obj.accentColor, 20),
         bgMood: (BG_MOODS as readonly string[]).includes(mood)
