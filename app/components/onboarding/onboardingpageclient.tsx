@@ -11,6 +11,8 @@ import {
     resolvePalette,
     derivePalette,
     auditPalette,
+    presetById,
+    presetToPick,
     DEFAULT_PALETTE_PRESET_ID,
     type BrandIntakeSubmission,
     type BrandPalette,
@@ -89,7 +91,12 @@ type WizardData = {
     turnstileToken: string;
     website: string; // honeypot
     currentStep: number;
+    /** Which screen of the Look & feel color sub-wizard (0 pick, 1 preview, 2 confirm). */
+    colorStep: number;
 };
+
+/** Number of screens in the color sub-wizard nested inside the "look" step. */
+const COLOR_STEPS = 3;
 
 type SubmitState = { type: "idle" | "success" | "error"; message: string };
 
@@ -113,6 +120,57 @@ const VIBE_OPTIONS = ["Modern", "Classic", "Bold", "Minimal", "Warm", "Premium",
 const TONE_OPTIONS = ["Friendly", "Professional", "Authoritative", "Playful", "Calm", "Confident"];
 
 const emptyPalette = (): PalettePick => ({ mode: "preset", presetId: DEFAULT_PALETTE_PRESET_ID });
+const COLOR_SUB_LABELS = ["Theme", "Preview", "Confirm"];
+
+/**
+ * Sub-progress for the color wizard nested inside the "look" step. The top rail
+ * keeps a single "Look & feel" pill, so this is what tells the client where they
+ * are within the three color screens.
+ */
+function ColorSubSteps({ current }: { current: number }) {
+    return (
+        <div className="flex items-center gap-2" aria-label="Color steps">
+            {COLOR_SUB_LABELS.map((label, i) => {
+                const done = i < current;
+                const active = i === current;
+                return (
+                    <div key={label} className="flex items-center gap-2">
+                        {i > 0 && <span style={{ width: 16, height: 1, background: "var(--rule)" }} />}
+                        <span
+                            className="flex items-center gap-1.5 text-xs font-semibold"
+                            style={{ color: active ? "var(--fg)" : "var(--fg-3)" }}
+                            aria-current={active ? "step" : undefined}
+                        >
+                            <span
+                                className="flex items-center justify-center"
+                                style={{
+                                    width: 18, height: 18, borderRadius: 999, fontSize: 10,
+                                    fontFamily: "var(--font-mono)",
+                                    background: active || done ? "var(--accent)" : "var(--surface)",
+                                    color: active || done ? "var(--on-accent)" : "var(--fg-3)",
+                                    border: `1px solid ${active || done ? "var(--accent)" : "var(--rule)"}`,
+                                }}
+                            >
+                                {done ? "✓" : i + 1}
+                            </span>
+                            {label}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+/** One-line provenance for the confirm screen. */
+function paletteSummary(pick: PalettePick): string {
+    const preset = presetById(pick.presetId);
+    if (pick.mode === "preset") return preset ? `Theme: ${preset.label}` : "Custom colors";
+    const tweaks = Object.keys(pick.overrides ?? {}).length;
+    const base = preset ? `Based on ${preset.label}, customized` : "Custom colors";
+    return tweaks ? `${base} — ${tweaks} color${tweaks === 1 ? "" : "s"} pinned by hand` : base;
+}
+
 /** Dark moods derive their own ink, so the wizard hides the ink picker for them. */
 const isDarkMood = (mood: PalettePick["bgMood"]) =>
     BACKGROUND_MOODS.some((m) => m.id === (mood ?? "white") && m.dark);
@@ -152,6 +210,7 @@ function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
         turnstileToken: "",
         website: "",
         currentStep: 0,
+        colorStep: 0,
     };
 }
 
@@ -392,6 +451,9 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
     const [uploadingSlots, setUploadingSlots] = useState<Set<string>>(new Set());
     const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
     const [maxVisited, setMaxVisited] = useState(0);
+    // Deliberately not persisted: a reload returns the client to the "happy with
+    // these?" gate with their adjustments intact, rather than mid-edit.
+    const [colorAdjusting, setColorAdjusting] = useState(false);
 
     const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
     const turnstileWidgetIdRef = useRef<string | null>(null);
@@ -428,7 +490,17 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                 if (savedAt && Date.now() - new Date(savedAt).getTime() > STORAGE_TTL_MS) {
                     localStorage.removeItem(key);
                 } else {
-                    setFormData((base) => ({ ...base, ...saved, turnstileToken: "", consent: false, website: "" }));
+                    setFormData((base) => ({
+                        ...base,
+                        ...saved,
+                        turnstileToken: "",
+                        consent: false,
+                        website: "",
+                        // A draft saved before the color sub-wizard existed has no
+                        // colorStep; and a restored step that isn't "look" shouldn't
+                        // resume mid-flow.
+                        colorStep: saved.colorStep ?? 0,
+                    }));
                     setMaxVisited(saved.currentStep ?? 0);
                     setRestored(true);
                 }
@@ -589,6 +661,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
         { key: "contact", label: "Contact" },
         { key: "business", label: "Business" },
         { key: "direction", label: "Brand direction" },
+        { key: "media", label: "Logo & photos" },
         { key: "look", label: "Look & feel" },
         ...(plan === "enterprise" ? [{ key: "sites", label: "Extra sites" }] : []),
         { key: "existing", label: "Existing site" },
@@ -597,14 +670,41 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
     const lastStep = steps.length - 1;
     const step = Math.min(formData.currentStep, lastStep);
 
-    function goTo(n: number) {
-        const clamped = Math.max(0, Math.min(lastStep, n));
-        set("currentStep", clamped);
-        setMaxVisited((m) => Math.max(m, clamped));
+    const lookIndex = steps.findIndex((s) => s.key === "look");
+    const onLook = steps[step].key === "look";
+    const colorStep = Math.max(0, Math.min(COLOR_STEPS - 1, formData.colorStep ?? 0));
+
+    const scrollTop = () => {
         if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    /**
+     * Move to a top-level step. Entering "look" lands on the first color screen when
+     * arriving forward and the LAST one when arriving backward — otherwise Back from
+     * the following step would teleport the client to the start of the color flow.
+     * `forceColorStep` overrides that for the rail, which always restarts the flow.
+     */
+    function goTo(n: number, forceColorStep?: number) {
+        const clamped = Math.max(0, Math.min(lastStep, n));
+        const entering = clamped === lookIndex && clamped !== step;
+        setFormData((prev) => ({
+            ...prev,
+            currentStep: clamped,
+            colorStep:
+                forceColorStep ?? (entering ? (clamped < step ? COLOR_STEPS - 1 : 0) : prev.colorStep),
+        }));
+        setMaxVisited((m) => Math.max(m, clamped));
+        scrollTop();
     }
-    const next = () => goTo(step + 1);
-    const back = () => goTo(step - 1);
+
+    function goToColorStep(n: number) {
+        set("colorStep", Math.max(0, Math.min(COLOR_STEPS - 1, n)));
+        scrollTop();
+    }
+
+    // On the "look" step the footer buttons drive the nested color wizard first.
+    const next = () => (onLook && colorStep < COLOR_STEPS - 1 ? goToColorStep(colorStep + 1) : goTo(step + 1));
+    const back = () => (onLook && colorStep > 0 ? goToColorStep(colorStep - 1) : goTo(step - 1));
 
     // Count how many fields the client left blank, for an advisory hint only.
     function blankCount(): number {
@@ -740,7 +840,11 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
         );
     }
 
-    const progressPct = Math.round((step / lastStep) * 100);
+    // Advance the bar across the color sub-screens too, so it doesn't sit frozen
+    // for three clicks while the client works through the palette flow.
+    const progressPct = Math.round(
+        ((step + (onLook ? colorStep / COLOR_STEPS : 0)) / lastStep) * 100,
+    );
     const blanks = blankCount();
 
     return (
@@ -770,7 +874,7 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                     key={s.key}
                                     type="button"
                                     disabled={!reachable}
-                                    onClick={() => reachable && goTo(i)}
+                                    onClick={() => reachable && goTo(i, i === lookIndex ? 0 : undefined)}
                                     className="flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition"
                                     style={{
                                         border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
@@ -917,62 +1021,10 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                             </div>
                         )}
 
-                        {/* ── Step: Look & feel ── */}
-                        {steps[step].key === "look" && (
+                        {/* ── Step: Logo & photos ── */}
+                        {steps[step].key === "media" && (
                             <div className="space-y-6">
-                                <StepTitle title="Look & feel" sub="Pick a color direction and share your logo and photos, if you have them." />
-                                <div className="space-y-3">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Color theme</span>
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        {PALETTE_PRESETS.map((preset) => {
-                                            const on = formData.palette.mode === "preset" && formData.palette.presetId === preset.id;
-                                            return (
-                                                <button key={preset.id} type="button" onClick={() => set("palette", { mode: "preset", presetId: preset.id })} className={cardCls} style={{ borderColor: on ? "var(--accent)" : "var(--rule)", boxShadow: on ? "0 0 0 1px var(--accent)" : "none", textAlign: "left", cursor: "pointer" }}>
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>{preset.label}</span>
-                                                        {on && <span style={{ color: "var(--accent)" }}>✓</span>}
-                                                    </div>
-                                                    <div className="mt-3 flex gap-1.5">
-                                                        {[preset.palette.ink, preset.palette.accent, preset.palette.bgSoft, preset.palette.bg].map((c, idx) => (
-                                                            <span key={idx} style={{ width: 28, height: 28, borderRadius: 6, background: c, border: "1px solid var(--rule)" }} />
-                                                        ))}
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    <button type="button" className="text-sm font-semibold underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => set("palette", formData.palette.mode === "custom" ? emptyPalette() : { mode: "custom", accentColor: "#1E6FBF", baseColor: "#0F172A", bgMood: "white" })}>
-                                        {formData.palette.mode === "custom" ? "← Use a preset instead" : "Or pick your own colors →"}
-                                    </button>
-                                    {formData.palette.mode === "custom" && (
-                                        <div className="space-y-4 rounded-xl p-4" style={{ border: "1px solid var(--rule)", background: "var(--surface)" }}>
-                                            <div className="flex flex-wrap items-center gap-6">
-                                                <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--fg)" }}>
-                                                    Accent
-                                                    <input type="color" value={formData.palette.accentColor ?? "#1E6FBF"} onChange={(e) => set("palette", { ...formData.palette, mode: "custom", accentColor: e.target.value.toUpperCase() })} style={{ width: 44, height: 32, borderRadius: 8, border: "1px solid var(--rule)", background: "none" }} />
-                                                </label>
-                                                {isDarkMood(formData.palette.bgMood) ? (
-                                                    <span className="text-xs" style={{ color: "var(--fg-3)" }}>
-                                                        Text color is set automatically on dark backgrounds so it stays readable.
-                                                    </span>
-                                                ) : (
-                                                    <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--fg)" }}>
-                                                        Text / ink
-                                                        <input type="color" value={formData.palette.baseColor ?? "#0F172A"} onChange={(e) => set("palette", { ...formData.palette, mode: "custom", baseColor: e.target.value.toUpperCase() })} style={{ width: 44, height: 32, borderRadius: 8, border: "1px solid var(--rule)", background: "none" }} />
-                                                    </label>
-                                                )}
-                                            </div>
-                                            <div className="space-y-2">
-                                                <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Background</span>
-                                                <MoodChips palette={formData.palette} onChange={(p) => set("palette", p)} />
-                                            </div>
-                                            <ContrastWarnings palette={formData.palette} onChange={(p) => set("palette", p)} />
-                                            <div style={{ maxWidth: 360 }}><PalettePreview palette={formData.palette} /></div>
-                                            <AdvancedColors palette={formData.palette} onChange={(p) => set("palette", p)} />
-                                        </div>
-                                    )}
-                                    {formData.palette.mode === "preset" && (<div className="pt-1" style={{ maxWidth: 360 }}><PalettePreview palette={formData.palette} /></div>)}
-                                </div>
+                                <StepTitle title="Logo & photos" sub="Share what you have. Anything you skip, we'll design or source for you." />
 
                                 {/* Logo */}
                                 <div className="space-y-3">
@@ -1019,6 +1071,98 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Step: Look & feel — a 3-screen color sub-wizard ── */}
+                        {steps[step].key === "look" && (
+                            <div className="space-y-6">
+                                <ColorSubSteps current={colorStep} />
+
+                                {/* Screen 0 — pick a preset */}
+                                {colorStep === 0 && (
+                                    <div className="space-y-4">
+                                        <StepTitle title="Choose a color theme" sub="Pick the direction that feels closest to your brand. You'll see it previewed next, and you can fine-tune it there." />
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            {PALETTE_PRESETS.map((preset) => {
+                                                const on = formData.palette.presetId === preset.id;
+                                                return (
+                                                    <button key={preset.id} type="button" onClick={() => { set("palette", { mode: "preset", presetId: preset.id }); setColorAdjusting(false); }} className={cardCls} style={{ borderColor: on ? "var(--accent)" : "var(--rule)", boxShadow: on ? "0 0 0 1px var(--accent)" : "none", textAlign: "left", cursor: "pointer" }}>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>{preset.label}</span>
+                                                            {on && <span style={{ color: "var(--accent)" }}>✓</span>}
+                                                        </div>
+                                                        <div className="mt-3 flex gap-1.5">
+                                                            {[preset.palette.ink, preset.palette.accent, preset.palette.bgSoft, preset.palette.bg].map((c, idx) => (
+                                                                <span key={idx} style={{ width: 28, height: 28, borderRadius: 6, background: c, border: "1px solid var(--rule)" }} />
+                                                            ))}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Screen 1 — preview, then optionally adjust */}
+                                {colorStep === 1 && (
+                                    <div className="space-y-5">
+                                        <StepTitle title="Here's how it looks" sub="A preview of your site in the colors you picked." />
+                                        <div style={{ maxWidth: 460 }}><PalettePreview palette={formData.palette} /></div>
+
+                                        {colorAdjusting ? (
+                                            <div className="space-y-4 rounded-xl p-4" style={{ border: "1px solid var(--rule)", background: "var(--surface)" }}>
+                                                <div className="flex flex-wrap items-center gap-6">
+                                                    <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                                        Accent
+                                                        <input type="color" value={formData.palette.accentColor ?? "#1E6FBF"} onChange={(e) => set("palette", { ...formData.palette, mode: "custom", accentColor: e.target.value.toUpperCase() })} style={{ width: 44, height: 32, borderRadius: 8, border: "1px solid var(--rule)", background: "none" }} />
+                                                    </label>
+                                                    {isDarkMood(formData.palette.bgMood) ? (
+                                                        <span className="text-xs" style={{ color: "var(--fg-3)" }}>
+                                                            Text color is set automatically on dark backgrounds so it stays readable.
+                                                        </span>
+                                                    ) : (
+                                                        <label className="flex items-center gap-2 text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                                            Text / ink
+                                                            <input type="color" value={formData.palette.baseColor ?? "#0F172A"} onChange={(e) => set("palette", { ...formData.palette, mode: "custom", baseColor: e.target.value.toUpperCase() })} style={{ width: 44, height: 32, borderRadius: 8, border: "1px solid var(--rule)", background: "none" }} />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Background</span>
+                                                    <MoodChips palette={formData.palette} onChange={(p) => set("palette", p)} />
+                                                </div>
+                                                <ContrastWarnings palette={formData.palette} onChange={(p) => set("palette", p)} />
+                                                <AdvancedColors palette={formData.palette} onChange={(p) => set("palette", p)} />
+                                                <button type="button" className="text-sm font-semibold underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => { set("palette", { mode: "preset", presetId: formData.palette.presetId ?? DEFAULT_PALETTE_PRESET_ID }); setColorAdjusting(false); }}>
+                                                    ← Undo my changes
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-wrap items-center gap-3 rounded-xl p-4" style={{ border: "1px solid var(--rule)", background: "var(--surface)" }}>
+                                                <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Happy with these colors?</span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <button type="button" className="btn primary" onClick={next}>Looks great →</button>
+                                                    <button type="button" className="btn ghost" onClick={() => { if (formData.palette.mode === "preset") set("palette", presetToPick(formData.palette.presetId)); setColorAdjusting(true); }}>
+                                                        Let me adjust
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Screen 2 — confirm */}
+                                {colorStep === 2 && (
+                                    <div className="space-y-5">
+                                        <StepTitle title="Confirm your colors" sub="This is the palette we'll build your site with. You can always change it later — just tell us." />
+                                        <div style={{ maxWidth: 520 }}><PalettePreview palette={formData.palette} /></div>
+                                        <p className="text-sm" style={{ color: "var(--fg-2)" }}>{paletteSummary(formData.palette)}</p>
+                                        <button type="button" className="text-sm font-semibold underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => { setColorAdjusting(true); goToColorStep(1); }}>
+                                            ← Adjust colors
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
 
