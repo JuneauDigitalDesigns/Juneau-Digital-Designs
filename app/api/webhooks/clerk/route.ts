@@ -1,19 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
-import { clerkClient } from "@clerk/nextjs/server";
-import { getPendingClient, deletePendingClient } from "@/app/lib/pending-client";
+import { getAccount, linkClerkUser } from "@/app/lib/account-store";
 
 export const runtime = "nodejs";
 
 /**
- * Clerk webhook — links a freshly self-serve-signed-up user to their paid
- * onboarding record (by email) and grants portal access immediately in the
- * "building" state. Configure the endpoint + signing secret in the Clerk
- * dashboard, subscribed to `user.created`. The secret is read from
- * CLERK_WEBHOOK_SIGNING_SECRET (Clerk's default) or CLERK_WEBHOOK_SECRET.
+ * Clerk webhook — binds a newly signed-up user to their portal account.
  *
- * A portal-load fallback in app/portal/page.tsx covers webhook lag, so a missed
- * or delayed delivery still self-heals on the client's first portal visit.
+ * This is now an OPTIMISATION, not a dependency: portal access comes from the account
+ * record (keyed by email, written at onboarding), and the portal links the Clerk user on
+ * first load anyway. Doing it here just means the `jdd:account-by-user` index exists from
+ * the moment they sign up.
+ *
+ * Configure the endpoint + signing secret in the Clerk dashboard, subscribed to
+ * `user.created`. Secret is read from CLERK_WEBHOOK_SIGNING_SECRET (Clerk's default) or
+ * CLERK_WEBHOOK_SECRET.
  */
 export async function POST(req: NextRequest) {
   let event;
@@ -32,36 +33,30 @@ export async function POST(req: NextRequest) {
   }
 
   const { email_addresses, primary_email_address_id, id } = event.data;
+
+  // Only a verified address may bind to an account — an unverified sign-up must not
+  // claim a paid client's portal.
+  const verified = email_addresses.filter((e) => e.verification?.status === "verified");
   const email =
-    email_addresses.find((e) => e.id === primary_email_address_id)?.email_address ??
-    email_addresses[0]?.email_address;
+    verified.find((e) => e.id === primary_email_address_id)?.email_address ??
+    verified[0]?.email_address;
 
   if (!email) {
-    return NextResponse.json({ received: true, note: "no email" });
+    return NextResponse.json({ received: true, note: "no verified email" });
   }
 
   try {
-    const pending = await getPendingClient(email);
-    if (!pending) {
-      // Not a paying client (or already consumed) — nothing to grant.
+    const account = await getAccount(email);
+    if (!account) {
+      // Not a client (or they onboarded under a different address) — nothing to bind.
       return NextResponse.json({ received: true, matched: false });
     }
 
-    const client = await clerkClient();
-    await client.users.updateUser(id, {
-      publicMetadata: {
-        slug: pending.slug,
-        plan: pending.plan,
-        name: pending.brandName,
-        status: pending.status, // "building"
-      },
-    });
-    await deletePendingClient(email);
-
-    console.log("[clerk webhook] provisioned building portal", email, pending.slug);
+    await linkClerkUser(account, id);
+    console.log("[clerk webhook] linked account", email, "→", id);
     return NextResponse.json({ received: true, matched: true });
   } catch (e) {
-    console.error("[clerk webhook] provisioning failed", email, e);
-    return NextResponse.json({ error: "provisioning failed" }, { status: 500 });
+    console.error("[clerk webhook] link failed", email, e);
+    return NextResponse.json({ error: "link failed" }, { status: 500 });
   }
 }

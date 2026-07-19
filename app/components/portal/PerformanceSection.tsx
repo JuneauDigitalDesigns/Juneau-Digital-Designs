@@ -61,7 +61,8 @@ export default function PerformanceSection({ selectedSite }: { selectedSite: str
 
     useEffect(() => {
         setLoading(true);
-        fetch("/api/portal/performance")
+        const qs = selectedSite ? `?site=${encodeURIComponent(selectedSite)}` : "";
+        fetch(`/api/portal/performance${qs}`)
             .then((r) => r.json())
             .then((d) => { setData(d); setLoading(false); })
             .catch(() => { setData({ score: 0, lcp: null, cls: null, inp: null, fcp: null, fetchedAt: "", fromCache: false, error: "Failed to load" }); setLoading(false); });

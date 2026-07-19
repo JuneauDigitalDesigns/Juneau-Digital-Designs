@@ -1,7 +1,6 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getCachedPagespeed, setCachedPagespeed, getPortalRatelimit } from "@/app/lib/portal-kv";
-import type { PortalUserMetadata } from "@/app/portal/page";
+import { getCachedPagespeed, setCachedPagespeed } from "@/app/lib/portal-kv";
+import { resolvePortalRequest } from "@/app/lib/portal-account";
 
 export const runtime = "nodejs";
 
@@ -29,31 +28,25 @@ interface PagespeedApiResponse {
     };
 }
 
-export async function GET() {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(request: Request) {
+    const ctx = await resolvePortalRequest(request);
+    if (!ctx.ok) return ctx.response;
+    const { site } = ctx;
 
-    const rl = getPortalRatelimit();
-    const { success } = await rl.limit(userId);
-    if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const meta = user.publicMetadata as Partial<PortalUserMetadata>;
-
-    if (!meta.slug || !meta.canonical) {
+    if (!site.canonical) {
         return NextResponse.json({ error: "Portal not fully configured" }, { status: 500 });
     }
 
-    // Return cached result if already fetched today (UTC) — this IS the per-client rate limit
-    const cached = await getCachedPagespeed(meta.slug);
+    // Cached per SITE per day (UTC) — this IS the per-site rate limit, so each site on a
+    // multi-site account gets its own daily score.
+    const cached = await getCachedPagespeed(site.slug);
     if (cached) return NextResponse.json({ ...cached, fromCache: true });
 
     const apiKey = process.env.PAGESPEED_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "PageSpeed not configured" }, { status: 500 });
 
     const psUrl = new URL("https://www.googleapis.com/pagespeedonline/v5/runPagespeed");
-    psUrl.searchParams.set("url", meta.canonical);
+    psUrl.searchParams.set("url", site.canonical);
     psUrl.searchParams.set("strategy", "mobile");
     psUrl.searchParams.set("key", apiKey);
     psUrl.searchParams.set("category", "performance");
@@ -89,6 +82,6 @@ export async function GET() {
         fromCache: false,
     };
 
-    await setCachedPagespeed(meta.slug, result);
+    await setCachedPagespeed(site.slug, result);
     return NextResponse.json(result);
 }

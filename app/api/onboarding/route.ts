@@ -14,7 +14,7 @@ import {
 import { stripe } from "@/app/lib/stripe";
 import { getAgreement } from "@/app/lib/kv";
 import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
-import { savePendingClient } from "@/app/lib/pending-client";
+import { addSiteToAccount } from "@/app/lib/account-store";
 import type { AgreementRecord } from "@/app/lib/agreement-types";
 
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
@@ -380,21 +380,21 @@ export async function POST(request: Request) {
             }
         }
 
-        // Stash a pending-client record (keyed by email) so Clerk signup grants portal
-        // access immediately. Skipped when no email was provided. Non-blocking.
+        // Attach this site to the client's portal account (keyed by email, created on
+        // demand) so signing up grants access immediately. Also the returning-client
+        // path: a second onboarding with the SAME email appends another site rather than
+        // replacing the first, because upsertSite preserves the existing ones.
+        // Skipped when no email was provided. Non-blocking.
         if (email) {
             try {
-                await savePendingClient({
-                    email,
-                    brandName: brandName || "(unnamed)",
-                    plan: selectedPlan,
+                await addSiteToAccount(email, {
                     slug: slugifyBrand(slugSource),
+                    name: brandName || "(unnamed)",
+                    plan: selectedPlan,
                     status: "building",
-                    sessionId,
-                    createdAt: Date.now(),
                 });
             } catch (e) {
-                console.error("[onboarding] pending-client save failed", email, e);
+                console.error("[onboarding] account site attach failed", email, e);
             }
         }
 

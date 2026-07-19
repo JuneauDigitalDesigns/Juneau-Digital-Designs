@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     );
 
     // Portal access is no longer granted by a Clerk invitation here. After
-    // onboarding, /api/onboarding stashes an email-keyed pending-client record,
+    // onboarding, /api/onboarding attaches the site to an email-keyed account record,
     // the client self-serve signs up at /portal/sign-up, and the Clerk
     // user.created webhook (with a portal-load fallback) provisions their
     // "building" portal. Sending an invitation too would conflict with the

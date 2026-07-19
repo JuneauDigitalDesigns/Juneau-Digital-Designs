@@ -1,7 +1,5 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getPortalRatelimit } from "@/app/lib/portal-kv";
-import type { PortalUserMetadata } from "@/app/portal/page";
+import { resolvePortalRequest } from "@/app/lib/portal-account";
 
 export const runtime = "nodejs";
 
@@ -26,28 +24,23 @@ function maskPhone(raw: string | undefined): string {
     return `(***) ***-${digits.slice(-4)}`;
 }
 
-export async function GET() {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(request: Request) {
+    // The site is resolved from the account, never trusted from the request beyond the
+    // slug — which resolvePortalRequest validates against the account's own sites.
+    const ctx = await resolvePortalRequest(request);
+    if (!ctx.ok) return ctx.response;
 
-    // Rate limit
-    const rl = getPortalRatelimit();
-    const { success } = await rl.limit(userId);
-    if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-
-    // Read metadata from Clerk — never from request params
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const meta = user.publicMetadata as Partial<PortalUserMetadata>;
-
-    if (!meta.airtableBaseId) {
+    // Each site carries its own base when it was provisioned independently; enterprise
+    // sites share one base and are separated by the `Site` column instead.
+    const baseId = ctx.site.airtableBaseId;
+    if (!baseId) {
         return NextResponse.json({ calls: [], noData: true });
     }
 
     const apiKey = process.env.AIRTABLE_API_KEY;
     if (!apiKey) return NextResponse.json({ error: "Airtable not configured" }, { status: 500 });
 
-    const url = `https://api.airtable.com/v0/${meta.airtableBaseId}/Call%20Log?maxRecords=200&sort[0][field]=Date&sort[0][direction]=desc`;
+    const url = `https://api.airtable.com/v0/${baseId}/Call%20Log?maxRecords=200&sort[0][field]=Date&sort[0][direction]=desc`;
     const res = await fetch(url, {
         headers: { Authorization: `Bearer ${apiKey}` },
         next: { revalidate: 0 },

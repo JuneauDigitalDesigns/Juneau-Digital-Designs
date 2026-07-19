@@ -1,42 +1,37 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import {
+    accountFromLegacyMetadata,
+    siteHasCallData,
+    siteHasTraffic,
+    type LegacyPortalMetadata,
+    type PortalAccount,
+    type PortalPlan,
+    type PortalSiteStatus,
+} from "@jdd/schema";
 import DashboardShell from "../components/portal/DashboardShell";
 import PortalPending from "../components/portal/PortalPending";
 import PortalNoAccess from "../components/portal/PortalNoAccess";
-import { getPendingClient, deletePendingClient } from "../lib/pending-client";
+import { getAccount, getAccountByUserId, saveAccount, linkClerkUser } from "../lib/account-store";
 
 export const dynamic = "force-dynamic";
 
-export interface PortalUserMetadata {
+/** One site as the dashboard needs it. */
+export interface PortalSiteProps {
     slug: string;
-    name?: string;
-    plan: "starter" | "growth" | "enterprise";
-    // "building" = onboarded + signed up, site not provisioned live yet.
-    // Absent ⇒ treat as live (backward compatible with pre-existing clients).
-    status?: "building" | "live";
-    canonical: string;
-    airtableBaseId: string | null;
-    vercelProjectId: string | null;
-    sites?: Array<{
-        slug: string;
-        name?: string;
-        canonical: string;
-        vercelProjectId: string | null;
-    }>;
+    name: string;
+    plan: PortalPlan;
+    status: PortalSiteStatus;
+    hasCallData: boolean;
+    hasTraffic: boolean;
 }
 
 export interface PortalClientProps {
-    slug: string;
-    name: string;
-    plan: "starter" | "growth" | "enterprise";
-    hasCallData: boolean;
-    hasTraffic: boolean;
-    isEnterprise: boolean;
-    sites?: Array<{ slug: string; name: string; hasTraffic: boolean }>;
+    sites: PortalSiteProps[];
 }
 
-// Fallback so the header is never blank for clients onboarded before `name`
-// was stored: derive a display name from the canonical host, then the slug.
+// Fallback so the header is never blank for clients onboarded before `name` was stored:
+// derive a display name from the canonical host, then the slug.
 function displayName(slug: string, name?: string, canonical?: string): string {
     if (name) return name;
     if (canonical) {
@@ -48,69 +43,88 @@ function displayName(slug: string, name?: string, canonical?: string): string {
     return slug.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * The client's verified email. Only verified addresses may resolve an account — an
+ * unverified sign-up must never inherit a paid client's portal just by claiming their
+ * address.
+ */
+function verifiedEmailOf(user: {
+    emailAddresses: Array<{ id: string; emailAddress: string; verification?: { status?: string } | null }>;
+    primaryEmailAddressId?: string | null;
+}): string | null {
+    const verified = user.emailAddresses.filter((e) => e.verification?.status === "verified");
+    if (verified.length === 0) return null;
+    const primary = verified.find((e) => e.id === user.primaryEmailAddressId);
+    return (primary ?? verified[0]).emailAddress ?? null;
+}
+
 export default async function PortalPage() {
     const { userId } = await auth();
     if (!userId) redirect("/portal/sign-in");
 
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    let meta = user.publicMetadata as Partial<PortalUserMetadata>;
+    const email = verifiedEmailOf(user);
 
-    // Fallback for webhook lag: if this user has no portal access yet, look up
-    // their email-keyed pending record and self-heal (mirrors the user.created
-    // webhook). Removes any dependence on webhook delivery timing.
-    if (!meta.plan) {
-        const email =
-            user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ??
-            user.emailAddresses[0]?.emailAddress;
-        if (email) {
-            const pending = await getPendingClient(email);
-            if (pending) {
-                const provisioned = {
-                    slug: pending.slug,
-                    plan: pending.plan,
-                    name: pending.brandName,
-                    status: pending.status,
-                };
-                await client.users.updateUser(userId, { publicMetadata: provisioned });
-                await deletePendingClient(email);
-                meta = { ...meta, ...provisioned };
+    // Resolve the account: by user index first (survives an email change), then by email.
+    let account: PortalAccount | null = await getAccountByUserId(userId);
+    if (!account && email) account = await getAccount(email);
+
+    // Lazy one-time migration off the legacy Clerk metadata. Order matters: write the
+    // record FIRST, and only strip the old fields once that write has succeeded — a strip
+    // after a failed write would lock the client out.
+    if (!account && email) {
+        const legacy = user.publicMetadata as LegacyPortalMetadata | undefined;
+        const migrated = accountFromLegacyMetadata(email, legacy);
+        if (migrated) {
+            await saveAccount(migrated);
+            account = migrated;
+
+            // Clear the infra IDs now that nothing reads them. publicMetadata is
+            // browser-readable, so leaving airtableBaseId / vercelProjectId there would
+            // keep shipping internal identifiers to the client. Best-effort: a failure
+            // here must not break the page (we'll simply retry on a later load).
+            try {
+                await client.users.updateUserMetadata(userId, {
+                    publicMetadata: {
+                        slug: null,
+                        name: null,
+                        plan: null,
+                        status: null,
+                        canonical: null,
+                        airtableBaseId: null,
+                        vercelProjectId: null,
+                        sites: null,
+                    },
+                });
+            } catch (e) {
+                console.error("[portal] legacy metadata strip failed", userId, e);
             }
         }
     }
 
-    // Authenticated but no portal access (no metadata + no pending record).
-    // Render a terminal page — do NOT redirect to /portal/sign-in, which would
-    // loop forever (Clerk bounces signed-in users off sign-in back to /portal).
-    if (!meta.plan) return <PortalNoAccess />;
+    // Authenticated but nothing to show → terminal page. Never redirect to sign-in here:
+    // Clerk bounces signed-in users off sign-in back to /portal, which loops forever.
+    if (!account || account.sites.length === 0) return <PortalNoAccess />;
 
-    // Site not built yet — show the "we're building your site" holding page.
-    if (meta.status === "building") {
-        return (
-            <PortalPending
-                name={displayName(meta.slug ?? "", meta.name, meta.canonical)}
-                plan={meta.plan}
-            />
-        );
+    // Bind the Clerk user to the account once, so a later email change can't orphan it.
+    if (account.clerkUserId !== userId) {
+        account = await linkClerkUser(account, userId);
     }
 
-    // Live clients (existing + provisioned) require a slug. Missing here means a
-    // malformed record — terminal page rather than a sign-in redirect loop.
-    if (!meta.slug) return <PortalNoAccess />;
+    const sites: PortalSiteProps[] = account.sites.map((s) => ({
+        slug: s.slug,
+        name: displayName(s.slug, s.name, s.canonical),
+        plan: s.plan,
+        status: s.status,
+        hasCallData: siteHasCallData(s),
+        hasTraffic: siteHasTraffic(s),
+    }));
 
-    const clientProps: PortalClientProps = {
-        slug: meta.slug,
-        name: displayName(meta.slug, meta.name, meta.canonical),
-        plan: meta.plan,
-        hasCallData: meta.plan !== "starter" && !!meta.airtableBaseId,
-        hasTraffic: !!meta.vercelProjectId,
-        isEnterprise: meta.plan === "enterprise",
-        sites: meta.sites?.map((s) => ({
-            slug: s.slug,
-            name: displayName(s.slug, s.name, s.canonical),
-            hasTraffic: !!s.vercelProjectId,
-        })),
-    };
+    // A brand-new client with a single not-yet-built site gets the dedicated holding page.
+    if (sites.length === 1 && sites[0].status === "building") {
+        return <PortalPending name={sites[0].name} plan={sites[0].plan} />;
+    }
 
-    return <DashboardShell {...clientProps} />;
+    return <DashboardShell sites={sites} />;
 }

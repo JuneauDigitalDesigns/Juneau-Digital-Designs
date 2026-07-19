@@ -1,7 +1,5 @@
-import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { getPortalRatelimit } from "@/app/lib/portal-kv";
-import type { PortalUserMetadata } from "@/app/portal/page";
+import { resolvePortalRequest } from "@/app/lib/portal-account";
 
 export const runtime = "nodejs";
 
@@ -35,22 +33,10 @@ async function waQuery(
 }
 
 export async function GET(request: Request) {
-    const { userId } = await auth();
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const ctx = await resolvePortalRequest(request);
+    if (!ctx.ok) return ctx.response;
 
-    const rl = getPortalRatelimit();
-    const { success } = await rl.limit(userId);
-    if (!success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
-
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-    const meta = user.publicMetadata as Partial<PortalUserMetadata>;
-
-    // Enterprise accounts pass ?site=<slug> to scope to one site's project.
-    const siteParam = new URL(request.url).searchParams.get("site");
-    const projectId = siteParam
-        ? meta.sites?.find((s) => s.slug === siteParam)?.vercelProjectId ?? null
-        : meta.vercelProjectId ?? null;
+    const projectId = ctx.site.vercelProjectId ?? null;
 
     if (!projectId) {
         return NextResponse.json({ noData: true });

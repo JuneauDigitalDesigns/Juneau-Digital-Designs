@@ -60,10 +60,8 @@ function buildOutcomes(calls: CallRecord[]): { name: string; value: number }[] {
 
 export default function CallsSection({
     selectedSite,
-    isEnterprise,
 }: {
     selectedSite: string | null;
-    isEnterprise: boolean;
 }) {
     const [data, setData] = useState<CallsData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -71,17 +69,21 @@ export default function CallsSection({
 
     useEffect(() => {
         setLoading(true);
-        fetch("/api/portal/calls")
+        const qs = selectedSite ? `?site=${encodeURIComponent(selectedSite)}` : "";
+        fetch(`/api/portal/calls${qs}`)
             .then((r) => r.json())
             .then((d) => { setData(d); setLoading(false); })
             .catch(() => { setData({ calls: [], error: "Failed to load" }); setLoading(false); });
-    }, []);
+    }, [selectedSite]);
 
     if (loading) return <LoadingState />;
     if (!data || data.error) return <ErrorState message={data?.error} />;
     if (data.noData || data.calls.length === 0) return <EmptyState />;
 
-    const calls = isEnterprise && selectedSite
+    // The route already scopes to the site's own Airtable base where it has one. This
+    // extra filter is for the enterprise case, where several sites share one base and
+    // rows carry a `Site` column (rows without one are shown for any site).
+    const calls = selectedSite
         ? data.calls.filter((c) => !c.site || c.site === selectedSite)
         : data.calls;
 
