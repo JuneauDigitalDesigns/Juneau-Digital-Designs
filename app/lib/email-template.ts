@@ -1,4 +1,5 @@
 import "server-only";
+import { EMAIL, EMAIL_FONT, EMAIL_FONT_IMPORT } from "./email-tokens";
 
 export function brandedEmailHtml(opts: {
   title: string;
@@ -14,19 +15,20 @@ export function brandedEmailHtml(opts: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>${title}</title>
+  <link rel="stylesheet" href="${EMAIL_FONT_IMPORT}" />
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+    @import url('${EMAIL_FONT_IMPORT}');
   </style>
 </head>
-<body style="margin:0;padding:0;background:#f0f2f5;font-family:'IBM Plex Sans',system-ui,-apple-system,sans-serif;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#f0f2f5;padding:32px 16px;">
+<body style="margin:0;padding:0;background:${EMAIL.canvas};font-family:${EMAIL_FONT.body};">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:${EMAIL.canvas};padding:32px 16px;">
     <tr>
       <td align="center">
         <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px;">
 
           <!-- Header -->
           <tr>
-            <td style="background:#07101e;border-radius:12px 12px 0 0;padding:20px 32px;">
+            <td style="background:${EMAIL.accent2};border-radius:12px 12px 0 0;padding:20px 32px;">
               <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td style="vertical-align:middle;">
@@ -42,7 +44,7 @@ export function brandedEmailHtml(opts: {
                           />
                         </td>
                         <td style="vertical-align:middle;">
-                          <span style="font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:15px;font-weight:600;color:#F5EDD6;letter-spacing:-0.01em;white-space:nowrap;">Juneau Digital Designs</span>
+                          <span style="font-family:${EMAIL_FONT.display};font-size:17px;font-weight:600;color:${EMAIL.onAccent2};letter-spacing:0.01em;white-space:nowrap;">Juneau Digital Designs</span>
                         </td>
                       </tr>
                     </table>
@@ -52,17 +54,12 @@ export function brandedEmailHtml(opts: {
             </td>
           </tr>
 
-          <!-- Accent rule -->
-          <tr>
-            <td style="background:#F5EDD6;height:2px;font-size:0;line-height:0;">&nbsp;</td>
-          </tr>
-
           <!-- Body -->
           <tr>
-            <td style="background:#ffffff;padding:36px 32px 32px;border-radius:0;">
-              <h2 style="margin:0 0 6px;font-family:'IBM Plex Sans',system-ui,sans-serif;font-size:20px;font-weight:600;color:#0d1b2a;letter-spacing:-0.015em;line-height:1.2;">${title}</h2>
-              ${subtitle ? `<p style="margin:0 0 20px;font-size:13px;color:#64748b;">${subtitle}</p>` : ""}
-              <div style="color:#0d1b2a;font-size:14px;line-height:1.6;">
+            <td style="background:${EMAIL.card};padding:36px 32px 32px;border-radius:0;border-left:1px solid ${EMAIL.rule};border-right:1px solid ${EMAIL.rule};">
+              <h2 style="margin:0 0 6px;font-family:${EMAIL_FONT.display};font-size:24px;font-weight:500;color:${EMAIL.ink};letter-spacing:0.01em;line-height:1.2;">${title}</h2>
+              ${subtitle ? `<p style="margin:0 0 20px;font-family:${EMAIL_FONT.body};font-size:13px;color:${EMAIL.fg3};">${subtitle}</p>` : ""}
+              <div style="font-family:${EMAIL_FONT.body};color:${EMAIL.ink};font-size:14px;line-height:1.6;">
                 ${body}
               </div>
             </td>
@@ -70,10 +67,10 @@ export function brandedEmailHtml(opts: {
 
           <!-- Footer -->
           <tr>
-            <td style="background:#07101e;border-radius:0 0 12px 12px;padding:20px 32px;">
-              <p style="margin:0 0 4px;font-size:12px;color:#F5EDD6;font-weight:500;">Juneau Digital Designs LLC</p>
-              <p style="margin:0 0 ${footerNote ? "10px" : "0"};font-size:11px;color:rgba(244,246,251,0.45);">juneaudigitaldesigns.com</p>
-              ${footerNote ? `<p style="margin:0;font-size:10px;color:rgba(244,246,251,0.35);line-height:1.6;border-top:1px solid rgba(244,246,251,0.10);padding-top:10px;">${footerNote}</p>` : ""}
+            <td style="background:${EMAIL.accent2};border-radius:0 0 12px 12px;padding:20px 32px;">
+              <p style="margin:0 0 4px;font-family:${EMAIL_FONT.display};font-size:14px;color:${EMAIL.onAccent2};font-weight:500;letter-spacing:0.01em;">Juneau Digital Designs LLC</p>
+              <p style="margin:0 0 ${footerNote ? "10px" : "0"};font-family:${EMAIL_FONT.body};font-size:11px;color:${EMAIL.onAccent2};">juneaudigitaldesigns.com</p>
+              ${footerNote ? `<p style="margin:0;font-family:${EMAIL_FONT.body};font-size:10px;color:${EMAIL.onAccent2};line-height:1.6;border-top:1px solid ${EMAIL.ruleOnDark};padding-top:10px;">${footerNote}</p>` : ""}
             </td>
           </tr>
 

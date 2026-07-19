@@ -2,6 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import type { AgreementRecord } from "./agreement-types";
 import { brandedEmailHtml } from "./email-template";
+import { EMAIL, EMAIL_FONT } from "./email-tokens";
 
 export interface PaymentDetails {
   plan?: string | null;
@@ -40,11 +41,11 @@ function getCtx(): { resend: Resend; from: string; to: string } | null {
 }
 
 const row = (label: string, value: string) =>
-  `<tr><td style="padding:6px 12px 6px 0;color:#555;font-size:13px;white-space:nowrap;vertical-align:top;">${label}</td><td style="padding:6px 0;font-size:13px;color:#111;word-break:break-all;">${value}</td></tr>`;
+  `<tr><td style="padding:6px 12px 6px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;vertical-align:top;">${label}</td><td style="padding:6px 0;font-size:13px;color:${EMAIL.ink};word-break:break-all;">${value}</td></tr>`;
 
 const section = (title: string, rows: string) => `
-      <h3 style="margin:22px 0 6px;font-size:14px;font-weight:600;">${title}</h3>
-      <div style="background:#f6f6f7;border-radius:8px;padding:14px 16px;">
+      <h3 style="margin:22px 0 6px;font-family:${EMAIL_FONT.display};font-size:16px;font-weight:600;letter-spacing:0.01em;color:${EMAIL.ink};">${title}</h3>
+      <div style="background:${EMAIL.panelInset};border-radius:8px;padding:14px 16px;">
         <table cellpadding="0" cellspacing="0" style="width:100%">${rows}</table>
       </div>`;
 
@@ -96,7 +97,7 @@ export async function sendClientCompleteNotification(
           "Signed PDF",
           data.agreementPdf
             ? "Attached (with audit trail)"
-            : `<a href="${data.agreement.pdfUrl}" style="color:#0070f3;">View signed PDF</a>`,
+            : `<a href="${data.agreement.pdfUrl}" style="color:${EMAIL.accent};text-decoration:underline;">View signed PDF</a>`,
         ),
       ].join("")
     : row("Status", "Agreement record unavailable.");
@@ -116,7 +117,7 @@ export async function sendClientCompleteNotification(
       ${section("Payment", paymentRows)}
       ${section("Agreement", agreementRows)}
       ${section("Onboarding", onboardingRows)}
-      <p style="color:#888;font-size:12px;margin-top:16px;">Full intake payload attached as JSON.</p>
+      <p style="color:${EMAIL.fg3};font-size:12px;margin-top:16px;">Full intake payload attached as JSON.</p>
     `,
   });
 

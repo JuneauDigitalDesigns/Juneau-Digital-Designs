@@ -2,6 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import type { AgreementRecord } from "./agreement-types";
 import { brandedEmailHtml } from "./email-template";
+import { EMAIL } from "./email-tokens";
 
 const PLAN_LABEL: Record<string, string> = {
   starter: "Starter ($117/mo + $100 setup)",
@@ -31,7 +32,7 @@ export async function sendClientAgreementEmail(
   const subject = `Signed MSA — ${record.clientLegalName}`;
   const innerHtml = `
     <p style="margin:0 0 18px;">Thanks for signing your agreement with Juneau Digital Designs. A copy of your signed PDF is attached to this email.</p>
-    <div style="background:#f4f5f7;border-radius:8px;padding:14px 16px;margin:0 0 18px;">
+    <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:0 0 18px;">
       <div style="font-size:13px;line-height:1.7;">
         <strong>Plan:</strong> ${planLabel}<br/>
         <strong>Signer:</strong> ${record.signerName} (${record.signerTitle})<br/>
@@ -39,7 +40,7 @@ export async function sendClientAgreementEmail(
         <strong>Signed at:</strong> ${record.audit.signedAt}
       </div>
     </div>
-    <p style="margin:0;">Next step: complete payment through Stripe Checkout (you should have been redirected automatically). If you weren't, return to <a href="https://juneaudigitaldesigns.com/pricing" style="color:#0d1b2a;font-weight:500;">juneaudigitaldesigns.com/pricing</a>.</p>
+    <p style="margin:0;">Next step: complete payment through Stripe Checkout (you should have been redirected automatically). If you weren't, return to <a href="https://juneaudigitaldesigns.com/pricing" style="color:${EMAIL.accent};font-weight:500;text-decoration:underline;">juneaudigitaldesigns.com/pricing</a>.</p>
   `;
   const html = brandedEmailHtml({
     title: "Master Services Agreement — Signed",
