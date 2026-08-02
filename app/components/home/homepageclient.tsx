@@ -307,7 +307,7 @@ function TwoOperators() {
           <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase" }}>Built once. Runs forever.</h3>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--fg-2)" }}>Fast, findable on Google, and made to look like the real you. We build it, host it, back it up and keep it current. Your only job is to keep doing the job.</p>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-3)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
-            <span>&rarr; live in ~2 weeks</span>
+            <span>&rarr; Your website goes live in ~1 week</span>
             <span>&rarr; hosting + updates included</span>
             <span>&rarr; click-to-call everywhere</span>
           </div>
@@ -319,9 +319,10 @@ function TwoOperators() {
           <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase", color: "var(--invert-fg)" }}>Picks up in two rings. Books the job. Texts you.</h3>
           <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--invert-fg-2)" }}>When you can&apos;t pick up, it does. Answers questions, books the job, and texts you the details before the caller hangs up. 3am, Sunday, holidays. Always on.</p>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--invert-fg-2)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
-            <span>&rarr; 24/7, every single day</span>
-            <span>&rarr; books into your calendar</span>
-            <span>&rarr; texts you every summary</span>
+            <span>&rarr; Up and running 24/7, every single day</span>
+            <span>&rarr; Qualifies your customers</span>
+            <span>&rarr; Texts you a summary every time a customer calls</span>
+            <span>&rarr; English & Spanish AI agents available</span>
           </div>
         </Reveal>
       </div>

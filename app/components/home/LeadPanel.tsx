@@ -310,7 +310,7 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
                   disabled={busy}
                   style={{ width: "100%", opacity: busy ? 0.6 : 1 }}
                 >
-                  {busy ? "Sending…" : "Send it over"}
+                  {busy ? "Sending…" : "Send"}
                 </button>
 
                 <p style={{ fontSize: 12, color: "var(--fg-3)", textAlign: "center", margin: 0 }}>
