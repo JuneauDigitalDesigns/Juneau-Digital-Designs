@@ -120,6 +120,7 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-label="Tell us about your business"
+        className="no-scrollbar"
         style={{
           position: "absolute",
           top: 0,
