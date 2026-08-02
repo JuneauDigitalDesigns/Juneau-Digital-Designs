@@ -25,6 +25,7 @@
     "react-dom": "19.2.7",
     "recharts": "^3.8.1",
     "resend": "^6.12.3",
+    "retell-sdk": "^5.60.0",
     "stripe": "^22.1.1"
   },
   "devDependencies": {

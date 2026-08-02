@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { verify as verifyRetellSignature } from "retell-sdk";
 import {
   enqueueLead,
   leadIdForCall,
@@ -50,23 +50,35 @@ function coercePlan(v: unknown): PlanInterest | null {
 }
 
 /**
- * Retell signs with HMAC-SHA256 over the RAW body, keyed with the API key.
+ * Verify the `x-retell-signature` header using Retell's OWN implementation.
  *
- * The body must be the exact bytes received — parsing to JSON and re-serializing changes
- * key order and whitespace, and the digest would never match again. Compared in constant
- * time so the check can't be walked byte-by-byte with a timer.
+ * This was originally hand-rolled as `HMAC-SHA256(apiKey, rawBody)` compared against a bare
+ * hex header. That is not Retell's scheme, and every real delivery 401'd for two days while
+ * looking perfectly healthy in tests — because the tests signed with the same wrong function
+ * they verified with. A self-consistent mistake passes every test you write around it.
+ *
+ * The real format (retell-sdk/lib/webhook_auth.js) is:
+ *
+ *     header: v=<timestamp>,d=<hex>
+ *     digest: HMAC-SHA256(apiKey, rawBody + timestamp)   ← timestamp appended to the body
+ *     plus a 5-minute freshness window, which is genuine replay protection the hand-rolled
+ *     version did not have at all.
+ *
+ * So: call the vendor's verifier rather than re-deriving it. A signature check is exactly the
+ * wrong place to save a dependency — it fails closed and silent, which is the failure mode
+ * you cannot see.
+ *
+ * The body must still be the exact bytes received; parsing and re-serializing would change
+ * whitespace and key order and the digest would never match.
  */
-function signatureValid(raw: string, header: string | null, apiKey: string): boolean {
+async function signatureValid(raw: string, header: string | null, apiKey: string): Promise<boolean> {
   if (!header) return false;
-  // Some senders prefix the algorithm ("v1=..."); take the last field either way.
-  const provided = header.includes("=") ? header.split("=").pop()!.trim() : header.trim();
-  const expected = createHmac("sha256", apiKey).update(raw, "utf8").digest("hex");
-
-  const a = Buffer.from(provided, "hex");
-  const b = Buffer.from(expected, "hex");
-  // timingSafeEqual throws on a length mismatch, which would itself leak a bit.
-  if (a.length !== b.length || a.length === 0) return false;
-  return timingSafeEqual(a, b);
+  try {
+    return await verifyRetellSignature(raw, apiKey, header);
+  } catch {
+    // A malformed header makes the verifier throw; that's a rejection, not a 500.
+    return false;
+  }
 }
 
 export async function POST(req: Request) {
@@ -82,7 +94,7 @@ export async function POST(req: Request) {
   const raw = await req.text();
 
   // ── 1. Authenticity ───────────────────────────────────────────────────────
-  if (!signatureValid(raw, req.headers.get("x-retell-signature"), apiKey)) {
+  if (!(await signatureValid(raw, req.headers.get("x-retell-signature"), apiKey))) {
     console.warn("[/api/lead/call] rejected: bad or missing signature");
     return new NextResponse(null, { status: 401 });
   }
