@@ -36,15 +36,15 @@ export function brandedEmailHtml(opts: {
                       <tr>
                         <td style="vertical-align:middle;padding-right:10px;">
                           <img
-                            src="https://juneaudigitaldesigns.com/JDs_nobg.png"
+                            src="https://juneaudigitaldesigns.com/JDD_logo.png"
                             alt="JDD"
-                            width="28"
-                            height="28"
-                            style="display:block;width:28px;height:28px;object-fit:contain;"
+                            width="32"
+                            height="32"
+                            style="display:block;width:32px;height:32px;object-fit:contain;"
                           />
                         </td>
                         <td style="vertical-align:middle;">
-                          <span style="font-family:${EMAIL_FONT.display};font-size:17px;font-weight:600;color:${EMAIL.onAccent2};letter-spacing:0.01em;white-space:nowrap;">Juneau Digital Designs</span>
+                          <span style="font-family:${EMAIL_FONT.display};font-size:17px;font-weight:500;color:${EMAIL.onChrome};letter-spacing:0.01em;white-space:nowrap;">Juneau Digital Designs</span>
                         </td>
                       </tr>
                     </table>
@@ -68,9 +68,9 @@ export function brandedEmailHtml(opts: {
           <!-- Footer -->
           <tr>
             <td style="background:${EMAIL.accent2};border-radius:0 0 12px 12px;padding:20px 32px;">
-              <p style="margin:0 0 4px;font-family:${EMAIL_FONT.display};font-size:14px;color:${EMAIL.onAccent2};font-weight:500;letter-spacing:0.01em;">Juneau Digital Designs LLC</p>
-              <p style="margin:0 0 ${footerNote ? "10px" : "0"};font-family:${EMAIL_FONT.body};font-size:11px;color:${EMAIL.onAccent2};">juneaudigitaldesigns.com</p>
-              ${footerNote ? `<p style="margin:0;font-family:${EMAIL_FONT.body};font-size:10px;color:${EMAIL.onAccent2};line-height:1.6;border-top:1px solid ${EMAIL.ruleOnDark};padding-top:10px;">${footerNote}</p>` : ""}
+              <p style="margin:0 0 4px;font-family:${EMAIL_FONT.display};font-size:14px;color:${EMAIL.onChrome};font-weight:500;letter-spacing:0.01em;">Juneau Digital Designs LLC</p>
+              <p style="margin:0 0 ${footerNote ? "10px" : "0"};font-family:${EMAIL_FONT.body};font-size:11px;color:${EMAIL.onChrome};">juneaudigitaldesigns.com</p>
+              ${footerNote ? `<p style="margin:0;font-family:${EMAIL_FONT.body};font-size:10px;color:${EMAIL.onChrome};line-height:1.6;border-top:1px solid ${EMAIL.ruleOnChrome};padding-top:10px;">${footerNote}</p>` : ""}
             </td>
           </tr>
 

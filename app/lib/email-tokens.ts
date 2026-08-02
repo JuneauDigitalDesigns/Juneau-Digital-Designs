@@ -19,11 +19,12 @@ export const EMAIL = {
   fg3: "#7a715a", // --fg-3 — subtitles, muted notes
   accent: "#1f6f78", // --accent — links
   accent2: "#d2542f", // --accent-2 — header/footer chrome
-  // --on-accent-2. All footer copy uses this at full strength: dimmed cream on
-  // coral falls below 4.5:1, so footer hierarchy comes from size/weight, not color.
-  onAccent2: "#f4ecd8",
+  // Text on the coral chrome. Deliberately NOT light --on-accent-2 (#f4ecd8):
+  // cream on #d2542f measures 3.53:1 and fails WCAG AA, while ink hits 4.50:1.
+  // globals.css makes the same swap for bright coral in dark mode (--on-accent-2: #14120c).
+  onChrome: "#14120c",
   rule: "rgba(20,18,12,0.16)", // --rule
-  ruleOnDark: "rgba(244,236,216,0.30)", // divider on the coral footer (decorative, not text)
+  ruleOnChrome: "rgba(20,18,12,0.22)", // divider on the coral footer (decorative, not text)
 } as const;
 
 export const EMAIL_FONT = {
