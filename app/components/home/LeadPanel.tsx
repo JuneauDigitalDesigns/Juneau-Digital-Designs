@@ -199,9 +199,7 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
                   marginBottom: 12,
                 }}
               >
-                Let&apos;s talk
-                <br />
-                shop.
+                Let&apos;s talk.
               </h2>
               <p style={{ fontSize: 15, lineHeight: 1.5, color: "var(--fg-2)", marginBottom: 26 }}>
                 A few details and we&apos;ll come back to you with what this would look like for
