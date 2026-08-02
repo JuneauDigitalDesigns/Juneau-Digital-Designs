@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 /* Z-index constants: navbar 50 | grain 60 | modals 70 */
 
 import { useState, useEffect, useRef } from "react";
 import { Info } from "@phosphor-icons/react";
 import LiveSwitchboardPanel from "./LiveSwitchboardPanel";
+import LeadPanel from "./LeadPanel";
 
 const DEMO_TEL = "tel:+19302221343";
 const DEMO_TEL_DISPLAY = "(930) 222-1343";
@@ -53,7 +54,7 @@ function Reveal({
 }
 
 /* ── Hero ───────────────────────────────────────────────────── */
-function Hero() {
+function Hero({ onOpenForm }: { onOpenForm: () => void }) {
   return (
     <section
       className="hero-grid"
@@ -73,10 +74,12 @@ function Hero() {
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div className="hero-cta">
-            <a href={DEMO_TEL} className="btn primary lg hero-cta-btn anim-ringpulse-slow" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>Try it now</a>
-            <a href="/pricing" className="btn ghost hero-cta-btn">View pricing →</a>
+            {/* The ring-pulse animation stays with the phone CTA in <DialCTA> at the
+                bottom of the page — on a button that opens a form it would be promising
+                a call that isn't coming. */}
+            <button type="button" onClick={onOpenForm} className="btn primary lg hero-cta-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>Get Started</button>
           </div>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Give our agent a call</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Tell us your trade — takes two minutes</span>
         </div>
       </div>
 
@@ -382,14 +385,19 @@ function DialCTA() {
 
 /* ── Page (final section order) ─────────────────────────────── */
 export default function HomePageClient() {
+  // Lives here rather than inside <Hero> so the panel renders above every section
+  // instead of being clipped by the hero's own stacking context.
+  const [formOpen, setFormOpen] = useState(false);
+
   return (
     <div style={{ width: "100%", background: "var(--bg)" }}>
-      <Hero />
+      <Hero onOpenForm={() => setFormOpen(true)} />
       <TwoOperators />
       <TradesTicker />
       <MissedCallsCalculator />
       <OutcomesStrip />
       <DialCTA />
+      {formOpen && <LeadPanel onClose={() => setFormOpen(false)} />}
     </div>
   );
 }
