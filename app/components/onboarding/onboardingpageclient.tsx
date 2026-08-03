@@ -5,6 +5,7 @@ import Script from "next/script";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { Plus, Trash } from "@phosphor-icons/react";
 import { upload } from "@vercel/blob/client";
+import { SCHEDULES } from "@/app/lib/legal/schedules";
 import {
     PALETTE_PRESETS,
     BACKGROUND_MOODS,
@@ -100,11 +101,17 @@ const COLOR_STEPS = 3;
 
 type SubmitState = { type: "idle" | "success" | "error"; message: string };
 
+// Derived from Schedule A — plan pricing lives in one place (app/lib/legal/schedules.ts).
 const PLAN_META: Record<PlanSlug, { label: string; price: string; maxSites: number }> = {
-    starter: { label: "Starter", price: "$117/month", maxSites: 1 },
-    growth: { label: "Growth", price: "$297/month", maxSites: 1 },
-    enterprise: { label: "Enterprise", price: "$697/month", maxSites: 3 },
+    starter: schedulePlanMeta("starter"),
+    growth: schedulePlanMeta("growth"),
+    enterprise: schedulePlanMeta("enterprise"),
 };
+
+function schedulePlanMeta(slug: PlanSlug) {
+    const s = SCHEDULES[slug];
+    return { label: s.name, price: `$${s.monthlyPrice}/month`, maxSites: s.maxSites };
+}
 
 const INDUSTRY_OPTIONS: { id: string; label: string }[] = [
     { id: "hvac", label: "HVAC / Heating & Cooling" },

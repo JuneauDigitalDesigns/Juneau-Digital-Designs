@@ -1,19 +1,33 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { PlanSlug } from "@/app/lib/agreement-types";
+import type { Section } from "@/app/lib/legal/types";
 import PlanChip from "./PlanChip";
 import SignatureCanvas, { type SignatureCanvasHandle } from "./SignatureCanvas";
+import TermsReader from "./TermsReader";
 
 interface Props {
     plan: PlanSlug;
+    sections: Section[];
+    version: string;
 }
 
 const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "Other"];
 
-export default function AgreementClient({ plan }: Props) {
+export default function AgreementClient({ plan, sections, version }: Props) {
     const isEnterprise = plan === "enterprise";
     const sigRef = useRef<SignatureCanvasHandle>(null);
+
+    // Signing is gated on reaching the end of the terms. Both timestamps go to
+    // the server, which derives dwell time from them for the audit record.
+    const [pageOpenedAt] = useState(() => new Date().toISOString());
+    const [scrollCompletedAt, setScrollCompletedAt] = useState<string | null>(null);
+    const hasReadTerms = scrollCompletedAt !== null;
+
+    const handleTermsComplete = useCallback(() => {
+        setScrollCompletedAt((prev) => prev ?? new Date().toISOString());
+    }, []);
 
     const [form, setForm] = useState({
         clientLegalName: "",
@@ -38,8 +52,12 @@ export default function AgreementClient({ plan }: Props) {
         e.preventDefault();
         setError(null);
 
+        if (!hasReadTerms) {
+            setError("Please scroll to the end of the agreement before signing.");
+            return;
+        }
         if (!agreed) {
-            setError("You must agree to the Master Services Agreement to continue.");
+            setError("You must agree to the Service Agreement to continue.");
             return;
         }
         if (sigRef.current?.isEmpty() ?? true) {
@@ -76,6 +94,8 @@ export default function AgreementClient({ plan }: Props) {
                     signerEmail: form.signerEmail.trim(),
                     additionalSites,
                     signatureDataUrl,
+                    pageOpenedAt,
+                    scrollCompletedAt,
                 }),
             });
             const sigData = (await sigRes.json()) as { agreement_id?: string; error?: string };
@@ -109,54 +129,17 @@ export default function AgreementClient({ plan }: Props) {
                 </div>
 
                 <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: 10 }}>
-                    Master Services Agreement.
+                    Service Agreement.
                 </h1>
                 <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
-                    Review the agreement, fill in your details, then sign below to continue to payment.
+                    Read the agreement in full, fill in your details, then sign below to continue to
+                    payment. You&apos;ll receive a copy by email.
                 </p>
 
                 <form onSubmit={handleSubmit}>
-                    {/* Agreement preview */}
-                    <Section title="Agreement">
-                        <div
-                            style={{
-                                background: "var(--surface)",
-                                border: "1px solid var(--rule)",
-                                borderRadius: 12,
-                                overflow: "hidden",
-                            }}
-                        >
-                            <iframe
-                                src={`/legal/JDD_agreement_${plan}_v3.1.pdf#toolbar=0&navpanes=0`}
-                                title={`Master Services Agreement — ${plan} plan`}
-                                style={{
-                                    width: "100%",
-                                    height: 480,
-                                    border: 0,
-                                    display: "block",
-                                    background: "#fff",
-                                }}
-                            />
-                        </div>
-                        <p
-                            style={{
-                                marginTop: 10,
-                                fontSize: 12,
-                                color: "var(--fg-3)",
-                                fontFamily: "var(--font-mono)",
-                                letterSpacing: "0.04em",
-                            }}
-                        >
-                            Can&apos;t view inline?{" "}
-                            <a
-                                href={`/legal/JDD_agreement_${plan}_v3.1.pdf`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ color: "var(--accent)", textDecoration: "underline" }}
-                            >
-                                Open the PDF in a new tab →
-                            </a>
-                        </p>
+                    {/* Agreement — must be read to the end before signing unlocks */}
+                    <Section title={`Agreement — ${version}`}>
+                        <TermsReader sections={sections} onComplete={handleTermsComplete} />
                     </Section>
 
                     {/* Form */}
@@ -247,9 +230,19 @@ export default function AgreementClient({ plan }: Props) {
                         </div>
                     </Section>
 
-                    {/* Signature */}
+                    {/* Signature — locked until the terms have been read */}
                     <Section title="Signature">
-                        <SignatureCanvas ref={sigRef} />
+                        <div
+                            aria-disabled={!hasReadTerms}
+                            style={{
+                                pointerEvents: hasReadTerms ? "auto" : "none",
+                                opacity: hasReadTerms ? 1 : 0.4,
+                                transition: "opacity 200ms ease",
+                            }}
+                        >
+                            <SignatureCanvas ref={sigRef} />
+                        </div>
+                        {!hasReadTerms && <LockNote />}
                     </Section>
 
                     {/* Acceptance */}
@@ -262,25 +255,28 @@ export default function AgreementClient({ plan }: Props) {
                             background: "var(--surface)",
                             border: "1px solid var(--rule)",
                             borderRadius: 10,
-                            cursor: "pointer",
+                            cursor: hasReadTerms ? "pointer" : "not-allowed",
+                            opacity: hasReadTerms ? 1 : 0.4,
                             marginTop: 24,
+                            transition: "opacity 200ms ease",
                         }}
                     >
                         <input
                             type="checkbox"
                             checked={agreed}
+                            disabled={!hasReadTerms}
                             onChange={(e) => setAgreed(e.target.checked)}
                             style={{
                                 marginTop: 2,
                                 width: 18,
                                 height: 18,
                                 accentColor: "var(--accent)",
-                                cursor: "pointer",
+                                cursor: hasReadTerms ? "pointer" : "not-allowed",
                             }}
                         />
                         <span style={{ fontSize: 13.5, color: "var(--fg)", lineHeight: 1.55 }}>
                             I have read and agree to be legally bound by the{" "}
-                            <strong style={{ color: "var(--fg)" }}>Master Services Agreement</strong>.
+                            <strong style={{ color: "var(--fg)" }}>Service Agreement</strong>.
                             I understand my electronic signature has the same legal effect as a
                             handwritten one.
                         </span>
@@ -305,17 +301,21 @@ export default function AgreementClient({ plan }: Props) {
 
                     <button
                         type="submit"
-                        disabled={submitting}
+                        disabled={submitting || !hasReadTerms}
                         className="btn primary"
                         style={{
                             width: "100%",
                             marginTop: 18,
                             justifyContent: "center",
-                            opacity: submitting ? 0.6 : 1,
-                            cursor: submitting ? "wait" : "pointer",
+                            opacity: submitting || !hasReadTerms ? 0.5 : 1,
+                            cursor: submitting ? "wait" : hasReadTerms ? "pointer" : "not-allowed",
                         }}
                     >
-                        {submitting ? "Signing and preparing payment…" : "Sign & continue to payment →"}
+                        {submitting
+                            ? "Signing and preparing payment…"
+                            : hasReadTerms
+                              ? "Sign & continue to payment →"
+                              : "Scroll to the end of the agreement"}
                     </button>
 
                     <p
@@ -337,6 +337,23 @@ export default function AgreementClient({ plan }: Props) {
 }
 
 /* ── helpers ──────────────────────────────────────────────── */
+
+/** Explains *why* the controls are inert, so a locked form never reads as broken. */
+function LockNote() {
+    return (
+        <p
+            style={{
+                marginTop: 10,
+                fontSize: 12,
+                color: "var(--fg-3)",
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.04em",
+            }}
+        >
+            ━ SIGNING UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL AGREEMENT ABOVE
+        </p>
+    );
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
     return (

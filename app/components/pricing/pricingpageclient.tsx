@@ -25,6 +25,7 @@ const TIERS: PricingTier[] = [
             "Basic 1 page website setup",
             "Email lead capture",
             "Web hosting",
+            "2 content edits per month",
             "Access to our portal for Website health",
         ],
         highlighted: false,
@@ -36,8 +37,9 @@ const TIERS: PricingTier[] = [
         tagline: "For businesses ready to grow with a powerful online presence and AI-driven lead capture.",
         features: [
             "Everything in Starter",
-            "Ongoing SEO optimization",
-            "Bi-monthly performance reports",
+            "AI receptionist on a dedicated business number",
+            "350 call minutes per month",
+            "Ongoing technical SEO",
             "Access to our portal for Website health and AI receptionist call logs",
         ],
         highlighted: true,
@@ -50,7 +52,7 @@ const TIERS: PricingTier[] = [
         features: [
             "Everything in Growth",
             "Up to 3 one-page websites with fully integrated AI receptionist",
-            "Weekly performance reports",
+            "2,000 call minutes per month, pooled across your sites",
             "Priority support with 1 business day response time",
             "Quarterly strategy sessions with our founder",
         ],

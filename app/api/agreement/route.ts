@@ -2,6 +2,8 @@ import { NextResponse, after } from "next/server";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { generateSignedPdf, hashSubmission, stripLastPage } from "@/app/lib/pdf-signer";
+import { hashTermsForPlan } from "@/app/lib/legal/hash";
+import { TERMS_VERSION } from "@/app/lib/legal";
 import { saveAgreement } from "@/app/lib/kv";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import type {
@@ -27,11 +29,19 @@ export async function POST(req: Request) {
   if (err) return NextResponse.json({ error: err }, { status: 400 });
 
   const id = randomUUID();
+  const signedAt = new Date();
+  const openedAt = new Date(body.pageOpenedAt);
+
   const audit: AgreementAudit = {
     ip: clientIp(req),
     userAgent: req.headers.get("user-agent") || "unknown",
-    signedAt: new Date().toISOString(),
+    signedAt: signedAt.toISOString(),
     payloadHash: hashSubmission(body),
+    scrollCompletedAt: new Date(body.scrollCompletedAt).toISOString(),
+    // Derived from the two client timestamps rather than trusting a duration
+    // the client computed for itself.
+    dwellMs: Math.max(0, signedAt.getTime() - openedAt.getTime()),
+    termsHash: hashTermsForPlan(body.plan),
   };
 
   let pdfBytes: Uint8Array;
@@ -67,7 +77,7 @@ export async function POST(req: Request) {
     additionalSites: body.additionalSites,
     pdfUrl,
     audit,
-    agreementVersion: "v3.1",
+    agreementVersion: TERMS_VERSION,
   };
 
   try {
@@ -106,6 +116,12 @@ function validate(body: AgreementSubmission): string | null {
   if (!body.signatureDataUrl?.startsWith("data:image/png;base64,")) {
     return "Missing or invalid signature";
   }
+  // The scroll gate is enforced in the UI, but a submission that never reached
+  // the end of the terms must not be accepted just because it skipped the UI.
+  if (!validTimestamp(body.pageOpenedAt)) return "Missing page open timestamp";
+  if (!validTimestamp(body.scrollCompletedAt)) {
+    return "Agreement was not read to the end";
+  }
   if (body.plan === "enterprise") {
     const sites = (body.additionalSites || []).filter(nonEmpty);
     if (sites.length < 2) return "Enterprise requires at least 2 site names";
@@ -119,4 +135,8 @@ function nonEmpty(s: unknown): s is string {
 
 function validEmail(s: unknown): s is string {
   return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function validTimestamp(s: unknown): s is string {
+  return typeof s === "string" && !Number.isNaN(Date.parse(s));
 }

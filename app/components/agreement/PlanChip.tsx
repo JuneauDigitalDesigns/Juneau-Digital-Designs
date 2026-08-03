@@ -1,13 +1,18 @@
-type PlanMeta = { label: string; price: string; setup?: string };
+import { SCHEDULES } from "@/app/lib/legal/schedules";
+import type { PlanSlug } from "@/app/lib/agreement-types";
 
-const PLAN_META: Record<string, PlanMeta> = {
-    starter: { label: "Starter", price: "$117/mo", setup: "$100 setup" },
-    growth: { label: "Growth", price: "$297/mo" },
-    enterprise: { label: "Enterprise", price: "$697/mo" },
-};
+/** Derived from Schedule A so the chip can never disagree with the contract. */
+function metaFor(plan: string) {
+    const s = SCHEDULES[plan as PlanSlug] ?? SCHEDULES.growth;
+    return {
+        label: s.name,
+        price: `$${s.monthlyPrice}/mo`,
+        setup: s.onboardingFee > 0 ? `$${s.onboardingFee} setup` : undefined,
+    };
+}
 
 export default function PlanChip({ plan }: { plan: string }) {
-    const meta = PLAN_META[plan] ?? PLAN_META.growth;
+    const meta = metaFor(plan);
     return (
         <div
             style={{
@@ -38,4 +43,3 @@ export default function PlanChip({ plan }: { plan: string }) {
     );
 }
 
-export { PLAN_META };
