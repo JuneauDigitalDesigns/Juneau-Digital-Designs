@@ -14,6 +14,5 @@ export default async function CheckoutSuccess({
   const session = await stripe.checkout.sessions.retrieve(session_id);
   if (session.payment_status !== "paid") redirect("/pricing");
 
-  const plan = session.metadata?.plan ?? "starter";
-  redirect(`/onboarding?plan=${plan}&session_id=${session_id}`);
+  redirect(`/portal/sign-up?session_id=${session_id}`);
 }

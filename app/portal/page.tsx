@@ -121,7 +121,13 @@ export default async function PortalPage() {
         hasTraffic: siteHasTraffic(s),
     }));
 
-    // A brand-new client with a single not-yet-built site gets the dedicated holding page.
+    // Client paid but hasn't completed the wizard yet — send them to complete it.
+    const primarySite = account.sites[0];
+    if (primarySite?.status === "pending-onboarding") {
+        redirect("/portal/onboarding");
+    }
+
+    // Wizard submitted but site not yet provisioned — show the holding page.
     if (sites.length === 1 && sites[0].status === "building") {
         return <PortalPending name={sites[0].name} plan={sites[0].plan} />;
     }

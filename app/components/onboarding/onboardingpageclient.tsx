@@ -240,6 +240,10 @@ function safeStorageKey(sessionId: string): string | null {
     return /^cs_[a-zA-Z0-9_]+$/.test(sessionId) ? `jdd-onboarding-${sessionId}` : null;
 }
 
+function portalStorageKey(clerkUserId: string): string | null {
+    return clerkUserId ? `jdd-onboarding-portal-${clerkUserId}` : null;
+}
+
 function splitList(value: string): string[] {
     return (value || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
 }
@@ -444,7 +448,21 @@ function AdvancedColors({ palette, onChange }: { palette: PalettePick; onChange:
     );
 }
 
-export default function OnboardingPageClient({ plan, prefillEmail = "", sessionId = "" }: { plan: PlanSlug; prefillEmail?: string; sessionId?: string }) {
+export default function OnboardingPageClient({
+    plan,
+    prefillEmail = "",
+    sessionId = "",
+    portalMode = false,
+    clerkUserId = "",
+}: {
+    plan: PlanSlug;
+    prefillEmail?: string;
+    sessionId?: string;
+    /** When true: no Turnstile, no consent, submit goes to /api/portal/onboarding. */
+    portalMode?: boolean;
+    /** Used as the localStorage key in portal mode (pass the Clerk userId). */
+    clerkUserId?: string;
+}) {
     const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     // The server render and the first client render MUST be identical, so the saved
     // draft is deliberately NOT read here — reading localStorage during render made
@@ -485,59 +503,104 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
     // ── Draft restore (post-hydration only) ──
     // Runs after mount so the first client render still matches the server HTML.
     useEffect(() => {
-        const key = safeStorageKey(sessionId);
-        if (!key) {
+        const key = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+        if (!key && !portalMode) {
             didRestoreRef.current = true;
             return;
         }
-        try {
-            const raw = localStorage.getItem(key);
-            if (raw) {
-                const { savedAt, ...saved } = JSON.parse(raw) as Partial<WizardData> & { savedAt?: string };
-                if (savedAt && Date.now() - new Date(savedAt).getTime() > STORAGE_TTL_MS) {
-                    localStorage.removeItem(key);
-                } else {
-                    setFormData((base) => ({
-                        ...base,
-                        ...saved,
-                        turnstileToken: "",
-                        consent: false,
-                        website: "",
-                        // A draft saved before the color sub-wizard existed has no
-                        // colorStep; and a restored step that isn't "look" shouldn't
-                        // resume mid-flow.
-                        colorStep: saved.colorStep ?? 0,
-                    }));
-                    setMaxVisited(saved.currentStep ?? 0);
-                    setRestored(true);
+
+        async function restore() {
+            let localSavedAt: Date | null = null;
+            let localSaved: Partial<WizardData> | null = null;
+
+            // 1. Try localStorage first.
+            if (key) {
+                try {
+                    const raw = localStorage.getItem(key);
+                    if (raw) {
+                        const { savedAt, ...saved } = JSON.parse(raw) as Partial<WizardData> & { savedAt?: string };
+                        if (savedAt && Date.now() - new Date(savedAt).getTime() > STORAGE_TTL_MS) {
+                            localStorage.removeItem(key);
+                        } else {
+                            localSavedAt = savedAt ? new Date(savedAt) : null;
+                            localSaved = saved;
+                        }
+                    }
+                } catch {
+                    /* corrupt draft — ignore */
                 }
             }
-        } catch {
-            /* corrupt draft — fall through to the pristine form */
-        } finally {
+
+            // 2. In portal mode, also fetch server draft and use whichever is newer.
+            if (portalMode) {
+                try {
+                    const res = await fetch("/api/portal/onboarding/draft", { cache: "no-store" });
+                    if (res.ok) {
+                        const body = (await res.json()) as { data: Partial<WizardData> | null; savedAt: string | null };
+                        if (body.data && body.savedAt) {
+                            const serverDate = new Date(body.savedAt);
+                            if (!localSavedAt || serverDate > localSavedAt) {
+                                localSaved = body.data;
+                            }
+                        }
+                    }
+                } catch {
+                    /* server draft unavailable — use local */
+                }
+            }
+
+            if (localSaved) {
+                setFormData((base) => ({
+                    ...base,
+                    ...localSaved,
+                    turnstileToken: "",
+                    consent: false,
+                    website: "",
+                    colorStep: (localSaved as Partial<WizardData>).colorStep ?? 0,
+                }));
+                setMaxVisited((localSaved as Partial<WizardData>).currentStep ?? 0);
+                setRestored(true);
+            }
+
             didRestoreRef.current = true;
         }
-    }, [sessionId]);
+
+        void restore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // ── Draft autosave (persists currentStep too) ──
     useEffect(() => {
-        const key = safeStorageKey(sessionId);
-        // Never write before the restore attempt has run, or the debounce can flush
-        // the pristine base over a real saved draft.
-        if (!key || !didRestoreRef.current) return;
+        const key = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+        if (!didRestoreRef.current) return;
+        if (!key && !portalMode) return;
         const id = setTimeout(() => {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { turnstileToken, consent, website, ...persistable } = formData;
-            localStorage.setItem(key, JSON.stringify({ ...persistable, savedAt: new Date().toISOString() }));
+            const record = { ...persistable, savedAt: new Date().toISOString() };
+            if (key) {
+                localStorage.setItem(key, JSON.stringify(record));
+            }
+            // In portal mode also sync to the server so the draft survives a cache clear.
+            if (portalMode) {
+                fetch("/api/portal/onboarding/draft", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ data: record }),
+                    keepalive: true,
+                }).catch(() => {});
+            }
         }, 800);
         return () => clearTimeout(id);
-    }, [formData, sessionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData]);
 
-    // After success, auto-advance to portal signup.
+    // After success (non-portal mode), auto-advance to portal signup after 5s.
     useEffect(() => {
-        if (submitState.type !== "success") return;
+        if (submitState.type !== "success" || portalMode) return;
         const id = setTimeout(() => window.location.assign("/portal/sign-up"), 5000);
         return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [submitState.type]);
 
     function set<K extends keyof WizardData>(field: K, value: WizardData[K]) {
@@ -785,36 +848,46 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!turnstileSiteKey) {
-            setSubmitState({ type: "error", message: "Security verification is not configured yet. Please try again later." });
-            return;
+
+        if (!portalMode) {
+            if (!turnstileSiteKey) {
+                setSubmitState({ type: "error", message: "Security verification is not configured yet. Please try again later." });
+                return;
+            }
+            if (!formData.turnstileToken) {
+                setSubmitState({ type: "error", message: "Please complete the security verification before submitting." });
+                return;
+            }
+            if (!formData.consent) {
+                setSubmitState({ type: "error", message: "Please agree to the Privacy Policy before submitting." });
+                return;
+            }
         }
-        if (!formData.turnstileToken) {
-            setSubmitState({ type: "error", message: "Please complete the security verification before submitting." });
-            return;
-        }
-        if (!formData.consent) {
-            setSubmitState({ type: "error", message: "Please agree to the Privacy Policy before submitting." });
-            return;
-        }
+
         setSubmitting(true);
         setSubmitState({ type: "idle", message: "" });
+
+        const endpoint = portalMode ? "/api/portal/onboarding" : "/api/onboarding";
+
         try {
-            const response = await fetch("/api/onboarding", {
+            const response = await fetch(endpoint, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     ...buildPayload(),
-                    consent: formData.consent,
-                    turnstileToken: formData.turnstileToken,
-                    website: formData.website,
-                    sessionId,
+                    ...(portalMode ? {} : {
+                        consent: formData.consent,
+                        turnstileToken: formData.turnstileToken,
+                        website: formData.website,
+                        sessionId,
+                    }),
                 }),
             });
             const data = (await response.json()) as { message?: string };
             if (!response.ok) throw new Error(data.message || "Unable to submit your onboarding form right now.");
             setSubmitState({ type: "success", message: "" });
-            const storageKey = safeStorageKey(sessionId);
+            // Clear local draft
+            const storageKey = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
             if (storageKey) localStorage.removeItem(storageKey);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Something went wrong.";
@@ -825,6 +898,11 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
     };
 
     if (submitState.type === "success") {
+        if (portalMode) {
+            // Portal mode: redirect immediately — they're already logged in.
+            window.location.assign("/portal");
+            return null;
+        }
         return (
             <main style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", padding: "64px max(16px, 4vw)" }}>
                 <div className="glass text-center" style={{ maxWidth: 520, width: "100%", padding: "48px 40px", borderRadius: 22 }}>
@@ -1243,14 +1321,18 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                                         You left about <strong style={{ color: "var(--fg)" }}>{blanks}</strong> {blanks === 1 ? "detail" : "details"} blank. That&apos;s okay — we&apos;ll reach out to fill any gaps before we build.
                                     </p>
                                 )}
-                                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 text-sm" style={{ color: "var(--fg-2)" }}>
-                                    <input type="checkbox" checked={formData.consent} onChange={(e) => set("consent", e.target.checked)} className="mt-1 h-4 w-4 cursor-pointer rounded border-[var(--rule-strong)]" />
-                                    <span>I agree to the collection and processing of my information as described in the <Link href="/privacy-policy" className="font-semibold underline underline-offset-4" style={{ color: "var(--fg)" }}>Privacy Policy</Link>.</span>
-                                </label>
-                                <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
-                                    <p className="mb-3 text-sm font-semibold" style={{ color: "var(--fg)" }}>Security verification</p>
-                                    <div ref={turnstileContainerRef} />
-                                </div>
+                                {!portalMode && (
+                                    <>
+                                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4 text-sm" style={{ color: "var(--fg-2)" }}>
+                                            <input type="checkbox" checked={formData.consent} onChange={(e) => set("consent", e.target.checked)} className="mt-1 h-4 w-4 cursor-pointer rounded border-[var(--rule-strong)]" />
+                                            <span>I agree to the collection and processing of my information as described in the <Link href="/privacy-policy" className="font-semibold underline underline-offset-4" style={{ color: "var(--fg)" }}>Privacy Policy</Link>.</span>
+                                        </label>
+                                        <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-4">
+                                            <p className="mb-3 text-sm font-semibold" style={{ color: "var(--fg)" }}>Security verification</p>
+                                            <div ref={turnstileContainerRef} />
+                                        </div>
+                                    </>
+                                )}
                                 {submitState.type === "error" && (<p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitState.message}</p>)}
                             </div>
                         )}
@@ -1264,7 +1346,11 @@ export default function OnboardingPageClient({ plan, prefillEmail = "", sessionI
                         ) : (
                             <button
                                 type="submit"
-                                disabled={submitting || uploadingSlots.size > 0 || !turnstileSiteKey || !formData.turnstileToken || !formData.consent}
+                                disabled={
+                                    submitting ||
+                                    uploadingSlots.size > 0 ||
+                                    (!portalMode && (!turnstileSiteKey || !formData.turnstileToken || !formData.consent))
+                                }
                                 className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70 btn primary"
                             >
                                 {submitting ? "Submitting…" : "Submit onboarding"}
