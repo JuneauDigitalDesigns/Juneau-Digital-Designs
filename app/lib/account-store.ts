@@ -6,8 +6,10 @@ import {
     normalizeEmail,
     createAccount,
     upsertSite,
+    upsertSiteBySessionId,
     zPortalAccount,
     type PortalAccount,
+    type PortalSite,
     type PortalSiteInput,
 } from "@jdd/schema";
 
@@ -82,5 +84,82 @@ export async function addSiteToAccount(email: string, site: PortalSiteInput): Pr
     const existing = (await getAccount(email)) ?? createAccount(email);
     const next = upsertSite(existing, site);
     await saveAccount(next);
+    return next;
+}
+
+// ── Console pending-onboarding index ─────────────────────────────────────────
+
+const PENDING_TTL = 60 * 60 * 24 * 30; // 30 days
+const PENDING_INDEX_KEY = "jdd:pending-onboard:index";
+const pendingKey = (slug: string) => `jdd:pending-onboard:${slug}`;
+
+export interface PendingOnboardRecord {
+    slug: string;
+    signerEmail: string;
+    signerName: string;
+    sessionId: string;
+    plan: string;
+    name: string;
+    createdAt: number;
+}
+
+async function writePendingRecord(site: PortalSite): Promise<void> {
+    const redis = getRedis();
+    const record: PendingOnboardRecord = {
+        slug: site.slug,
+        signerEmail: site.signerEmail ?? "",
+        signerName: site.signerName ?? "",
+        sessionId: site.sessionId ?? "",
+        plan: site.plan,
+        name: site.name ?? site.slug,
+        createdAt: site.addedAt,
+    };
+    await Promise.all([
+        redis.set(pendingKey(site.slug), record, { ex: PENDING_TTL }),
+        redis.zadd(PENDING_INDEX_KEY, { score: site.addedAt, member: site.slug }),
+    ]);
+}
+
+async function deletePendingRecord(slug: string): Promise<void> {
+    const redis = getRedis();
+    await Promise.all([
+        redis.del(pendingKey(slug)),
+        redis.zrem(PENDING_INDEX_KEY, slug),
+    ]);
+}
+
+/**
+ * Create a pending site when Stripe payment succeeds (before the wizard is filled).
+ * Idempotent — skips insertion when a site with the same sessionId already exists.
+ * Also writes the console's pending-onboard index so the roster sees the new client.
+ */
+export async function createPendingSite(email: string, site: PortalSite): Promise<PortalAccount> {
+    const existing = (await getAccount(email)) ?? createAccount(email);
+    if (existing.sites.some((s) => s.sessionId === site.sessionId)) {
+        return existing;
+    }
+    const next = upsertSite(existing, site);
+    await Promise.all([saveAccount(next), writePendingRecord(site)]);
+    return next;
+}
+
+/**
+ * Mark onboarding complete: find the pending site by sessionId and overwrite it with the
+ * real wizard data (new slug, brand name, status "building", onboardingCompletedAt).
+ * Falls back to slug-based upsert if no site has that sessionId (old-flow compat).
+ * Also cleans up the console's pending-onboard index.
+ */
+export async function completeSiteOnboarding(
+    email: string,
+    sessionId: string,
+    updates: PortalSiteInput,
+): Promise<PortalAccount> {
+    const existing = (await getAccount(email)) ?? createAccount(email);
+    const oldSite = existing.sites.find((s) => s.sessionId === sessionId);
+    const next = upsertSiteBySessionId(existing, sessionId, updates);
+    await saveAccount(next);
+    if (oldSite) {
+        await deletePendingRecord(oldSite.slug).catch(() => {});
+    }
     return next;
 }
