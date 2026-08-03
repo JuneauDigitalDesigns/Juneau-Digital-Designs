@@ -59,7 +59,7 @@ export default function PrivacyPolicyPage() {
 
                                 <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Agreement signing</p>
                                 <p style={{ marginBottom: 10 }}>
-                                    When you sign a Master Service Agreement, we collect your legal business name, entity type, business
+                                    When you sign a Service Agreement, we collect your legal business name, entity type, business
                                     address, signer name, signer title, and email address. We also capture your hand-drawn digital signature
                                     (stored as an image).
                                 </p>
@@ -86,7 +86,7 @@ export default function PrivacyPolicyPage() {
                                 <p>Your information is used to:</p>
                                 <ul style={{ paddingLeft: 20, marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                                     <li>Respond to quote and contact requests.</li>
-                                    <li>Generate, deliver, and archive your signed Master Service Agreement.</li>
+                                    <li>Generate, deliver, and archive your signed Service Agreement.</li>
                                     <li>Verify your identity and intent for electronic signature purposes under the ESIGN Act (15 U.S.C. § 7001 et seq.).</li>
                                     <li>Process your subscription payment through Stripe.</li>
                                     <li>Build and configure your website using the content you provide.</li>

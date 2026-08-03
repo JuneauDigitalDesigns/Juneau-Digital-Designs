@@ -43,7 +43,7 @@ export async function sendClientAgreementEmail(
     <p style="margin:0;">Next step: complete payment through Stripe Checkout (you should have been redirected automatically). If you weren't, return to <a href="https://juneaudigitaldesigns.com/pricing" style="color:${EMAIL.accent};font-weight:500;text-decoration:underline;">juneaudigitaldesigns.com/pricing</a>.</p>
   `;
   const html = brandedEmailHtml({
-    title: "Master Services Agreement — Signed",
+    title: "Service Agreement — Signed",
     body: innerHtml,
     footerNote: `Agreement ID: ${record.id} · SHA-256: ${record.audit.payloadHash} · Signed via electronic signature in compliance with ESIGN Act / UETA.`,
   });

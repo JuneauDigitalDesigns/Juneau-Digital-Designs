@@ -1,160 +1,161 @@
 import "server-only";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument } from "pdf-lib";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { PLAN_FIELDS } from "./pdf-field-positions";
+import { getTermsForPlan, PROVIDER } from "./legal";
+import { PdfDoc, renderSections } from "./legal/pdf-renderer";
 import type { AgreementSubmission, AgreementAudit } from "./agreement-types";
 
 const PROVIDER_SIG_PATH = resolve(process.cwd(), "public", "signature.png");
 
-const PDF_PATHS: Record<"starter" | "growth" | "enterprise", string> = {
-  starter:    resolve(process.cwd(), "public", "legal", "JDD_agreement_starter_v3.1.pdf"),
-  growth:     resolve(process.cwd(), "public", "legal", "JDD_agreement_growth_v3.1.pdf"),
-  enterprise: resolve(process.cwd(), "public", "legal", "JDD_agreement_enterprise_v3.1.pdf"),
-};
-
-const PLAN_MIN_PAGES: Record<"starter" | "growth" | "enterprise", number> = {
-  starter:    16,
-  growth:     20,
-  enterprise: 23,
-};
-
 /**
- * Loads the plan-specific unsigned MSA, stamps the client's info + signature
- * image onto the existing fields, and appends an audit-trail page. Returns
- * the resulting PDF bytes for upload to Vercel Blob.
+ * Builds the executed agreement from the structured terms — the same content
+ * the client scrolled through on /agreement — then appends an audit-trail page.
+ *
+ * This replaces the previous approach of stamping a static PDF at fixed x/y
+ * coordinates: the terms now have exactly one source, so the document a client
+ * reads and the document they sign cannot drift apart.
  */
 export async function generateSignedPdf(
   submission: AgreementSubmission,
   audit: AgreementAudit,
   agreementId: string,
 ): Promise<Uint8Array> {
-  const pdfPath = PDF_PATHS[submission.plan];
-  const original = await readFile(pdfPath);
-  const pdf = await PDFDocument.load(original);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const { version, sections, schedule } = getTermsForPlan(submission.plan, {
+    siteNames: submission.additionalSites,
+  });
 
-  const pages = pdf.getPages();
-  const minPages = PLAN_MIN_PAGES[submission.plan];
-  if (pages.length < minPages) {
-    throw new Error(`Expected ≥${minPages} pages in ${submission.plan} MSA, got ${pages.length}`);
-  }
-
-  const F = PLAN_FIELDS[submission.plan];
-
+  const doc = await PdfDoc.create();
   const today = new Date().toLocaleDateString("en-US", {
-    year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
   });
 
-  // ── Page 1: Header ──
-  const p1 = pages[0];
-  draw(p1, submission.clientLegalName, F.page1_clientName, font);
-  draw(p1, submission.clientEntityType, F.page1_clientEntity, font);
-  draw(p1, submission.clientAddress, F.page1_clientAddress, font);
-  draw(p1, today, F.page1_effectiveDate, font);
-
-  // ── Provider (JDD) signature block ──
-  const providerSigBytes = await readFile(PROVIDER_SIG_PATH);
-  const providerSigImage = await pdf.embedPng(providerSigBytes);
-  const pProvider = pages[F.provider_sigImage.page - 1];
-  pProvider.drawImage(providerSigImage, {
-    x: F.provider_sigImage.x,
-    y: F.provider_sigImage.y,
-    width: F.provider_sigImage.width,
-    height: F.provider_sigImage.height,
+  /* ── Cover ── */
+  doc.text("SERVICE AGREEMENT", { size: 18, bold: true, after: 2 });
+  doc.text(`${schedule.name.toUpperCase()} PLAN — ${version.toUpperCase()}`, {
+    size: 11,
+    bold: true,
+    after: 8,
   });
-  draw(pProvider, "Xander Juneau", F.provider_name, font);
-  draw(pProvider, "Founder", F.provider_title, font);
-  draw(pProvider, today, F.provider_date, font);
+  doc.rule();
+  doc.space(6);
 
-  // ── Signature block — page A: sig image + signer name ──
-  const pSigA = pages[F.sigA_clientSigImage.page - 1];
-  const sigDataUrl = submission.signatureDataUrl;
-  if (sigDataUrl.startsWith("data:image/png;base64,")) {
-    const sigBytes = Buffer.from(sigDataUrl.split(",")[1], "base64");
-    const sigImage = await pdf.embedPng(sigBytes);
-    const s = F.sigA_clientSigImage;
-    pSigA.drawImage(sigImage, { x: s.x, y: s.y, width: s.width, height: s.height });
-  }
-  draw(pSigA, submission.signerName, F.sigA_clientName, font);
+  doc.text(PROVIDER.legalName, { size: 10.5, bold: true, after: 1 });
+  doc.text(`${PROVIDER.addressLine}, ${PROVIDER.cityStateZip}`, { size: 9.5, after: 14 });
 
-  // ── Signature block — page B: title / business / date ──
-  const pSigB = pages[F.sigB_clientTitle.page - 1];
-  draw(pSigB, submission.signerTitle, F.sigB_clientTitle, font);
-  draw(pSigB, submission.clientLegalName, F.sigB_clientBusiness, font);
-  draw(pSigB, today, F.sigB_clientDate, font);
-
-  // ── Schedule A: site names (enterprise only) ──
-  if (submission.plan === "enterprise") {
-    const [s1 = "", s2 = "", s3 = ""] = submission.additionalSites;
-    if (s1 && F.schedA_site1) draw(pages[F.schedA_site1.page - 1], s1, F.schedA_site1, font);
-    if (s2 && F.schedA_site2) draw(pages[F.schedA_site2.page - 1], s2, F.schedA_site2, font);
-    if (s3 && F.schedA_site3) draw(pages[F.schedA_site3.page - 1], s3, F.schedA_site3, font);
-  }
-
-  // ── Append audit-trail page ──
-  const audit_p = pdf.addPage([612, 792]);
-  let y = 740;
-  audit_p.drawText("AUDIT TRAIL", { x: 72, y, size: 18, font: fontBold });
-  y -= 6;
-  audit_p.drawLine({
-    start: { x: 72, y: y - 8 },
-    end:   { x: 540, y: y - 8 },
-    thickness: 0.5,
-    color: rgb(0.7, 0.7, 0.7),
+  doc.text('This Service Agreement ("Agreement") is entered into between:', {
+    size: 9.5,
+    after: 10,
   });
-  y -= 32;
-  audit_p.drawText("Electronic signature record for Master Services Agreement v3.1", {
-    x: 72, y, size: 11, font,
+
+  doc.text(
+    `Provider: ${PROVIDER.legalName}, a Florida limited liability company located at ${PROVIDER.addressLine}, ${PROVIDER.cityStateZip} ("we," "us," or "JDD").`,
+    { size: 9.5, after: 8 },
+  );
+  doc.text(
+    `Client: ${submission.clientLegalName}, a ${submission.clientEntityType} located at ${submission.clientAddress} ("you," "your," or "Client").`,
+    { size: 9.5, after: 8 },
+  );
+  doc.text(`Effective Date: ${today}`, { size: 9.5, bold: true, after: 14 });
+
+  doc.callout(
+    `PLAN SELECTED: ${schedule.name.toUpperCase()} — $${schedule.monthlyPrice.toLocaleString("en-US")} PER MONTH. ` +
+      `THIS AGREEMENT COVERS ${schedule.siteLabel.toUpperCase()}. ` +
+      `IF YOU INTENDED TO SIGN UP FOR A DIFFERENT PLAN, DO NOT SIGN THIS AGREEMENT — CONTACT PROVIDER FOR THE CORRECT DOCUMENT.`,
+  );
+
+  /* ── Body + Schedule A ── */
+  renderSections(doc, sections);
+
+  /* ── Signatures ── */
+  doc.newPage();
+  doc.text("SIGNATURES", { size: 13, bold: true, after: 3 });
+  doc.rule();
+  doc.text(
+    "By signing below, each party acknowledges that they have read this Agreement in full, understand its terms " +
+      "(including the arbitration and class-action waiver), and agree to be bound by it." +
+      (submission.plan === "enterprise"
+        ? " Client further represents that they have full authority to bind all businesses or entities listed as sites in Schedule A."
+        : ""),
+    { size: 9.5, after: 18 },
+  );
+
+  const providerSig = await doc.pdf.embedPng(await readFile(PROVIDER_SIG_PATH));
+  doc.text(`PROVIDER: ${PROVIDER.legalName.toUpperCase()}`, { size: 9.5, bold: true, after: 6 });
+  doc.image(providerSig, 150, 46);
+  doc.rule();
+  doc.labelValue("Name:", PROVIDER.signerName);
+  doc.labelValue("Title:", PROVIDER.signerTitle);
+  doc.labelValue("Date:", today);
+
+  doc.space(26);
+
+  doc.text("CLIENT:", { size: 9.5, bold: true, after: 6 });
+  const sigBase64 = submission.signatureDataUrl.split(",")[1] ?? "";
+  const clientSig = await doc.pdf.embedPng(Buffer.from(sigBase64, "base64"));
+  doc.image(clientSig, 150, 46);
+  doc.rule();
+  doc.labelValue("Name:", submission.signerName);
+  doc.labelValue("Title:", submission.signerTitle);
+  doc.labelValue("Business:", submission.clientLegalName);
+  doc.labelValue("Email:", submission.signerEmail);
+  doc.labelValue("Date:", today);
+
+  /* ── Audit trail (stripped before the client copy is emailed) ── */
+  doc.newPage();
+  doc.text("AUDIT TRAIL", { size: 16, bold: true, after: 3 });
+  doc.rule();
+  doc.text(`Electronic signature record for Service Agreement ${version}`, {
+    size: 9.5,
+    after: 16,
   });
-  y -= 30;
 
   const rows: [string, string][] = [
-    ["Agreement ID",          agreementId],
-    ["Plan selected",         submission.plan.toUpperCase()],
-    ["",                      ""],
-    ["Signer name",           submission.signerName],
-    ["Signer title",          submission.signerTitle],
-    ["Signer email",          submission.signerEmail],
-    ["Client business",       submission.clientLegalName],
-    ["Client entity type",    submission.clientEntityType],
-    ["Client address",        submission.clientAddress],
-    ["",                      ""],
-    ["Signed at (UTC)",       audit.signedAt],
-    ["IP address",            audit.ip],
-    ["User agent",            truncate(audit.userAgent, 75)],
+    ["Agreement ID", agreementId],
+    ["Plan selected", schedule.name.toUpperCase()],
+    ["Terms version", version],
+    ["Terms hash (SHA-256)", audit.termsHash],
+    ["", ""],
+    ["Signer name", submission.signerName],
+    ["Signer title", submission.signerTitle],
+    ["Signer email", submission.signerEmail],
+    ["Client business", submission.clientLegalName],
+    ["Client entity type", submission.clientEntityType],
+    ["Client address", submission.clientAddress],
+    ["", ""],
+    ["Terms scrolled to end", audit.scrollCompletedAt],
+    ["Time on page", formatDuration(audit.dwellMs)],
+    ["Signed at (UTC)", audit.signedAt],
+    ["IP address", audit.ip],
+    ["User agent", audit.userAgent],
     ["Payload hash (SHA-256)", audit.payloadHash],
   ];
 
   for (const [label, value] of rows) {
-    if (label === "" && value === "") {
-      y -= 8;
+    if (!label && !value) {
+      doc.space(8);
       continue;
     }
-    audit_p.drawText(label, { x: 72, y, size: 9, font: fontBold });
-    audit_p.drawText(value, { x: 220, y, size: 9, font });
-    y -= 14;
+    doc.labelValue(label, value);
   }
 
-  y -= 24;
-  const gray = rgb(0.32, 0.32, 0.32);
-  const legalLines = [
-    "This electronic signature complies with the ESIGN Act of 2000 and the Uniform",
-    "Electronic Transactions Act (UETA). The signer affirmed intent to be bound by the",
-    "agreement above by drawing their signature on a touch/pointer interface and checking",
-    "the acceptance box on juneaudigitaldesigns.com/agreement.",
-  ];
-  for (const line of legalLines) {
-    audit_p.drawText(line, { x: 72, y, size: 9, font, color: gray });
-    y -= 12;
-  }
+  doc.space(20);
+  doc.text(
+    "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
+      "The signer affirmed intent to be bound by the agreement above by scrolling through the full terms, drawing their " +
+      "signature on a touch or pointer interface, and checking the acceptance box on juneaudigitaldesigns.com/agreement. " +
+      "The terms hash above identifies the exact text presented to the signer at the time of signing.",
+    { size: 8.5, after: 0 },
+  );
 
-  return pdf.save();
+  return doc.finish();
 }
 
-/** SHA-256 hash of canonicalized submission (excluding the large signature blob). */
+/** SHA-256 of the canonicalized submission, excluding the large signature blob. */
 export function hashSubmission(submission: AgreementSubmission): string {
   const { signatureDataUrl: _sig, ...rest } = submission;
   const canon = JSON.stringify(rest, Object.keys(rest).sort());
@@ -163,7 +164,6 @@ export function hashSubmission(submission: AgreementSubmission): string {
 
 /**
  * Returns a copy of the PDF with the last page (audit trail) removed.
- * Copies all pages except the last into a fresh document — reliable across all pdf-lib versions.
  * Used to produce the client-facing copy that excludes internal audit data.
  */
 export async function stripLastPage(pdfBytes: Uint8Array): Promise<Uint8Array> {
@@ -176,14 +176,10 @@ export async function stripLastPage(pdfBytes: Uint8Array): Promise<Uint8Array> {
   return dest.save();
 }
 
-// ── helpers ──
-
-type FieldPos = { x: number; y: number; fontSize?: number };
-
-function draw(page: ReturnType<PDFDocument["getPages"]>[number], text: string, pos: FieldPos, font: Awaited<ReturnType<PDFDocument["embedFont"]>>) {
-  page.drawText(text, { x: pos.x, y: pos.y, size: pos.fontSize ?? 11, font });
-}
-
-function truncate(s: string, n: number): string {
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "unknown";
+  const total = Math.round(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return m > 0 ? `${m}m ${s}s (${ms} ms)` : `${s}s (${ms} ms)`;
 }
