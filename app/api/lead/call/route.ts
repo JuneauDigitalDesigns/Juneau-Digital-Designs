@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { verify as verifyRetellSignature } from "retell-sdk";
-import {
-  enqueueLead,
-  leadIdForCall,
-  upsertDemoCall,
-  type DemoCall,
-  type PlanInterest,
-  type QueuedLead,
-} from "@/app/lib/lead-queue";
+import { ingestDemoCall } from "@/app/lib/demo-call-ingest";
 
 /**
  * Retell post-call webhook → demo call log, and sometimes a lead.
@@ -30,24 +23,6 @@ import {
  */
 
 export const runtime = "nodejs";
-
-/** Long enough for a real answer, short enough that a card can always render it. */
-const MAX_FIELD = 120;
-const MAX_SUMMARY = 4000;
-
-function clean(v: unknown, max = MAX_FIELD): string | null {
-  if (typeof v !== "string") return null;
-  const t = v.trim();
-  if (!t || t.toLowerCase() === "null" || t.toLowerCase() === "n/a") return null;
-  return t.slice(0, max);
-}
-
-const PLANS: PlanInterest[] = ["starter", "growth", "enterprise"];
-function coercePlan(v: unknown): PlanInterest | null {
-  if (typeof v !== "string") return null;
-  const t = v.trim().toLowerCase();
-  return (PLANS as string[]).includes(t) ? (t as PlanInterest) : null;
-}
 
 /**
  * Verify the `x-retell-signature` header using Retell's OWN implementation.
@@ -126,71 +101,12 @@ export async function POST(req: Request) {
     return new NextResponse(null, { status: 200 });
   }
 
-  const callId = clean(call.call_id, 200);
-  if (!callId) return new NextResponse(null, { status: 400 });
-
-  // ── 5. Sanitise (applied before anything is stored) ───────────────────────
-  const analysis = (call.call_analysis ?? {}) as Record<string, unknown>;
-  const custom = (analysis.custom_analysis_data ?? {}) as Record<string, unknown>;
-
-  const startMs = typeof call.start_timestamp === "number" ? call.start_timestamp : Date.now();
-  const endMs = typeof call.end_timestamp === "number" ? call.end_timestamp : null;
-
-  const record: DemoCall = {
-    callId,
-    at: startMs,
-    fromNumber: clean(call.from_number, 40),
-    durationMs: endMs && endMs > startMs ? endMs - startMs : null,
-    outcome: clean(custom.call_outcome),
-    disconnectionReason: clean(call.disconnection_reason),
-    summary: clean(analysis.call_summary, MAX_SUMMARY),
-    recordingUrl: clean(call.recording_url, 2000),
-  };
-
-  const callerName = clean(custom.caller_name);
-  const businessName = clean(custom.business_name);
-  const callerEmail = clean(custom.caller_email);
-  const trade = clean(custom.trade);
-  const planInterest = coercePlan(custom.plan_interest);
-
+  // ── 4 + 5. Idempotency and sanitising ─────────────────────────────────────
+  // Shared with the reconciler cron (app/lib/demo-call-ingest.ts) so a replayed call and a
+  // delivered one produce the same record.
   try {
-    // ── 4. Idempotency ──────────────────────────────────────────────────────
-    // The call record is a plain upsert, so a redelivery just overwrites it. The LEAD is
-    // the one that must not double — check the reverse index before creating one.
-    const existingLeadId = await leadIdForCall(callId);
-
-    if (!callerName || existingLeadId) {
-      // No name means no way to follow up, so it stays a logged call and never enters the
-      // funnel — a board full of bare phone numbers buries the leads worth working.
-      await upsertDemoCall({ ...record, ...(existingLeadId ? { leadId: existingLeadId } : {}) });
-      return new NextResponse(null, { status: 200 });
-    }
-
-    const lead: QueuedLead = {
-      id: crypto.randomUUID(),
-      receivedAt: startMs,
-      source: "call",
-      // A four-minute conversation with our agent is not a cold lead. Entering at
-      // "qualified" is what keeps New meaning "hasn't heard it yet".
-      stage: "qualified",
-      name: callerName,
-      businessName: businessName ?? callerName,
-      phone: record.fromNumber ?? "",
-      ...(callerEmail ? { email: callerEmail } : {}),
-      planInterest,
-      ...(trade ? { trade } : {}),
-      callId,
-      activity: [
-        {
-          at: startMs,
-          kind: "call",
-          text: `Called the demo agent${record.outcome ? ` — ${record.outcome}` : ""}`,
-        },
-      ],
-    };
-
-    await enqueueLead(lead);
-    await upsertDemoCall({ ...record, leadId: lead.id });
+    const result = await ingestDemoCall(call);
+    if (result === "invalid") return new NextResponse(null, { status: 400 });
   } catch (e) {
     // ── 6. Fail closed, stay quiet ────────────────────────────────────────
     // A 500 makes Retell retry, which is what we want for a transient KV blip.

@@ -1,0 +1,77 @@
+name: Reconcile demo calls
+
+# Safety net for the Retell post-call webhook.
+#
+# The webhook at /api/lead/call is the fast path and it works — but on 2026-08-04 Retell
+# silently stopped delivering for two days while the handler, its env, its key and the agent
+# config were all correct. Five leads were lost and nothing raised a flag. This replays
+# anything Retell did not deliver.
+#
+# Lives here rather than in vercel.json because the Vercel team is on the Hobby plan, which
+# caps cron jobs at once per day — too slow to be a useful net for a sales lead.
+#
+# GitHub's scheduler is best-effort and frequently runs late, so treat this as "every 15-35
+# minutes", not a guarantee. That is fine: the endpoint is idempotent, so a late or doubled
+# run costs nothing, and the webhook remains the primary path.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Epoch ms lower bound on call start time (default: 24h ago)"
+        required: false
+        type: string
+      until:
+        description: "Epoch ms upper bound on call start time (default: none)"
+        required: false
+        type: string
+
+# A late run must not stack on top of a running one.
+concurrency:
+  group: reconcile-demo-calls
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Replay undelivered demo calls
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — the endpoint will 401."
+            exit 1
+          fi
+
+          url="https://www.juneaudigitaldesigns.com/api/cron/reconcile-demo-calls"
+          sep="?"
+          if [ -n "${SINCE:-}" ]; then url="${url}${sep}since=${SINCE}"; sep="&"; fi
+          if [ -n "${UNTIL:-}" ]; then url="${url}${sep}until=${UNTIL}"; fi
+
+          # -f so a non-2xx fails the job: a reconciler that has been broken for a week is
+          # exactly the silent failure this workflow exists to prevent.
+          body=$(curl -fsS --max-time 120 -H "Authorization: Bearer ${CRON_SECRET}" "$url")
+          echo "$body"
+
+          leads=$(echo "$body" | jq -r '.lead // 0')
+          {
+            echo "### Demo call reconcile"
+            echo ""
+            echo '```json'
+            echo "$body" | jq .
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$leads" -gt 0 ]; then
+            echo "::warning::Recovered $leads lead(s) the webhook never delivered — check Retell's webhook delivery log."
+          fi
