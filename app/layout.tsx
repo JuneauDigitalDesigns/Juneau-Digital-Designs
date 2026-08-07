@@ -37,11 +37,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  /* The font variables MUST live on <html>, not <body>: globals.css declares
+     --font-display/-body/-mono on :root, and a custom property resolves using
+     the variables available where it is declared. On <body> they were invisible
+     to :root, so --font-display computed to nothing and every
+     `font-family: var(--font-display)` on the site silently fell back to system
+     sans — the webfonts loaded but were never applied. */
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${bigShoulders.variable} ${dmMono.variable} ${hankenGrotesk.variable} antialiased overflow-x-hidden`}
-      >
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${bigShoulders.variable} ${dmMono.variable} ${hankenGrotesk.variable}`}
+    >
+      <body className="antialiased overflow-x-hidden">
         <ThemeProvider>
           {/* Grain overlay — fixed full-viewport texture, z-60, non-interactive */}
           <div
