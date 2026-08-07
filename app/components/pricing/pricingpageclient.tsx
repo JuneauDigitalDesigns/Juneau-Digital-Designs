@@ -20,13 +20,13 @@ const TIERS: PricingTier[] = [
         slug: "starter",
         name: "Starter",
         price: 117,
-        tagline: "Only need a website? This plan gets you a sleek one-pager. You can always upgrade later to add the AI receptionist.",
+        tagline: "Just need a website? You get a fast one-pager that sends leads straight to your inbox. Add the receptionist whenever you're ready.",
         features: [
-            "Basic 1 page website setup",
-            "Email lead capture",
-            "Web hosting",
+            "One-page website, built and launched for you",
+            "Contact form — leads go straight to your inbox",
+            "Hosting, backups, and security included",
             "2 content edits per month",
-            "Access to our portal for Website health",
+            "Client portal to check your site anytime",
         ],
         highlighted: false,
     },
@@ -34,13 +34,14 @@ const TIERS: PricingTier[] = [
         slug: "growth",
         name: "Growth",
         price: 297,
-        tagline: "For businesses ready to grow with a powerful online presence and AI-driven lead capture.",
+        tagline: "Everything in Starter, plus the part that actually answers the phone.",
         features: [
             "Everything in Starter",
             "AI receptionist on a dedicated business number",
             "350 call minutes per month",
-            "Ongoing technical SEO",
-            "Access to our portal for Website health and AI receptionist call logs",
+            "2 content edits per month",
+            "Ongoing SEO so you show up on Google",
+            "Portal with every call logged — transcript and summary",
         ],
         highlighted: true,
     },
@@ -48,15 +49,51 @@ const TIERS: PricingTier[] = [
         slug: "enterprise",
         name: "Enterprise",
         price: 697,
-        tagline: "A plan for businesses that manage other businesses.",
+        tagline: "For people running more than one shop. Three sites, one bill, minutes shared across all of them.",
         features: [
             "Everything in Growth",
-            "Up to 3 one-page websites with fully integrated AI receptionist",
+            "Up to 3 websites, each with its own receptionist and number",
             "2,000 call minutes per month, pooled across your sites",
             "Priority support with 1 business day response time",
             "Quarterly strategy sessions with our founder",
         ],
         highlighted: false,
+    },
+];
+
+/* Answers are sourced from the Master Services Agreement so the marketing copy and
+   the contract can't drift apart. Section refs noted per answer. */
+const FAQS: { q: string; a: string }[] = [
+    {
+        // Leads the section on purpose: a low price is itself an objection, so the
+        // page should answer "why so cheap" before anything else. The figures are
+        // evidence for the tooling argument, not a discount brag.
+        q: "What's the catch?",
+        a: "There isn't one. Piecing this together from an agency plus an answering service usually runs $600 or more a month — Growth is $297. The difference isn't corner-cutting, it's that we built the software that does the setup. Provisioning a site, standing up a number, configuring the agent, wiring your reporting — most shops do all of that by hand and bill you for the hours. We only had to build it once.",
+    },
+    {
+        q: "What happens if I go over my minutes?",
+        a: "They're billed at $0.20 a minute on your next invoice, and we'll give you a heads-up as you get close.", // MSA §5.2
+    },
+    {
+        q: "Am I locked into a contract?",
+        a: "No. Starter and Growth are month to month — cancel whenever. Enterprise runs on 60 days notice, because there's more to unwind.", // MSA §14.1–14.2
+    },
+    {
+        q: "How fast can I be live?",
+        a: "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week.", // MSA §2.2
+    },
+    {
+        q: "Do I get to keep my phone number?",
+        a: "It's yours. If you ever leave, it goes with you.", // MSA §11.3
+    },
+    {
+        q: "What if I already have a website?",
+        a: "We build you a new one and bring over the content worth keeping. You won't have to start from scratch.",
+    },
+    {
+        q: "Is this replacing a receptionist?",
+        a: "No — most of our clients never had one. When it's you and a truck, the phone rings while you're under a sink. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
     },
 ];
 
@@ -102,7 +139,7 @@ export default function PricingPageClient() {
                             overflowWrap: "break-word",
                         }}
                     >
-                        Simple, <em style={{ color: "var(--accent-2)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>transparent</em> plans.
+                        What it <em style={{ color: "var(--accent-2)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>costs</em>. All of it.
                     </h1>
                     <p
                         style={{
@@ -113,7 +150,7 @@ export default function PricingPageClient() {
                             lineHeight: 1.6,
                         }}
                     >
-                        Pick the plan that fits where you are now. Every plan includes personal support — no tickets, no bots.
+                        Three plans. Most people want Growth — that&apos;s the one with the receptionist. Month to month, cancel when you want.
                     </p>
                 </motion.div>
 
@@ -192,7 +229,7 @@ export default function PricingPageClient() {
                                         padding: "3px 10px",
                                     }}
                                 >
-                                    Enterprise level Support
+                                    Priority Support
                                 </span>
                             )}
 
@@ -305,8 +342,8 @@ export default function PricingPageClient() {
                                     {loadingPlan === tier.slug
                                         ? "Redirecting…"
                                         : tier.slug === "growth"
-                                            ? "Get started with Growth"
-                                            : <><span className="show-desktop">Get started with {tier.name}</span><span className="show-mobile">Select</span></>}
+                                            ? "Start with Growth"
+                                            : <><span className="show-desktop">Start with {tier.name}</span><span className="show-mobile">Start</span></>}
                                 </button>
                                 {checkoutError && loadingPlan === null && (
                                     <p style={{ marginTop: 10, fontSize: 12, color: "var(--accent-2)" }}>
@@ -317,6 +354,40 @@ export default function PricingPageClient() {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* FAQ — the objections that actually block a purchase */}
+                <motion.div
+                    initial={{ opacity: 0, y: 24 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: "easeOut", delay: 0.35 }}
+                    style={{ marginTop: "clamp(64px,8vw,120px)" }}
+                >
+                    <h2 style={{ textAlign: "center", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
+                        Before you buy.
+                    </h2>
+                    {/* Reference-document layout, not cards: ruled entries in two columns.
+                        `min(100%, 400px)` is load-bearing — a bare minmax(400px, 1fr)
+                        overflows at 375px. The 1040 cap holds it to two columns. */}
+                    <div
+                        style={{
+                            maxWidth: 1040,
+                            margin: "0 auto",
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
+                            columnGap: 48,
+                            rowGap: 0,
+                        }}
+                    >
+                        {FAQS.map((item) => (
+                            <div key={item.q} style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px" }}>
+                                <h3 style={{ fontWeight: 700, fontSize: "clamp(18px,1.9vw,22px)", lineHeight: 1.15, textTransform: "uppercase", marginBottom: 10 }}>
+                                    {item.q}
+                                </h3>
+                                <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "46ch" }}>{item.a}</p>
+                            </div>
+                        ))}
+                    </div>
+                </motion.div>
             </div>
         </main>
     );

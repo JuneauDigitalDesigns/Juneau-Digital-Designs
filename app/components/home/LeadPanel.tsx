@@ -93,6 +93,7 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
   );
 
   const fieldStyle: React.CSSProperties = {
+    boxSizing: "border-box",
     width: "100%",
     padding: "12px 14px",
     borderRadius: 8,
@@ -131,6 +132,7 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
           borderLeft: "1px solid var(--rule)",
           boxShadow: "-24px 0 64px rgba(0,0,0,.28)",
           overflowY: "auto",
+          overflowX: "hidden",
           transform: shown ? "translateX(0)" : "translateX(100%)",
           transition: "transform 320ms cubic-bezier(.22,1,.36,1)",
         }}

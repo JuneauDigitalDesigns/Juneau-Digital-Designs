@@ -525,6 +525,16 @@ select {
   color: var(--fg) !important;
 }
 
+/* Prevent iOS Safari from auto-zooming when an input is focused.
+   Safari zooms in on any input with font-size < 16px. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="file"]):not([type="range"])::placeholder,
 textarea::placeholder {
   color: var(--fg-3) !important;
@@ -552,54 +562,140 @@ select option {
   color: var(--fg-3);
 }
 
-/* ── Calculator range sliders ───────────────────────────────── */
+/* ── Calculator faders ──────────────────────────────────────────
+   Switchboard console, not a default range input. A routed channel with a
+   radio-dial tick scale above it and a coral fader cap riding in it. The cap
+   is --accent-2 against an --accent fill on purpose: previously both were
+   --accent, so the handle vanished into the filled portion. */
+.calc-fader {
+  grid-column: 2;
+  position: relative;
+  margin-top: 14px;
+  padding-top: 11px;   /* room for the tick scale above the track */
+}
+
+/* Radio-dial graduations. Two layers: fine minors throughout, taller majors
+   at every fourth. Unlabelled — the sentence already states the exact value. */
+.calc-fader::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(to right, var(--rule-strong) 0 1px, transparent 1px 12.5%),
+    repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 3.125%);
+  background-size: 100% 8px, 100% 4px;
+  background-position: 0 0, 0 4px;
+  background-repeat: no-repeat;
+}
+
 .calc-slider {
   -webkit-appearance: none;
   appearance: none;
+  display: block;
   width: 100%;
-  height: 4px;
-  border-radius: 999px;
+  height: 7px;
+  border-radius: 2px;
   outline: none;
   cursor: pointer;
-  background: linear-gradient(
-    to right,
-    var(--accent) 0%,
-    var(--accent) var(--pct, 0%),
-    var(--rule-strong) var(--pct, 0%),
-    var(--rule-strong) 100%
-  );
+  /* bloom sits where the fill meets the cap, so the channel reads as lit */
+  background-image:
+    radial-gradient(circle at var(--pct, 0%) 50%, var(--accent-glow) 0, transparent 22px),
+    linear-gradient(
+      to right,
+      var(--accent) 0 var(--pct, 0%),
+      var(--rule-strong) var(--pct, 0%) 100%
+    );
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
+/* A thumb can't host a pseudo-element, so the centre notch is a gradient. */
 .calc-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow:
-    0 0 0 3px rgba(245, 237, 214, 0.20),
-    0 0 16px 2px rgba(245, 237, 214, 0.30);
+  width: 14px;
+  height: 26px;
+  border-radius: 3px;
+  background: linear-gradient(
+    var(--accent-2) 0 46%,
+    rgba(0, 0, 0, 0.35) 46% 54%,
+    var(--accent-2) 54% 100%
+  );
+  box-shadow: 0 0 0 1px var(--rule-strong), 0 0 14px var(--accent-glow);
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.calc-slider::-webkit-slider-thumb:hover {
-  box-shadow:
-    0 0 0 4px rgba(245, 237, 214, 0.25),
-    0 0 24px 4px rgba(245, 237, 214, 0.40);
-  transform: scale(1.12);
+.calc-slider::-webkit-slider-thumb:hover,
+.calc-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px var(--rule-strong), 0 0 22px 3px var(--accent-glow);
+  transform: scaleY(1.08);
 }
 
 .calc-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+  width: 14px;
+  height: 26px;
   border: none;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow:
-    0 0 0 3px rgba(245, 237, 214, 0.20),
-    0 0 16px 2px rgba(245, 237, 214, 0.30);
+  border-radius: 3px;
+  background: linear-gradient(
+    var(--accent-2) 0 46%,
+    rgba(0, 0, 0, 0.35) 46% 54%,
+    var(--accent-2) 54% 100%
+  );
+  box-shadow: 0 0 0 1px var(--rule-strong), 0 0 14px var(--accent-glow);
   cursor: pointer;
+}
+
+/* ── Calculator input rows ───────────────────────────────────
+   Each input reads as one self-describing sentence with the value inline,
+   so there is no label→value mapping to perform. The 28px index column is a
+   fixed left rail the eye can land on; putting the track in column 2 keeps
+   it flush with the sentence and preserves the rail when copy wraps. */
+.calc-row {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.calc-row-index {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--fg-3);
+}
+
+.calc-row-copy {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+/* Poster scale before calculating — the number is the only content on a 600px
+   card, so it earns the drama — then it eases down in step with the card grow
+   and hands focus to the result figures. */
+.calc-row-value {
+  font-family: var(--font-display);
+  /* Fluid rather than a media step-down: 40px condensed numerals blow out a
+     213px mobile column, and a separate @media block lost the cascade here. */
+  font-size: clamp(30px, 7vw, 40px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: var(--tracking-tight);
+  color: var(--accent-2);
+  /* text-shadow carries the ≥90% "you're already covered" state */
+  transition: font-size 620ms cubic-bezier(0.22, 1, 0.36, 1), text-shadow 0.25s ease;
+}
+
+.calc-layout.is-calculated .calc-row-value {
+  font-size: 26px;
+}
+
+.calc-row + .calc-row {
+  border-top: 1px solid var(--rule-weak);
+  padding-top: 26px;
 }
 
 /* ── "How we calculate this" modal ──────────────────────────── */
@@ -1104,24 +1200,106 @@ select option {
   animation-duration: 70s;
 }
 
-/* ── Calculator 2-col layout ─────────────────────────────── */
+/* ── Calculator: gated reveal-by-expansion layout ────────────
+   Flex, not grid, on purpose: grid-template-columns only interpolates
+   1fr → 1fr 1fr in Chromium, and a grid reflow would squeeze the slider
+   column to ~236px mid-grow and spring it back. With a fixed-basis input
+   column, the results column expands from 0 as max-width animates, so the
+   sliders never change size and it behaves the same in every browser. */
+/* Pre-calc the card is INVISIBLE and exactly deck-sized: no padding, no fill,
+   a transparent border holding its 1px so nothing shifts. All the user sees is
+   the recessed fader deck. On calculate the card inflates around it — padding
+   opens, the panel fill and rule fade up — so the answer surface appears to
+   grow out of the controls rather than being there all along. */
 .calc-layout {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 40px;
-  padding: 40px 36px;
-  border-radius: 22px;
+  padding: 0;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
   position: relative;
-  overflow: hidden;
+  overflow: hidden;              /* clips the results column while narrow */
+  margin: 0 auto;                /* centered grow, both directions */
+  transition:
+    max-width 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 620ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 620ms ease,
+    border-color 620ms ease;
 }
+
+/* Card language matched to the Operator cards and Straight Answers grid that
+   bracket this section. */
+.calc-layout.is-calculated {
+  padding: 20px 16px;
+  background-color: var(--panel);
+  border-color: var(--rule);
+}
+
+/* The recessed deck — the object that exists before the card does. Radius
+   matches the card's so the two nest exactly while the card is still invisible
+   and clipping the deck at its own bounds. */
+.calc-inputs {
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 24px 22px;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.10),
+    inset 0 0 0 1px var(--rule-weak);
+}
+
+/* The results column is height-capped in every breakpoint, not just mobile: at
+   zero width its text wraps into a ~1270px-tall column that would inflate the
+   card to 1351px before the user has clicked anything. Capping it to 0 keeps
+   the pre-calc card snug at ~553px and lets it grow in both dimensions. */
+.calc-results {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.calc-layout.is-calculated .calc-results { max-height: 1400px; }
 
 @media (min-width: 1024px) {
   .calc-layout {
-    grid-template-columns: 1fr 1fr;
+    flex-direction: row;
     gap: 56px;
-    align-items: start;
+    align-items: flex-start;
+    /* deck (528) + the two 1px transparent borders — the card hugs the deck */
+    max-width: 530px;
   }
+  .calc-layout.is-calculated {
+    max-width: 1240px;
+    padding: 40px 36px;
+  }
+  /* fixed basis so the deck never resizes while the card inflates around it */
+  .calc-inputs { flex: 0 0 528px; }
+  .calc-results { flex: 1 1 0; min-width: 0; }
+  /* natural height here is ~638px; a close cap keeps the easing honest */
+  .calc-layout.is-calculated .calc-results { max-height: 820px; }
 }
+
+/* Must stay last: drops all clipping once the grow lands, so the <details>
+   accordion can expand later without being cut off. Media queries add no
+   specificity, so source order is what keeps this winning. */
+.calc-layout.is-open .calc-results { max-height: none; overflow: visible; }
+
+/* Staged reveal of the result column's contents. Per-element delays are set
+   inline in MissedCallsCalculator so the choreography reads in one place. */
+.calc-reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.calc-layout.is-calculated .calc-reveal { opacity: 1; transform: none; }
+
+/* The Calculate button has no job once the sliders go live, so it exits. */
+.calc-gate {
+  overflow: hidden;
+  max-height: 140px;
+  transition: max-height 420ms ease, opacity 200ms ease;
+}
+.calc-layout.is-calculated .calc-gate { max-height: 0; opacity: 0; }
 
 /* ── Hero grid (copy wide, live panel thin) ──────────────── */
 .hero-grid {
@@ -1235,6 +1413,19 @@ select option {
 
   .border-pulse {
     display: none;
+  }
+
+  /* Calculator reveal collapses to an instant state change */
+  .calc-layout,
+  .calc-inputs,
+  .calc-results,
+  .calc-reveal,
+  .calc-gate,
+  .calc-row-value {
+    transition: none !important;
+  }
+  .calc-reveal {
+    transform: none !important;
   }
 }
 

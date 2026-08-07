@@ -8,7 +8,6 @@ import LeadPanel from "./LeadPanel";
 
 const DEMO_TEL = "tel:+19302221343";
 const DEMO_TEL_DISPLAY = "(930) 222-1343";
-const TRADES = ["Plumbers rely on it", "HVAC crews use it", "Roofers trust it", "Contractors book with it", "Electricians run on it", "Landscapers love it"];
 
 /* ── Scroll reveal ──────────────────────────────────────────── */
 function useReveal(options: IntersectionObserverInit = {}) {
@@ -70,7 +69,7 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
           Every missed call<br /><span style={{ color: "var(--accent-2)" }}>is a lost job.</span>
         </h1>
         <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px 0 32px" }}>
-          We build your website and run a 24/7 AI receptionist on your number. When you can&apos;t pick up, it does — books the job, answers questions, and texts you a summary.
+          We build your website and run a 24/7 AI receptionist on your number. When you can&apos;t pick up, it does — gets their details, answers what it can, and texts you the whole thing before they hang up.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div className="hero-cta">
@@ -79,7 +78,7 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
                 a call that isn't coming. */}
             <button type="button" onClick={onOpenForm} className="btn primary lg hero-cta-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>Get Started</button>
           </div>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Tell us your trade — takes two minutes</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Five quick questions. About 30 seconds.</span>
         </div>
       </div>
 
@@ -88,32 +87,21 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
   );
 }
 
-/* ── Trades ticker ──────────────────────────────────────────── */
-function TradesTicker() {
-  const items = [...TRADES, ...TRADES, ...TRADES];
-  return (
-    <div className="ticker-bar" aria-hidden="true">
-      <div className="ticker-track" style={{ paddingLeft: 28 }}>
-        {items.map((t, i) => (
-          <span key={i} style={{ display: "inline-flex", gap: 28, alignItems: "center" }}>
-            {t}
-            <span>&bull;</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Missed Calls Revenue Calculator (kept; restyled to tokens) ── */
-function MissedCallsCalculator() {
+function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
   const MISSED_MIN = 1, MISSED_MAX = 50;
   const RECOVERY_MIN = 1, RECOVERY_MAX = 100;
   const JOB_SLIDER_MIN = 0, JOB_SLIDER_MAX = 100;
 
-  const LEAD_RATE = 0.47;
+  // Invoca, Home Services Call Conversion Benchmarks 2025 (60M+ calls).
+  const LEAD_RATE = 0.37;
   const CLOSE_RATE = 0.46;
-  const AI_RECOVERY_RATE = 0.73;
+  // Deliberately conservative and deliberately uncited — this is our own
+  // assumption, not published research. No credible "AI revenue recovery rate"
+  // figure exists; the 0.73 previously here was ContactBabel's AI call
+  // *resolution* rate, a different metric entirely. If this changes, it stays
+  // labeled as an estimate in the accordion.
+  const AI_RECOVERY_RATE = 0.50;
 
   function sliderToJobValue(pos: number): number {
     return Math.round(50 * Math.pow(10000, pos / 100));
@@ -125,6 +113,35 @@ function MissedCallsCalculator() {
   const [missedPerWeek, setMissedPerWeek] = useState(10);
   const [jobSliderPos, setJobSliderPos] = useState(() => jobValueToSlider(800));
   const [currentRecovery, setCurrentRecovery] = useState(20);
+
+  /* The figures stay hidden until the user asks for them. Gating turns the card
+     from a toy that reacts to every drag into a transaction with one answer —
+     which is what earns the held pause before the CTA speaks. After the first
+     calculation the sliders go live and the gate button retires. */
+  const [calculated, setCalculated] = useState(false);
+  const [open, setOpen] = useState(false); // drops overflow clipping once the grow lands
+  const [growTo, setGrowTo] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const timers = useRef<number[]>([]);
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  function handleCalculate() {
+    if (calculated) return;
+    // Below 1024px the card grows downward. Animating to the measured height
+    // rather than the CSS cap keeps the easing honest — against a generous cap
+    // the growth finishes in ~90ms and then sits still for the rest of the beat.
+    const stacked = window.innerWidth < 1024;
+    if (stacked && resultsRef.current) setGrowTo(resultsRef.current.scrollHeight);
+    setCalculated(true);
+    if (stacked) {
+      timers.current.push(
+        window.setTimeout(() => cardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 120)
+      );
+    }
+    timers.current.push(window.setTimeout(() => setOpen(true), 700));
+  }
 
   const avgJobValue = sliderToJobValue(jobSliderPos);
   const annualMissed = missedPerWeek * 52;
@@ -143,6 +160,12 @@ function MissedCallsCalculator() {
   const jobPct = jobSliderPos;
   const recoveryPct = ((currentRecovery - RECOVERY_MIN) / (RECOVERY_MAX - RECOVERY_MIN)) * 100;
   const revenueFormatted = formatDollars(revenueOnTable);
+  /* Shared by row 02's inline value and its aria-valuetext, so the announced
+     figure can never drift from the visible one. */
+  const avgJobValueFormatted =
+    avgJobValue >= 1000
+      ? `$${(avgJobValue / 1000).toFixed(avgJobValue >= 100000 ? 0 : 1)}K`
+      : `$${avgJobValue.toLocaleString()}`;
 
   return (
     <section style={{ position: "relative", padding: "clamp(56px,7vw,120px) 0", overflow: "hidden" }}>
@@ -153,136 +176,190 @@ function MissedCallsCalculator() {
             How much are missed calls <span style={{ color: "var(--accent-2)" }}>costing you?</span>
           </h2>
           <p style={{ color: "var(--fg-2)", fontSize: 16, maxWidth: "50ch", margin: "0 auto", lineHeight: 1.6 }}>
-            Move the sliders to match your business. See your real numbers instantly.
+            Move the sliders to match your business. Then hit calculate.
           </p>
         </Reveal>
 
         <Reveal delay={1}>
-          <div className="glass calc-layout" style={{ padding: "40px 36px", borderRadius: 22, position: "relative", overflow: "hidden" }}>
-            {/* accent top bar — tokenized (was hardcoded purple) */}
-            <div style={{ position: "absolute", inset: "0 0 auto 0", height: 2, borderRadius: "22px 22px 0 0", background: "linear-gradient(90deg, var(--accent), var(--accent-2))" }} />
-
+          <div ref={cardRef} className={`calc-layout${calculated ? " is-calculated" : ""}${open ? " is-open" : ""}`}>
             {/* LEFT: sliders */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-                  <span className="kicker">Missed calls / week</span>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 700, color: "var(--fg)", letterSpacing: "var(--tracking-tight)" }}>{missedPerWeek}</span>
-                </div>
-                <input
-                  type="range"
-                  className="calc-slider"
-                  min={MISSED_MIN}
-                  max={MISSED_MAX}
-                  step={1}
-                  value={missedPerWeek}
-                  onChange={(e) => setMissedPerWeek(Number(e.target.value))}
-                  style={{ "--pct": `${missedPct}%` } as React.CSSProperties}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em" }}>
-                  <span>1</span>
-                  <span>50</span>
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-                  <span className="kicker">Avg job value</span>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 700, color: "var(--fg)", letterSpacing: "var(--tracking-tight)" }}>
-                    {avgJobValue >= 1000 ? `$${(avgJobValue / 1000).toFixed(avgJobValue >= 100000 ? 0 : 1)}K` : `$${avgJobValue.toLocaleString()}`}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  className="calc-slider"
-                  min={JOB_SLIDER_MIN}
-                  max={JOB_SLIDER_MAX}
-                  step={0.5}
-                  value={jobSliderPos}
-                  onChange={(e) => setJobSliderPos(Number(e.target.value))}
-                  style={{ "--pct": `${jobPct}%` } as React.CSSProperties}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em" }}>
-                  <span>$50</span>
-                  <span>$500K</span>
+            <div className="calc-inputs" style={{ display: "flex", flexDirection: "column", gap: 30 }}>
+              <div className="calc-row">
+                <span className="calc-row-index" aria-hidden="true">01</span>
+                <p className="calc-row-copy">
+                  I miss <span className="calc-row-value">{missedPerWeek}</span> calls a week
+                </p>
+                {/* wrapper carries the radio-dial tick scale above the track */}
+                <div className="calc-fader">
+                  <input
+                    type="range"
+                    className="calc-slider"
+                    min={MISSED_MIN}
+                    max={MISSED_MAX}
+                    step={1}
+                    value={missedPerWeek}
+                    onChange={(e) => setMissedPerWeek(Number(e.target.value))}
+                    style={{ "--pct": `${missedPct}%` } as React.CSSProperties}
+                    aria-label="Missed calls per week"
+                  />
                 </div>
               </div>
 
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-                  <span className="kicker">Lead calls you currently recover</span>
-                  <span style={{ fontFamily: "var(--font-display)", fontSize: 28, fontWeight: 700, color: currentRecovery >= 90 ? "var(--accent-2)" : "var(--fg)", letterSpacing: "var(--tracking-tight)", transition: "color 0.2s ease" }}>{currentRecovery}%</span>
+              <div className="calc-row">
+                <span className="calc-row-index" aria-hidden="true">02</span>
+                <p className="calc-row-copy">
+                  My average job is worth <span className="calc-row-value">{avgJobValueFormatted}</span>
+                </p>
+                <div className="calc-fader">
+                  <input
+                    type="range"
+                    className="calc-slider"
+                    min={JOB_SLIDER_MIN}
+                    max={JOB_SLIDER_MAX}
+                    step={0.5}
+                    value={jobSliderPos}
+                    onChange={(e) => setJobSliderPos(Number(e.target.value))}
+                    style={{ "--pct": `${jobPct}%` } as React.CSSProperties}
+                    aria-label="Average job value"
+                    /* the raw value is a 0–100 logarithmic position, which is
+                       meaningless read aloud — announce the dollar figure instead */
+                    aria-valuetext={avgJobValueFormatted}
+                  />
                 </div>
-                <input
-                  type="range"
-                  className="calc-slider"
-                  min={RECOVERY_MIN}
-                  max={RECOVERY_MAX}
-                  step={1}
-                  value={currentRecovery}
-                  onChange={(e) => setCurrentRecovery(Number(e.target.value))}
-                  style={{ "--pct": `${recoveryPct}%` } as React.CSSProperties}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", letterSpacing: "0.1em" }}>
-                  <span>1%</span>
-                  <span>100%</span>
+              </div>
+
+              <div className="calc-row">
+                <span className="calc-row-index" aria-hidden="true">03</span>
+                <p className="calc-row-copy">
+                  Right now I win back{" "}
+                  <span
+                    className="calc-row-value"
+                    style={{ textShadow: currentRecovery >= 90 ? "0 0 40px var(--accent-glow)" : "none" }}
+                  >
+                    {currentRecovery}%
+                  </span>{" "}
+                  of those leads
+                </p>
+                <div className="calc-fader">
+                  <input
+                    type="range"
+                    className="calc-slider"
+                    min={RECOVERY_MIN}
+                    max={RECOVERY_MAX}
+                    step={1}
+                    value={currentRecovery}
+                    onChange={(e) => setCurrentRecovery(Number(e.target.value))}
+                    style={{ "--pct": `${recoveryPct}%` } as React.CSSProperties}
+                    aria-label="Percent of lead calls you recover today"
+                    aria-valuetext={`${currentRecovery}%`}
+                  />
                 </div>
+              </div>
+
+              <div className="calc-gate">
+                <button
+                  type="button"
+                  onClick={handleCalculate}
+                  className="btn primary lg"
+                  style={{ width: "100%", boxShadow: "0 0 32px var(--accent-glow)" }}
+                  aria-expanded={calculated}
+                >
+                  Calculate
+                </button>
               </div>
             </div>
 
-            {/* RIGHT: results */}
-            <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 32 }}>
-              <div>
-                <div className="kicker" style={{ marginBottom: 12 }}>Revenue Left on the Table</div>
-                {/* tokenized — was a hardcoded white→transparent gradient (invisible in light) */}
-                <div key={revenueFormatted} style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-4xl)", fontWeight: 900, lineHeight: 1, letterSpacing: "var(--tracking-tightest)", color: "var(--fg)" }}>
-                  {revenueFormatted}
+            {/* RIGHT: results — hidden until Calculate, then the card grows to fit them */}
+            <div
+              className="calc-results"
+              ref={resultsRef}
+              inert={!calculated}
+              /* dropped once `open` lands so the CSS `max-height: none` takes over
+                 and the accordion can expand past the measured height */
+              style={growTo !== null && !open ? { maxHeight: growTo } : undefined}
+            >
+              <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 32 }} aria-live="polite">
+                <div className="calc-reveal" style={{ transitionDelay: "480ms" }}>
+                  <div className="kicker" style={{ marginBottom: 12 }}>Revenue Left on the Table</div>
+                  {/* tokenized — was a hardcoded white→transparent gradient (invisible in light) */}
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-4xl)", fontWeight: 900, lineHeight: 1, letterSpacing: "var(--tracking-tightest)", color: "var(--fg)" }}>
+                    {revenueFormatted}
+                  </div>
+                  <div className="kicker" style={{ marginTop: 8 }}>per year</div>
                 </div>
-                <div className="kicker" style={{ marginTop: 8 }}>per year</div>
-              </div>
 
-              <div style={{ width: "100%", height: 1, background: "var(--rule)" }} />
+                <div className="calc-reveal" style={{ transitionDelay: "560ms", width: "100%", height: 1, background: "var(--rule)" }} />
 
-              <div>
-                <div className="kicker" style={{ marginBottom: 12 }}>Recoverable via AI Receptionist</div>
-                <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-4xl)", fontWeight: 900, lineHeight: 1, letterSpacing: "var(--tracking-tightest)", color: "var(--accent-2)", textShadow: "0 0 40px var(--accent-glow)" }}>
-                  {formatDollars(recoverableRevenue)}
+                <div className="calc-reveal" style={{ transitionDelay: "620ms" }}>
+                  <div className="kicker" style={{ marginBottom: 12 }}>Recoverable via AI Receptionist</div>
+                  <div style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-4xl)", fontWeight: 900, lineHeight: 1, letterSpacing: "var(--tracking-tightest)", color: "var(--accent-2)", textShadow: "0 0 40px var(--accent-glow)" }}>
+                    {formatDollars(recoverableRevenue)}
+                  </div>
+                  <div className="kicker" style={{ marginTop: 8 }}>per year</div>
                 </div>
-                <div className="kicker" style={{ marginTop: 8 }}>per year</div>
-              </div>
 
-              <details className="calc-accordion">
+                {/* The held ~800ms gap after the figures settle is the whole effect:
+                    it reads as someone looking at your number, then remarking on it. */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 18 }}>
+                  <p
+                    className="calc-reveal"
+                    style={{ transitionDelay: "1840ms", fontWeight: 700, fontSize: "clamp(19px,1.8vw,24px)", lineHeight: 1.3, color: "var(--fg)", margin: 0 }}
+                  >
+                    {/* At 100% recovery the figure is exactly $0, and "those callers
+                        called the next guy" becomes a confident falsehood. */}
+                    {revenueOnTable < 1 ? (
+                      <>Nothing on the table at 100%. Almost nobody is at 100%.</>
+                    ) : (
+                      <>{revenueFormatted}{" "}a year &mdash; if those callers did what most callers do: hang up without leaving a message and try someone else.</>
+                    )}
+                  </p>
+                  {/* wrapper, not the button itself — .calc-reveal's transform/transition
+                      would otherwise override .btn.primary:hover's lift */}
+                  <div className="calc-reveal" style={{ transitionDelay: "2260ms" }}>
+                    <button
+                      type="button"
+                      onClick={onOpenForm}
+                      className="btn primary lg"
+                      style={{ boxShadow: "0 0 32px var(--accent-glow)" }}
+                    >
+                      Get Started
+                    </button>
+                  </div>
+                </div>
+
+              <details className="calc-accordion calc-reveal" style={{ transitionDelay: "760ms" }}>
                 <summary>
                   <Info size={16} weight="duotone" style={{ color: "var(--accent-2)", flexShrink: 0 }} />
                   How we calculate this
                 </summary>
                 <div className="calc-accordion-content">
                   <p style={{ marginBottom: 12, color: "var(--fg-2)", fontSize: 13, lineHeight: 1.6 }}>
-                    Estimates based on your inputs and published industry research. Results vary by market and business.
+                    Based on your inputs, published research where it exists, and one assumption of our own — all four steps shown below. Results vary by market and business.
                   </p>
                   <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
                       <strong style={{ color: "var(--fg)" }}>{missedPerWeek} calls/week × 52</strong> = {Math.round(annualMissed).toLocaleString()} missed/year
                     </li>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                      × <strong style={{ color: "var(--fg)" }}>47% new-business leads</strong> (Invoca 2025) = {Math.round(annualLeadCalls).toLocaleString()} lead calls
+                      × <strong style={{ color: "var(--fg)" }}>37% are new-business leads</strong> (Invoca, 2025) = {Math.round(annualLeadCalls).toLocaleString()} lead calls
                     </li>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
                       × <strong style={{ color: "var(--fg)" }}>{Math.round((1 - currentRecovery / 100) * 100)}% unrecovered</strong> = {Math.round(unrecoveredLeads).toLocaleString()} lost leads
                     </li>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                      × <strong style={{ color: "var(--fg)" }}>46% close rate</strong> × avg job value = {formatDollars(revenueOnTable)}
+                      × <strong style={{ color: "var(--fg)" }}>46% of leads convert on the call</strong> (Invoca, 2025) × avg job value = {formatDollars(revenueOnTable)}
                     </li>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                      × <strong style={{ color: "var(--fg)" }}>73% AI recovery</strong> = {formatDollars(recoverableRevenue)}
+                      × <strong style={{ color: "var(--fg)" }}>50% recovered</strong> — our own estimate, deliberately conservative = {formatDollars(recoverableRevenue)}
                     </li>
                   </ol>
                 </div>
               </details>
 
-              <p style={{ fontSize: 11, color: "var(--fg-3)", lineHeight: 1.5, margin: 0 }}>
-                Illustrative estimates only. Actual results vary by market, business model, and execution.
-              </p>
+                <p className="calc-reveal" style={{ transitionDelay: "840ms", fontSize: 11, color: "var(--fg-3)", lineHeight: 1.5, margin: 0 }}>
+                  Illustrative estimates only. Actual results vary by market, business model, and execution.
+                </p>
+              </div>
             </div>
           </div>
         </Reveal>
@@ -297,7 +374,7 @@ function TwoOperators() {
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
       <Reveal>
         <h2 className="two-op-heading" style={{ fontWeight: 800, fontSize: "clamp(34px,5vw,64px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-          The website and the receptionist.
+          You get two things. Both work while you don&apos;t.
         </h2>
       </Reveal>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 }}>
@@ -305,7 +382,7 @@ function TwoOperators() {
         <Reveal as="article" style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "clamp(26px,3vw,38px)", display: "flex", flexDirection: "column", gap: 18, background: "var(--panel)" }}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: ".12em", color: "var(--accent)" }}>OPERATOR 01 // THE WEBSITE</div>
           <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase" }}>Built once. Runs forever.</h3>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--fg-2)" }}>Fast, findable on Google, and made to look like the real you. We build it, host it, back it up and keep it current. Your only job is to keep doing the job.</p>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--fg-2)" }}>Fast, findable on Google, and built to look like the real thing. We build it, host it, back it up and keep it current. Your only job is to keep doing the job.</p>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-3)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
             <span>&rarr; Your website goes live in ~1 week</span>
             <span>&rarr; hosting + updates included</span>
@@ -316,12 +393,12 @@ function TwoOperators() {
         {/* Operator 02 — Receptionist (inverted, premium) */}
         <Reveal as="article" delay={1} className="surface-invert" style={{ border: "1px solid", borderRadius: 8, padding: "clamp(26px,3vw,38px)", display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: ".12em", color: "var(--invert-accent)" }}>OPERATOR 02 // THE RECEPTIONIST</div>
-          <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase", color: "var(--invert-fg)" }}>Picks up in two rings. Books the job. Texts you.</h3>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--invert-fg-2)" }}>When you can&apos;t pick up, it does. Answers questions, books the job, and texts you the details before the caller hangs up. 3am, Sunday, holidays. Always on.</p>
+          <h3 style={{ fontWeight: 700, fontSize: "clamp(26px,3vw,38px)", lineHeight: 0.98, textTransform: "uppercase", color: "var(--invert-fg)" }}>Doesn&apos;t miss. Doesn&apos;t sleep. Texts you every time.</h3>
+          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--invert-fg-2)" }}>When you can&apos;t pick up, it does. Answers their questions, finds out what they actually need, and texts you the whole thing before they hang up. 3am, Sunday, holidays. Always on.</p>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--invert-fg-2)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
-            <span>&rarr; Up and running 24/7, every single day</span>
-            <span>&rarr; Qualifies your customers</span>
-            <span>&rarr; Texts you a summary every time a customer calls</span>
+            <span>&rarr; Answers 24/7 — nights, weekends, holidays</span>
+            <span>&rarr; Qualifies the caller before it reaches you</span>
+            <span>&rarr; Texts you a full summary of every call</span>
             <span>&rarr; English & Spanish AI agents available</span>
           </div>
         </Reveal>
@@ -330,25 +407,60 @@ function TwoOperators() {
   );
 }
 
-/* ── Outcomes strip (replaces LogoMarquee) ──────────────────── */
-const OUTCOMES = [
-  { stat: "<1.4s", label: "average answer time" },
-  { stat: "99.9%", label: "website always live" },
-  { stat: "24/7", label: "no days off" },
-  { stat: "100%", label: "of calls answered" },
+/* ── Before you call ────────────────────────────────────────────
+   The page argues value hard (calculator) but barely argues trust.
+   Handing your business number to an AI is a high bar — these are the four
+   questions that actually stop people, answered before the demo CTA closes. */
+const ANSWERS: { q: string; a: string }[] = [
+  {
+    q: "Will it sound like a robot?",
+    a: "Call the number at the bottom of this page and decide for yourself. That's why it's there — we'd rather you hear it than take our word for it.",
+  },
+  {
+    q: "What if it can't answer something?",
+    a: "It takes their details and texts you. It doesn't guess, and it doesn't make things up about your business.",
+  },
+  {
+    q: "Do I have to give up my number?",
+    a: "No. You get a new dedicated business number and forward your existing line to it whenever you're ready. If you ever leave, the number goes with you.",
+  },
+  {
+    q: "What if I already have a website?",
+    a: "We'll build you a new one and bring over the content worth keeping. You won't have to start from scratch.",
+  },
 ];
-function OutcomesStrip() {
+
+function StraightAnswers() {
   return (
-    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(32px,4vw,56px) clamp(18px,4vw,56px)" }}>
-      <Reveal style={{ marginBottom: "clamp(24px,3vw,40px)" }}>
-        <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase" }}>By the numbers.</h2>
+    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
+      <Reveal>
+        <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
+          Before you call.
+        </h2>
       </Reveal>
-      <div className="outcomes-grid">
-        {OUTCOMES.map((o, i) => (
-          <div key={i} style={{ padding: "28px 22px" }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, fontSize: "clamp(36px,5vw,64px)", lineHeight: 0.85, color: "var(--accent-2)" }}>{o.stat}</div>
-            <p style={{ fontSize: 13, color: "var(--fg-3)", marginTop: 10, lineHeight: 1.4 }}>{o.label}</p>
-          </div>
+      {/* Reference-document layout, not cards: ruled entries in two columns.
+          `min(100%, 400px)` is load-bearing — a bare minmax(400px, 1fr) overflows
+          at 375px. The 1040 cap is what holds it to two columns; the page's usual
+          1320 fits three, which is too many to read. */}
+      <div
+        style={{
+          maxWidth: 1040,
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
+          columnGap: 48,
+          rowGap: 0,
+        }}
+      >
+        {ANSWERS.map((item, i) => (
+          <Reveal
+            as="article"
+            key={item.q}
+            delay={i % 2}
+            style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px", display: "flex", flexDirection: "column", gap: 10 }}
+          >
+            <h3 style={{ fontWeight: 700, fontSize: "clamp(18px,1.9vw,22px)", lineHeight: 1.15, textTransform: "uppercase" }}>{item.q}</h3>
+            <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "46ch" }}>{item.a}</p>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -394,9 +506,8 @@ export default function HomePageClient() {
     <div style={{ width: "100%", background: "var(--bg)" }}>
       <Hero onOpenForm={() => setFormOpen(true)} />
       <TwoOperators />
-      <TradesTicker />
-      <MissedCallsCalculator />
-      <OutcomesStrip />
+      <MissedCallsCalculator onOpenForm={() => setFormOpen(true)} />
+      <StraightAnswers />
       <DialCTA />
       {formOpen && <LeadPanel onClose={() => setFormOpen(false)} />}
     </div>
