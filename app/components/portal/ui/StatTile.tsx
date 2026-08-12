@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "@phosphor-icons/react";
 import { Card, CardLabel } from "./Card";
 import { Sparkline } from "./Sparkline";
+import { InfoTip } from "./InfoTip";
 import { useCountUp } from "./Motion";
 
 /**
@@ -33,6 +34,7 @@ export function StatTile({
     tone = "default",
     series,
     href,
+    info,
 }: {
     label: string;
     value: ReactNode | null;
@@ -47,6 +49,8 @@ export function StatTile({
     series?: number[];
     /** Where this metric is explained in full. Makes the tile a link. */
     href?: string;
+    /** Short explanation of what the number counts, shown via an InfoTip beside the label. */
+    info?: string;
 }) {
     const toneColor = {
         default: "var(--fg)",
@@ -64,7 +68,10 @@ export function StatTile({
     const body = (
         <>
             <div className="flex items-center justify-between gap-3">
-                <CardLabel>{label}</CardLabel>
+                <span className="inline-flex items-center gap-1.5 min-w-0">
+                    <CardLabel>{label}</CardLabel>
+                    {info && <InfoTip text={info} label={`What "${label}" counts`} />}
+                </span>
                 {href && (
                     <ArrowRight
                         size={14}

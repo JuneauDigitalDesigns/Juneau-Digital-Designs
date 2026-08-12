@@ -17,7 +17,9 @@ import { ChartSkeleton, StatRowSkeleton, TableSkeleton } from "./ui/Skeleton";
 import { axisProps, tooltipProps, outcomeColor, legendStyle } from "./ui/chartTheme";
 import Drawer from "./ui/Drawer";
 import { useCachedFetch, CLIENT_TTL } from "./PortalDataProvider";
-import { freshness } from "./ui/format";
+import { freshness, shortDate } from "./ui/format";
+import { duration } from "@/app/lib/duration";
+import DateRangePicker, { dayStartMs, dayEndMs, toDayString } from "./ui/DateRangePicker";
 import type { UsageSummary } from "@/app/lib/portal-usage";
 
 interface CallRecord {
@@ -45,9 +47,80 @@ interface CallsData {
 }
 
 function fmtDuration(s: number | null): string {
-    if (s === null) return "—";
-    if (s < 60) return `${s}s`;
-    return `${Math.floor(s / 60)}m ${s % 60}s`;
+    return duration(s) ?? "—";
+}
+
+export type PeriodKey = "current" | "previous" | "today" | "yesterday" | "custom";
+type BucketSize = "hour" | "day" | "week";
+
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+    current: "This billing period",
+    previous: "Previous billing period",
+    today: "Today",
+    yesterday: "Yesterday",
+    custom: "Custom range",
+};
+
+/** Local midnight for the day containing `ms`. */
+function localDayStart(ms: number): number {
+    const d = new Date(ms);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+}
+
+/**
+ * Half-open window `[fromMs, toMs)` for the selection, or null when it cannot be resolved yet.
+ *
+ * Billing periods come from the usage payload rather than being recomputed here, so the table
+ * and the allowance meter are guaranteed to describe the same window. Returning null while
+ * usage is still loading is deliberate: showing every call for a moment and then snapping to a
+ * period would read as data appearing and vanishing.
+ */
+function resolveRange(
+    period: PeriodKey,
+    usage: UsageSummary | null,
+    previousUsage: UsageSummary | null,
+    from: string,
+    to: string,
+    loadedAt: number,
+): { fromMs: number; toMs: number } | null {
+    if (period === "today") {
+        const start = localDayStart(loadedAt);
+        return { fromMs: start, toMs: start + 86_400_000 };
+    }
+    if (period === "yesterday") {
+        const start = localDayStart(loadedAt) - 86_400_000;
+        return { fromMs: start, toMs: start + 86_400_000 };
+    }
+    if (period === "custom") {
+        if (!from || !to) return null;
+        return { fromMs: dayStartMs(from), toMs: dayEndMs(to) };
+    }
+
+    const src = period === "previous" ? previousUsage : usage;
+    if (!src?.periodStart || !src?.periodEnd) return null;
+    return { fromMs: src.periodStart, toMs: src.periodEnd };
+}
+
+/** Start of the bucket containing `ms`, in local time. */
+function bucketStart(ms: number, bucket: BucketSize): number {
+    const d = new Date(ms);
+    if (bucket === "hour") {
+        d.setMinutes(0, 0, 0);
+        return d.getTime();
+    }
+    d.setHours(0, 0, 0, 0);
+    if (bucket === "week") d.setDate(d.getDate() - d.getDay()); // back to Sunday
+    return d.getTime();
+}
+
+function bucketLabel(ms: number, bucket: BucketSize): string {
+    const d = new Date(ms);
+    if (bucket === "hour") {
+        return d.toLocaleTimeString(undefined, { hour: "numeric" });
+    }
+    const label = d.toLocaleDateString(undefined, { month: "numeric", day: "numeric" });
+    return bucket === "week" ? `wk ${label}` : label;
 }
 
 function fmtDate(iso: string | null): string {
@@ -96,7 +169,19 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
     const search = params.get("q") ?? "";
     const outcomeFilter = params.get("outcome") ?? "";
     const typeFilter = params.get("type") ?? "";
-    const daysFilter = params.get("days") ?? "";
+    const periodFilter = (params.get("period") ?? "current") as PeriodKey;
+    const customFrom = params.get("from") ?? "";
+    const customTo = params.get("to") ?? "";
+
+    // Only fetched when the prior window is actually selected, and cached under its own key,
+    // so reading it can never disturb the current period's figure.
+    const wantsPrevious = periodFilter === "previous";
+    const { data: previousUsage } = useCachedFetch<UsageSummary>(
+        `usage-prev:${site.slug}`,
+        `/api/portal/usage?site=${encodeURIComponent(site.slug)}&period=previous`,
+        CLIENT_TTL.usage,
+        wantsPrevious,
+    );
 
     const setParam = useCallback(
         (key: string, value: string) => {
@@ -126,17 +211,27 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
         [all],
     );
 
+    /**
+     * The window every metric on this page is measured over.
+     *
+     * Anchored to `loadedAt` rather than the clock, keeping the existing invariant that a
+     * filtered view does not shift under the user mid-session. Day boundaries are **local**,
+     * because "today" means the client's today; billing periods are absolute instants from
+     * Stripe and compare directly.
+     */
+    const range = useMemo(
+        () => resolveRange(periodFilter, usage, previousUsage, customFrom, customTo, loadedAt),
+        [periodFilter, usage, previousUsage, customFrom, customTo, loadedAt],
+    );
+
     const filtered = useMemo(() => {
-        // Relative to when the data was fetched, not to render time — reading the clock
-        // during render makes the same props produce different output.
-        const cutoff = daysFilter ? loadedAt - Number(daysFilter) * 86_400_000 : null;
         const q = search.trim().toLowerCase();
         return all.filter((c) => {
             if (outcomeFilter && c.outcome !== outcomeFilter) return false;
             if (typeFilter && c.callType !== typeFilter) return false;
-            if (cutoff !== null) {
+            if (range) {
                 const t = c.date ? new Date(c.date).getTime() : NaN;
-                if (Number.isNaN(t) || t < cutoff) return false;
+                if (Number.isNaN(t) || t < range.fromMs || t >= range.toMs) return false;
             }
             if (q) {
                 const hay = `${c.callerName ?? ""} ${c.summary ?? ""} ${c.callerNumber ?? ""}`.toLowerCase();
@@ -144,20 +239,31 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
             }
             return true;
         });
-    }, [all, outcomeFilter, typeFilter, daysFilter, search, loadedAt]);
+    }, [all, outcomeFilter, typeFilter, range, search]);
 
+    /**
+     * Buckets scale with the window. A billing period drawn daily is thirty near-empty bars;
+     * a single day drawn daily is one. The old chart hardcoded days and capped at the last 30,
+     * which silently truncated any longer view.
+     */
     const volume = useMemo(() => {
-        const map = new Map<string, number>();
+        const spanMs = range ? range.toMs - range.fromMs : 0;
+        const days = spanMs / 86_400_000;
+        const bucket: BucketSize = !range ? "week" : days <= 2 ? "hour" : days <= 14 ? "day" : "week";
+
+        const map = new Map<number, number>();
         for (const c of filtered) {
             if (!c.date) continue;
-            const day = c.date.slice(0, 10);
-            map.set(day, (map.get(day) ?? 0) + 1);
+            const t = new Date(c.date).getTime();
+            if (Number.isNaN(t)) continue;
+            const key = bucketStart(t, bucket);
+            map.set(key, (map.get(key) ?? 0) + 1);
         }
+
         return Array.from(map.entries())
-            .sort(([a], [b]) => a.localeCompare(b))
-            .slice(-30)
-            .map(([date, count]) => ({ date: date.slice(5), count }));
-    }, [filtered]);
+            .sort(([a], [b]) => a - b)
+            .map(([ms, count]) => ({ date: bucketLabel(ms, bucket), count }));
+    }, [filtered, range]);
 
     const outcomeBreakdown = useMemo(() => {
         if (!hasOutcome) return [];
@@ -255,7 +361,32 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
         );
     }
 
-    const filtersActive = Boolean(search || outcomeFilter || typeFilter || daysFilter);
+    // "Active" means narrowed beyond the default view, and the default is the current period.
+    const filtersActive = Boolean(
+        search || outcomeFilter || typeFilter || periodFilter !== "current",
+    );
+
+    // The allowance follows a billing-period selection and stays pinned to the current period
+    // for day ranges, where a cap has no meaning. `meterUsage` is never the previous period
+    // unless it was explicitly asked for.
+    const onBillingPeriod = periodFilter === "current" || periodFilter === "previous";
+    const meterUsage = periodFilter === "previous" ? previousUsage : usage;
+    const meterLabel =
+        onBillingPeriod || !usage?.periodStart || !usage?.periodEnd
+            ? undefined
+            : `Current period, ${shortDate(usage.periodStart)} to ${shortDate(usage.periodEnd)}`;
+
+    // An under-count presented as fact is worse than no figure. Only warn when the cap was
+    // actually hit and the window reaches back past the oldest row we hold.
+    const oldestLoadedMs = all.reduce((min, c) => {
+        const t = c.date ? new Date(c.date).getTime() : NaN;
+        return Number.isNaN(t) ? min : Math.min(min, t);
+    }, Number.POSITIVE_INFINITY);
+    const rangeOutrunsData =
+        Boolean(data.truncated) &&
+        range !== null &&
+        Number.isFinite(oldestLoadedMs) &&
+        range.fromMs < oldestLoadedMs;
 
     return (
         <div className="space-y-8">
@@ -269,12 +400,117 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
                 )}
             />
 
-            {/* Allowance first: it's the only number here that costs the client money. */}
-            {usage && <UsageMeter usage={usage} />}
+            {/* Everything that scopes the page, in one place at the top. Period sits first
+                because it governs every number below it, including the allowance meter. */}
+            <Card className="space-y-3">
+                <div className="flex flex-wrap items-end gap-3">
+                    <Field label="Period">
+                        <Select
+                            value={periodFilter}
+                            onChange={(v) => {
+                                const next = new URLSearchParams(params.toString());
+                                next.set("period", v);
+                                if (v !== "custom") {
+                                    next.delete("from");
+                                    next.delete("to");
+                                } else if (!next.get("from")) {
+                                    // Seed a sane range so the picker opens on something real.
+                                    const today = toDayString(new Date(loadedAt));
+                                    const weekAgo = toDayString(new Date(loadedAt - 6 * 86_400_000));
+                                    next.set("from", weekAgo);
+                                    next.set("to", today);
+                                }
+                                router.replace(`?${next.toString()}`, { scroll: false });
+                            }}
+                        >
+                            {(Object.keys(PERIOD_LABELS) as PeriodKey[]).map((k) => (
+                                <option key={k} value={k}>{PERIOD_LABELS[k]}</option>
+                            ))}
+                        </Select>
+                    </Field>
+
+                    <Field label="Search">
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(e) => setParam("q", e.target.value)}
+                            placeholder="Name, number, or summary"
+                            className="text-sm px-3 py-1.5 rounded border outline-none w-56"
+                            style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
+                        />
+                    </Field>
+
+                    {hasOutcome && outcomes.length > 0 && (
+                        <Field label="Outcome">
+                            <Select value={outcomeFilter} onChange={(v) => setParam("outcome", v)}>
+                                <option value="">Any</option>
+                                {outcomes.map((o) => (
+                                    <option key={o} value={o}>{o}</option>
+                                ))}
+                            </Select>
+                        </Field>
+                    )}
+
+                    {hasType && types.length > 0 && (
+                        <Field label="Type">
+                            <Select value={typeFilter} onChange={(v) => setParam("type", v)}>
+                                <option value="">Any</option>
+                                {types.map((t) => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </Select>
+                        </Field>
+                    )}
+
+                    {filtersActive && (
+                        <button
+                            type="button"
+                            onClick={() => router.replace(`?site=${encodeURIComponent(site.slug)}`, { scroll: false })}
+                            className="text-sm underline underline-offset-4 cursor-pointer pb-1.5"
+                            style={{ color: "var(--accent)" }}
+                        >
+                            Clear
+                        </button>
+                    )}
+                </div>
+
+                {periodFilter === "custom" && (
+                    <DateRangePicker
+                        value={{
+                            from: customFrom || toDayString(new Date(loadedAt)),
+                            to: customTo || toDayString(new Date(loadedAt)),
+                        }}
+                        maxDay={toDayString(new Date(loadedAt))}
+                        onChange={({ from, to }) => {
+                            const next = new URLSearchParams(params.toString());
+                            next.set("period", "custom");
+                            next.set("from", from);
+                            next.set("to", to);
+                            router.replace(`?${next.toString()}`, { scroll: false });
+                        }}
+                    />
+                )}
+
+                {range && (
+                    <p className="text-xs" style={{ color: "var(--fg-3)" }}>
+                        Showing {shortDate(range.fromMs)} to {shortDate(range.toMs - 1)}
+                    </p>
+                )}
+
+                {rangeOutrunsData && (
+                    <p className="text-xs" style={{ color: "var(--chart-warn)" }}>
+                        Only the most recent {all.length.toLocaleString()} calls are loaded, so
+                        this range may not include everything.
+                    </p>
+                )}
+            </Card>
+
+            {/* Allowance next: it's the only number here that costs the client money. */}
+            {meterUsage && <UsageMeter usage={meterUsage} periodLabel={meterLabel} />}
 
             {/* Stats — only those this base can actually support. */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatTile label="Calls" value={filtered.length} hint={filtersActive ? "matching filters" : undefined} />
+                <StatTile label="Calls this period" value={filtered.length} hint={filtersActive ? "matching filters" : undefined} />
                 {hasOutcome && (
                     <StatTile
                         label="Qualified"
@@ -289,58 +525,6 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
                 )}
                 <StatTile label="Avg. length" value={avgDuration === null ? null : fmtDuration(avgDuration)} />
             </div>
-
-            {/* Filters */}
-            <Card className="flex flex-wrap items-end gap-3">
-                <Field label="Search">
-                    <input
-                        type="search"
-                        value={search}
-                        onChange={(e) => setParam("q", e.target.value)}
-                        placeholder="Name, number, or summary"
-                        className="text-sm px-3 py-1.5 rounded border outline-none w-56"
-                        style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
-                    />
-                </Field>
-                <Field label="Period">
-                    <Select value={daysFilter} onChange={(v) => setParam("days", v)}>
-                        <option value="">All time</option>
-                        <option value="7">Last 7 days</option>
-                        <option value="30">Last 30 days</option>
-                        <option value="90">Last 90 days</option>
-                    </Select>
-                </Field>
-                {hasOutcome && outcomes.length > 0 && (
-                    <Field label="Outcome">
-                        <Select value={outcomeFilter} onChange={(v) => setParam("outcome", v)}>
-                            <option value="">Any</option>
-                            {outcomes.map((o) => (
-                                <option key={o} value={o}>{o}</option>
-                            ))}
-                        </Select>
-                    </Field>
-                )}
-                {hasType && types.length > 0 && (
-                    <Field label="Type">
-                        <Select value={typeFilter} onChange={(v) => setParam("type", v)}>
-                            <option value="">Any</option>
-                            {types.map((t) => (
-                                <option key={t} value={t}>{t}</option>
-                            ))}
-                        </Select>
-                    </Field>
-                )}
-                {filtersActive && (
-                    <button
-                        type="button"
-                        onClick={() => router.replace(`?site=${encodeURIComponent(site.slug)}`, { scroll: false })}
-                        className="text-sm underline underline-offset-4 cursor-pointer pb-1.5"
-                        style={{ color: "var(--accent)" }}
-                    >
-                        Clear
-                    </button>
-                )}
-            </Card>
 
             {/* Charts */}
             <div className={`grid grid-cols-1 ${hasOutcome ? "md:grid-cols-2" : ""} gap-6`}>

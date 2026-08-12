@@ -18,6 +18,16 @@ import { usageHint, usageLevel, usageStatTone } from "./ui/usage";
 import { duration, money, relativeTime, shortDate, shortDateTime } from "./ui/format";
 
 /**
+ * Why "this month" does not mean the calendar month.
+ *
+ * Clients pay monthly and think in months, so the labels keep that word. What they do not
+ * expect is that the month runs from their subscription date. This is the sentence that closes
+ * that gap, and it is attached to every tile the billing period governs.
+ */
+const PERIOD_INFO =
+    "Counts run on your billing period, which starts the day you subscribed and resets on that date each month. This is not the calendar month.";
+
+/**
  * The tile's one hint line: the threshold warning when there is one, then the reset date.
  * Kept to a single line because this is the glance; the Call Log carries the full sentence.
  */
@@ -68,6 +78,7 @@ export function OverviewMetrics({
             <StaggerItem>
                 <StatTile
                     label="Calls this month"
+                    info={PERIOD_INFO}
                     value={data.callsThisMonth ?? null}
                     count={data.callsThisMonth ?? null}
                     delta={data.callsDelta}
@@ -112,13 +123,17 @@ export function OverviewMetrics({
 
             {/* Only on plans with an allowance, and only once we have a figure we can stand
                 behind — the Call Log carries the full meter and the overage estimate. */}
-            {usage.state === "ready" && usage.minutesUsed !== null && (
+            {usage.state === "ready" && usage.secondsUsed !== null && (
                 <StaggerItem>
                     <StatTile
                         label="Minutes used"
-                        value={usage.minutesUsed}
-                        count={usage.minutesUsed}
-                        unit={`of ${usage.minutesCap?.toLocaleString()} (${Math.round(usage.pct ?? 0)}%)`}
+                        info={PERIOD_INFO}
+                        // Formatted value with the raw seconds as the count target: StatTile
+                        // animates the number and settles on the string, so this ends reading
+                        // "4m 44s" rather than "284".
+                        value={duration(usage.secondsUsed)}
+                        count={usage.secondsUsed}
+                        unit={`of ${usage.minutesCap?.toLocaleString()}m (${Math.round(usage.pct ?? 0)}%)`}
                         tone={usageStatTone(usageLevel(usage.pct))}
                         hint={usageGlance(usage)}
                         href={tabHref("calls", site.slug)}

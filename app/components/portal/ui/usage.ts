@@ -1,3 +1,4 @@
+import { duration } from "@/app/lib/duration";
 import type { UsageSummary } from "@/app/lib/portal-usage";
 
 /**
@@ -65,9 +66,9 @@ export function usageNotice(usage: UsageSummary): string | null {
 
     if (level === "warn") return "You're approaching your monthly allowance.";
 
-    if (usage.overageMinutes > 0) {
+    if (usage.overageSeconds > 0) {
         const cost = usage.overageCost.toFixed(2);
-        return `${usage.overageMinutes.toLocaleString()} min over, about $${cost} in overage on your next invoice.`;
+        return `${duration(usage.overageSeconds)} over, about $${cost} in overage on your next invoice.`;
     }
 
     const cap = usage.minutesCap?.toLocaleString() ?? "your";

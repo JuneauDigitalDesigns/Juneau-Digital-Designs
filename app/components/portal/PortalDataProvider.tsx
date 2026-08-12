@@ -168,7 +168,17 @@ export interface CachedResult<T> {
  * - Stale hit → returned immediately, revalidated in the background, swapped in place.
  * - Miss → fetched, with `isLoading` true so the caller shows its existing skeleton.
  */
-export function useCachedFetch<T>(key: string, url: string, ttlMs: number): CachedResult<T> {
+export function useCachedFetch<T>(
+    key: string,
+    url: string,
+    ttlMs: number,
+    /**
+     * Opt out of a fetch the caller does not want yet, without breaking the rules of hooks.
+     * Passing an empty url instead is not equivalent: a relative "" resolves against the
+     * current page and would fetch the HTML document.
+     */
+    enabled = true,
+): CachedResult<T> {
     const { store, scope } = useCtx();
     const scopedKey = `${scope ?? "anon"}::${key}`;
 
@@ -181,13 +191,13 @@ export function useCachedFetch<T>(key: string, url: string, ttlMs: number): Cach
     useEffect(() => {
         // Don't fetch before Clerk resolves — the key would be written under "anon" and
         // then be unreachable once the real scope arrives.
-        if (!scope) return;
+        if (!scope || !enabled) return;
         store.load(scopedKey, url, ttlMs, false);
-    }, [store, scope, scopedKey, url, ttlMs]);
+    }, [store, scope, scopedKey, url, ttlMs, enabled]);
 
     const refresh = useCallback(() => {
-        if (scope) store.load(scopedKey, url, ttlMs, true);
-    }, [store, scope, scopedKey, url, ttlMs]);
+        if (scope && enabled) store.load(scopedKey, url, ttlMs, true);
+    }, [store, scope, scopedKey, url, ttlMs, enabled]);
 
     return {
         data: (entry?.data as T | undefined) ?? null,
