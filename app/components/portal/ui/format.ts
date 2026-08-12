@@ -51,11 +51,9 @@ export function shortDateTime(input: string | number | Date | null): string {
 }
 
 /** "45s" · "3m 12s" */
-export function duration(seconds: number | null | undefined): string | null {
-    if (seconds === null || seconds === undefined) return null;
-    if (seconds < 60) return `${seconds}s`;
-    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-}
+// Re-exported rather than reimplemented: the billing cron writes this same string onto Stripe
+// invoices, so a second copy here would be a second thing to drift. See app/lib/duration.ts.
+export { duration, durationOrZero } from "@/app/lib/duration";
 
 /**
  * Append a quiet freshness note to a section's meta line.

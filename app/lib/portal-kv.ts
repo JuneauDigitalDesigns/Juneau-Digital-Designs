@@ -148,9 +148,23 @@ export const billingKey = (acctScope: string, siteSlug: string, variant: "full" 
  * store the same number three times and triple the upstream calls to produce it.
  */
 export const USAGE_TTL = 600;
-// v2: the payload gained `overageRate`. A v1 entry lacks it, and serving a cached one would
-// quote an undefined price to a client for the rest of the TTL. Bump on any shape change.
-export const usageKey = (acctScope: string) => `portal:usage:v2:${acctScope}`;
+// v3: the payload moved from whole minutes to exact seconds (`secondsUsed`/`overageSeconds`)
+// and gained `periodStart`. Serving a v2 entry would render a missing figure. Bump on any
+// shape change. The period segment keeps current and previous windows in separate entries so
+// viewing the prior period can never overwrite the current one.
+export const usageKey = (acctScope: string, period: "current" | "previous" = "current") =>
+    `portal:usage:v3:${period}:${acctScope}`;
+
+/**
+ * The resolved Stripe billing window.
+ *
+ * Long TTL because the window only moves once a month, but readers must still check
+ * `now < endMs` before trusting a hit — see `billing-period.ts`. The TTL is a cost control,
+ * not the correctness boundary.
+ */
+export const PERIOD_TTL = 21_600; // 6 hours
+export const periodKey = (acctScope: string, slug: string) =>
+    `portal:period:v1:${acctScope}:${slug}`;
 
 /**
  * The resolved account, keyed by Clerk user id.

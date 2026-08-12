@@ -1,57 +1,66 @@
 import "server-only";
 import type { PortalAccount, PortalSite } from "@jdd/schema";
-import { stripe } from "./stripe";
-import { resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
-import { voiceSitesOf, sumAgentMinutes } from "./retell-usage";
+import { voiceSitesOf, sumAgentSeconds } from "./retell-usage";
+import { getBillingPeriod, type WhichPeriod } from "./billing-period";
 import { getSchedule } from "./legal/schedules";
 import type { PlanSlug } from "./agreement-types";
 import { accountScope, usageKey, getCached, setCached, USAGE_TTL } from "./portal-kv";
 
 /**
- * How many of this client's included call-minutes they've used this billing period.
+ * How much of this client's included call-time they've used in a billing period.
  *
- * Reads the same numbers the billing cron does — `voiceSitesOf` and `sumAgentMinutes` are
+ * Reads the same numbers the billing cron does — `voiceSitesOf` and `sumAgentSeconds` are
  * shared with `usage-billing.ts` on purpose. Showing a client 300 minutes and then invoicing
  * them for 400 is a refund and a lost customer, so there is exactly one definition of "how
- * many minutes did they use".
+ * much did they use".
  *
- * Never throws: usage is one tile on the Overview, and a Retell or Stripe hiccup must not
- * take the whole page down with it. Only `ready` results are cached, so an outage doesn't
- * stick for the full TTL.
+ * Carried in **seconds**, not minutes. The previous version rounded to whole minutes here and
+ * that one integer fed the tile, the cap, the overage and the Stripe line item, so a 4m 44s
+ * month displayed and billed as 5 minutes. Rounding now happens once, to the nearest cent, at
+ * the point money is computed.
+ *
+ * Never throws: usage is one tile, and a Retell or Stripe hiccup must not take the page down
+ * with it. Only `ready` results are cached, so an outage doesn't stick for the full TTL.
  */
 
 export interface UsageSummary {
     state: "ready" | "not-on-plan" | "pending-build" | "unavailable";
-    minutesUsed: number | null;
+    /** Exact seconds used in the window. */
+    secondsUsed: number | null;
+    /** The plan's included allowance, in whole minutes, from Schedule A. */
     minutesCap: number | null;
     /** Percent of the allowance consumed. May exceed 100 — that's the overage case. */
     pct: number | null;
-    overageMinutes: number;
-    /** Dollars, at the Schedule A overage rate. */
+    /** Exact seconds past the cap. */
+    overageSeconds: number;
+    /** Dollars, prorated at the Schedule A rate. */
     overageCost: number;
     /**
      * Dollars per minute past the cap, from Schedule A. Carried so the UI can quote the rate
      * before any overage exists, without a second copy of the number in a component.
      */
     overageRate: number | null;
-    /** Epoch ms — when the allowance resets. */
+    /** Epoch ms. Both ends, because the UI now labels which window it is showing. */
+    periodStart: number | null;
     periodEnd: number | null;
 }
 
 const EMPTY: UsageSummary = {
     state: "unavailable",
-    minutesUsed: null,
+    secondsUsed: null,
     minutesCap: null,
     pct: null,
-    overageMinutes: 0,
+    overageSeconds: 0,
     overageCost: 0,
     overageRate: null,
+    periodStart: null,
     periodEnd: null,
 };
 
 export async function getUsageSummary(
     account: PortalAccount,
     site: PortalSite,
+    which: WhichPeriod = "current",
 ): Promise<UsageSummary> {
     const schedule = getSchedule(site.plan as PlanSlug);
     const cap = schedule.callMinutes;
@@ -60,13 +69,14 @@ export async function getUsageSummary(
     if (!cap) return { ...EMPTY, state: "not-on-plan" };
     if (site.status !== "live") return { ...EMPTY, state: "pending-build" };
 
-    // Account-scoped and slug-free: enterprise pools across sites, so all of them share
-    // one entry. Also keeps client email addresses out of the key namespace.
-    const key = usageKey(accountScope(account.email));
+    // Account-scoped and slug-free: enterprise pools across sites, so all of them share one
+    // entry. Keyed by period as well, so reading the previous window can never overwrite the
+    // current one's figure.
+    const key = usageKey(accountScope(account.email), which);
     const hit = await getCached<UsageSummary>(key);
     if (hit) return hit;
 
-    const result = await loadUsage(account, site, cap, schedule.overagePerMinute ?? 0);
+    const result = await loadUsage(account, site, cap, schedule.overagePerMinute ?? 0, which);
     if (result.state === "ready") await setCached(key, USAGE_TTL, result);
     return result;
 }
@@ -76,6 +86,7 @@ async function loadUsage(
     site: PortalSite,
     cap: number,
     overageRate: number,
+    which: WhichPeriod,
 ): Promise<UsageSummary> {
     try {
         const apiKey = process.env.RETELL_API_KEY;
@@ -88,40 +99,33 @@ async function loadUsage(
         if (voiceSites.length === 0) return { ...EMPTY, state: "pending-build" };
 
         // The allowance resets on the Stripe renewal date, not the 1st of the month, so the
-        // window has to come from the subscription rather than the calendar.
-        const subscriptionId = await resolveSubscriptionId(site);
-        if (!subscriptionId) return EMPTY;
+        // window comes from the subscription rather than the calendar.
+        const period = await getBillingPeriod(site, account.email, which);
+        if (!period) return EMPTY;
 
-        const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        const period = subscriptionPeriod(sub);
-        if (!period) {
-            console.error(`[portal/usage] ${site.slug} no billing period on ${subscriptionId}`);
-            return EMPTY;
-        }
-
-        const periodStartMs = period.start * 1000;
-        const periodEndMs = period.end * 1000;
-
-        // Never query past now — a future end date would just return the same calls, but it
-        // makes the intent explicit that this is usage *so far* in the open period.
-        const minutesUsed = await sumAgentMinutes(
+        // Never query past now — a future end date would return the same calls, but this makes
+        // it explicit that an open period reports usage *so far*. A closed period (previous)
+        // clamps to its own end instead.
+        const secondsUsed = await sumAgentSeconds(
             apiKey,
             voiceSites,
-            periodStartMs,
-            Math.min(periodEndMs, Date.now()),
+            period.startMs,
+            Math.min(period.endMs, Date.now()),
         );
 
-        const overageMinutes = Math.max(0, minutesUsed - cap);
+        const capSeconds = cap * 60;
+        const overageSeconds = Math.max(0, secondsUsed - capSeconds);
 
         return {
             state: "ready",
-            minutesUsed,
+            secondsUsed,
             minutesCap: cap,
-            pct: (minutesUsed / cap) * 100,
-            overageMinutes,
-            overageCost: overageMinutes * overageRate,
+            pct: (secondsUsed / capSeconds) * 100,
+            overageSeconds,
+            overageCost: (overageSeconds / 60) * overageRate,
             overageRate,
-            periodEnd: periodEndMs,
+            periodStart: period.startMs,
+            periodEnd: period.endMs,
         };
     } catch (e) {
         console.error(`[portal/usage] ${site.slug} failed`, e);

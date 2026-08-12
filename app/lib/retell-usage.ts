@@ -14,7 +14,7 @@ interface RetellCallRecord {
 
 /**
  * Sum the duration of all ended calls for one Retell agent within [fromMs, toMs].
- * Returns total seconds; divide by 60 and ceil to get billable minutes.
+ * Returns total seconds, unrounded.
  *
  * Uses the same list-calls pagination pattern as reconcile-demo-calls. Retell is
  * the authoritative source — Airtable logs are lossy and unsuitable for billing.
@@ -91,17 +91,22 @@ export function voiceSitesOf(sites: PortalSite[]): PortalSite[] {
 }
 
 /**
- * Billable minutes across every voice agent on an account, for one window.
+ * Billable **seconds** across every voice agent on an account, for one window.
  *
  * Enterprise pools its allowance across all of its sites, so this sums the agents rather
- * than reporting per-site. Rounding happens once, on the total — rounding each agent up
- * first would overcharge a 3-site client by up to two minutes a period.
+ * than reporting per-site.
+ *
+ * This used to return `Math.ceil(seconds / 60)`, and that single integer fed the tile, the
+ * cap comparison, the overage and the Stripe invoice at once. Rounding here meant a client
+ * shown "5 minutes" for a 4m 44s call, and overage billed on whole minutes the client never
+ * used. Precision is kept all the way down now; the only rounding left is to the nearest
+ * cent, in usage-billing.ts, at the moment money is actually computed.
  *
  * This is the single definition used by BOTH the billing cron and the portal. They must
  * never disagree: a client shown 300 minutes and invoiced for 400 is a support ticket that
  * ends in a refund.
  */
-export async function sumAgentMinutes(
+export async function sumAgentSeconds(
   apiKey: string,
   sites: PortalSite[],
   fromMs: number,
@@ -112,5 +117,5 @@ export async function sumAgentMinutes(
     if (!site.retellAgentId) continue;
     totalSeconds += await fetchAgentSeconds(apiKey, site.retellAgentId, fromMs, toMs);
   }
-  return Math.ceil(totalSeconds / 60);
+  return totalSeconds;
 }

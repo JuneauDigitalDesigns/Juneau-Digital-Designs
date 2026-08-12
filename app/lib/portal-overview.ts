@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { siteFeature, type PortalAccount, type PortalSite } from "@jdd/schema";
 import { fetchCalls, type CallRecord } from "./airtable-calls";
+import { getBillingPeriod } from "./billing-period";
 import { getCachedPagespeed, accountScope } from "./portal-kv";
 
 /**
@@ -35,12 +36,12 @@ export interface OverviewData {
     error?: string;
 }
 
-function monthStart(offset: number): number {
-    const d = new Date();
-    d.setUTCMonth(d.getUTCMonth() - offset, 1);
-    d.setUTCHours(0, 0, 0, 0);
-    return d.getTime();
-}
+/*
+ * `monthStart()` lived here and windowed these metrics on the **calendar** month, while usage
+ * windowed on the Stripe billing cycle. On a client whose cycle starts mid-month the two
+ * disagree, which is how "3 calls this month" came to sit beside "0 minutes used" and read as
+ * a bug. Both now resolve through `getBillingPeriod`.
+ */
 
 function inWindow(c: CallRecord, from: number, to: number): boolean {
     if (!c.date) return false;
@@ -113,12 +114,21 @@ export const getOverviewData = cache(async function getOverviewData(
         return { state: "error", error: "We couldn't load your summary just now." };
     }
 
-    const thisMonth = monthStart(0);
-    const lastMonth = monthStart(1);
-    const now = Date.now();
+    // Both windows come from Stripe so these counts describe the same period the usage tile
+    // does. Falls back to no windowing rather than to the calendar month: a silent second
+    // definition of "this month" is what caused the original confusion.
+    const [thisPeriod, lastPeriod] = await Promise.all([
+        getBillingPeriod(site, account.email, "current"),
+        getBillingPeriod(site, account.email, "previous"),
+    ]);
 
-    const current = result.calls.filter((c) => inWindow(c, thisMonth, now));
-    const previous = result.calls.filter((c) => inWindow(c, lastMonth, thisMonth));
+    const now = Date.now();
+    const current = thisPeriod
+        ? result.calls.filter((c) => inWindow(c, thisPeriod.startMs, now))
+        : [];
+    const previous = lastPeriod
+        ? result.calls.filter((c) => inWindow(c, lastPeriod.startMs, lastPeriod.endMs))
+        : [];
 
     // Only claim a qualified count when the base actually has the column to support it.
     const hasOutcome = result.fields.includes("Outcome");
