@@ -156,7 +156,12 @@ export default function PricingPageClient() {
                             overflowWrap: "break-word",
                         }}
                     >
-                        What it <em style={{ color: "var(--accent-2)", fontStyle: "italic", fontFamily: "var(--font-body)" }}>costs</em>. All of it.
+                        {/* Colour-only emphasis, same display face — the convention the homepage
+                            already sets with "Do Business." and "costing you?". The previous
+                            treatment set this word in the body font at italic 900, but neither an
+                            italic nor a 900 Hanken Grotesk is loaded, so the browser synthesised
+                            both — a sheared, smeared word at 88px. */}
+                        What it <span style={{ color: "var(--accent-2)" }}>costs</span>. All of it.
                     </h1>
                     <p
                         style={{

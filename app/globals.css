@@ -1363,6 +1363,16 @@ select option {
   }
 }
 
+/* Below 900px .hero-grid is a single column, so its three direct children (copy,
+   screenshot, offer strip) would otherwise stack in DOM order — offer strip last.
+   Reorder so the offer strip still reads directly under the CTA, above the screenshot,
+   matching the pre-refactor layout. No effect at ≥900px (default order: 0 on all three
+   lets Grid place copy | screenshot on row 1 and the full-width offer strip on row 2). */
+@media (max-width: 899px) {
+  .hero-offer { order: 2; }
+  .hero-grid > *:nth-child(2) { order: 3; }
+}
+
 /* ── Hero CTA button group ───────────────────────────────── */
 .hero-cta {
   display: flex;
@@ -1389,7 +1399,7 @@ select option {
    compete with the site mockup beside them for the same attention. */
 .hero-offer {
   list-style: none;
-  margin: 34px 0 0;
+  margin: 0;
   padding: 0;
   border-top: 1px solid var(--rule);
 }
@@ -1412,6 +1422,37 @@ select option {
   }
 }
 
+/* At ≥900px the offer strip becomes a direct child of .hero-grid (see JSX) and spans
+   both column tracks as a full-width closing row of 3, divided by vertical rules rather
+   than the stacked rows' horizontal ones. */
+@media (min-width: 900px) {
+  .hero-offer {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .hero-offer li {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 6px;
+    padding: 24px 28px;
+    border-bottom: none;
+  }
+
+  .hero-offer li:not(:first-child) {
+    border-left: 1px solid var(--rule);
+  }
+
+  .hero-offer li:first-child {
+    padding-left: 0;
+  }
+
+  .hero-offer li:last-child {
+    padding-right: 0;
+  }
+}
+
 .hero-offer-label {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -1424,15 +1465,6 @@ select option {
   font-size: 15.5px;
   line-height: 1.5;
   color: var(--fg-2);
-}
-
-.hero-offer-foot {
-  margin: 14px 0 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  line-height: 1.6;
-  letter-spacing: 0.04em;
-  color: var(--fg-3);
 }
 
 /* ── Outcomes strip ──────────────────────────────────────── */
@@ -1486,22 +1518,27 @@ select option {
 }
 
 /* ── FAQ accordion ───────────────────────────────────────────
-   Same details/summary mechanics as the calculator's methodology block, but the summary
-   is a question a buyer is reading, not a tiny "how we calculate this" affordance. So it
-   overrides the type down to body scale and takes the full row, with a rule per entry. */
-.faq-accordion {
-  margin-top: 0;
+   Button/div markup driven by React state + Framer Motion (see StraightAnswers/FaqItem
+   in homepageclient.tsx) rather than <details>/<summary> — needed for a smooth animated
+   height on open/close, which native <details> can't do. Independent of .calc-accordion,
+   which stays native <details> for the calculator's methodology block. */
+.faq-item {
   border-bottom: 1px solid var(--rule);
 }
 
-.faq-accordion > summary {
+.faq-question {
+  width: 100%;
+  background: none;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   font-family: var(--font-display);
   font-size: clamp(16px, 1.7vw, 19px);
   font-weight: 700;
   letter-spacing: normal;
   text-transform: none;
   color: var(--fg);
-  text-decoration: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1509,33 +1546,22 @@ select option {
   padding: 18px 2px;
 }
 
-.faq-accordion > summary:hover {
+.faq-question:hover {
   color: var(--accent-2);
 }
 
-/* The open/closed affordance. A rotating glyph rather than the native marker, which is
-   hidden above and renders inconsistently across browsers. */
-.faq-accordion > summary::after {
-  content: "+";
+.faq-question[aria-expanded="true"] {
+  padding-bottom: 10px;
+}
+
+/* The open/closed affordance — rotation is driven by Framer Motion on the motion.span
+   itself, not CSS, so no transform/transition rule is needed here. */
+.faq-icon {
   font-family: var(--font-mono);
   font-size: 20px;
   line-height: 1;
   color: var(--accent-2);
   flex-shrink: 0;
-  transition: transform 0.2s ease;
-}
-
-.faq-accordion[open] > summary::after {
-  transform: rotate(45deg);
-}
-
-.faq-accordion[open] > summary {
-  margin-bottom: 0;
-  padding-bottom: 10px;
-}
-
-.faq-accordion .calc-accordion-content {
-  padding-bottom: 20px;
 }
 
 /* ── Reduced motion: disable all marquees + pulse ────────── */

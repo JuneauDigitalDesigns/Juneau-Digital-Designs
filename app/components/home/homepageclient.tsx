@@ -2,6 +2,7 @@
 /* Z-index constants: navbar 50 | grain 60 | modals 70 */
 
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Info } from "@phosphor-icons/react";
 import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
@@ -87,7 +88,7 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
             headline should be the loudest thing on a phone screen, so it scales faster and
             floors higher. 84px cap is unchanged, so nothing moves on desktop. */}
         <h1 style={{ fontWeight: 900, fontSize: "clamp(46px,13vw,84px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase" }}>
-          Get found.<br />Get called.<br /><span style={{ color: "var(--accent-2)" }}>Get booked.</span>
+          Get found.<br />Get called.<br /><span style={{ color: "var(--accent-2)" }}>Do Business.</span>
         </h1>
         <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px 0 32px" }}>
           A website that gets you called, and a 24/7 receptionist that answers when you can&apos;t.
@@ -101,20 +102,6 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
           </div>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Five quick questions. About 30 seconds.</span>
         </div>
-
-        {/* The offer, scannable. Sits under the CTA rather than above it so the button
-            still owns the first screen on mobile. */}
-        <ul className="hero-offer">
-          {OFFER.map((item) => (
-            <li key={item.label}>
-              <span className="hero-offer-label">{item.label}</span>
-              <span className="hero-offer-copy">{item.copy}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="hero-offer-foot">
-          Hosting, backups, updates, and two content edits a month included. No setup fee.
-        </p>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -126,6 +113,17 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
           What your website could look like. Built on the same architecture as JuneauDigitalDesigns.com
         </span>
       </div>
+
+      {/* The offer, scannable, as a full-width closing row for the whole hero rather than
+          competing with the screenshot for space in the copy column. */}
+      <ul className="hero-offer">
+        {OFFER.map((item) => (
+          <li key={item.label}>
+            <span className="hero-offer-label">{item.label}</span>
+            <span className="hero-offer-copy">{item.copy}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -478,7 +476,88 @@ const ANSWERS: { q: string; a: string }[] = [
   },
 ];
 
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+function FaqItem({
+  q,
+  a,
+  index,
+  open,
+  onToggle,
+  reduceMotion,
+}: {
+  q: string;
+  a: string;
+  index: number;
+  open: boolean;
+  onToggle: () => void;
+  reduceMotion: boolean;
+}) {
+  const questionId = `faq-question-${index}`;
+  const panelId = `faq-panel-${index}`;
+
+  return (
+    <motion.div
+      className="faq-item"
+      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.15, margin: "0px 0px -8% 0px" }}
+      transition={{ duration: reduceMotion ? 0 : 0.85, ease: EASE, delay: reduceMotion ? 0 : (index % 2) * 0.06 }}
+    >
+      <button
+        type="button"
+        className="faq-question"
+        id={questionId}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={onToggle}
+      >
+        {q}
+        <motion.span
+          className="faq-icon"
+          animate={{ rotate: open ? 45 : 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.2 }}
+        >
+          +
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="content"
+            id={panelId}
+            role="region"
+            aria-labelledby={questionId}
+            className="faq-answer"
+            style={{ overflow: "hidden" }}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.3, ease: EASE }}
+          >
+            <div style={{ paddingBottom: 20 }}>
+              <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "52ch" }}>{a}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 function StraightAnswers() {
+  const [openSet, setOpenSet] = useState<Set<number>>(() => new Set());
+  const reduceMotion = !!useReducedMotion();
+
+  const toggle = (i: number) => {
+    setOpenSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  };
+
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
       <Reveal>
@@ -487,19 +566,19 @@ function StraightAnswers() {
         </h2>
       </Reveal>
       {/* Collapsed by default. Expanded, these seven entries ran ~370 words and ate a full
-          screen of scroll to answer questions most visitors weren't asking yet. Reuses the
-          calculator's `.calc-accordion` styling rather than a second accordion treatment.
-          One column now: at two columns a row of collapsed summaries reads as a word grid. */}
-      <div style={{ maxWidth: 680 }}>
+          screen of scroll to answer questions most visitors weren't asking yet. Full width,
+          one column: at two columns a row of collapsed summaries reads as a word grid. */}
+      <div className="faq-list">
         {ANSWERS.map((item, i) => (
-          <Reveal key={item.q} delay={i % 2}>
-            <details className="calc-accordion faq-accordion">
-              <summary>{item.q}</summary>
-              <div className="calc-accordion-content">
-                <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "52ch" }}>{item.a}</p>
-              </div>
-            </details>
-          </Reveal>
+          <FaqItem
+            key={item.q}
+            q={item.q}
+            a={item.a}
+            index={i}
+            open={openSet.has(i)}
+            onToggle={() => toggle(i)}
+            reduceMotion={reduceMotion}
+          />
         ))}
       </div>
     </section>
