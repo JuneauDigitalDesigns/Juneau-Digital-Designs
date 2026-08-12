@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Big_Shoulders, DM_Mono, Hanken_Grotesk } from "next/font/google";
+import { Big_Shoulders, DM_Mono, Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
-import Navbar from "./components/navbar/navbar";
-import Footer from "./components/footer/footer";
+import MarketingChrome from "./components/MarketingChrome";
 import ThemeProvider from "./components/theme/ThemeProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -27,6 +27,38 @@ const hankenGrotesk = Hanken_Grotesk({
   display: "swap",
 });
 
+/* Portal-only faces. The three above dress the marketing brand; these three dress the
+   product UI inside `.portal-scope` and are referenced nowhere else.
+
+   No `weight` array on the Google two: both are variable fonts, and naming weights opts
+   into static instances — three separate files instead of one axis.
+
+   `preload: false` on all three because they are portal-only. Preloading is per-document,
+   so leaving it on would push these onto every marketing page for visitors who will never
+   see the portal. The trade is a brief FOUT on the first portal paint, which is the right
+   side of that bargain. */
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
+  subsets: ["latin"],
+  display: "swap",
+  preload: false,
+});
+
+const cabinet = localFont({
+  src: "./fonts/CabinetGrotesk-Variable.woff2",
+  variable: "--font-cabinet",
+  weight: "300 900",
+  display: "swap",
+  preload: false,
+});
+
 export const metadata: Metadata = {
   title: "Juneau Digital Designs LLC",
   description: "Innovative Web Design and UI/UX Solutions",
@@ -47,27 +79,14 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${bigShoulders.variable} ${dmMono.variable} ${hankenGrotesk.variable}`}
+      className={`${bigShoulders.variable} ${dmMono.variable} ${hankenGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${cabinet.variable}`}
     >
       <body className="antialiased overflow-x-hidden">
         <ThemeProvider>
-          {/* Grain overlay — fixed full-viewport texture, z-60, non-interactive */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 60,
-              pointerEvents: "none",
-              opacity: 0.025,
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "repeat",
-              backgroundSize: "200px 200px",
-            }}
-          />
-          <Navbar />
-          {children}
-          <Footer />
+          {/* The grain overlay used to sit here. It is `position: fixed`, so it painted
+              over the portal too — MarketingChrome now owns it and keeps it off the
+              product routes while leaving it on /portal/onboarding. */}
+          <MarketingChrome>{children}</MarketingChrome>
           <SpeedInsights />
         </ThemeProvider>
       </body>

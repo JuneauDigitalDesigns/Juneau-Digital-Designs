@@ -18,6 +18,24 @@
   --panel: #fbf5e6;             /* live call-log card */
   --panel-header: #f0e6cd;
 
+  /* ── Portal elevation scale ───────────────────────────────────
+     `--panel` cannot serve as an elevation token: it is *lighter* than --bg in light
+     (#fbf5e6 over #f4ecd8, lifts) but *darker* in dark (#0e0d08 under #14120c, recedes),
+     so a card built on it changes which direction it sits relative to the page when the
+     theme flips. These lift in both themes. Shadows are tinted with the brand brown
+     rather than neutral black — a grey shadow on a cream page reads as dirt. */
+  --elev-0: #f4ecd8;            /* the page itself */
+  --elev-1: #fbf5e6;            /* resting card */
+  --elev-2: #fffdf5;            /* raised / hovered / nested */
+  --elev-border: rgba(20, 18, 12, 0.10);
+  --elev-highlight: rgba(255, 255, 255, 0.80);   /* 1px inner top edge */
+  --shadow-1:
+    0 1px 2px rgba(58, 45, 20, 0.05),
+    0 2px 8px -2px rgba(58, 45, 20, 0.08);
+  --shadow-2:
+    0 2px 4px rgba(58, 45, 20, 0.06),
+    0 12px 28px -8px rgba(58, 45, 20, 0.14);
+
   --rule: rgba(20, 18, 12, 0.16);
   --rule-weak: rgba(20, 18, 12, 0.06);
   --rule-strong: rgba(20, 18, 12, 0.28);
@@ -68,6 +86,29 @@
   --leading-snug:    1.2;
   --leading-base:    1.5;
   --leading-relaxed: 1.7;
+
+  /* ── Chart / data-viz palette ─────────────────────────────────
+     The portal's charts used raw Tailwind hexes (#4ade80, #f87171…) picked when the
+     dashboard was dark navy. They read as a different product against the cream page and
+     were unreadable in one theme or the other, so semantics and series both live here and
+     are re-stated for dark below. Recharts writes these to SVG attributes and inline
+     styles, where `var()` resolves natively — no JS theme reading required. */
+  --chart-pos: #2f7d4f;
+  --chart-neg: #c2401f;
+  --chart-warn: #b07d12;
+  --chart-neutral: #8a8069;
+
+  --chart-series-1: #1f6f78;    /* accent teal */
+  --chart-series-2: #d2542f;    /* accent coral */
+  --chart-series-3: #6b7f4a;
+  --chart-series-4: #8a6aa8;
+
+  /* Chart furniture: axes, gridlines, and the tooltip surface. */
+  --chart-axis: rgba(20, 18, 12, 0.45);
+  --chart-grid: rgba(20, 18, 12, 0.10);
+  --chart-track: rgba(20, 18, 12, 0.07);
+  --chart-tooltip-bg: #fbf5e6;
+  --chart-tooltip-border: rgba(20, 18, 12, 0.20);
 }
 
 [data-theme="dark"] {
@@ -87,6 +128,19 @@
   --panel: #0e0d08;
   --panel-header: #1a1810;
 
+  /* Elevation lifts here too — note these are lighter than --bg, unlike --panel. */
+  --elev-0: #14120c;
+  --elev-1: #1e1b13;
+  --elev-2: #262218;
+  --elev-border: rgba(240, 231, 210, 0.10);
+  --elev-highlight: rgba(240, 231, 210, 0.07);
+  --shadow-1:
+    0 1px 2px rgba(0, 0, 0, 0.30),
+    0 2px 8px -2px rgba(0, 0, 0, 0.40);
+  --shadow-2:
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 14px 32px -10px rgba(0, 0, 0, 0.55);
+
   --rule: rgba(240, 231, 210, 0.16);
   --rule-weak: rgba(240, 231, 210, 0.06);
   --rule-strong: rgba(240, 231, 210, 0.28);
@@ -104,6 +158,23 @@
   --invert-fg: #14120c;
   --invert-fg-2: #43402c;
   --invert-accent: #d2542f;
+
+  /* Chart palette, lifted for the dark surface. Same roles, same order. */
+  --chart-pos: #6fcf97;
+  --chart-neg: #ff8a6b;
+  --chart-warn: #e8c15c;
+  --chart-neutral: #9a9075;
+
+  --chart-series-1: #3fa9b3;
+  --chart-series-2: #ff6b4a;
+  --chart-series-3: #a8c07a;
+  --chart-series-4: #b799d6;
+
+  --chart-axis: rgba(240, 231, 210, 0.45);
+  --chart-grid: rgba(240, 231, 210, 0.10);
+  --chart-track: rgba(240, 231, 210, 0.08);
+  --chart-tooltip-bg: #1a1810;
+  --chart-tooltip-border: rgba(240, 231, 210, 0.20);
 }
 
 /* ── Global heading defaults (tuned for Big Shoulders) ──────── */
@@ -1314,8 +1385,10 @@ select option {
 
 @media (min-width: 900px) {
   .hero-grid {
-    /* copy ≈ 63%, panel ≈ 37% → panel reads thinner */
-    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.9fr);
+    /* Was 1.5fr / 0.9fr, sized for a thin phone mockup. The hero now holds a laptop
+       showing a real site — the whole point of the section — so it gets real width,
+       and the H1 wraps to three short lines rather than needing the extra column. */
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 1.05fr);
   }
 }
 
@@ -1444,4 +1517,872 @@ select option {
   .show-mobile { display: inline; }
   .show-desktop { display: none; }
   .hide-on-mobile { display: none !important; }
+}
+
+/* ── Hero laptop (live demo site) ───────────────────────── */
+.laptop {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: 0 30px 70px -30px rgba(0,0,0,0.38), 0 0 0 1px var(--rule-weak);
+}
+.laptop-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: var(--panel-header);
+  border-bottom: 1px solid var(--rule);
+}
+.laptop-dot {
+  width: 9px; height: 9px; border-radius: 999px;
+  background: var(--rule-strong);
+  flex-shrink: 0;
+}
+.laptop-screen {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+}
+.laptop-skeleton {
+  position: absolute; inset: 0;
+  background: var(--surface);
+}
+
+/* One-way, downward only. An `alternate` cycle pans back up, which reads as motion
+   nobody asked for — real scrolling only goes one way. Instead it holds at the bottom,
+   fades out, resets to the top while invisible, and fades back in. */
+@keyframes laptop-pan {
+  0%   { transform: translateY(0);                        opacity: 0; }
+  4%   { transform: translateY(0);                        opacity: 1; }
+  82%  { transform: translateY(var(--pan-travel, -3692px)); opacity: 1; }
+  92%  { transform: translateY(var(--pan-travel, -3692px)); opacity: 1; }
+  97%  { transform: translateY(var(--pan-travel, -3692px)); opacity: 0; }
+  100% { transform: translateY(0);                        opacity: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .laptop-pan {
+    animation: laptop-pan var(--pan-duration, 34000ms) linear infinite;
+  }
+}
+
+/* ── Two Operators (asymmetric — website is the larger half) ── */
+.two-op-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+@media (min-width: 940px) {
+  .two-op-grid {
+    /* The website card is the product being bought; size is what says so. */
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+.two-op-beats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  padding: 22px 0 4px;
+  border-top: 1px solid var(--rule);
+}
+@media (min-width: 620px) {
+  .two-op-beats { grid-template-columns: repeat(3, 1fr); gap: 22px; }
+}
+.two-op-beat-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  margin-bottom: 8px;
+}
+.two-op-beat-copy {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0;
+}
+
+/* ── The two-act film ───────────────────────────────────── */
+.film-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  /* Explicit — the parent centres its children, which makes this shrink-wrap to the
+     phone and collapses the phone's own `width: 100%` against it. */
+  width: 100%;
+  /* Reserved up front so act transitions never reflow the page mid-film. */
+  min-height: 596px;
+}
+.film-phone {
+  position: relative;
+  /* Fixed width, not `width: 100%` with a cap. A phone is a fixed-size object, and
+     sizing it as one means it can't collapse if an ancestor ever shrink-wraps —
+     which is exactly how this rendered as an 86px-wide pill. max-width keeps it
+     inside genuinely narrow viewports. */
+  width: 300px;
+  max-width: 100%;
+  height: 540px;
+  border-radius: 44px;
+  overflow: hidden;
+  background: #fff;
+  flex-shrink: 0;
+  /* deliberately no mask-image — .phone-frame fades its bottom out for hero
+     decoration, but here the screen content is the point */
+  border: 10px solid;
+  transition: border-color 400ms ease, box-shadow 400ms ease;
+}
+/* The two devices are visibly different hardware, so whose phone you're looking at
+   reads before the title card is even parsed. */
+.film-phone--customer {
+  border-color: #1a1a1a;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.08);
+}
+.film-phone--owner {
+  border-color: #b8a888;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.12);
+}
+[data-theme="dark"] .film-phone--customer {
+  border-color: #6e6e73;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .film-phone--owner {
+  border-color: #d8c8a4;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.12);
+}
+.film-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 110px; height: 28px;
+  border-radius: 0 0 20px 20px;
+  background: currentColor;
+  color: inherit;
+  z-index: 12;
+}
+.film-phone--customer .film-notch { background: #1a1a1a; }
+.film-phone--owner .film-notch { background: #b8a888; }
+[data-theme="dark"] .film-phone--customer .film-notch { background: #6e6e73; }
+[data-theme="dark"] .film-phone--owner .film-notch { background: #d8c8a4; }
+
+.film-device-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.film-gate {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+}
+
+/* The phone is a fixed 300px wide at every size, so a default-width button reads as
+   something sitting *inside* the device rather than an overlay on top of it. From
+   tablet up the button is deliberately wider than the phone so it clearly covers it.
+   Mobile keeps the stock `lg` size — the phone is 264px there and the stage only
+   ~339px, so a wide button would overflow.
+   `.btn.lg.film-gate-btn` to outrank `.btn.lg`'s own padding/font-size. */
+@media (min-width: 768px) {
+  .btn.lg.film-gate-btn {
+    min-width: 400px;
+    padding: 22px 40px;
+    font-size: 24px;
+  }
+}
+@media (min-width: 1100px) {
+  .btn.lg.film-gate-btn {
+    min-width: 460px;
+    padding: 26px 48px;
+    font-size: 28px;
+  }
+}
+
+.film-recap {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.film-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.film-chain-arrow { color: var(--accent-2); }
+.film-recap-copy {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0;
+  max-width: 46ch;
+}
+.film-recap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+@media (max-width: 420px) {
+  .film-phone { width: 264px; height: 500px; }
+  .film-stage { min-height: 556px; }
+}
+
+/* ── Closing CTA aside (hear the receptionist) ──────────── */
+.dial-aside {
+  margin-top: clamp(48px, 6vw, 88px);
+  padding-top: clamp(32px, 4vw, 52px);
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 26px;
+  text-align: center;
+}
+@media (min-width: 860px) {
+  .dial-aside {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    gap: 40px;
+  }
+}
+
+/* ── Portal: rail + stage shell ─────────────────────────────
+   Rail and stage share one grid, so the site name, the nav and the first card all sit on
+   edges that relate to each other. Under 1024px the rail becomes a horizontal bar and the
+   nav scrolls sideways. */
+/* `minmax(0, 1fr)`, not `1fr`: a grid track's default min is `auto`, so the six nav labels
+   inside the rail set a min-content floor that pushed the whole shell to ~477px on a 375px
+   screen. `overflow-x: hidden` on <body> hid the damage by clipping it instead of fitting. */
+.portal-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+}
+/* The rail sits on the page colour, not an elevated one, so the white active-tab pill has
+   something to lift off. Inverting that — rail elevated, pill flat — gives the selected tab
+   nowhere to go.
+
+   NOTE: `.portal-brand` below cancels this padding with negative margins to reach the rail
+   edges. The two must change together. */
+.portal-rail {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+.portal-rail-head { min-width: 0; }
+
+/* ── The JDD brand band ──────────────────────────────────────────────────────
+   A full-bleed cream strip at the top of the rail carrying the agency lockup. It is the
+   only warm surface and the only agency branding in the portal, which is the point: one
+   branded object, everything else product-neutral.
+
+   GEOMETRY CONTRACT — three things are coupled and must move together:
+     1. The negative margin cancels `.portal-rail`'s padding to reach the rail edges.
+        It must mirror that padding exactly (14px 16px here, 22px 14px at lg).
+     2. `padding-inline` restores the horizontal inset for the lockup itself.
+     3. The image is sized explicitly rather than by `height: auto`, because the band
+        height and the lockup height are separate decisions — the lockup should not
+        grow to fill the band.
+
+   The asset is `public/jdd-lockup-portal.png`: the lockup cut out of its cream ground to
+   transparency, so the band colour is CSS and there is no seam where the image ends. Do
+   not swap in `JDD_mark.png` — that one has the cream ground and film grain baked in. */
+.portal-brand {
+  display: flex;
+  align-items: center;
+  margin: -14px -16px 0;
+  padding-inline: 16px;
+  height: 68px;
+  background: var(--brand-band);
+  transition: opacity 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-brand { transition: none; }
+}
+.portal-brand:hover { opacity: 0.82; }
+.portal-brand img {
+  display: block;
+  width: 160px;
+  height: 48px;
+}
+
+/* Sits on the rail surface below the band, not inside it — the band is agency identity,
+   this is what the client is looking at. The rule beneath separates both from the client's
+   own site details. */
+.portal-brand-label {
+  margin-top: -8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.portal-rail-nav {
+  /* Required for the horizontal scroll to actually engage rather than expand the rail. */
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.portal-rail-nav::-webkit-scrollbar { display: none; }
+.portal-rail-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.portal-rail-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  padding: 7px 11px;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  color: var(--fg-2);
+  /* Transparent border reserves the 1px the active pill draws, so selecting a tab does
+     not resize it and nudge its neighbours. */
+  border: 1px solid transparent;
+  transition: background-color 130ms ease, color 130ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-rail-link { transition: none; }
+}
+.portal-rail-link:hover {
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  color: var(--fg);
+}
+/* Active tab: a raised white pill on the rail's flat surface. The rail sits on `--bg` so
+   this reads as elevation rather than tint. Accent is spent on the icon alone — accent
+   text plus an accent bar plus an accent wash was three signals for one state. */
+.portal-rail-link.is-active {
+  background: var(--elev-2);
+  color: var(--fg);
+  font-weight: 600;
+  border: 1px solid var(--rule-weak);
+  box-shadow: var(--shadow-1);
+}
+/* The icons take colour by SVG `currentColor` inheritance from the link, so the active
+   accent is one rule here rather than a conditional prop in PortalChrome. */
+.portal-rail-link.is-active svg {
+  color: var(--accent);
+}
+.portal-stage {
+  min-width: 0;
+  padding: 24px 16px 56px;
+}
+
+/* The global form reset sets background/border on every `select` with `!important`, which
+   beats the component's inline style. Matching specificity + !important is the only way
+   the rail's switcher can sit on the elevated surface rather than the 4% wash.
+   `color-scheme` is what reaches the OS-drawn dropdown popup, which the `select option`
+   rule alone cannot style. Pinned to `light` rather than `light dark`: the portal has no
+   dark theme, so allowing `dark` here would let a user's OS preference render a dark
+   native popup against a permanently light control. */
+.portal-scope select.portal-site-select {
+  background: var(--elev-2) !important;
+  border-color: var(--rule) !important;
+  color: var(--fg) !important;
+  color-scheme: light;
+}
+
+@media (min-width: 1024px) {
+  .portal-shell {
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: 1fr;
+  }
+  .portal-rail {
+    gap: 18px;
+    padding: 22px 14px;
+    border-bottom: none;
+    border-right: 1px solid var(--rule);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+  }
+  /* Mirrors the padding above — see the geometry contract on `.portal-brand`. */
+  .portal-brand {
+    margin: -22px -14px 0;
+    padding-inline: 14px;
+    height: 80px;
+  }
+  .portal-brand img {
+    width: 180px;
+    height: 54px;
+  }
+  .portal-rail-nav {
+    flex-direction: column;
+    overflow-x: visible;
+    flex: 1;
+  }
+  .portal-rail-foot {
+    border-top: 1px solid var(--rule-weak);
+    padding-top: 14px;
+  }
+  .portal-stage {
+    padding: 32px 32px 72px;
+  }
+}
+@media (min-width: 1600px) {
+  /* Cap the reading measure on very wide displays without letting the rail drift. */
+  .portal-stage > * { max-width: 1320px; }
+}
+
+/* ── Portal: elevation surfaces ─────────────────────────────
+   Every portal surface used to be `--surface` — rgba(20,18,12,.04), a 4% wash — so cards,
+   the header and buttons were the same value as the page and separated only by a hairline.
+   These give the portal an actual z-axis: opaque fill, tinted shadow, and a 1px inner top
+   highlight. The highlight is an inset box-shadow rather than a border so it doesn't affect
+   layout or fight the outer border radius.
+
+   The lit edge is off in the portal: `.portal-scope` sets `--elev-highlight: transparent`,
+   which neutralises it in all four rules below without touching them. The shadow lists are
+   left intact so the marketing side keeps the effect and so re-enabling it is one token. */
+.portal-elev {
+  background: var(--elev-1);
+  border: 1px solid var(--elev-border);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 0 var(--elev-highlight),
+    var(--shadow-1);
+}
+.portal-elev-2 {
+  background: var(--elev-1);
+  border: 1px solid var(--elev-border);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 1px 0 0 var(--elev-highlight),
+    var(--shadow-2);
+}
+/* Flat well for nested content inside an already-elevated card. */
+.portal-inset {
+  background: color-mix(in srgb, var(--fg) 4%, transparent);
+  border-radius: 6px;
+}
+
+/* Interactive surfaces: lift on hover, settle on press. */
+.portal-interactive {
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease,
+    border-color 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-interactive { transition: none; }
+}
+.portal-interactive:hover {
+  background: var(--elev-2);
+  border-color: var(--rule);
+  box-shadow:
+    inset 0 1px 0 0 var(--elev-highlight),
+    var(--shadow-2);
+}
+.portal-interactive:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 0 var(--elev-highlight),
+    var(--shadow-1);
+}
+
+/* A row inside a card — no border of its own, washes on hover.
+   Flat `--surface` with no accent tint and no left marker, matching the active-tab
+   language: in the product system, accent marks the *selected* thing, and hover is
+   just a surface state. An accent bar on every row the pointer crosses competes with it. */
+.portal-row {
+  border-radius: 6px;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-row { transition: none; }
+}
+.portal-row:hover {
+  background: var(--surface);
+}
+
+/* The portal had no :focus-visible styling at all — tabs, links, rows and the retry
+   button all fell back to the UA outline, which is nearly invisible on cream. */
+.portal-scope :where(a, button, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Metric row. `auto-fit` rather than `grid-cols-2 lg:grid-cols-3`: the tile count is
+   conditional (qualified leads only exists when the client's base has an Outcome column),
+   and the fixed 3-up left a dead third column whenever it didn't. */
+.portal-metric-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+/* Health strip: segments divided by hairlines, wrapping to a 2-up on narrow screens.
+   The dividers are drawn with a border on each cell rather than a separator element so
+   they disappear correctly at whatever the wrap point turns out to be. */
+.portal-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.portal-health-grid > * + * {
+  border-left: 1px solid var(--rule-weak);
+}
+@media (max-width: 719px) {
+  .portal-health-grid { grid-template-columns: repeat(2, 1fr); }
+  .portal-health-grid > * + * { border-left: none; }
+  .portal-health-grid > *:nth-child(even) { border-left: 1px solid var(--rule-weak); }
+  .portal-health-grid > *:nth-child(n + 3) { border-top: 1px solid var(--rule-weak); }
+}
+
+/* Overview's lower band: feed beside a narrower sidebar, stacking under lg. */
+.portal-band {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 1024px) {
+  .portal-band { grid-template-columns: 1.9fr 1fr; align-items: start; }
+}
+
+.portal-dot {
+  display: inline-block;
+  border-radius: 9999px;
+}
+
+/* Sparkline draw-in. `pathLength` normalises the dash maths to 1 regardless of the path's
+   real length, so one keyframe works for every series. */
+@media (prefers-reduced-motion: no-preference) {
+  .portal-sparkline-stroke {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: portal-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+}
+@keyframes portal-draw {
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .portal-dot-pulse { animation: portal-pulse 2.4s ease-in-out infinite; }
+}
+@keyframes portal-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* Build progress tracker — a connecting spine between the step markers. */
+.portal-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.portal-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 9px 0;
+}
+.portal-step-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--elev-2);
+  border: 1px solid var(--rule);
+  position: relative;
+  z-index: 1;
+}
+.portal-step.is-done .portal-step-marker {
+  border-color: color-mix(in srgb, var(--online) 45%, transparent);
+  background: color-mix(in srgb, var(--online) 12%, var(--elev-2));
+}
+/* The spine stops at the last marker rather than trailing past it. */
+.portal-step:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 28px;
+  bottom: -6px;
+  width: 1px;
+  background: var(--rule);
+}
+.portal-step.is-done:not(:last-child)::before {
+  background: color-mix(in srgb, var(--online) 40%, transparent);
+}
+
+/* Metrics must not reflow as digits change during a count-up animation. */
+.portal-numeral {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+}
+
+/* ── Portal: skeleton shimmer + ghost preview ─────────────── */
+.portal-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--chart-track) 0%,
+    color-mix(in srgb, var(--chart-track) 40%, transparent) 50%,
+    var(--chart-track) 100%
+  );
+  background-size: 200% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .portal-skeleton {
+    animation: portal-shimmer 1.4s ease-in-out infinite;
+  }
+}
+@keyframes portal-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* The placeholder surface shown to clients whose site isn't built yet. The hatch is
+   load-bearing: it must be impossible to mistake this panel for real data, so it is
+   visually unlike every other card in the product. */
+.portal-ghost {
+  position: relative;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 8px;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 7px,
+    var(--chart-track) 7px,
+    var(--chart-track) 8px
+  );
+}
+.portal-ghost > * {
+  opacity: 0.55;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   PORTAL DESIGN SYSTEM — scoped token overrides
+   ════════════════════════════════════════════════════════════════════════════
+
+   The portal is a product; the rest of the site is a brochure. They were sharing one
+   token layer, which meant the dashboard inherited cream, teal/coral, Big Shoulders at
+   display sizes, and a heading `line-height: 0.95` tuned for hero type. `Card.tsx` had
+   to hard-code a line-height to stop portal titles colliding with themselves. That was
+   the symptom of this, so this block is the fix.
+
+   HOW IT WORKS. Every token below is *the same name* as its `:root` counterpart, so the
+   ~211 `var(--token)` references across the portal's 21 component files re-theme without
+   being touched. Nothing here is a new namespace and no component needs editing.
+
+   WHY IT WINS. `:root` (line 4) and `[data-theme="dark"]` (line 114) are both unlayered,
+   so this — also unlayered, and later in the file — takes precedence on source order.
+   That is deliberate rather than incidental: it is also what makes the portal light-only.
+   There is no dark counterpart to this block, so when next-themes flips `data-theme` on
+   <html>, these values simply keep winning inside the scope.
+
+   Inline styles still beat all of it. That is why `Card.tsx` and `SettingsSection.tsx`
+   needed real edits, and why `clerkAppearance.ts` uses literal hex — Clerk's popover
+   renders through a React portal into <body>, outside this scope entirely.
+
+   SEE `app/portal/PORTAL-DESIGN.md` before changing anything here.
+   ──────────────────────────────────────────────────────────────────────────── */
+.portal-scope {
+  /* ── Surfaces: cool neutral, cards lift to pure white ──────────────────── */
+  --bg:            #f6f7f9;
+  --bg-body:       #f6f7f9;
+  --elev-0:        #f6f7f9;      /* the page itself */
+  --elev-1:        #ffffff;      /* resting card */
+  --elev-2:        #ffffff;      /* raised / hovered / nested */
+  --panel:         #ffffff;
+  --panel-header:  #f6f7f9;
+
+  /* ── Ink ───────────────────────────────────────────────────────────────── */
+  --fg:    #0d1117;
+  --fg-2:  #4a5058;
+  --fg-3:  #767c85;
+
+  /* ── Accent: one product blue. `--accent-2` aliases onto it rather than
+        introducing a second hue, so the 14 existing `--accent-2` references
+        keep working and quietly collapse to the single accent. ──────────── */
+  --accent:       #2563eb;
+  --accent-2:     #2563eb;
+  --accent-glow:  rgba(37, 99, 235, 0.22);
+  --on-accent:    #ffffff;
+  --on-accent-2:  #ffffff;
+  --online:       #16a34a;
+
+  /* ── Rules and washes ──────────────────────────────────────────────────── */
+  --rule:         rgba(13, 17, 23, 0.09);
+  --rule-weak:    rgba(13, 17, 23, 0.05);
+  --rule-strong:  rgba(13, 17, 23, 0.18);
+  --surface:      rgba(13, 17, 23, 0.04);
+  --elev-border:  rgba(13, 17, 23, 0.09);
+
+  /* ── Two kill switches ─────────────────────────────────────────────────────
+     `--elev-highlight` is used only as the colour inside
+     `inset 0 1px 0 0 var(--elev-highlight)` in all four `.portal-elev*` rules, so
+     making it transparent removes the lit top edge everywhere without editing a
+     single shadow. `--dot-grid` is belt-and-braces: `.portal-shell` already paints
+     `--bg` over the body texture. */
+  --elev-highlight: transparent;
+  --dot-grid:       transparent;
+
+  /* ── Shadows: neutral, not brand-brown, and much shallower ─────────────── */
+  --shadow-1: 0 1px 2px rgba(13, 17, 23, 0.04);
+  --shadow-2:
+    0 1px 2px rgba(13, 17, 23, 0.05),
+    0 8px 24px -8px rgba(13, 17, 23, 0.12);
+
+  /* The glass trio is agency glassmorphism. `Drawer.tsx` reads `--glass-shadow`;
+     the other two are restated so a future portal component cannot pick up a
+     half-converted set. */
+  --glass-bg:     #ffffff;
+  --glass-border: rgba(13, 17, 23, 0.09);
+  --glass-shadow: 0 16px 40px -12px rgba(13, 17, 23, 0.18);
+
+  /* ── Type ──────────────────────────────────────────────────────────────── */
+  --font-display: var(--font-cabinet), 'Cabinet Grotesk', system-ui, sans-serif;
+  --font-body:    var(--font-inter), 'Inter', system-ui, sans-serif;
+  --font-mono:    var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Fixed px, no clamp(). The marketing scale is viewport-driven because its type is
+     the design; product type should not resize when a user drags a window. 14px base. */
+  --text-xs:   11px;
+  --text-sm:   12.5px;
+  --text-base: 14px;
+  --text-lg:   16px;
+  --text-xl:   18px;
+  --text-2xl:  20px;
+  --text-3xl:  24px;
+  --text-4xl:  30px;
+  --text-5xl:  30px;   /* the @layer base h1 reads this — must not fall back to clamp(72px…) */
+  --text-6xl:  36px;
+
+  /* ── Tracking: Inter needs far less than Big Shoulders ─────────────────── */
+  --tracking-tightest: -0.022em;
+  --tracking-tight:    -0.011em;
+  --tracking-base:      0em;
+  --tracking-wide:      0.06em;
+  --tracking-widest:    0.14em;
+
+  /* ── Leading ───────────────────────────────────────────────────────────── */
+  --leading-none:    1.0;
+  --leading-tight:   1.15;
+  --leading-snug:    1.3;
+  --leading-base:    1.5;
+  --leading-relaxed: 1.65;
+
+  /* ── Charts ────────────────────────────────────────────────────────────────
+     `chartTheme.ts` reads these by name and returns them as `var()` strings, which
+     Recharts writes straight to SVG attributes — they resolve against the SVG's own
+     position in the tree, i.e. inside this scope. No JS theme reading anywhere.
+     The series names matter: leaving `--chart-series-*` undefined here would render
+     agency teal and coral on the new cards with nothing erroring. */
+  --chart-pos:     #16a34a;
+  --chart-neg:     #dc2626;
+  --chart-warn:    #d97706;
+  --chart-neutral: #94a3b8;
+
+  --chart-series-1: #2563eb;
+  --chart-series-2: #7c3aed;
+  --chart-series-3: #0891b2;
+  --chart-series-4: #64748b;
+
+  --chart-axis:           rgba(13, 17, 23, 0.45);
+  --chart-grid:           rgba(13, 17, 23, 0.08);
+  --chart-track:          rgba(13, 17, 23, 0.06);
+  --chart-tooltip-bg:     #ffffff;
+  --chart-tooltip-border: rgba(13, 17, 23, 0.12);
+
+  /* ── Brand ─────────────────────────────────────────────────────────────────
+     The cream band behind the JDD lockup at the top of the rail. This is the one
+     warm surface in the portal and the only place agency brand appears — see
+     `.portal-brand` below and PORTAL-DESIGN.md. */
+  --brand-band: #f8ebd5;
+
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--fg);
+}
+
+/* Scoped heading reset. Unlayered on purpose: rules in `@layer base` lose to unlayered
+   rules regardless of specificity, so this beats the global heading defaults at line 181
+   without an `!important` or a specificity war.
+
+   `:not([class*="cl-"])` holds Clerk's widgets out of it. Clerk classes every element it
+   renders, ships its own type scale, and exposes `appearance` (see clerkAppearance.ts) as
+   the way to change it — but this selector outranks Clerk's own classes, so without the
+   exclusion it silently restyled the sign-in card's <h1> to Cabinet Grotesk. That is the
+   exact global-heading coupling this block exists to remove from the portal; re-creating
+   it against a third-party widget would be a poor trade. */
+.portal-scope :is(h1, h2, h3, h4, h5, h6):not([class*="cl-"]) {
+  font-family: var(--font-body);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: var(--tracking-tight);
+  color: var(--fg);
+}
+.portal-scope h1:not([class*="cl-"]) {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.portal-scope h2:not([class*="cl-"]) { font-size: var(--text-xl); }
+.portal-scope h3:not([class*="cl-"]) { font-size: var(--text-lg); }
+.portal-scope h4:not([class*="cl-"]) { font-size: var(--text-base); }
+
+.portal-scope ::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* The scope wrapper paints the product surface itself and fills the viewport, so a short
+   page shows grey rather than the cream <body> underneath it.
+
+   This does not reach the page *canvas* — the overscroll gutter on rubber-band platforms
+   is painted from <body>, and a scope cannot style its own ancestors. `MarketingChrome`
+   handles that, because it is the one place that already knows which routes are portal
+   routes. A `html:has(.portal-scope)` rule would have been tidier and was tried first, but
+   it did not survive the Tailwind/Lightning CSS pipeline — the selector matched in the DOM
+   and never applied as a style. */
+.portal-scope {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
 }

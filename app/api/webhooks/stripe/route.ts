@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/app/lib/stripe";
 import { getAgreement } from "@/app/lib/kv";
-import { createPendingSite } from "@/app/lib/account-store";
+import { createPendingSite, getAccount, saveAccount } from "@/app/lib/account-store";
+import { upsertSite } from "@jdd/schema";
 import { slugifyBrand } from "@/app/lib/intake-queue";
+import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -25,6 +27,54 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "bad signature";
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const sub = event.data.object as Stripe.Subscription;
+    try {
+      const slug = await getSlugBySubscription(sub.id);
+      if (slug) {
+        await removePublishedFeaturedSite(slug);
+        console.log("[stripe webhook] removed featured site on subscription delete", slug, sub.id);
+      }
+    } catch (e) {
+      console.error("[stripe webhook] featured cleanup failed", sub.id, e);
+    }
+  }
+
+  // A plan change. Stripe is the source of truth for what someone pays for, so this — not
+  // the upgrade route — is what writes `plan` onto the site record. If the proration invoice
+  // fails, no event arrives and the record keeps saying Starter, which is the truth.
+  //
+  // Scoped to upgrades by requiring `site_slug` and `account_email`: only /api/portal/upgrade
+  // sets those. A first purchase also puts `plan` in subscription metadata, and must not be
+  // mistaken for a tier change here.
+  if (event.type === "customer.subscription.updated") {
+    const sub = event.data.object as Stripe.Subscription;
+    const slug = sub.metadata?.site_slug;
+    const email = sub.metadata?.account_email;
+    const rawPlan = sub.metadata?.plan ?? "";
+
+    if (slug && email && VALID_PLANS.includes(rawPlan as PortalPlan)) {
+      const plan = rawPlan as PortalPlan;
+      try {
+        const account = await getAccount(email);
+        const current = account?.sites.find((s) => s.slug === slug);
+
+        if (!account || !current) {
+          console.warn("[stripe webhook] no site for plan change", email, slug, sub.id);
+        } else if (current.plan === plan) {
+          // Replayed event, or an update about something else entirely — this handler runs
+          // on every subscription edit, including cancellations.
+          console.log("[stripe webhook] plan already current, nothing to do", slug, plan);
+        } else {
+          await saveAccount(upsertSite(account, { slug, plan }, Date.now()));
+          console.log("[stripe webhook] plan changed", email, slug, current.plan, "→", plan);
+        }
+      } catch (e) {
+        console.error("[stripe webhook] plan change failed", slug, sub.id, e);
+      }
+    }
   }
 
   if (event.type === "checkout.session.completed") {

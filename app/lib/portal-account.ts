@@ -2,7 +2,7 @@ import "server-only";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { resolveSite, type PortalAccount, type PortalSite } from "@jdd/schema";
-import { getAccount, getAccountByUserId } from "./account-store";
+import { getAccount, getCachedAccountByUserId } from "./account-store";
 import { getPortalRatelimit } from "./portal-kv";
 
 /**
@@ -33,7 +33,9 @@ export function verifiedEmailOf(user: {
 
 /** Look up an account by Clerk user id, falling back to their verified email. */
 export async function resolveAccountForUser(userId: string): Promise<PortalAccount | null> {
-    const byUser = await getAccountByUserId(userId);
+    // Cached lookup first — this runs on every /api/portal/* request, so it is the hottest
+    // path in the portal. Clerk is only consulted when the index genuinely misses.
+    const byUser = await getCachedAccountByUserId(userId);
     if (byUser) return byUser;
 
     const client = await clerkClient();

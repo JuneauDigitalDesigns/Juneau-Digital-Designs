@@ -1,0 +1,55 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import PortalChrome from "@/app/components/portal/PortalChrome";
+import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
+import PortalScope from "@/app/components/portal/PortalScope";
+import { resolveDashboard } from "@/app/lib/portal-dashboard";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * The authenticated dashboard shell.
+ *
+ * Account resolution moved up here from the old single-page dashboard, so it runs once per
+ * navigation rather than once per tab switch, and every view beneath it is linkable.
+ */
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+    const { userId } = await auth();
+    if (!userId) redirect("/portal/sign-in");
+
+    const ctx = await resolveDashboard();
+
+    // Authenticated but nothing to show → terminal page. Never redirect to sign-in here:
+    // Clerk bounces signed-in users off sign-in back to /portal, which loops forever.
+    if (!ctx) {
+        return (
+            <PortalScope>
+                <PortalNoAccess />
+            </PortalScope>
+        );
+    }
+
+    const { account, sites } = ctx;
+
+    // Client paid but hasn't completed the wizard yet — send them to complete it.
+    if (account.sites[0]?.status === "pending-onboarding") {
+        redirect("/portal/onboarding");
+    }
+
+    // A client whose only site is still building used to get a standalone holding page
+    // instead of the shell, on the reasoning that there was no dashboard to frame. There is
+    // now: the Overview shows real build progress driven by live deployment and domain
+    // state, and the rail gives them Billing and Settings, which work during a build. So
+    // everyone with an account gets the same shell.
+
+    // Layouts don't receive searchParams, and the nav is a client component anyway — so
+    // PortalChrome reads `?site=` itself. That also keeps the header in sync the instant a
+    // client-side navigation changes it, without a server round trip.
+    return (
+        <PortalScope>
+            <PortalChrome sites={sites} accountEmail={account.email}>
+                {children}
+            </PortalChrome>
+        </PortalScope>
+    );
+}

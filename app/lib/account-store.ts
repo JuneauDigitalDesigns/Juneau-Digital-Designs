@@ -12,6 +12,7 @@ import {
     type PortalSite,
     type PortalSiteInput,
 } from "@jdd/schema";
+import { getCached, setCached, dropCached, accountCacheKey, ACCOUNT_TTL } from "./portal-kv";
 
 /**
  * Portal account store — the source of truth for which sites a client can see.
@@ -55,8 +56,43 @@ export async function getAccountByUserId(clerkUserId: string): Promise<PortalAcc
     return email ? getAccount(email) : null;
 }
 
+/**
+ * `getAccountByUserId` with a short cache in front.
+ *
+ * The uncached path is two sequential Redis reads (index → record) and runs on every portal
+ * navigation. This collapses it to one.
+ *
+ * The record decides which sites a client may see, so the TTL is deliberately short and
+ * every write invalidates it — see `saveAccount`. The window only matters for edits made
+ * directly in KV, bypassing the app.
+ *
+ * The cached value is re-validated on read: a shape that no longer parses is treated as a
+ * miss rather than trusted, so a stale entry written by an older deploy can't slip through.
+ */
+export async function getCachedAccountByUserId(clerkUserId: string): Promise<PortalAccount | null> {
+    const key = accountCacheKey(clerkUserId);
+
+    const hit = await getCached<unknown>(key);
+    if (hit) {
+        const parsed = zPortalAccount.safeParse(hit);
+        if (parsed.success) return parsed.data;
+        await dropCached(key);
+    }
+
+    const account = await getAccountByUserId(clerkUserId);
+    // Absence isn't cached: a client mid-provisioning would otherwise stay locked out for
+    // the full TTL after their record lands.
+    if (account) await setCached(key, ACCOUNT_TTL, account);
+    return account;
+}
+
 export async function saveAccount(account: PortalAccount): Promise<void> {
     await getRedis().set(accountKey(account.email), account);
+
+    // Invalidate here rather than in each mutation route. This is the single write
+    // chokepoint — `featured`, `cancel`, `profile` and the provisioning paths all funnel
+    // through it — so one drop covers every future caller for free.
+    if (account.clerkUserId) await dropCached(accountCacheKey(account.clerkUserId));
 }
 
 /**

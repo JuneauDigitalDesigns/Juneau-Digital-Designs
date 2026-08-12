@@ -1,28 +1,24 @@
 import { NextResponse } from "next/server";
+import { siteFeature } from "@jdd/schema";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
+import { fetchCalls, type CallsFailure } from "@/app/lib/airtable-calls";
+import { accountScope } from "@/app/lib/portal-kv";
 
 export const runtime = "nodejs";
 
-interface AirtableRecord {
-    id: string;
-    fields: {
-        Date?: string;
-        "Caller name"?: string;
-        "Caller number"?: string;
-        Summary?: string;
-        "Duration (seconds)"?: number;
-        "Call type"?: string;
-        Outcome?: string;
-        Site?: string;
-    };
-}
-
-function maskPhone(raw: string | undefined): string {
-    if (!raw) return "Unknown";
-    const digits = raw.replace(/\D/g, "");
-    if (digits.length < 4) return "***-****";
-    return `(***) ***-${digits.slice(-4)}`;
-}
+/**
+ * Client-facing failure text.
+ *
+ * Never leaks the upstream's name. A client has no idea what Airtable is, and telling them
+ * "Airtable not configured" (as this route used to, with a 500) turns our misconfiguration
+ * into their confusion. The specific cause goes to the server log instead, where it can
+ * actually be acted on.
+ */
+const FAILURE_MESSAGE: Record<CallsFailure, string> = {
+    auth: "We're having trouble reaching your call records right now.",
+    "missing-table": "We're having trouble reading your call records right now.",
+    upstream: "We couldn't load your call log just now.",
+};
 
 export async function GET(request: Request) {
     // The site is resolved from the account, never trusted from the request beyond the
@@ -30,56 +26,51 @@ export async function GET(request: Request) {
     const ctx = await resolvePortalRequest(request);
     if (!ctx.ok) return ctx.response;
 
-    // Each site carries its own base when it was provisioned independently; enterprise
-    // sites share one base and are separated by the `Site` column instead.
-    const baseId = ctx.site.airtableBaseId;
-    if (!baseId) {
-        return NextResponse.json({ calls: [], noData: true });
+    // Lifecycle first: an unbuilt or unwired site costs zero upstream calls, and the client
+    // gets a truthful reason rather than an empty list that looks like "no one called you".
+    const availability = siteFeature(ctx.site, "calls");
+    if (availability.state !== "ready") {
+        return NextResponse.json({ state: availability.state, calls: [], fields: [] });
     }
 
     const apiKey = process.env.AIRTABLE_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: "Airtable not configured" }, { status: 500 });
-
-    // Enterprise sites share one base and are separated by the `Site` column (which holds the
-    // provisioning slug, written by onboard.js). Filter server-side so the 200-record cap is
-    // per SITE rather than split across the account's sites — and so one site's rows don't
-    // travel in the response for another site's view.
-    const sharesBase = ctx.account.sites.some(
-        (s) => s.slug !== ctx.site.slug && s.airtableBaseId === baseId,
-    );
-    // The slug is interpolated into an Airtable formula, so escape the quote character even
-    // though provisioning slugs are [A-Za-z0-9_-] today — a formula built by concatenation
-    // shouldn't depend on a convention enforced somewhere else.
-    const safeSlug = ctx.site.slug.replace(/'/g, "\\'");
-    const filter = sharesBase
-        // Rows predating the tagging fix have no Site value; keep showing them everywhere
-        // rather than silently dropping them.
-        ? `&filterByFormula=${encodeURIComponent(`OR({Site}='${safeSlug}',{Site}=BLANK())`)}`
-        : "";
-
-    const url = `https://api.airtable.com/v0/${baseId}/Call%20Log?maxRecords=200&sort[0][field]=Date&sort[0][direction]=desc${filter}`;
-    const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        next: { revalidate: 0 },
-    });
-
-    if (!res.ok) {
-        return NextResponse.json({ error: "Failed to fetch call data" }, { status: 502 });
+    if (!apiKey) {
+        console.error("[portal/calls] AIRTABLE_API_KEY is not set");
+        return NextResponse.json(
+            { state: "error", error: FAILURE_MESSAGE.auth, calls: [], fields: [] },
+            { status: 502 },
+        );
     }
 
-    const json = await res.json() as { records: AirtableRecord[] };
+    // Only separate rows by site when another site on this account shares the base. That is
+    // exactly the enterprise case, and exactly when onboard.js provisions a `Site` column.
+    const baseId = ctx.site.airtableBaseId as string;
+    const scopeToSite = ctx.account.sites.some(
+        (s) => s.slug !== ctx.site.slug && s.airtableBaseId === baseId,
+    );
 
-    const calls = json.records.map((r) => ({
-        id: r.id,
-        date: r.fields["Date"] ?? null,
-        callerName: r.fields["Caller name"] ?? "Unknown",
-        callerNumber: maskPhone(r.fields["Caller number"]),
-        summary: r.fields["Summary"] ?? null,
-        durationSeconds: r.fields["Duration (seconds)"] ?? 0,
-        callType: r.fields["Call type"] ?? null,
-        outcome: r.fields["Outcome"] ?? null,
-        site: r.fields["Site"] ?? null,
-    }));
+    const result = await fetchCalls({
+        baseId,
+        apiKey,
+        siteSlug: ctx.site.slug,
+        scopeToSite,
+        acctScope: accountScope(ctx.account.email),
+    });
 
-    return NextResponse.json({ calls });
+    if (!result.ok) {
+        console.error(`[portal/calls] ${ctx.site.slug} ${result.failure}: ${result.detail}`);
+        return NextResponse.json(
+            { state: "error", error: FAILURE_MESSAGE[result.failure], calls: [], fields: [] },
+            { status: 502 },
+        );
+    }
+
+    return NextResponse.json({
+        state: "ready",
+        calls: result.calls,
+        // Which columns this base actually has, so the UI can omit stats it has no source
+        // for instead of rendering a zero it cannot stand behind.
+        fields: result.fields,
+        truncated: result.truncated,
+    });
 }

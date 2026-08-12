@@ -1,34 +1,50 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { tabHref } from "@/app/portal/types";
+
 interface Site {
     slug: string;
     name: string;
-    hasTraffic: boolean;
 }
 
-interface SiteSelectorProps {
+/**
+ * Site switcher.
+ *
+ * Navigates rather than lifting state: the selected site lives in `?site=`, so switching
+ * keeps you on the tab you were reading and leaves a URL you can share or bookmark.
+ */
+export default function SiteSelector({
+    sites,
+    selected,
+    activeTab,
+}: {
     sites: Site[];
-    selected: string | null;
-    onChange: (slug: string) => void;
-}
+    selected: string;
+    /** Path segment of the current tab ("" for overview), so switching stays put. */
+    activeTab: string;
+}) {
+    const router = useRouter();
 
-export default function SiteSelector({ sites, selected, onChange }: SiteSelectorProps) {
     return (
-        <select
-            value={selected ?? ""}
-            onChange={(e) => onChange(e.target.value)}
-            className="text-sm px-3 py-1.5 rounded border outline-none"
-            style={{
-                background: "rgba(255,255,255,0.06)",
-                borderColor: "var(--rule-strong)",
-                color: "var(--fg)",
-            }}
-        >
-            {sites.map((s) => (
-                <option key={s.slug} value={s.slug} style={{ background: "#0d1b2e" }}>
-                    {s.name}
-                </option>
-            ))}
-        </select>
+        <label className="flex items-center gap-2">
+            <span className="sr-only">Select site</span>
+            <select
+                value={selected}
+                onChange={(e) => router.push(tabHref(activeTab, e.target.value))}
+                className="portal-site-select text-sm px-2.5 py-1.5 rounded-md border w-full max-w-[14rem] truncate"
+                style={{
+                    background: "var(--elev-2)",
+                    borderColor: "var(--rule)",
+                    color: "var(--fg)",
+                }}
+            >
+                {sites.map((s) => (
+                    <option key={s.slug} value={s.slug}>
+                        {s.name}
+                    </option>
+                ))}
+            </select>
+        </label>
     );
 }

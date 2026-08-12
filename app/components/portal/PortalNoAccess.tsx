@@ -19,7 +19,7 @@ export default function PortalNoAccess() {
             {/* Header — matches DashboardShell / PortalPending */}
             <header
                 className="flex items-center justify-between px-6 py-4 border-b"
-                style={{ borderColor: "var(--rule)", background: "rgba(255,255,255,0.03)" }}
+                style={{ borderColor: "var(--rule)", background: "var(--surface)" }}
             >
                 <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
                     Client Portal
