@@ -1,4 +1,5 @@
 import "server-only";
+import type Stripe from "stripe";
 import { stripe } from "./stripe";
 import { getPlan, type PlanSlug } from "./plans";
 
@@ -121,6 +122,45 @@ export async function resolveSubscriptionId(site: {
         console.error("[plan-billing] session lookup failed", site.sessionId, e);
         return null;
     }
+}
+
+/**
+ * The subscription's current billing period, in epoch **seconds**.
+ *
+ * Stripe moved `current_period_start` / `current_period_end` off the Subscription object and
+ * onto each subscription item. `stripe.ts` pins no `apiVersion`, so the SDK default already
+ * has that change and the old top-level fields come back `undefined`.
+ *
+ * Five call sites read those fields through a cast carrying the comment "the SDK's
+ * intersection type drops these in some TS configs". That was a misdiagnosis: the type lacks
+ * the field because the field is gone. The cast silenced the compiler and turned a breaking
+ * API change into a silent `undefined`, which is why nothing ever threw. The damage was the
+ * usage tile hiding itself, the overage cron bailing on every run, a `NaN` renewal date on the
+ * billing route, and a cancellation date computed from `NaN`.
+ *
+ * Items first, then the legacy top-level fields, so this stays correct on either API version.
+ * Returns null rather than a partial period: every caller has to handle "unknown" anyway, and
+ * a half-resolved window silently produces wrong money.
+ *
+ * If you are tempted to add `sub as unknown as { current_period_end: number }` anywhere, this
+ * is the function you actually want.
+ */
+export function subscriptionPeriod(
+    sub: Stripe.Subscription,
+): { start: number; end: number } | null {
+    const item = sub.items?.data?.[0] as
+        | { current_period_start?: number; current_period_end?: number }
+        | undefined;
+    const legacy = sub as unknown as {
+        current_period_start?: number;
+        current_period_end?: number;
+    };
+
+    const start = item?.current_period_start ?? legacy.current_period_start;
+    const end = item?.current_period_end ?? legacy.current_period_end;
+
+    if (typeof start !== "number" || typeof end !== "number") return null;
+    return { start, end };
 }
 
 export interface PlanInspection {

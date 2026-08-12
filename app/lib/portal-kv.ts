@@ -148,7 +148,9 @@ export const billingKey = (acctScope: string, siteSlug: string, variant: "full" 
  * store the same number three times and triple the upstream calls to produce it.
  */
 export const USAGE_TTL = 600;
-export const usageKey = (acctScope: string) => `portal:usage:v1:${acctScope}`;
+// v2: the payload gained `overageRate`. A v1 entry lacks it, and serving a cached one would
+// quote an undefined price to a client for the rest of the TTL. Bump on any shape change.
+export const usageKey = (acctScope: string) => `portal:usage:v2:${acctScope}`;
 
 /**
  * The resolved account, keyed by Clerk user id.

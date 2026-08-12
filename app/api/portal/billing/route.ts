@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/app/lib/stripe";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
+import { subscriptionPeriod } from "@/app/lib/plan-billing";
 import { accountScope, billingKey, getCached, setCached, BILLING_TTL } from "@/app/lib/portal-kv";
 
 export const runtime = "nodejs";
@@ -89,9 +90,9 @@ export async function GET(request: Request) {
     const item = sub.items.data[0];
     const price = item?.price;
 
-    // The SDK's intersection type drops these in some TS configs — same cast the cancel
-    // route uses.
-    const periods = sub as unknown as { current_period_end: number };
+    // Nullable on purpose: this used to multiply the raw field by 1000, and once Stripe moved
+    // it onto the subscription item that produced `NaN` as the client's renewal date.
+    const period = subscriptionPeriod(sub);
 
     const pm = sub.default_payment_method;
     const card = pm && typeof pm === "object" && "card" in pm ? pm.card : null;
@@ -131,7 +132,7 @@ export async function GET(request: Request) {
         amount: price?.unit_amount ?? null,
         currency: price?.currency ?? "usd",
         interval: price?.recurring?.interval ?? null,
-        currentPeriodEnd: periods.current_period_end * 1000,
+        currentPeriodEnd: period ? period.end * 1000 : null,
         cancelAt: sub.cancel_at ? sub.cancel_at * 1000 : null,
         paymentMethod: card ? { brand: card.brand, last4: card.last4, expMonth: card.exp_month, expYear: card.exp_year } : null,
         invoices,

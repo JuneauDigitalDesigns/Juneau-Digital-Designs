@@ -7,7 +7,7 @@ import { getSchedule } from "./legal/schedules";
 import { brandedEmailHtml } from "./email-template";
 import { EMAIL } from "./email-tokens";
 import { listAccounts } from "./account-store";
-import { resolveSubscriptionId } from "./plan-billing";
+import { resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import type { PortalSite } from "@jdd/schema";
 
 // $0.20/min = 20 cents/min in Stripe's integer-cents currency
@@ -103,18 +103,13 @@ async function processAccount(
   }
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  // The SDK's intersection type drops these in some TS configs — same cast
-  // portal-billing-summary.ts and the cancel route use.
-  const periods = subscription as unknown as {
-    current_period_start?: number;
-    current_period_end?: number;
-  };
-  if (!periods.current_period_start || !periods.current_period_end) {
+  const period = subscriptionPeriod(subscription);
+  if (!period) {
     console.warn(`[usage-billing] ${email}: subscription has no billing period — skipping`);
     return { accountEmail: email, plan, minutesUsed: 0, minutesCap: cap, overageMinutes: 0, warned80: false, warned100: false, billed: false, skipped: true };
   }
-  const periodStartMs = periods.current_period_start * 1000;
-  const periodEndMs = periods.current_period_end * 1000;
+  const periodStartMs = period.start * 1000;
+  const periodEndMs = period.end * 1000;
   const now = Date.now();
 
   // Aggregate usage across all voice agents (enterprise pools minutes across sites).

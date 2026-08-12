@@ -5,6 +5,7 @@ import { stripe } from "@/app/lib/stripe";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
 import { writeCancelSignal, writeSubToSlug } from "@/app/lib/cancel-kv";
+import { subscriptionPeriod } from "@/app/lib/plan-billing";
 import { brandedEmailHtml } from "@/app/lib/email-template";
 import { EMAIL, EMAIL_FONT } from "@/app/lib/email-tokens";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
@@ -123,15 +124,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Could not retrieve subscription. Please contact support." }, { status: 500 });
     }
 
-    // The Stripe SDK intersection type loses these fields in some TS configs — cast to access them.
-    const subObj = sub as unknown as { current_period_start: number; current_period_end: number };
+    // Refuse rather than guess. This previously read the period through a cast, and once
+    // Stripe moved those fields onto the subscription item it silently became `NaN`, which
+    // would schedule a cancellation at an unknown date. A notice period is a contract term,
+    // so an unresolvable period is an error, not something to default through.
+    const period = subscriptionPeriod(sub);
+    if (!period) {
+        console.error("[portal/cancel] no billing period on subscription", subscriptionId);
+        return NextResponse.json(
+            { error: "Could not determine your billing period. Please contact support." },
+            { status: 500 },
+        );
+    }
+
     const nowS = Math.floor(Date.now() / 1000);
     const target = nowS + noticeDays * DAY_S;
-    const cancelAtS = firstBoundaryAtOrAfter(
-        subObj.current_period_start,
-        subObj.current_period_end,
-        target,
-    );
+    const cancelAtS = firstBoundaryAtOrAfter(period.start, period.end, target);
 
     // ── Schedule cancellation in Stripe ──────────────────────────────────────
 

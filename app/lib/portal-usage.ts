@@ -1,7 +1,7 @@
 import "server-only";
 import type { PortalAccount, PortalSite } from "@jdd/schema";
 import { stripe } from "./stripe";
-import { resolveSubscriptionId } from "./plan-billing";
+import { resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import { voiceSitesOf, sumAgentMinutes } from "./retell-usage";
 import { getSchedule } from "./legal/schedules";
 import type { PlanSlug } from "./agreement-types";
@@ -29,6 +29,11 @@ export interface UsageSummary {
     overageMinutes: number;
     /** Dollars, at the Schedule A overage rate. */
     overageCost: number;
+    /**
+     * Dollars per minute past the cap, from Schedule A. Carried so the UI can quote the rate
+     * before any overage exists, without a second copy of the number in a component.
+     */
+    overageRate: number | null;
     /** Epoch ms — when the allowance resets. */
     periodEnd: number | null;
 }
@@ -40,6 +45,7 @@ const EMPTY: UsageSummary = {
     pct: null,
     overageMinutes: 0,
     overageCost: 0,
+    overageRate: null,
     periodEnd: null,
 };
 
@@ -87,16 +93,14 @@ async function loadUsage(
         if (!subscriptionId) return EMPTY;
 
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        // The SDK's intersection type drops these in some TS configs — same cast
-        // portal-billing-summary.ts uses.
-        const periods = sub as unknown as {
-            current_period_start?: number;
-            current_period_end?: number;
-        };
-        if (!periods.current_period_start || !periods.current_period_end) return EMPTY;
+        const period = subscriptionPeriod(sub);
+        if (!period) {
+            console.error(`[portal/usage] ${site.slug} no billing period on ${subscriptionId}`);
+            return EMPTY;
+        }
 
-        const periodStartMs = periods.current_period_start * 1000;
-        const periodEndMs = periods.current_period_end * 1000;
+        const periodStartMs = period.start * 1000;
+        const periodEndMs = period.end * 1000;
 
         // Never query past now — a future end date would just return the same calls, but it
         // makes the intent explicit that this is usage *so far* in the open period.
@@ -116,6 +120,7 @@ async function loadUsage(
             pct: (minutesUsed / cap) * 100,
             overageMinutes,
             overageCost: overageMinutes * overageRate,
+            overageRate,
             periodEnd: periodEndMs,
         };
     } catch (e) {

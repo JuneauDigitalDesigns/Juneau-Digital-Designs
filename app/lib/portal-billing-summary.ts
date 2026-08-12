@@ -1,6 +1,7 @@
 import "server-only";
 import type { PortalSite } from "@jdd/schema";
 import { stripe } from "./stripe";
+import { subscriptionPeriod } from "./plan-billing";
 import { accountScope, billingKey, getCached, setCached, BILLING_TTL } from "./portal-kv";
 
 /**
@@ -64,18 +65,14 @@ async function loadSummary(site: PortalSite): Promise<BillingSummary> {
 
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
         const price = sub.items.data[0]?.price;
-        // The SDK's intersection type drops this in some TS configs — same cast the
-        // billing and cancel routes use.
-        const periods = sub as unknown as { current_period_end?: number };
+        const period = subscriptionPeriod(sub);
 
         return {
             state: "ready",
             amount: price?.unit_amount ?? null,
             currency: price?.currency ?? "usd",
             interval: price?.recurring?.interval ?? null,
-            currentPeriodEnd: periods.current_period_end
-                ? periods.current_period_end * 1000
-                : null,
+            currentPeriodEnd: period ? period.end * 1000 : null,
             cancelAt: sub.cancel_at ? sub.cancel_at * 1000 : null,
             status: sub.status,
         };
