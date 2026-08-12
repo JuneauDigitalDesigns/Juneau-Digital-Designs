@@ -1,22 +1,45 @@
 import type { Metadata } from "next";
+import { cache } from "react";
+import { auth } from "@clerk/nextjs/server";
 import AgreementClient from "../components/agreement/AgreementClient";
+import UpgradeUnavailable from "../components/agreement/UpgradeUnavailable";
 import { getTermsForPlan } from "../lib/legal";
+import { resolveAccountForUser } from "../lib/portal-account";
+import { upgradeBlockReason } from "../lib/plan-billing";
 import type { PlanSlug } from "../lib/agreement-types";
 
-export const metadata: Metadata = {
+const SIGNING_METADATA: Metadata = {
     title: "Sign Service Agreement | Juneau Digital Designs",
     description:
         "Review and sign the Juneau Digital Designs Service Agreement before completing your subscription payment.",
 };
+
+/**
+ * The title has to follow the branch: "Sign Service Agreement" on a page that refuses to let
+ * you sign reads as a bug. `canUpgrade` is wrapped in React `cache()`, so this and the page
+ * body share one evaluation per request rather than each hitting Clerk and KV.
+ */
+export async function generateMetadata({
+    searchParams,
+}: {
+    searchParams: Promise<{ plan?: string; upgrade?: string }>;
+}): Promise<Metadata> {
+    const { upgrade } = await searchParams;
+    const slug = upgrade?.trim();
+    if (slug && !(await canUpgrade(slug))) {
+        return { title: "Upgrade | Juneau Digital Designs", robots: { index: false } };
+    }
+    return SIGNING_METADATA;
+}
 
 const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string }>;
 }) {
-    const { plan } = await searchParams;
+    const { plan, upgrade } = await searchParams;
     const selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
@@ -26,5 +49,59 @@ export default async function AgreementPage({
     // signed PDF is generated from.
     const { sections, version } = getTermsForPlan(selectedPlan);
 
-    return <AgreementClient plan={selectedPlan} sections={sections} version={version} />;
+    const upgradeSlug = upgrade?.trim() || null;
+
+    // `?upgrade=<slug>` marks this as an existing client moving up a tier rather than a first
+    // purchase. Same terms, same signature, different ending: the upgrade endpoint modifies
+    // their live subscription instead of opening a second one.
+    //
+    // The slug still isn't *trusted* here — the endpoint re-resolves it against the signed-in
+    // account, which remains the authorization boundary. What this adds is a feasibility
+    // check, because the endpoint's verdict arrives too late to be useful: the client has
+    // already signed and been emailed the agreement by the time it runs. Anything that makes
+    // the upgrade impossible should stop them before the signature, not after it.
+    //
+    // Only reached when `?upgrade=` is present, so an anonymous first-time buyer never hits
+    // Clerk or KV and the purchase path is unchanged.
+    if (upgradeSlug && !(await canUpgrade(upgradeSlug))) {
+        return <UpgradeUnavailable />;
+    }
+
+    return (
+        <AgreementClient
+            plan={selectedPlan}
+            sections={sections}
+            version={version}
+            upgradeSlug={upgradeSlug}
+        />
+    );
 }
+
+/**
+ * Can this caller actually complete an upgrade for this slug?
+ *
+ * Fails closed: any missing piece — signed out, no account, slug not theirs, not a live
+ * starter, no subscription on file — means no signing form. `resolveAccountForUser` is the
+ * same lookup the portal routes use, so "not theirs" is decided by the account record rather
+ * than by the URL.
+ */
+const canUpgrade = cache(async function canUpgrade(slug: string): Promise<boolean> {
+    const { userId } = await auth();
+    if (!userId) return false;
+
+    const account = await resolveAccountForUser(userId);
+    const site = account?.sites.find((s) => s.slug === slug);
+    if (!site) return false;
+
+    // Same predicate the CTA and the upgrade route use, so a link can never reach a signature
+    // the endpoint would then refuse.
+    const block = upgradeBlockReason(site);
+    if (block === "no-billing-link") {
+        // A client with no subscription on file is a data problem, not a plan state.
+        console.error(
+            `[agreement] upgrade blocked: ${slug} is on starter with no stripeSubscriptionId ` +
+                `or sessionId. Client cannot self-serve upgrade.`,
+        );
+    }
+    return block === null;
+});

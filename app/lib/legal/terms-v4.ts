@@ -1,6 +1,6 @@
 import { ref, type PlanSchedule, type SectionDef } from "./types";
 
-export const TERMS_VERSION = "v4.0";
+export const TERMS_VERSION = "v4.1";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -11,6 +11,14 @@ export const PROVIDER = {
 } as const;
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
+
+/**
+ * Per-minute rates always carry two decimals — `money()` would render 0.2 as
+ * "$0.2". Falls back to the Schedule A default only if a voice plan somehow
+ * reaches §5 without a rate; the section is plan-filtered to growth/enterprise,
+ * both of which define one.
+ */
+const perMinute = (n: number | null) => `$${(n ?? 0.2).toFixed(2)}`;
 
 /**
  * The shared body of the Service Agreement. Sections that do not apply
@@ -320,7 +328,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: `Call-minutes exceeding the monthly allotment are billed at $0.20 per minute on the next monthly invoice. Provider may, as a courtesy, notify Client when usage reaches approximately 80% of the monthly allotment, but is under no contractual obligation to do so.`,
+              text: `Call-minutes exceeding the monthly allotment are billed at ${perMinute(s.overagePerMinute)} per minute on the next monthly invoice. Provider may, as a courtesy, notify Client when usage reaches approximately 80% of the monthly allotment, but is under no contractual obligation to do so.`,
             },
           ],
         },

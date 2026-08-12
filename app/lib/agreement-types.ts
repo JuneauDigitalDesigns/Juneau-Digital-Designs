@@ -13,6 +13,14 @@ export interface AgreementSubmission {
   signatureDataUrl: string; // data:image/png;base64,...
   pageOpenedAt: string; // ISO UTC — when the agreement page mounted
   scrollCompletedAt: string; // ISO UTC — when the reader reached the end of the terms
+  /**
+   * Present when this signature authorises an in-portal upgrade rather than a new purchase.
+   *
+   * Not trusted for authorization — the upgrade route re-resolves the slug against the
+   * signed-in account. It is used only to decide whether to hold the client email until the
+   * plan change actually goes through.
+   */
+  upgradeSlug?: string;
 }
 
 export interface AgreementAudit {
@@ -45,4 +53,17 @@ export interface AgreementRecord {
   pdfUrl: string;
   audit: AgreementAudit;
   agreementVersion: string;
+  /**
+   * Set when this agreement was signed to authorise an in-portal upgrade, and cleared once
+   * Stripe confirms the plan actually changed.
+   *
+   * A signature is persisted the moment it's given — the legal artefact has to survive
+   * whatever happens next. But the *client email* used to go out at the same moment, so a
+   * failed upgrade left them holding a Growth agreement for a plan they were never moved to.
+   * The email now waits for the charge, and a record still flagged here is an orphan: signed,
+   * not upgraded, and someone needs to look at it.
+   */
+  pendingUpgrade?: boolean;
+  /** Slug the upgrade was for. Only meaningful alongside `pendingUpgrade`. */
+  upgradeSlug?: string;
 }

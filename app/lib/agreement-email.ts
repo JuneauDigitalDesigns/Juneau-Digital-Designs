@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 import type { AgreementRecord } from "./agreement-types";
+import { stripLastPage } from "./pdf-signer";
 import { brandedEmailHtml } from "./email-template";
 import { EMAIL } from "./email-tokens";
 
@@ -9,6 +10,27 @@ const PLAN_LABEL: Record<string, string> = {
   growth: "Growth ($297/mo)",
   enterprise: "Enterprise ($697/mo)",
 };
+
+/**
+ * Send a stored agreement to its signer, fetching the PDF back from blob storage.
+ *
+ * For the upgrade flow, the email is deliberately *not* sent when the signature is taken —
+ * it waits until Stripe confirms the plan actually changed. By then the signing request's
+ * PDF bytes are long gone, so they're re-read from `record.pdfUrl`.
+ *
+ * Never throws. The plan change has already succeeded by the time this runs, and a mail
+ * failure must not turn a completed upgrade into an error for the client.
+ */
+export async function sendStoredAgreementEmail(record: AgreementRecord): Promise<void> {
+  try {
+    const res = await fetch(record.pdfUrl);
+    if (!res.ok) throw new Error(`PDF fetch failed (${res.status})`);
+    const full = new Uint8Array(await res.arrayBuffer());
+    await sendClientAgreementEmail(record, await stripLastPage(full));
+  } catch (e) {
+    console.error("[agreement-email] deferred send failed", record.id, e);
+  }
+}
 
 /**
  * Email the signed PDF to the client signer (no audit page). The owner copy is

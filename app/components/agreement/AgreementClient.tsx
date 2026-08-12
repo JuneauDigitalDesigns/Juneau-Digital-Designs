@@ -11,11 +11,18 @@ interface Props {
     plan: PlanSlug;
     sections: Section[];
     version: string;
+    /**
+     * Set when an existing client is moving up a tier. Signing is identical; only the step
+     * after it differs — an upgrade modifies the subscription they already have rather than
+     * starting a second one.
+     */
+    upgradeSlug?: string | null;
 }
 
 const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "Other"];
 
-export default function AgreementClient({ plan, sections, version }: Props) {
+export default function AgreementClient({ plan, sections, version, upgradeSlug = null }: Props) {
+    const isUpgrade = upgradeSlug !== null;
     const isEnterprise = plan === "enterprise";
     const sigRef = useRef<SignatureCanvasHandle>(null);
 
@@ -96,6 +103,10 @@ export default function AgreementClient({ plan, sections, version }: Props) {
                     signatureDataUrl,
                     pageOpenedAt,
                     scrollCompletedAt,
+                    // Tells the signing route to hold the client email until the upgrade
+                    // below actually goes through. Not an authorization claim — the upgrade
+                    // endpoint re-resolves this slug against the signed-in account.
+                    ...(isUpgrade ? { upgradeSlug } : {}),
                 }),
             });
             const sigData = (await sigRes.json()) as { agreement_id?: string; error?: string };
@@ -103,7 +114,38 @@ export default function AgreementClient({ plan, sections, version }: Props) {
                 throw new Error(sigData.error || `Signing failed (${sigRes.status})`);
             }
 
-            // 2. Create Stripe Checkout Session
+            // 2. Charge. An upgrade edits the subscription the client already pays for; a new
+            //    client gets a Checkout Session. Opening a checkout for an upgrade would leave
+            //    them holding two subscriptions.
+            if (isUpgrade) {
+                // Slug goes in the query string, not the body: that is where
+                // resolvePortalRequest looks for it, and it re-resolves it against the
+                // signed-in account rather than trusting what we send.
+                const upRes = await fetch(
+                    `/api/portal/upgrade?site=${encodeURIComponent(upgradeSlug!)}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ agreement_id: sigData.agreement_id }),
+                    },
+                );
+                // The upgrade endpoint is behind auth, and an expired session is answered
+                // with a redirect to sign-in — which fetch follows, handing us an HTML page
+                // with a 200. Parsing that as JSON would show the client a syntax error
+                // moments after they signed, so check what came back before trusting it.
+                if (!upRes.headers.get("content-type")?.includes("application/json")) {
+                    throw new Error(
+                        "Your session expired while signing. Your agreement is saved — please sign in and try the upgrade again.",
+                    );
+                }
+                const upData = (await upRes.json()) as { ok?: boolean; error?: string };
+                if (!upRes.ok || !upData.ok) {
+                    throw new Error(upData.error || `Could not complete the upgrade (${upRes.status})`);
+                }
+                window.location.href = `/portal?site=${encodeURIComponent(upgradeSlug!)}&upgraded=1`;
+                return;
+            }
+
             const ckRes = await fetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

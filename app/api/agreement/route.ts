@@ -78,6 +78,9 @@ export async function POST(req: Request) {
     pdfUrl,
     audit,
     agreementVersion: TERMS_VERSION,
+    ...(body.upgradeSlug
+      ? { pendingUpgrade: true, upgradeSlug: body.upgradeSlug.trim() }
+      : {}),
   };
 
   try {
@@ -90,11 +93,21 @@ export async function POST(req: Request) {
   // Email runs after the response via after() — Vercel keeps the function alive
   // for it (a plain fire-and-forget promise gets killed when the lambda freezes).
   // Strip the audit-trail page before sending to the client.
-  after(() =>
-    stripLastPage(pdfBytes)
-      .then((clientPdfBytes) => sendClientAgreementEmail(record, clientPdfBytes))
-      .catch((e) => console.error("[/api/agreement] email failed", e)),
-  );
+  //
+  // An upgrade signature is the exception: the client must not be sent a Growth agreement
+  // until Stripe confirms they are actually on Growth. That used to happen here regardless,
+  // so a failed plan change left them holding an agreement for a tier they were never moved
+  // to. `/api/portal/upgrade` sends it on success and clears `pendingUpgrade`; a record still
+  // flagged is an orphan for ops to chase.
+  if (record.pendingUpgrade) {
+    console.log(`[/api/agreement] ${id} held for upgrade confirmation (${record.upgradeSlug})`);
+  } else {
+    after(() =>
+      stripLastPage(pdfBytes)
+        .then((clientPdfBytes) => sendClientAgreementEmail(record, clientPdfBytes))
+        .catch((e) => console.error("[/api/agreement] email failed", e)),
+    );
+  }
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
 }
