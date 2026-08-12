@@ -3,8 +3,18 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Microphone } from "@phosphor-icons/react";
+import { SCHEDULES } from "@/app/lib/legal/schedules";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
+
+/* Every number on this page comes from Schedule A (app/lib/legal/schedules.ts) —
+   the same source the signed agreement renders from. The prose is hand-written;
+   the figures are not, so the price card cannot quote a client something the
+   contract contradicts. */
+const minutes = (slug: PlanSlug) =>
+    SCHEDULES[slug].callMinutes?.toLocaleString("en-US") ?? "0";
+const overageRate = (slug: PlanSlug) =>
+    `$${(SCHEDULES[slug].overagePerMinute ?? 0.2).toFixed(2)}`;
 
 type PricingTier = {
     slug: PlanSlug;
@@ -19,10 +29,10 @@ const TIERS: PricingTier[] = [
     {
         slug: "starter",
         name: "Starter",
-        price: 117,
-        tagline: "Just need a website? You get a fast one-pager that sends leads straight to your inbox. Add the receptionist whenever you're ready.",
+        price: SCHEDULES.starter.monthlyPrice,
+        tagline: "Everything starts here — the site itself. Built, hosted, and pointed at getting you called. Add the receptionist whenever you're ready.",
         features: [
-            "One-page website, built and launched for you",
+            "A complete website, built and launched for you",
             "Contact form — leads go straight to your inbox",
             "Hosting, backups, and security included",
             "2 content edits per month",
@@ -33,12 +43,12 @@ const TIERS: PricingTier[] = [
     {
         slug: "growth",
         name: "Growth",
-        price: 297,
+        price: SCHEDULES.growth.monthlyPrice,
         tagline: "Everything in Starter, plus the part that actually answers the phone.",
         features: [
             "Everything in Starter",
             "AI receptionist on a dedicated business number",
-            "350 call minutes per month",
+            `${minutes("growth")} call minutes per month`,
             "2 content edits per month",
             "Ongoing SEO so you show up on Google",
             "Portal with every call logged — transcript and summary",
@@ -48,14 +58,13 @@ const TIERS: PricingTier[] = [
     {
         slug: "enterprise",
         name: "Enterprise",
-        price: 697,
+        price: SCHEDULES.enterprise.monthlyPrice,
         tagline: "For people running more than one shop. Three sites, one bill, minutes shared across all of them.",
         features: [
             "Everything in Growth",
             "Up to 3 websites, each with its own receptionist and number",
-            "2,000 call minutes per month, pooled across your sites",
+            `${minutes("enterprise")} call minutes per month, pooled across your sites`,
             "Priority support with 1 business day response time",
-            "Quarterly strategy sessions with our founder",
         ],
         highlighted: false,
     },
@@ -69,11 +78,11 @@ const FAQS: { q: string; a: string }[] = [
         // page should answer "why so cheap" before anything else. The figures are
         // evidence for the tooling argument, not a discount brag.
         q: "What's the catch?",
-        a: "There isn't one. Piecing this together from an agency plus an answering service usually runs $600 or more a month — Growth is $297. The difference isn't corner-cutting, it's that we built the software that does the setup. Provisioning a site, standing up a number, configuring the agent, wiring your reporting — most shops do all of that by hand and bill you for the hours. We only had to build it once.",
+        a: "There isn't one. Piecing this together from an agency plus an answering service usually runs $600 or more a month — Growth is $297. The difference isn't corner-cutting, it's that we built the software that does the setup. Provisioning a site, standing up a number, configuring the agent, wiring your reporting — most agencies do all of that by hand and bill you for the hours. We only had to build it once.",
     },
     {
         q: "What happens if I go over my minutes?",
-        a: "They're billed at $0.20 a minute on your next invoice, and we'll give you a heads-up as you get close.", // MSA §5.2
+        a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close.`, // MSA §5.2
     },
     {
         q: "Am I locked into a contract?",
@@ -84,8 +93,16 @@ const FAQS: { q: string; a: string }[] = [
         a: "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week.", // MSA §2.2
     },
     {
+        // Was "It's yours. If you ever leave, it goes with you." — which the MSA does not
+        // support. The number sits on our master telephony account, and on termination the
+        // default is release, not transfer. Porting is real, but it's opt-in, time-boxed
+        // and paid, so all three conditions are stated rather than discovered later.
         q: "Do I get to keep my phone number?",
-        a: "It's yours. If you ever leave, it goes with you.", // MSA §11.3
+        a: "You get exclusive use of it for as long as you're a client — put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA §11
+    },
+    {
+        q: "Do I own my website?",
+        a: "Your content is yours — name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA §14
     },
     {
         q: "What if I already have a website?",
@@ -93,7 +110,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: "Is this replacing a receptionist?",
-        a: "No — most of our clients never had one. When it's you and a truck, the phone rings while you're under a sink. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
+        a: "No — most of our clients never had one. When it's you and a truck, the phone rings while your hands are full. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
     },
 ];
 
@@ -150,7 +167,7 @@ export default function PricingPageClient() {
                             lineHeight: 1.6,
                         }}
                     >
-                        Three plans. Most people want Growth — that&apos;s the one with the receptionist. Month to month, cancel when you want.
+                        Every plan is a real website. Growth adds the receptionist. Month to month, cancel when you want.
                     </p>
                 </motion.div>
 

@@ -27,7 +27,7 @@ export default function Footer() {
                             <Image src="/JDD_mark_1.png" alt="Juneau Digital Designs home" width={886} height={347} className="logo-dark h-18 w-auto" />
                         </Link>
                         <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
-                            Websites, hosting, and a 24/7 AI receptionist — so the phone always gets answered.
+                            Websites built to get you found and called — with a 24/7 AI receptionist for when you can&apos;t pick up.
                         </p>
                     </div>
 
