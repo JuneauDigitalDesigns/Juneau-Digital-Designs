@@ -98,6 +98,13 @@ export default function Navbar() {
                             >
                                 See Plans
                             </Link>
+                            <Link
+                                className="btn primary w-full justify-center"
+                                href="/portal"
+                                onClick={() => setShowNav(false)}
+                            >
+                                Portal
+                            </Link>
                         </div>
                     </motion.div>
                 )}
