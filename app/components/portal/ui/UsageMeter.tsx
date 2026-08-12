@@ -2,6 +2,7 @@
 
 import { Card, CardLabel } from "./Card";
 import { shortDate } from "./format";
+import { usageLevel, usageNotice, usageToneVar } from "./usage";
 import type { UsageSummary } from "@/app/lib/portal-usage";
 
 /**
@@ -20,11 +21,14 @@ export function UsageMeter({ usage }: { usage: UsageSummary }) {
         return null;
     }
 
-    const { minutesUsed, minutesCap, overageMinutes, overageCost, periodEnd } = usage;
+    const { minutesUsed, minutesCap, periodEnd } = usage;
     const pct = usage.pct ?? 0;
-    const over = overageMinutes > 0;
 
-    const tone = over ? "var(--chart-neg)" : pct >= 80 ? "var(--chart-warn)" : "var(--accent)";
+    // Thresholds and wording come from ./usage so this and the Overview tile cannot disagree
+    // about what counts as "over".
+    const level = usageLevel(pct);
+    const tone = usageToneVar(level);
+    const notice = usageNotice(usage);
     const remaining = Math.max(0, minutesCap - minutesUsed);
 
     return (
@@ -70,21 +74,28 @@ export function UsageMeter({ usage }: { usage: UsageSummary }) {
                 />
             </div>
 
+            {/* Used, remaining and percent are always all three present. Remaining used to be
+                replaced by the overage line once over, which removed a number the client had
+                been reading all month at the exact moment it went to zero. */}
             <p className="text-xs" style={{ color: "var(--fg-3)" }}>
-                {over ? (
-                    <>
-                        <span style={{ color: tone, fontWeight: 500 }}>
-                            {overageMinutes.toLocaleString()} min over
-                        </span>
-                        {" · about "}
-                        <span style={{ color: "var(--fg-2)" }}>${overageCost.toFixed(2)}</span>
-                        {" in overage on your next invoice"}
-                    </>
-                ) : (
-                    <>{remaining.toLocaleString()} minutes remaining</>
-                )}
+                {remaining.toLocaleString()} minutes remaining
                 {periodEnd ? ` · resets ${shortDate(periodEnd)}` : ""}
             </p>
+
+            {/* Tinted rather than muted body text: at these thresholds the line is an alert,
+                and --fg-3 reads as a footnote. Same tinting as the track above. */}
+            {notice && (
+                <p
+                    className="text-xs rounded-md px-2.5 py-2"
+                    style={{
+                        color: tone,
+                        background: `color-mix(in srgb, ${tone} 12%, transparent)`,
+                        lineHeight: 1.5,
+                    }}
+                >
+                    {notice}
+                </p>
+            )}
         </Card>
     );
 }

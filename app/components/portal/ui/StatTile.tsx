@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import Link from "next/link";
+import { ArrowRight } from "@phosphor-icons/react";
 import { Card, CardLabel } from "./Card";
 import { Sparkline } from "./Sparkline";
 import { useCountUp } from "./Motion";
@@ -15,6 +17,11 @@ import { useCountUp } from "./Motion";
  * Pass `count` alongside a formatted `value` when the metric is numeric and should animate —
  * the tile renders `count` while animating and hands off to `value` at rest, so a duration
  * still reads "3m 12s" at the end rather than "192".
+ *
+ * `href` turns the whole tile into a link to the tab that explains it, with the same
+ * interactive surface and trailing arrow the plan card on the Overview already uses. Optional,
+ * so the dozen existing call sites are unaffected — a tile only becomes clickable when there
+ * is somewhere worth going.
  */
 export function StatTile({
     label,
@@ -25,6 +32,7 @@ export function StatTile({
     hint,
     tone = "default",
     series,
+    href,
 }: {
     label: string;
     value: ReactNode | null;
@@ -37,6 +45,8 @@ export function StatTile({
     tone?: "default" | "positive" | "negative" | "warn";
     /** Trend behind the number. Needs at least two points to mean anything. */
     series?: number[];
+    /** Where this metric is explained in full. Makes the tile a link. */
+    href?: string;
 }) {
     const toneColor = {
         default: "var(--fg)",
@@ -51,9 +61,19 @@ export function StatTile({
 
     const sparkColor = tone === "default" ? "var(--accent)" : toneColor;
 
-    return (
-        <Card className="relative flex flex-col gap-1.5 overflow-hidden">
-            <CardLabel>{label}</CardLabel>
+    const body = (
+        <>
+            <div className="flex items-center justify-between gap-3">
+                <CardLabel>{label}</CardLabel>
+                {href && (
+                    <ArrowRight
+                        size={14}
+                        weight="bold"
+                        style={{ color: "var(--fg-3)" }}
+                        className="shrink-0"
+                    />
+                )}
+            </div>
 
             <div className="flex items-baseline gap-2 flex-wrap relative z-10">
                 <span
@@ -86,6 +106,23 @@ export function StatTile({
                 <div className="absolute inset-x-0 bottom-0 pointer-events-none" aria-hidden="true">
                     <Sparkline data={series} color={sparkColor} height={46} />
                 </div>
+            )}
+        </>
+    );
+
+    return (
+        <Card
+            className="relative flex flex-col gap-1.5 overflow-hidden"
+            interactive={Boolean(href)}
+        >
+            {href ? (
+                // The link wraps the contents rather than the Card, so the hover surface stays
+                // on the Card itself — same arrangement as the plan tile on the Overview.
+                <Link href={href} className="flex flex-col gap-1.5">
+                    {body}
+                </Link>
+            ) : (
+                body
             )}
         </Card>
     );

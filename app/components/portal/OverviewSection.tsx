@@ -14,7 +14,19 @@ import { Sparkline } from "./ui/Sparkline";
 import { FeatureState, FeatureError } from "./ui/FeatureState";
 import { Stagger, StaggerItem } from "./ui/Motion";
 import { outcomeColor } from "./ui/chartTheme";
+import { usageHint, usageLevel, usageStatTone } from "./ui/usage";
 import { duration, money, relativeTime, shortDate, shortDateTime } from "./ui/format";
+
+/**
+ * The tile's one hint line: the threshold warning when there is one, then the reset date.
+ * Kept to a single line because this is the glance; the Call Log carries the full sentence.
+ */
+function usageGlance(usage: UsageSummary): string | undefined {
+    const parts = [usageHint(usage)];
+    if (usage.periodEnd) parts.push(`resets ${shortDate(usage.periodEnd)}`);
+    const line = parts.filter(Boolean).join(" · ");
+    return line || undefined;
+}
 
 /**
  * The Overview's value modules: leads, traffic, billing.
@@ -107,14 +119,9 @@ export function OverviewMetrics({
                         value={usage.minutesUsed}
                         count={usage.minutesUsed}
                         unit={`of ${usage.minutesCap?.toLocaleString()} (${Math.round(usage.pct ?? 0)}%)`}
-                        tone={
-                            usage.overageMinutes > 0
-                                ? "negative"
-                                : (usage.pct ?? 0) >= 80
-                                  ? "warn"
-                                  : "default"
-                        }
-                        hint={usage.periodEnd ? `resets ${shortDate(usage.periodEnd)}` : undefined}
+                        tone={usageStatTone(usageLevel(usage.pct))}
+                        hint={usageGlance(usage)}
+                        href={tabHref("calls", site.slug)}
                     />
                 </StaggerItem>
             )}
