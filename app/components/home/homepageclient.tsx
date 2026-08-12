@@ -7,9 +7,24 @@ import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
 import LeadPanel from "./LeadPanel";
+import { SCHEDULES } from "@/app/lib/legal/schedules";
 
 const DEMO_TEL = "tel:+19302221343";
 const DEMO_TEL_DISPLAY = "(930) 222-1343";
+
+/* Prices come from Schedule A, never typed in by hand — the same rule the pricing page
+   follows. A number written into marketing copy is a number that can eventually contradict
+   the signed agreement. */
+const GROWTH_PRICE = SCHEDULES.growth.monthlyPrice;
+const STARTER_PRICE = SCHEDULES.starter.monthlyPrice;
+
+/* What you get, stated once. This replaced a two-card section that re-explained the hero
+   at ~220 words; every factual claim it made survives here in about 55. */
+const OFFER: { label: string; copy: string }[] = [
+  { label: "The website", copy: "Found on Google, fast on phones, one tap to call you. Live in about a week." },
+  { label: "The receptionist", copy: "Answers 24/7 in English or Spanish, qualifies the caller, and texts you the summary." },
+  { label: "One bill", copy: `$${GROWTH_PRICE} a month, month to month. Website only from $${STARTER_PRICE}.` },
+];
 
 /* ── Scroll reveal ──────────────────────────────────────────── */
 function useReveal(options: IntersectionObserverInit = {}) {
@@ -67,11 +82,15 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
     >
       {/* copy (first in DOM → appears above panel on mobile) */}
       <div>
-        <h1 style={{ fontWeight: 900, fontSize: "clamp(40px,10vw,84px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase" }}>
+        {/* 13vw, not 10vw: at 10vw the clamp floor (40px) took over below ~400px, leaving the
+            H1 barely twice the CTA's 20px while the button ran full width and solid. The
+            headline should be the loudest thing on a phone screen, so it scales faster and
+            floors higher. 84px cap is unchanged, so nothing moves on desktop. */}
+        <h1 style={{ fontWeight: 900, fontSize: "clamp(46px,13vw,84px)", lineHeight: 0.95, letterSpacing: ".005em", textTransform: "uppercase" }}>
           Get found.<br />Get called.<br /><span style={{ color: "var(--accent-2)" }}>Get booked.</span>
         </h1>
         <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px 0 32px" }}>
-          Two things, one bill: a website built to turn visitors into phone calls, and a 24/7 receptionist that answers them when you can&apos;t. Your whole front door, handled.
+          A website that gets you called, and a 24/7 receptionist that answers when you can&apos;t.
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div className="hero-cta">
@@ -82,6 +101,20 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
           </div>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".1em", textTransform: "uppercase", color: "var(--fg-3)" }}>Five quick questions. About 30 seconds.</span>
         </div>
+
+        {/* The offer, scannable. Sits under the CTA rather than above it so the button
+            still owns the first screen on mobile. */}
+        <ul className="hero-offer">
+          {OFFER.map((item) => (
+            <li key={item.label}>
+              <span className="hero-offer-label">{item.label}</span>
+              <span className="hero-offer-copy">{item.copy}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="hero-offer-foot">
+          Hosting, backups, updates, and two content edits a month included. No setup fee.
+        </p>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -320,7 +353,7 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                     {revenueOnTable < 1 ? (
                       <>Nothing on the table at 100%. Almost nobody is at 100%.</>
                     ) : (
-                      <>{revenueFormatted}{" "}a year &mdash; if those callers did what most callers do: hang up without leaving a message and try someone else.</>
+                      <>{revenueFormatted}{" "}a year, if those callers did what most callers do: hang up without leaving a message and try someone else.</>
                     )}
                   </p>
                   {/* wrapper, not the button itself — .calc-reveal's transform/transition
@@ -344,7 +377,7 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                 </summary>
                 <div className="calc-accordion-content">
                   <p style={{ marginBottom: 12, color: "var(--fg-2)", fontSize: 13, lineHeight: 1.6 }}>
-                    Based on your inputs, published research where it exists, and one assumption of our own — all four steps shown below. Results vary by market and business.
+                    Based on your inputs, published research where it exists, and one assumption of our own. All four steps are shown below.
                   </p>
                   <ol style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
@@ -360,7 +393,7 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                       × <strong style={{ color: "var(--fg)" }}>46% of leads convert on the call</strong> (Invoca, 2025) × avg job value = {formatDollars(revenueOnTable)}
                     </li>
                     <li style={{ fontSize: 13, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                      × <strong style={{ color: "var(--fg)" }}>50% recovered</strong> — our own estimate, deliberately conservative = {formatDollars(recoverableRevenue)}
+                      × <strong style={{ color: "var(--fg)" }}>50% recovered</strong>, our own estimate, deliberately conservative = {formatDollars(recoverableRevenue)}
                     </li>
                   </ol>
                 </div>
@@ -378,65 +411,9 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
   );
 }
 
-/* ── Two Operators, One Line ────────────────────────────────── */
-function TwoOperators() {
-  return (
-    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
-      <Reveal>
-        <h2 className="two-op-heading" style={{ fontWeight: 800, fontSize: "clamp(34px,5vw,64px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-          You get two things. Both work while you don&apos;t.
-        </h2>
-      </Reveal>
-      {/* Asymmetric on purpose: the website is the product being bought, so it gets the
-          bigger half. Hierarchy comes from size — the receptionist keeps `surface-invert`
-          because inverting the website card too would flatten both back to equal weight. */}
-      <div className="two-op-grid">
-        {/* Operator 01 — Website. Carries the three beats of the H1. */}
-        <Reveal as="article" style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "clamp(28px,3.4vw,46px)", display: "flex", flexDirection: "column", gap: 20, background: "var(--panel)" }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: ".12em", color: "var(--accent)" }}>OPERATOR 01 // THE WEBSITE</div>
-          <h3 style={{ fontWeight: 700, fontSize: "clamp(28px,3.6vw,46px)", lineHeight: 0.98, textTransform: "uppercase" }}>Built to turn visitors into calls.</h3>
-          <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "52ch" }}>
-            Most small business sites are a business card that happens to be online. Yours is built to do a job: get in front of people searching for your trade, and make calling you the easiest thing on the page.
-          </p>
-
-          <div className="two-op-beats">
-            <div>
-              <div className="two-op-beat-label">Get found</div>
-              <p className="two-op-beat-copy">Fast, structured for search, and pointed at the people already looking for what you do.</p>
-            </div>
-            <div>
-              <div className="two-op-beat-label">Get called</div>
-              <p className="two-op-beat-copy">Click-to-call on every screen. Nobody has to hunt for your number or fill out a form to reach you.</p>
-            </div>
-            <div>
-              <div className="two-op-beat-label">Get booked</div>
-              <p className="two-op-beat-copy">Built to look like the outfit you actually are, so the call you get is one that trusts you already.</p>
-            </div>
-          </div>
-
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-3)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto", paddingTop: 8 }}>
-            <span>&rarr; Live in about a week</span>
-            <span>&rarr; Hosting, backups + updates included</span>
-            <span>&rarr; We write the copy — you answer questions</span>
-          </div>
-        </Reveal>
-
-        {/* Operator 02 — Receptionist. Teases the film below rather than arguing in full. */}
-        <Reveal as="article" delay={1} className="surface-invert" style={{ border: "1px solid", borderRadius: 8, padding: "clamp(26px,3vw,38px)", display: "flex", flexDirection: "column", gap: 18 }}>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, letterSpacing: ".12em", color: "var(--invert-accent)" }}>OPERATOR 02 // THE RECEPTIONIST</div>
-          <h3 style={{ fontWeight: 700, fontSize: "clamp(24px,2.6vw,34px)", lineHeight: 0.98, textTransform: "uppercase", color: "var(--invert-fg)" }}>Then something has to answer it.</h3>
-          <p style={{ fontSize: 16, lineHeight: 1.6, color: "var(--invert-fg-2)" }}>A site that makes the phone ring is only half the job. When you can&apos;t pick up, this does — answers their questions, finds out what they need, and texts you the whole thing before they hang up.</p>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--invert-fg-2)", display: "flex", flexDirection: "column", gap: 8, marginTop: "auto" }}>
-            <span>&rarr; Answers 24/7 — nights, weekends, holidays</span>
-            <span>&rarr; Qualifies the caller before it reaches you</span>
-            <span>&rarr; Texts you a full summary of every call</span>
-            <span>&rarr; English &amp; Spanish AI agents available</span>
-          </div>
-        </Reveal>
-      </div>
-    </section>
-  );
-}
+/* `TwoOperators` lived here: two cards that re-explained the hero at ~220 words, with three
+   beats that restated the H1 verbatim. Every fact it carried now sits in the hero's OFFER
+   strip; only the rhetoric was dropped. */
 
 /* ── The handoff ────────────────────────────────────────────────
    Leads with the stakes, not the mechanism. The film underneath starts on the
@@ -454,7 +431,7 @@ function TheHandoff({ onOpenForm }: { onOpenForm: () => void }) {
           Your hands are full. The phone rings anyway.
         </h2>
         <p style={{ fontSize: 17, lineHeight: 1.6, color: "var(--fg-2)", margin: "20px auto 0", maxWidth: "44ch" }}>
-          Here&apos;s the same two minutes from both ends — theirs, then yours.
+          Here&apos;s the same two minutes from both ends: theirs, then yours.
         </p>
       </Reveal>
 
@@ -467,41 +444,37 @@ function TheHandoff({ onOpenForm }: { onOpenForm: () => void }) {
 
 /* ── Before you call ────────────────────────────────────────────
    The page argues value hard (calculator) but barely argues trust.
-   Handing your business number to an AI is a high bar — these are the four
-   questions that actually stop people, answered before the demo CTA closes. */
+   Handing your business number to an AI is a high bar, so these are the questions that
+   actually stop people, answered before the demo CTA closes.
+
+   Five, not seven, and collapsed rather than expanded. "Do I own it?" and "Do I have to
+   give up my number?" moved out: both are post-sale contract detail that added friction
+   before the sale, and both were already answered on /pricing ("Do I own my website?"
+   §14, "Do I get to keep my phone number?" §11). Check there before adding either back. */
 /* Answers are sourced from the Master Services Agreement so the marketing copy and the
-   contract can't drift apart — section refs noted per answer. Two of these used to
-   overstate the MSA and were corrected; where the honest answer is more complicated than
-   "yes", it's given in full. A buyer who finds the limit themselves at month six is a
-   worse outcome than one who reads it here. */
+   contract can't drift apart; section refs are noted per answer. Where the honest answer
+   is more complicated than "yes", it's given in full. A buyer who finds the limit
+   themselves at month six is a worse outcome than one who reads it here. */
 const ANSWERS: { q: string; a: string }[] = [
   {
     q: "What if I already have a website?",
-    a: "Doesn't matter where you're starting. Nothing at all, a builder site you set up years ago, something an agency made, or one a friend put together that nobody can update now — we build you a new one and bring over the content worth keeping. You don't start from scratch and you don't chase anyone for access.",
-  },
-  {
-    q: "Do I own it?",
-    a: "Your content is yours — your name, logo, photos, and copy, always. The site itself runs on our platform while you're with us. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need new hosting, but you walk away with your site, not a screenshot of it.", // MSA §14
+    a: "Doesn't matter where you're starting. We build you a new one and bring over the content worth keeping. You don't start from scratch, and you don't chase anyone for access to the old site.",
   },
   {
     q: "Will I show up on Google?",
-    a: "We do the technical side properly — page speed, titles and descriptions, structured data, sitemaps, the things that decide whether Google can read your site at all. What we won't do is promise you a ranking. Nobody controls Google's results, and anyone who tells you they do is selling something.", // MSA §SEO
+    a: "We do the technical side properly: page speed, titles and descriptions, structured data, sitemaps. What we won't do is promise you a ranking. Nobody controls Google's results, and anyone who says otherwise is selling something.", // MSA §SEO
   },
   {
     q: "Do I have to write the content?",
-    a: "No. You answer some questions about your business and we write it. Most people are done in one sitting — the writing is the part that stalls everyone for six months, so we took it off your plate.",
+    a: "No. You answer some questions about your business and we write it. Most people are done in one sitting. The writing is what stalls everyone for six months, so we took it off your plate.",
   },
   {
     q: "Will it sound like a robot?",
-    a: "Call the number at the bottom of this page and decide for yourself. That's why it's there — we'd rather you hear it than take our word for it.",
+    a: "Call the number at the bottom of this page and decide for yourself. That's why it's there. We'd rather you hear it than take our word for it.",
   },
   {
     q: "What if it can't answer something?",
     a: "It takes their details and texts you. It doesn't guess, and it doesn't make things up about your business.",
-  },
-  {
-    q: "Do I have to give up my number?",
-    a: "No. You get a new dedicated business number and forward your existing line to it whenever you're ready. That number lives on our telephony account while you're a client. If you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a $50 fee — otherwise it goes back into the pool.", // MSA §11
   },
 ];
 
@@ -513,28 +486,19 @@ function StraightAnswers() {
           Before you call.
         </h2>
       </Reveal>
-      {/* Reference-document layout, not cards: ruled entries in two columns.
-          `min(100%, 400px)` is load-bearing — a bare minmax(400px, 1fr) overflows
-          at 375px. The 1040 cap is what holds it to two columns; the page's usual
-          1320 fits three, which is too many to read. */}
-      <div
-        style={{
-          maxWidth: 1040,
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
-          columnGap: 48,
-          rowGap: 0,
-        }}
-      >
+      {/* Collapsed by default. Expanded, these seven entries ran ~370 words and ate a full
+          screen of scroll to answer questions most visitors weren't asking yet. Reuses the
+          calculator's `.calc-accordion` styling rather than a second accordion treatment.
+          One column now: at two columns a row of collapsed summaries reads as a word grid. */}
+      <div style={{ maxWidth: 680 }}>
         {ANSWERS.map((item, i) => (
-          <Reveal
-            as="article"
-            key={item.q}
-            delay={i % 2}
-            style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px", display: "flex", flexDirection: "column", gap: 10 }}
-          >
-            <h3 style={{ fontWeight: 700, fontSize: "clamp(18px,1.9vw,22px)", lineHeight: 1.15, textTransform: "uppercase" }}>{item.q}</h3>
-            <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "46ch" }}>{item.a}</p>
+          <Reveal key={item.q} delay={i % 2}>
+            <details className="calc-accordion faq-accordion">
+              <summary>{item.q}</summary>
+              <div className="calc-accordion-content">
+                <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "52ch" }}>{item.a}</p>
+              </div>
+            </details>
           </Reveal>
         ))}
       </div>
@@ -550,7 +514,7 @@ function DialCTA({ onOpenForm }: { onOpenForm: () => void }) {
   return (
     <section id="cta" style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(56px,7vw,112px) clamp(18px,4vw,56px)", textAlign: "center" }}>
       <Reveal>
-        <p style={{ fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-2)", marginBottom: 22 }}>Live in about a week</p>
+        <p style={{ fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-2)", marginBottom: 22 }}>${GROWTH_PRICE} a month &middot; live in about a week</p>
       </Reveal>
       <Reveal delay={1}>
         <h2 style={{ fontWeight: 900, fontSize: "clamp(48px,9vw,128px)", lineHeight: 0.84, textTransform: "uppercase", marginBottom: 26 }}>
@@ -584,7 +548,7 @@ function DialCTA({ onOpenForm }: { onOpenForm: () => void }) {
               Dial it yourself.
             </h3>
             <p style={{ fontSize: 16, lineHeight: 1.55, color: "var(--fg-2)", maxWidth: "40ch" }}>
-              Hear exactly what your customers hear when they call you. No sign-up. No card. Just the sound of a lead getting caught.
+              Hear exactly what your customers hear when they call you. Just the sound of a lead getting caught.
             </p>
           </div>
           <a href={DEMO_TEL} className="btn amber anim-ringpulse-slow" style={{ fontSize: "clamp(20px,3vw,32px)", padding: "16px 32px", flexShrink: 0 }}>
@@ -609,7 +573,6 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
   return (
     <div style={{ width: "100%", background: "var(--bg)" }}>
       <Hero onOpenForm={() => setFormOpen(true)} />
-      <TwoOperators />
       <FeaturedSites sites={featuredSites} />
       <TheHandoff onOpenForm={() => setFormOpen(true)} />
       <MissedCallsCalculator onOpenForm={() => setFormOpen(true)} />

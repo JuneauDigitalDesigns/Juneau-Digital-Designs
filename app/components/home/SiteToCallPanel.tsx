@@ -623,7 +623,7 @@ export default function SiteToCallPanel({ onOpenForm }: { onOpenForm: () => void
             </div>
             <p className="film-recap-copy">
               {scenario.caller.name} called at {scenario.callTime}. Two minutes later you had their
-              name, their problem, and their number — without picking up.
+              name, their problem, and their number, without picking up.
             </p>
             <div className="film-recap-actions">
               <button type="button" onClick={onOpenForm} className="btn primary lg" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>

@@ -41,9 +41,9 @@ export const SCENARIOS: CallScenario[] = [
     callTime: "2:47 PM",
     site: { accent: "#2C6FA8", ctaLabel: "Call Now", variant: 1 },
     transcript: [
-      { role: "CALLER", text: "Hi, my kitchen sink is leaking pretty bad — is there someone who can come take a look?" },
+      { role: "CALLER", text: "Hi, my kitchen sink is leaking pretty bad. Is there someone who can come take a look?" },
       { role: "AI",     text: "Oh no, that's no fun. We can definitely get someone out there. Can I grab your name and best callback number?" },
-      { role: "CALLER", text: "Dana Kim — this number works fine." },
+      { role: "CALLER", text: "Dana Kim. This number works fine." },
       { role: "AI",     text: "Got it, Dana. I'll pass this along right now and someone will reach out to get you on the schedule." },
     ],
     ownerMessage: {
@@ -61,12 +61,12 @@ export const SCENARIOS: CallScenario[] = [
     site: { accent: "#B4472B", ctaLabel: "24/7 Emergency", variant: 2 },
     transcript: [
       { role: "CALLER", text: "It's 2am and our heat just went out. I've got kids in the house, it's getting cold." },
-      { role: "AI",     text: "Oh man — that's a priority, I'm sorry. Let me get your info so the team can reach you right away." },
+      { role: "AI",     text: "Oh man, that's a priority, I'm sorry. Let me get your info so the team can reach you right away." },
       { role: "CALLER", text: "Robert Ochoa, 847 Elm Street. Reach me at this number." },
-      { role: "AI",     text: "Got it, Robert. I'm flagging this as urgent — someone will be calling you back very shortly." },
+      { role: "AI",     text: "Got it, Robert. I'm flagging this as urgent, someone will be calling you back very shortly." },
     ],
     ownerMessage: {
-      headline: "URGENT — no heat, kids home",
+      headline: "URGENT: no heat, kids home",
       lines: ["Name: Robert Ochoa", "Address: 847 Elm Street", "Status: Urgent callback needed", "Phone: (512) 555-0129"],
     },
   },
@@ -81,11 +81,11 @@ export const SCENARIOS: CallScenario[] = [
     transcript: [
       { role: "CALLER", text: "Hey, I'm looking to get a quote for a fall cleanup on my property. About a quarter acre." },
       { role: "AI",     text: "Sure, we can help with that. What's the best name and number to have someone reach out to you?" },
-      { role: "CALLER", text: "Sarah Mills — this number's fine. Property's at 412 Cedar Lane." },
+      { role: "CALLER", text: "Sarah Mills. This number's fine. Property's at 412 Cedar Lane." },
       { role: "AI",     text: "Perfect, Sarah. I've got all of that. Someone will be in touch soon to go over the details." },
     ],
     ownerMessage: {
-      headline: "Quote request — follow up needed",
+      headline: "Quote request: follow up needed",
       lines: ["Name: Sarah Mills", "Request: Fall cleanup, ~¼ acre", "Address: 412 Cedar Lane", "Phone: (603) 555-0192"],
     },
   },
@@ -98,13 +98,13 @@ export const SCENARIOS: CallScenario[] = [
     callTime: "7:58 PM",
     site: { accent: "#9E3428", ctaLabel: "Free Inspection", variant: 1 },
     transcript: [
-      { role: "CALLER", text: "We had a bad storm last night — think there might be some roof damage. Shingles look off." },
-      { role: "AI",     text: "Yikes, alright — let's get the team out to take a look. Can I get your name and number?" },
-      { role: "CALLER", text: "Tom Benitez. Best number is this one — I'm at 29 Maple Drive." },
+      { role: "CALLER", text: "We had a bad storm last night. Think there might be some roof damage. Shingles look off." },
+      { role: "AI",     text: "Yikes, alright, let's get the team out to take a look. Can I get your name and number?" },
+      { role: "CALLER", text: "Tom Benitez. Best number is this one. I'm at 29 Maple Drive." },
       { role: "AI",     text: "Got it, Tom. I'll get this to the guys now and someone will reach out to get you scheduled." },
     ],
     ownerMessage: {
-      headline: "Storm damage — inspection needed",
+      headline: "Storm damage: inspection needed",
       lines: ["Name: Tom Benitez", "Issue: Missing shingles, possible leak", "Address: 29 Maple Drive", "Phone: (816) 555-0158"],
     },
   },
@@ -118,7 +118,7 @@ export const SCENARIOS: CallScenario[] = [
     site: { accent: "#6B3E9E", ctaLabel: "Book a Visit", variant: 2 },
     transcript: [
       { role: "CALLER", text: "I've been looking into upgrading my electrical panel. Is that something you all handle?" },
-      { role: "AI",     text: "We do, yeah — good timing to get that looked at. Can I grab your name and a good number for you?" },
+      { role: "AI",     text: "We do, yeah, good timing to get that looked at. Can I grab your name and a good number for you?" },
       { role: "CALLER", text: "Mika Chen. This number's the best way to reach me." },
       { role: "AI",     text: "Great, Mika. I'll pass that along and someone will give you a call to talk through next steps." },
     ],

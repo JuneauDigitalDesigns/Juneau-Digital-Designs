@@ -284,7 +284,7 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
                     })}
                   </div>
                   <p style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 8 }}>
-                    Not sure? Skip it — we&apos;ll figure it out together.
+                    Not sure? Skip it. We&apos;ll figure it out together.
                   </p>
                 </div>
 

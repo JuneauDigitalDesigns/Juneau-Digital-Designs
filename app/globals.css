@@ -328,36 +328,7 @@ body {
 [data-theme="dark"] .logo-light { display: none; }
 [data-theme="dark"] .logo-dark { display: block; }
 
-/* ── "Two operators, one line" pen-stroke underline ─────────── */
-.two-op-heading { display: flex; flex-direction: column; align-items: flex-start; }
-@media (max-width: 767px) {
-  .two-op-heading { align-items: center; text-align: center; }
-}
-.two-op-line { position: relative; display: inline-block; white-space: nowrap; }
-.pen-stroke {
-  position: absolute;
-  left: 0;
-  bottom: -0.16em;
-  width: 100%;
-  height: 0.42em;
-  overflow: visible;
-}
-.pen-stroke path {
-  stroke: var(--accent-2);
-  stroke-width: 3;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;   /* hidden until drawn */
-}
-@keyframes pen-draw { to { stroke-dashoffset: 0; } }
-@media (prefers-reduced-motion: no-preference) {
-  .reveal.is-in .pen-stroke-1 path { animation: pen-draw 0.55s cubic-bezier(0.65, 0, 0.35, 1) 0.15s forwards; }
-  .reveal.is-in .pen-stroke-2 path { animation: pen-draw 0.55s cubic-bezier(0.65, 0, 0.35, 1) 0.75s forwards; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pen-stroke path { stroke-dashoffset: 0; }   /* show fully drawn */
-}
-
-/* ── Surface invert (Operator 02 etc.) ──────────────────────── */
+/* ── Surface invert ─────────────────────────────────────────── */
 .surface-invert {
   background: var(--invert-bg);
   color: var(--invert-fg);
@@ -1412,6 +1383,58 @@ select option {
   }
 }
 
+/* ── Hero offer strip ────────────────────────────────────────
+   The whole offer, scannable, in place of the two-card section that used to restate
+   the hero further down the page. Ruled rows rather than cards: three cards here would
+   compete with the site mockup beside them for the same attention. */
+.hero-offer {
+  list-style: none;
+  margin: 34px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.hero-offer li {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+@media (min-width: 560px) {
+  .hero-offer li {
+    /* Label column sized to the longest label ("The receptionist") so the copy edges
+       line up without a hardcoded ch value drifting when a label changes. */
+    grid-template-columns: minmax(120px, max-content) 1fr;
+    gap: 18px;
+    align-items: baseline;
+  }
+}
+
+.hero-offer-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+
+.hero-offer-copy {
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
+.hero-offer-foot {
+  margin: 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+  color: var(--fg-3);
+}
+
 /* ── Outcomes strip ──────────────────────────────────────── */
 .outcomes-grid {
   display: grid;
@@ -1460,6 +1483,59 @@ select option {
 
 .calc-accordion-content {
   padding: 0;
+}
+
+/* ── FAQ accordion ───────────────────────────────────────────
+   Same details/summary mechanics as the calculator's methodology block, but the summary
+   is a question a buyer is reading, not a tiny "how we calculate this" affordance. So it
+   overrides the type down to body scale and takes the full row, with a rule per entry. */
+.faq-accordion {
+  margin-top: 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.faq-accordion > summary {
+  font-family: var(--font-display);
+  font-size: clamp(16px, 1.7vw, 19px);
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--fg);
+  text-decoration: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 2px;
+}
+
+.faq-accordion > summary:hover {
+  color: var(--accent-2);
+}
+
+/* The open/closed affordance. A rotating glyph rather than the native marker, which is
+   hidden above and renders inconsistently across browsers. */
+.faq-accordion > summary::after {
+  content: "+";
+  font-family: var(--font-mono);
+  font-size: 20px;
+  line-height: 1;
+  color: var(--accent-2);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.faq-accordion[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.faq-accordion[open] > summary {
+  margin-bottom: 0;
+  padding-bottom: 10px;
+}
+
+.faq-accordion .calc-accordion-content {
+  padding-bottom: 20px;
 }
 
 /* ── Reduced motion: disable all marquees + pulse ────────── */
@@ -1565,44 +1641,6 @@ select option {
   .laptop-pan {
     animation: laptop-pan var(--pan-duration, 34000ms) linear infinite;
   }
-}
-
-/* ── Two Operators (asymmetric — website is the larger half) ── */
-.two-op-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-}
-@media (min-width: 940px) {
-  .two-op-grid {
-    /* The website card is the product being bought; size is what says so. */
-    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
-    align-items: start;
-  }
-}
-.two-op-beats {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 18px;
-  padding: 22px 0 4px;
-  border-top: 1px solid var(--rule);
-}
-@media (min-width: 620px) {
-  .two-op-beats { grid-template-columns: repeat(3, 1fr); gap: 22px; }
-}
-.two-op-beat-label {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent-2);
-  margin-bottom: 8px;
-}
-.two-op-beat-copy {
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: var(--fg-2);
-  margin: 0;
 }
 
 /* ── The two-act film ───────────────────────────────────── */
