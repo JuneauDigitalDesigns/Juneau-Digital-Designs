@@ -7,6 +7,7 @@ import { tabHref, upgradeHref } from "@/app/portal/types";
 import type { OverviewData, RecentCall } from "@/app/lib/portal-overview";
 import type { TrafficData } from "@/app/lib/portal-traffic";
 import type { BillingSummary } from "@/app/lib/portal-billing-summary";
+import type { UsageSummary } from "@/app/lib/portal-usage";
 import { Card, CardLabel } from "./ui/Card";
 import { StatTile } from "./ui/StatTile";
 import { Sparkline } from "./ui/Sparkline";
@@ -25,9 +26,11 @@ import { duration, money, relativeTime, shortDate, shortDateTime } from "./ui/fo
 export function OverviewMetrics({
     site,
     data,
+    usage,
 }: {
     site: PortalSiteProps;
     data: OverviewData;
+    usage: UsageSummary;
 }) {
     if (data.state === "error") {
         return <FeatureError message={data.error} />;
@@ -94,6 +97,27 @@ export function OverviewMetrics({
                     hint={`all time · ${site.plan} plan`}
                 />
             </StaggerItem>
+
+            {/* Only on plans with an allowance, and only once we have a figure we can stand
+                behind — the Call Log carries the full meter and the overage estimate. */}
+            {usage.state === "ready" && usage.minutesUsed !== null && (
+                <StaggerItem>
+                    <StatTile
+                        label="Minutes used"
+                        value={usage.minutesUsed}
+                        count={usage.minutesUsed}
+                        unit={`of ${usage.minutesCap?.toLocaleString()} (${Math.round(usage.pct ?? 0)}%)`}
+                        tone={
+                            usage.overageMinutes > 0
+                                ? "negative"
+                                : (usage.pct ?? 0) >= 80
+                                  ? "warn"
+                                  : "default"
+                        }
+                        hint={usage.periodEnd ? `resets ${shortDate(usage.periodEnd)}` : undefined}
+                    />
+                </StaggerItem>
+            )}
         </Stagger>
     );
 }

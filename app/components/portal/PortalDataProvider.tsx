@@ -39,6 +39,8 @@ import { useAuth } from "@clerk/nextjs";
 export const CLIENT_TTL = {
     /** Calls stay near-live — "did I get a lead?" is the question this product answers. */
     calls: 120_000,
+    /** Matches USAGE_TTL server-side: a shorter window would just re-fetch identical bytes. */
+    usage: 600_000,
     traffic: 3_600_000,
     performance: 86_400_000,
     billing: 43_200_000,

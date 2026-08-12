@@ -138,6 +138,19 @@ export const billingKey = (acctScope: string, siteSlug: string, variant: "full" 
     `portal:billing:v1:${variant}:${acctScope}:${siteSlug}`;
 
 /**
+ * Call-minute usage against the plan allowance.
+ *
+ * Ten minutes: short enough that a client who just hung up sees the call counted, long
+ * enough that a tab-switching session costs one Retell query rather than a dozen.
+ *
+ * Deliberately has NO slug segment. Enterprise pools its allowance across every site on the
+ * account, so the figure is identical whichever site is selected — keying by slug would
+ * store the same number three times and triple the upstream calls to produce it.
+ */
+export const USAGE_TTL = 600;
+export const usageKey = (acctScope: string) => `portal:usage:v1:${acctScope}`;
+
+/**
  * The resolved account, keyed by Clerk user id.
  *
  * Short on purpose: this record decides which sites a client may see. Every write goes

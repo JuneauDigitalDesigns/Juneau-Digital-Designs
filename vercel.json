@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/retell-usage",
+      "schedule": "0 9 */3 * *"
+    }
+  ]
+}

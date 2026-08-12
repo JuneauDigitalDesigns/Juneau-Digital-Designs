@@ -96,6 +96,30 @@ export async function saveAccount(account: PortalAccount): Promise<void> {
 }
 
 /**
+ * All provisioned accounts, sorted ascending by email. Used by ops tooling and billing jobs
+ * that need to walk every client — not a portal path, so no Clerk auth required.
+ * Invalid records are logged and skipped rather than aborting the scan.
+ */
+export async function listAccounts(): Promise<PortalAccount[]> {
+    const redis = getRedis();
+    const keys: string[] = await redis.keys("jdd:account:*");
+    keys.sort();
+
+    const accounts: PortalAccount[] = [];
+    for (const key of keys) {
+        const raw = await redis.get<unknown>(key);
+        if (!raw) continue;
+        const parsed = zPortalAccount.safeParse(raw);
+        if (!parsed.success) {
+            console.error("[account-store] listAccounts: invalid record at", key, parsed.error.issues);
+            continue;
+        }
+        accounts.push(parsed.data);
+    }
+    return accounts;
+}
+
+/**
  * Bind a Clerk user to an account (write-once in practice: the portal only calls this
  * when the stored clerkUserId doesn't already match, and re-writing the same value is
  * harmless if two tabs race on a first load).

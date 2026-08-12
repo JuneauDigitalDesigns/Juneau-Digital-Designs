@@ -10,6 +10,11 @@ name: Reconcile demo calls
 # Lives here rather than in vercel.json because the Vercel team is on the Hobby plan, which
 # caps cron jobs at once per day — too slow to be a useful net for a sales lead.
 #
+# ON UPGRADING TO VERCEL PRO: this may move back into vercel.json, which is the tidier home
+# for it. If it does, delete this workflow in the same commit — two schedulers hitting one
+# endpoint is a double run, not redundancy. Leaving it here after the upgrade is also fine
+# and breaks nothing. See app/api/cron/retell-usage/route.ts for the full plan-limit note.
+#
 # GitHub's scheduler is best-effort and frequently runs late, so treat this as "every 15-35
 # minutes", not a guarantee. That is fine: the endpoint is idempotent, so a late or doubled
 # run costs nothing, and the webhook remains the primary path.

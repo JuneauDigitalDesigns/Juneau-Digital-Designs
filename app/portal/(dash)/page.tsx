@@ -23,6 +23,7 @@ import { getInfraSnapshot } from "@/app/lib/portal-infra";
 import { getOverviewData, getCachedScore } from "@/app/lib/portal-overview";
 import { getTrafficData } from "@/app/lib/portal-traffic";
 import { getBillingSummary } from "@/app/lib/portal-billing-summary";
+import { getUsageSummary } from "@/app/lib/portal-usage";
 import type { PortalSiteProps } from "@/app/portal/types";
 
 export const dynamic = "force-dynamic";
@@ -85,7 +86,7 @@ export default async function OverviewPage({
                         <HealthBlock site={site} raw={raw} account={account} />
                     </Suspense>
 
-                    <Suspense fallback={<StatRowSkeleton count={4} />}>
+                    <Suspense fallback={<StatRowSkeleton count={5} />}>
                         <MetricsBlock site={site} raw={raw} account={account} />
                     </Suspense>
 
@@ -151,8 +152,11 @@ async function MetricsBlock({
     raw: PortalSite;
     account: PortalAccount;
 }) {
-    const data = await getOverviewData(account, raw);
-    return <OverviewMetrics site={site} data={data} />;
+    const [data, usage] = await Promise.all([
+        getOverviewData(account, raw),
+        getUsageSummary(account, raw),
+    ]);
+    return <OverviewMetrics site={site} data={data} usage={usage} />;
 }
 
 async function FeedBlock({

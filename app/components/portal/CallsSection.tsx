@@ -10,6 +10,7 @@ import type { PortalSiteProps } from "@/app/portal/types";
 import { upgradeHref } from "@/app/portal/types";
 import { Card, CardLabel, SectionHeader } from "./ui/Card";
 import { StatTile } from "./ui/StatTile";
+import { UsageMeter } from "./ui/UsageMeter";
 import { FeatureState, FeatureError } from "./ui/FeatureState";
 import { GhostPreview, GhostChart, GhostStat, GhostTable } from "./ui/GhostPreview";
 import { ChartSkeleton, StatRowSkeleton, TableSkeleton } from "./ui/Skeleton";
@@ -17,6 +18,7 @@ import { axisProps, tooltipProps, outcomeColor, legendStyle } from "./ui/chartTh
 import Drawer from "./ui/Drawer";
 import { useCachedFetch, CLIENT_TTL } from "./PortalDataProvider";
 import { freshness } from "./ui/format";
+import type { UsageSummary } from "@/app/lib/portal-usage";
 
 interface CallRecord {
     id: string;
@@ -80,6 +82,14 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
         `calls:${site.slug}`,
         `/api/portal/calls?site=${encodeURIComponent(site.slug)}`,
         CLIENT_TTL.calls,
+    );
+
+    // Separate from the call log on purpose: usage comes from Retell (authoritative for
+    // billing) while the log comes from Airtable, and they have very different TTLs.
+    const { data: usage } = useCachedFetch<UsageSummary>(
+        `usage:${site.slug}`,
+        `/api/portal/usage?site=${encodeURIComponent(site.slug)}`,
+        CLIENT_TTL.usage,
     );
 
     // Filters live in the URL so a filtered view can be linked and survives a refresh.
@@ -258,6 +268,9 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
                     fetchedAt,
                 )}
             />
+
+            {/* Allowance first: it's the only number here that costs the client money. */}
+            {usage && <UsageMeter usage={usage} />}
 
             {/* Stats — only those this base can actually support. */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
