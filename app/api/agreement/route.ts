@@ -5,6 +5,8 @@ import { generateSignedPdf, hashSubmission, stripLastPage } from "@/app/lib/pdf-
 import { hashTermsForPlan } from "@/app/lib/legal/hash";
 import { TERMS_VERSION } from "@/app/lib/legal";
 import { saveAgreement } from "@/app/lib/kv";
+import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
+import { SMS_CONSENT_TEXT_VERSION } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import type {
   AgreementAudit,
@@ -90,6 +92,35 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
   }
 
+  // SMS consent, if given, is held rather than activated: nobody gets texted for a
+  // purchase that never happened. The Stripe webhook promotes it once payment clears, and
+  // an abandoned checkout leaves it to expire on the same 30-day clock as the agreement.
+  //
+  // Written after the agreement is safely stored, and never allowed to fail the request.
+  // A signature is the artefact that has to survive; losing one because a secondary write
+  // errored would be a far worse outcome than a client having to re-tick a box.
+  if (body.smsConsent) {
+    const alertPhone = normalizeE164(body.alertPhone);
+    if (alertPhone) {
+      try {
+        await savePendingConsent({
+          agreementId: id,
+          phone: alertPhone,
+          capturedAt: audit.signedAt,
+          // Reuses the audit's IP and user agent rather than re-reading the headers, so the
+          // consent and the signature can never disagree about who was at the keyboard.
+          ip: audit.ip,
+          userAgent: audit.userAgent,
+          consentTextHash: hashConsentText(),
+          consentTextVersion: SMS_CONSENT_TEXT_VERSION,
+          signerEmail: body.signerEmail,
+        });
+      } catch (e) {
+        console.error(`[/api/agreement] ${id} SMS consent write failed, alerts will stay off`, e);
+      }
+    }
+  }
+
   // Email runs after the response via after() — Vercel keeps the function alive
   // for it (a plain fire-and-forget promise gets killed when the lambda freezes).
   // Strip the audit-trail page before sending to the client.
@@ -138,6 +169,11 @@ function validate(body: AgreementSubmission): string | null {
   if (body.plan === "enterprise") {
     const sites = (body.additionalSites || []).filter(nonEmpty);
     if (sites.length < 2) return "Enterprise requires at least 2 site names";
+  }
+  // Consent without a reachable number is not consent to anything. Checked in the UI too,
+  // but a record claiming permission to text an unparseable string is worse than no record.
+  if (body.smsConsent && !normalizeE164(body.alertPhone)) {
+    return "A valid mobile number is required to enable call alert texts";
   }
   return null;
 }

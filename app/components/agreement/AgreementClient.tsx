@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
 import type { PlanSlug } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
+import { normalizeE164 } from "@/app/lib/phone";
+import { splitConsentText } from "@/app/lib/sms-consent-text";
 import PlanChip from "./PlanChip";
 import SignatureCanvas, { type SignatureCanvasHandle } from "./SignatureCanvas";
 import TermsReader from "./TermsReader";
@@ -43,11 +46,15 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
         signerName: "",
         signerTitle: "",
         signerEmail: "",
+        alertPhone: "",
         site1: "",
         site2: "",
         site3: "",
     });
     const [agreed, setAgreed] = useState(false);
+    // Separate from `agreed` in every sense: its own state, its own box, its own place in
+    // the form, and no bearing on whether the submit button works.
+    const [smsConsent, setSmsConsent] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -79,6 +86,16 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
             setError("Enterprise plan requires at least 2 site names.");
             return;
         }
+        // A checked box with no usable number is the one combination that must not pass:
+        // it would record a consent pointing at nothing. An unchecked box discards whatever
+        // was typed, so no number we have no permission to text is ever transmitted.
+        const alertPhone = smsConsent ? normalizeE164(form.alertPhone) : null;
+        if (smsConsent && !alertPhone) {
+            setError(
+                "Enter a valid mobile number for call alerts, or uncheck the text alerts box.",
+            );
+            return;
+        }
 
         const signatureDataUrl = sigRef.current!.toDataUrl();
         const additionalSites = isEnterprise
@@ -103,6 +120,10 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
                     signatureDataUrl,
                     pageOpenedAt,
                     scrollCompletedAt,
+                    // Omitted entirely when the box is unchecked, rather than sent as false
+                    // with a number attached. Nothing to discard server-side if it never
+                    // leaves the browser.
+                    ...(alertPhone ? { smsConsent: true, alertPhone } : {}),
                     // Tells the signing route to hold the client email until the upgrade
                     // below actually goes through. Not an authorization claim — the upgrade
                     // endpoint re-resolves this slug against the signed-in account.
@@ -233,6 +254,14 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
                                 onChange={(v) => update("signerEmail", v)}
                                 required
                             />
+                            <Field
+                                label="Mobile number for call alerts"
+                                type="tel"
+                                placeholder="(907) 555-0142"
+                                value={form.alertPhone}
+                                onChange={(v) => update("alertPhone", v)}
+                                hint="Optional. Used only if you turn on call summary texts below."
+                            />
 
                             {isEnterprise && (
                                 <div
@@ -323,6 +352,69 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
                             handwritten one.
                         </span>
                     </label>
+
+                    {/*
+                        Optional SMS opt-in. Sits below the binding acceptance, in its own
+                        visually distinct card, and is never gated on `hasReadTerms` — a
+                        consent that unlocks only by working through the service agreement
+                        reads as bundled into it, which is exactly what "not a condition of
+                        purchase" rules out. Nothing here touches the submit button.
+                    */}
+                    <div style={{ marginTop: 16 }}>
+                        <div className="kicker" style={{ marginBottom: 10 }}>
+                            ━ OPTIONAL · CALL ALERT TEXTS
+                        </div>
+                        <label
+                            style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 12,
+                                padding: "16px 18px",
+                                background: "transparent",
+                                border: "1px dashed var(--rule)",
+                                borderRadius: 10,
+                                cursor: "pointer",
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={smsConsent}
+                                onChange={(e) => setSmsConsent(e.target.checked)}
+                                style={{
+                                    marginTop: 2,
+                                    width: 18,
+                                    height: 18,
+                                    accentColor: "var(--accent)",
+                                    cursor: "pointer",
+                                }}
+                            />
+                            <span style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                {/*
+                                    Rendered from the same constant that gets hashed into the
+                                    consent record, so the words on screen and the words we can
+                                    prove they saw cannot drift apart.
+                                */}
+                                {splitConsentText().map((seg, i) =>
+                                    seg.kind === "link" ? (
+                                        <Link
+                                            key={i}
+                                            href={seg.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            // Inside a <label>, a click would otherwise toggle
+                                            // the box on the way to opening the link.
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                        >
+                                            {seg.value}
+                                        </Link>
+                                    ) : (
+                                        <span key={i}>{seg.value}</span>
+                                    ),
+                                )}
+                            </span>
+                        </label>
+                    </div>
 
                     {error && (
                         <div
@@ -415,6 +507,7 @@ function Field({
     value,
     onChange,
     required = false,
+    hint,
 }: {
     label: string;
     placeholder?: string;
@@ -422,8 +515,11 @@ function Field({
     value: string;
     onChange: (v: string) => void;
     required?: boolean;
+    /** Sub-label for fields whose purpose isn't obvious from the label alone. */
+    hint?: string;
 }) {
     const id = label.toLowerCase().replace(/\W+/g, "-");
+    const hintId = hint ? `${id}-hint` : undefined;
     return (
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
             <label htmlFor={id} className="kicker">
@@ -438,7 +534,13 @@ function Field({
                 onChange={(e) => onChange(e.target.value)}
                 style={fieldStyle}
                 required={required}
+                aria-describedby={hintId}
             />
+            {hint && (
+                <p id={hintId} style={{ margin: 0, fontSize: 12, color: "var(--fg-3)", lineHeight: 1.5 }}>
+                    {hint}
+                </p>
+            )}
         </div>
     );
 }

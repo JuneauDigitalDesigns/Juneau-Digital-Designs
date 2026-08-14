@@ -12,6 +12,7 @@ import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
 import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
+import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
 
 /** Deep-clone replacing every empty string with null. */
 function normalizeEmpties(value: unknown): unknown {
@@ -223,7 +224,19 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: "Your submission could not be processed. Please try again." }, { status: 400 });
         }
 
-        const intake = mapBrandIntakeToIntake(submission);
+        // Consent travels with the intake so onboard.js knows whether to wire the Twilio
+        // module in the cloned post-call scenario, and which number to point it at. Read
+        // here rather than looked up later because this is the moment the envelope is
+        // built; a lookup failure means no alerts, which is the safe direction.
+        const consent = await getConsentStateForAccount(account.email).catch((e) => {
+            console.error("[portal/onboarding] consent lookup failed, alerts will stay off", e);
+            return null;
+        });
+
+        const intake: Intake = {
+            ...mapBrandIntakeToIntake(submission),
+            smsAlerts: smsAlertsSnapshot(consent),
+        };
         const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
         const slugSource = brandShort || brandName || "client";
         const newSlug = slugifyBrand(slugSource);

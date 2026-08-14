@@ -21,6 +21,18 @@ export interface AgreementSubmission {
    * plan change actually goes through.
    */
   upgradeSlug?: string;
+  /**
+   * Optional opt-in to post-call summary texts. Deliberately separate from the agreement
+   * acceptance: the service is sold, delivered, and billed identically whether this is
+   * checked or not, which is what "consent is not a condition of purchase" has to mean in
+   * the code and not just in the sentence beside the box.
+   *
+   * Neither field lands on AgreementRecord. Consent has its own append-only store with no
+   * TTL (lib/sms-consent.ts) because the agreement record is discarded after 30 days.
+   */
+  smsConsent?: boolean;
+  /** E.164 destination for call alerts. Only meaningful when smsConsent is true. */
+  alertPhone?: string;
 }
 
 export interface AgreementAudit {

@@ -39,7 +39,7 @@ export default function PrivacyPolicyPage() {
                     Privacy Policy
                 </h1>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)", marginBottom: 40 }}>
-                    Effective date: May 20, 2026
+                    Effective date: August 13, 2026
                 </p>
 
                 {[
@@ -69,6 +69,14 @@ export default function PrivacyPolicyPage() {
                                     This information is embedded in a tamper-evident audit trail appended to your signed contract PDF.
                                 </p>
 
+                                <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Call alert texts (optional)</p>
+                                <p style={{ marginBottom: 14 }}>
+                                    If you choose to receive call summaries and service alerts by text, we collect the mobile
+                                    number you enter for that purpose. Because this is a consent record, we also store the date and time you opted in (UTC),
+                                    your IP address, your browser user agent, and a SHA-256 hash of the exact consent wording shown
+                                    to you. Opting in is optional and is never required to purchase or use the service.
+                                </p>
+
                                 <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Onboarding form</p>
                                 <p>
                                     After payment, we collect detailed information needed to build your website, including brand names,
@@ -91,6 +99,7 @@ export default function PrivacyPolicyPage() {
                                     <li>Process your subscription payment through Stripe.</li>
                                     <li>Build and configure your website using the content you provide.</li>
                                     <li>Communicate about your project and active services.</li>
+                                    <li>Send call summaries and service alerts to the mobile number you provided, only if you opted in.</li>
                                     <li>Maintain internal business records for active and prospective client communications.</li>
                                 </ul>
                                 <p style={{ marginTop: 10 }}>We do not sell your personal data to third parties.</p>
@@ -120,35 +129,68 @@ export default function PrivacyPolicyPage() {
                                 </p>
                                 <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Resend</span> — Email delivery. Used to
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Resend.</span> Email delivery. Used to
                                         transmit quote inquiries and to send signed contract PDFs to you and to our team.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Stripe</span> — Payment processing. Your
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Stripe.</span> Payment processing. Your
                                         email address and plan information are passed to Stripe to create a checkout session and manage your
                                         subscription. Stripe&apos;s privacy policy governs their handling of your payment information.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Blob</span> — File storage. Signed
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Twilio.</span> Telephony and text
+                                        messaging. Provides the phone number your customers call, and delivers call summary texts to your
+                                        mobile number if you opted in. Twilio processes your mobile number solely to deliver those messages
+                                        on our behalf.
+                                    </li>
+                                    <li>
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Blob.</span> File storage. Signed
                                         contract PDFs and onboarding image uploads are stored in Vercel Blob and accessible via a secure
                                         URL.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Upstash Redis</span> — Temporary data
-                                        store. Agreement records are held for up to 30 days to link your signed contract to your checkout
-                                        session, then automatically deleted.
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Upstash Redis.</span> Data store.
+                                        Agreement records are held for up to 30 days to link your signed contract to your checkout session,
+                                        then automatically deleted. Text messaging consent records are stored here without expiry, because
+                                        we are required to be able to demonstrate that you asked to receive those messages.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Make.com</span> — Workflow automation. Your
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Make.com.</span> Workflow automation. Your
                                         onboarding submission and payment confirmation are forwarded to our internal workflow for site
                                         build processing.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Cloudflare Turnstile</span> — Bot
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Cloudflare Turnstile.</span> Bot
                                         protection. The onboarding form uses Cloudflare Turnstile to verify you are human. Cloudflare may
                                         process your IP address and browser signals to complete this verification.
                                     </li>
                                 </ul>
+                            </>
+                        ),
+                    },
+                    {
+                        heading: "Mobile information and text messaging",
+                        content: (
+                            <>
+                                <p style={{ marginBottom: 14 }}>
+                                    No mobile information collected for call alerts is sold, rented, or shared with third parties or
+                                    affiliates for marketing or promotional purposes. Mobile numbers are shared only with Twilio, our
+                                    messaging provider, and only for the purpose of delivering the messages you asked for. Text
+                                    messaging originator opt-in data and consent records are not shared with any third party.
+                                </p>
+                                <p style={{ marginBottom: 14 }}>
+                                    Opting in is optional and is not a condition of purchasing or using any service. You can stop the
+                                    messages at any time by replying STOP to any message, or by turning call alerts off in your client
+                                    portal settings. Reply HELP to any message for assistance. Message and data rates may apply, and
+                                    message frequency varies by call volume.
+                                </p>
+                                <p>
+                                    Full details of the messaging program are on our{" "}
+                                    <a href="/sms-terms" style={{ color: "var(--accent)", textDecoration: "underline" }}>
+                                        SMS Terms
+                                    </a>{" "}
+                                    page.
+                                </p>
                             </>
                         ),
                     },
@@ -159,20 +201,25 @@ export default function PrivacyPolicyPage() {
                                 <p style={{ marginBottom: 10 }}>We retain your data according to the following schedule:</p>
                                 <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Contact &amp; quote inquiry data</span> —
-                                        retained only as long as needed to respond to your inquiry and manage initial communications.
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Contact &amp; quote inquiry data.</span>{" "}
+                                        Retained only as long as needed to respond to your inquiry and manage initial communications.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Agreement KV records</span> — automatically
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Agreement KV records.</span> Automatically
                                         deleted after 30 days; used solely to link your signed agreement to your checkout session.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Signed contract PDFs &amp; audit trail</span> —
-                                        retained for the duration of the service relationship and as required by applicable law.
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Signed contract PDFs &amp; audit trail.</span>{" "}
+                                        Retained for the duration of the service relationship and as required by applicable law.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Onboarding files &amp; images</span> —
-                                        retained for the duration of the active service engagement.
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Text messaging consent records.</span>{" "}
+                                        Retained without expiry, including after you opt out. A record of an opt-out is only meaningful
+                                        alongside the opt-in it revokes, and we are required to be able to show both.
+                                    </li>
+                                    <li>
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Onboarding files &amp; images.</span>{" "}
+                                        Retained for the duration of the active service engagement.
                                     </li>
                                 </ul>
                             </>

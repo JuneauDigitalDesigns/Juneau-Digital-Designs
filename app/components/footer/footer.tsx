@@ -45,6 +45,7 @@ export default function Footer() {
                         <div className="kicker" style={{ marginBottom: 14 }}>Legal</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
                             <li><Link href="/privacy-policy" className="footer-link">Privacy Policy</Link></li>
+                            <li><Link href="/sms-terms" className="footer-link">SMS Terms</Link></li>
                         </ul>
                     </div>
                 </div>

@@ -5,6 +5,8 @@ import { createPendingSite, getAccount, saveAccount } from "@/app/lib/account-st
 import { upsertSite } from "@jdd/schema";
 import { slugifyBrand } from "@/app/lib/intake-queue";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
+import { doubleOptInEnabled, promotePendingConsent } from "@/app/lib/sms-consent";
+import { sendSms } from "@/app/lib/twilio";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -105,6 +107,34 @@ export async function POST(req: Request) {
               addedAt: Date.now(),
             });
             console.log("[stripe webhook] pending site created", email, slug, plan);
+
+            // Payment cleared, so any consent held since signing becomes real. Its own
+            // try/catch: a client who paid must still get their site record even if the
+            // consent promotion fails, and the failure is recoverable by hand from the
+            // pending key. Idempotent, which matters because this handler is replayed.
+            try {
+              const promoted = await promotePendingConsent(agreementId, email);
+              if (promoted) {
+                console.log("[stripe webhook] sms consent activated", email, promoted.phone);
+
+                // With double opt-in on, promotion leaves the consent pending-confirmation
+                // and this message is what lets them complete it. Its own catch: a failed
+                // send is recoverable from the portal, a thrown error here is not.
+                if (doubleOptInEnabled()) {
+                  await sendSms({
+                    to: promoted.phone,
+                    body:
+                      "Juneau Digital Designs: reply YES to confirm you want a text summary " +
+                      "after each call. Msg & data rates may apply. Reply STOP to opt out, " +
+                      "HELP for help.",
+                  }).catch((e) =>
+                    console.error("[stripe webhook] confirmation send failed", promoted.phone, e),
+                  );
+                }
+              }
+            } catch (e) {
+              console.error("[stripe webhook] sms consent promotion failed", agreementId, e);
+            }
           } else {
             console.warn("[stripe webhook] agreement not found", agreementId);
           }

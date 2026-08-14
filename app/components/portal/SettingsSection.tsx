@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { PortalSiteProps } from "@/app/portal/types";
+import { splitConsentText } from "@/app/lib/sms-consent-text";
 import { SectionCard, FieldRow, inputStyle } from "./ui/FormPrimitives";
+
+export interface SmsConsentProps {
+    phone: string;
+    status: "granted" | "revoked" | "pending-confirmation";
+}
 
 interface SettingsSectionProps {
     site: PortalSiteProps;
     accountEmail: string;
     accountProfile: { contactName?: string; contactPhone?: string } | null;
+    smsConsent: SmsConsentProps | null;
 }
 
 // ── Profile ──────────────────────────────────────────────────────────────────
@@ -268,6 +276,189 @@ function FeaturedSection({
     );
 }
 
+// ── Call alert texts ──────────────────────────────────────────────────────────
+
+/**
+ * Self-serve control over the SMS program.
+ *
+ * The consent wording is re-rendered here from the same constant the agreement page uses,
+ * because turning alerts on from this screen is a fresh grant and has to be recorded
+ * against words the client actually saw at that moment, not words they saw months ago on
+ * a page they no longer remember.
+ */
+function SmsAlertsSection({ consent }: { consent: SmsConsentProps | null }) {
+    const active = consent?.status === "granted" || consent?.status === "pending-confirmation";
+    const [enabled, setEnabled] = useState(active);
+    const [phone, setPhone] = useState(consent?.phone ?? "");
+    const [agreed, setAgreed] = useState(active);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function submit(nextEnabled: boolean) {
+        setSaving(true);
+        setError(null);
+        try {
+            const res = await fetch("/api/portal/sms-consent", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled: nextEnabled, phone: nextEnabled ? phone : undefined }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error((data as { error?: string }).error ?? "Save failed");
+            }
+            setEnabled(nextEnabled);
+            setAgreed(nextEnabled);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Save failed");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <SectionCard title="Call alert texts">
+            <p
+                style={{
+                    fontSize: 14,
+                    color: "var(--fg-2)",
+                    margin: "0 0 18px",
+                    lineHeight: "var(--leading-relaxed, 1.6)",
+                }}
+            >
+                Get a text after each call your receptionist handles, plus occasional alerts about
+                your account. Optional, and never required to use the service. Full details on our{" "}
+                <Link
+                    href="/sms-terms"
+                    style={{ color: "var(--accent)", textDecoration: "underline" }}
+                >
+                    SMS Terms
+                </Link>{" "}
+                page.
+            </p>
+
+            {enabled && (
+                <div
+                    style={{
+                        background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+                        border: "1px solid var(--accent)",
+                        borderRadius: 6,
+                        padding: "12px 16px",
+                        marginBottom: 18,
+                        fontSize: 13,
+                        color: "var(--accent)",
+                    }}
+                >
+                    {saved
+                        ? "Preferences saved."
+                        : consent?.status === "pending-confirmation"
+                          ? "Waiting on your reply to the confirmation text before alerts start."
+                          : "Call alerts are on."}
+                </div>
+            )}
+
+            <FieldRow label="Mobile number for alerts">
+                <input
+                    value={phone}
+                    onChange={(e) => {
+                        setPhone(e.target.value);
+                        setSaved(false);
+                    }}
+                    placeholder="(907) 555-0142"
+                    maxLength={30}
+                    style={inputStyle}
+                />
+            </FieldRow>
+
+            <label
+                style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    fontSize: 13.5,
+                    color: "var(--fg-2)",
+                    lineHeight: 1.55,
+                    cursor: "pointer",
+                    marginBottom: 16,
+                }}
+            >
+                <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => {
+                        setAgreed(e.target.checked);
+                        setSaved(false);
+                    }}
+                    style={{ marginTop: 3, accentColor: "var(--accent)" }}
+                />
+                <span>
+                    {splitConsentText().map((seg, i) =>
+                        seg.kind === "link" ? (
+                            <Link
+                                key={i}
+                                href={seg.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: "var(--accent)", textDecoration: "underline" }}
+                            >
+                                {seg.value}
+                            </Link>
+                        ) : (
+                            <span key={i}>{seg.value}</span>
+                        ),
+                    )}
+                </span>
+            </label>
+
+            {error && (
+                <p style={{ color: "var(--accent-2)", fontSize: 13, margin: "0 0 12px" }}>{error}</p>
+            )}
+
+            <div style={{ display: "flex", gap: 12 }}>
+                <button
+                    onClick={() => submit(true)}
+                    disabled={saving || !agreed}
+                    style={{
+                        padding: "8px 20px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: "var(--accent)",
+                        color: "var(--on-accent, #fff)",
+                        fontSize: 14,
+                        fontWeight: 600,
+                        cursor: saving || !agreed ? "not-allowed" : "pointer",
+                        opacity: saving || !agreed ? 0.6 : 1,
+                    }}
+                >
+                    {saving ? "Saving…" : enabled ? "Update number" : "Turn on call alerts"}
+                </button>
+                {enabled && (
+                    <button
+                        onClick={() => submit(false)}
+                        disabled={saving}
+                        style={{
+                            padding: "8px 20px",
+                            borderRadius: 6,
+                            border: "1px solid var(--rule)",
+                            background: "transparent",
+                            color: "var(--fg-3)",
+                            fontSize: 14,
+                            cursor: saving ? "not-allowed" : "pointer",
+                            opacity: saving ? 0.6 : 1,
+                        }}
+                    >
+                        Turn off
+                    </button>
+                )}
+            </div>
+        </SectionCard>
+    );
+}
+
 // ── Cancellation ──────────────────────────────────────────────────────────────
 
 // ── Exports ───────────────────────────────────────────────────────────────────
@@ -276,10 +467,12 @@ export default function SettingsSection({
     site,
     accountEmail,
     accountProfile,
+    smsConsent,
 }: SettingsSectionProps) {
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
+            <SmsAlertsSection consent={smsConsent} />
             <FeaturedSection site={site} />
         </div>
     );

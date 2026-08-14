@@ -15,6 +15,7 @@ import { stripe } from "@/app/lib/stripe";
 import { getAgreement } from "@/app/lib/kv";
 import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
 import { addSiteToAccount } from "@/app/lib/account-store";
+import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
 import type { AgreementRecord } from "@/app/lib/agreement-types";
 
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY;
@@ -355,7 +356,20 @@ export async function POST(request: Request) {
         const sessionId = /^cs_[a-zA-Z0-9_]+$/.test(rawSessionId) ? rawSessionId : "";
 
         // Map to the Intake envelope. The copywriter fills the empty copy scaffold later.
-        const intake = mapBrandIntakeToIntake(submission);
+        // Same consent stamp as the portal route. This path predates the portal and is
+        // kept alive for checkout sessions that land here directly, so it must not produce
+        // an envelope the console and onboard.js would read differently.
+        // Named smsState, not consent: `consent` in this route is the privacy-policy
+        // checkbox, an unrelated gate on the same form.
+        const smsState = await getConsentStateForAccount(email).catch((e) => {
+            console.error("[onboarding] consent lookup failed, alerts will stay off", e);
+            return null;
+        });
+
+        const intake: Intake = {
+            ...mapBrandIntakeToIntake(submission),
+            smsAlerts: smsAlertsSnapshot(smsState),
+        };
         const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
         const slugSource = brandShort || brandName || "client";
 
