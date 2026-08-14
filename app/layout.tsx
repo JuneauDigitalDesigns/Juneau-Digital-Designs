@@ -81,7 +81,11 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${bigShoulders.variable} ${dmMono.variable} ${hankenGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${cabinet.variable}`}
     >
-      <body className="antialiased overflow-x-hidden">
+      {/* No `overflow-x-hidden` here: setting overflow on one axis makes the other
+          compute as `auto`, which turns <body> into a scroll container and silently
+          breaks every `position: sticky` inside it. `html { overflow-x: hidden }` in
+          globals.css does the clipping without that side effect. */}
+      <body className="antialiased">
         <ThemeProvider>
           {/* The grain overlay used to sit here. It is `position: fixed`, so it painted
               over the portal too — MarketingChrome now owns it and keeps it off the

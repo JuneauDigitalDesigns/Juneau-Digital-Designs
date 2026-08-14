@@ -198,16 +198,23 @@
 }
 
 /* ── Base ───────────────────────────────────────────────────── */
+/* This is the only `overflow-x: hidden` on the page, and it has to stay on <html>. It
+   propagates to the viewport, so it clips horizontal overflow without making any element
+   a scroll container. */
 html {
   overflow-x: hidden;
 }
 
+/* NOTE: do not put `overflow-x: hidden` back on <body>. Setting overflow on one axis
+   forces the other to compute as `auto` rather than `visible`, which makes <body> its own
+   scroll container — and then `position: sticky` inside it resolves against a scrollport
+   that never scrolls, so it silently stops sticking. That is what broke the pinned
+   journey; the rule on <html> above already does the clipping. */
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
   background-image: radial-gradient(var(--dot-grid) 1px, transparent 1px);
   background-size: 4px 4px;
 }
@@ -727,12 +734,10 @@ select option {
   line-height: 1;
   letter-spacing: var(--tracking-tight);
   color: var(--accent-2);
-  /* text-shadow carries the ≥90% "you're already covered" state */
-  transition: font-size 620ms cubic-bezier(0.22, 1, 0.36, 1), text-shadow 0.25s ease;
-}
-
-.calc-layout.is-calculated .calc-row-value {
-  font-size: 26px;
+  /* text-shadow carries the ≥90% "you're already covered" state. The font-size
+     transition went with `.calc-layout.is-calculated`, which used to bump this to 26px
+     as the card inflated — there is no inflation to track any more. */
+  transition: text-shadow 0.25s ease;
 }
 
 .calc-row + .calc-row {
@@ -1253,36 +1258,77 @@ select option {
    the recessed fader deck. On calculate the card inflates around it — padding
    opens, the panel fill and rule fade up — so the answer surface appears to
    grow out of the controls rather than being there all along. */
-.calc-layout {
+/* ── Calculator: one fixed card, three states ─────────────────
+   This replaced a card that grew on Calculate (530x481 → 1125x764) and again when
+   the methodology opened (→1336px). It outgrew every viewport height we support,
+   which made it the one section that could not sit in the pinned journey. Now the
+   box holds still and its contents swap: sliders → results → breakdown.
+
+   The height is set by stacking, not by a number — see `.calc-stack`. */
+.calc-card {
+  position: relative;
+  margin: 0 auto;
+  max-width: 860px;
+  padding: 26px 22px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background-color: var(--panel);
+}
+
+/* All three views share one grid cell. Inactive ones are `visibility: hidden`, which
+   still occupies layout — so the cell is permanently as tall as the tallest view and
+   the card cannot resize on a swap. This does the job a `min-height` would, without
+   having to know the number: a hardcoded 480px drifted 53px on desktop and 80px on a
+   phone, because the sliders' height depends on where their copy wraps. */
+.calc-stack { display: grid; }
+
+.calc-view {
+  grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
-  gap: 40px;
-  padding: 0;
-  background-color: transparent;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  position: relative;
-  overflow: hidden;              /* clips the results column while narrow */
-  margin: 0 auto;                /* centered grow, both directions */
-  transition:
-    max-width 620ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding 620ms cubic-bezier(0.22, 1, 0.36, 1),
-    background-color 620ms ease,
-    border-color 620ms ease;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
 }
 
-/* Card language matched to the Operator cards and Straight Answers grid that
-   bracket this section. */
-.calc-layout.is-calculated {
-  padding: 20px 16px;
-  background-color: var(--panel);
-  border-color: var(--rule);
+.calc-view.is-active {
+  visibility: visible;
+  opacity: 1;
+  animation: calc-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* The recessed deck — the object that exists before the card does. Radius
-   matches the card's so the two nest exactly while the card is still invisible
-   and clipping the deck at its own bounds. */
+/* Wins over the entrance by specificity, so it still applies to a view that has
+   already finished animating in. */
+.calc-view.is-active.is-leaving {
+  animation: calc-out 250ms ease forwards;
+}
+
+@keyframes calc-in  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes calc-out { to   { opacity: 0; } }
+
+/* Children that arrive after their view — the held beat before the remark, and the
+   actions after it. `both` holds them at opacity 0 through the delay. */
+.calc-step { animation: calc-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* States change instantly. `opacity` is deliberately NOT forced to 1 on the base
+   `.calc-view` — the inactive views are hidden by `visibility` and opacity together,
+   and only the active one should come back. */
+@media (prefers-reduced-motion: reduce) {
+  .calc-view,
+  .calc-view.is-active,
+  .calc-view.is-active.is-leaving,
+  .calc-step {
+    animation: none;
+    transform: none;
+  }
+  .calc-view.is-active { opacity: 1; }
+}
+
+/* The recessed deck the sliders sit on. */
 .calc-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
   background: var(--surface);
   border-radius: 8px;
   padding: 24px 22px;
@@ -1291,180 +1337,496 @@ select option {
     inset 0 0 0 1px var(--rule-weak);
 }
 
-/* The results column is height-capped in every breakpoint, not just mobile: at
-   zero width its text wraps into a ~1270px-tall column that would inflate the
-   card to 1351px before the user has clicked anything. Capping it to 0 keeps
-   the pre-calc card snug at ~553px and lets it grow in both dimensions. */
-.calc-results {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 620ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.calc-layout.is-calculated .calc-results { max-height: 1400px; }
-
-@media (min-width: 1024px) {
-  .calc-layout {
-    flex-direction: row;
-    gap: 56px;
-    align-items: flex-start;
-    /* deck (528) + the two 1px transparent borders — the card hugs the deck */
-    max-width: 530px;
-  }
-  .calc-layout.is-calculated {
-    max-width: 1240px;
-    padding: 40px 36px;
-  }
-  /* fixed basis so the deck never resizes while the card inflates around it */
-  .calc-inputs { flex: 0 0 528px; }
-  .calc-results { flex: 1 1 0; min-width: 0; }
-  /* natural height here is ~638px; a close cap keeps the easing honest */
-  .calc-layout.is-calculated .calc-results { max-height: 820px; }
+.calc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
 }
 
-/* Must stay last: drops all clipping once the grow lands, so the <details>
-   accordion can expand later without being cut off. Media queries add no
-   specificity, so source order is what keeps this winning. */
-.calc-layout.is-open .calc-results { max-height: none; overflow: visible; }
-
-/* Staged reveal of the result column's contents. Per-element delays are set
-   inline in MissedCallsCalculator so the choreography reads in one place. */
-.calc-reveal {
-  opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+/* Top-left in both results and breakdown, same position, contextual label — so it
+   reads as one control that goes back a step rather than two unrelated buttons. */
+.calc-back {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  transition: color 160ms ease;
 }
-.calc-layout.is-calculated .calc-reveal { opacity: 1; transform: none; }
+.calc-back:hover { color: var(--accent-2); }
 
-/* The Calculate button has no job once the sliders go live, so it exits. */
-.calc-gate {
-  overflow: hidden;
-  max-height: 140px;
-  transition: max-height 420ms ease, opacity 200ms ease;
-}
-.calc-layout.is-calculated .calc-gate { max-height: 0; opacity: 0; }
-
-/* ── Hero grid (copy wide, live panel thin) ──────────────── */
-.hero-grid {
+/* Side by side, divided by a rule. Stacked, these two cost ~140px — the difference
+   between the results fitting the sliders' footprint and not. */
+.calc-figures {
   display: grid;
-  grid-template-columns: 1fr;          /* mobile: single column, copy-first (DOM order) */
-  gap: clamp(28px, 4vw, 56px);
-  align-items: center;
+  grid-template-columns: 1fr;
+  gap: 24px;
 }
+.calc-figures > * { display: flex; flex-direction: column; gap: 10px; }
 
-/* allow grid items to shrink below content min-width (prevents headline overflow) */
-.hero-grid > * { min-width: 0; }
-
-@media (min-width: 900px) {
-  .hero-grid {
-    /* Was 1.5fr / 0.9fr, sized for a thin phone mockup. The hero now holds a laptop
-       showing a real site — the whole point of the section — so it gets real width,
-       and the H1 wraps to three short lines rather than needing the extra column. */
-    grid-template-columns: minmax(0, 1fr) minmax(380px, 1.05fr);
+@media (min-width: 640px) {
+  .calc-figures {
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 32px;
+    align-items: start;
   }
+  /* The rule is a grid track, not a border, so it spans the taller of the two
+     columns without either one owning it. */
+  .calc-figures::before {
+    content: "";
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+    background: var(--rule);
+  }
+  .calc-figures > *:last-child { grid-column: 3; }
 }
 
-/* Below 900px .hero-grid is a single column, so its three direct children (copy,
-   screenshot, offer strip) would otherwise stack in DOM order — offer strip last.
-   Reorder so the offer strip still reads directly under the CTA, above the screenshot,
-   matching the pre-refactor layout. No effect at ≥900px (default order: 0 on all three
-   lets Grid place copy | screenshot on row 1 and the full-width offer strip on row 2). */
-@media (max-width: 899px) {
-  .hero-offer { order: 2; }
-  .hero-grid > *:nth-child(2) { order: 3; }
+/* Sized up from the 60px this started at: stacking the views means the card is always
+   as tall as the sliders, so the results view has room it may as well use, and the
+   figure is the one thing in that view anybody came for. */
+.calc-figure {
+  font-family: var(--font-display);
+  font-size: clamp(44px, 5.6vw, 74px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: var(--tracking-tightest);
+  color: var(--fg);
+}
+.calc-figure--accent {
+  color: var(--accent-2);
+  text-shadow: 0 0 40px var(--accent-glow);
+}
+
+.calc-remark {
+  font-weight: 700;
+  font-size: clamp(18px, 1.7vw, 23px);
+  line-height: 1.3;
+  color: var(--fg);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.calc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+}
+
+.calc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-size: 14.5px;
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 160ms ease;
+}
+.calc-link:hover { color: var(--accent-2); }
+.calc-link--lead {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--accent-2);
+}
+
+.calc-breakdown-intro {
+  margin: 0;
+  color: var(--fg-2);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+/* `list-style` is set explicitly because Tailwind's preflight resets ol/ul to none, and
+   the intro above promises five numbered steps. */
+.calc-breakdown {
+  margin: 0;
+  padding-left: 22px;
+  list-style: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.calc-breakdown li::marker { color: var(--fg-3); font-size: 12px; }
+.calc-breakdown li {
+  font-size: 13.5px;
+  color: var(--fg-2);
+  line-height: 1.55;
+}
+.calc-breakdown strong { color: var(--fg); }
+
+.calc-fineprint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--fg-3);
+  line-height: 1.5;
 }
 
 /* ── Hero CTA button group ───────────────────────────────── */
-.hero-cta {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  align-items: flex-end;
+/* `.hero-grid` and `.hero-offer` were removed with the two-column hero: the screenshot
+   moved into the journey's first section and the offer strip was replaced by the three
+   sections that now say the same things at length. The hero is a single centred column
+   of copy, so it needs no grid of its own. */
+.hero-cta-btn {
+  min-width: 220px;
 }
 
 @media (max-width: 640px) {
-  .hero-cta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
   .hero-cta-btn {
     width: 100%;
     justify-content: center;
   }
 }
 
-/* ── Hero offer strip ────────────────────────────────────────
-   The whole offer, scannable, in place of the two-card section that used to restate
-   the hero further down the page. Ruled rows rather than cards: three cards here would
-   compete with the site mockup beside them for the same attention. */
-.hero-offer {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* ── Scroll journey ──────────────────────────────────────────
+   Two columns at ≥900px, one below it. Copy is always first in the DOM — it is what
+   should be read first when the columns collapse — and the sections that want the visual
+   on the left get it there with `order`, not by reordering the markup. Doing it in the
+   markup would put the screenshot above the copy on every phone. */
+
+/* ── Pinned stage ────────────────────────────────────────────
+   Base state is a no-op: `display: contents` generates no box, so the three sections sit
+   in ordinary document flow exactly as they did before, and the inline opacity/transform
+   that Framer writes onto the panels lands on elements that have no box to apply it to.
+   That is the whole fallback — no `!important`, no second render tree, and no remount
+   when the viewport crosses the breakpoint (so calculator state survives a resize). */
+:root {
+  --nav-h: 65px;
+  --journey-stage-h: calc(100vh - var(--nav-h));
+  --journey-stage-h: calc(100dvh - var(--nav-h));
+}
+
+.journey-track { position: relative; }
+.journey-stage,
+.journey-panel { display: contents; }
+.journey-snap { display: none; }
+
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  /* Height comes from the viewport, not from content. This is why the calculator can
+     change size at runtime without changing the pace or the track. */
+  .journey-track {
+    height: calc((var(--journey-panels) + var(--journey-tail)) * var(--journey-stage-h));
+  }
+
+  .journey-stage {
+    display: block;
+    position: sticky;
+    top: var(--nav-h);
+    height: var(--journey-stage-h);
+    overflow: hidden;
+    /* keeps the panels' paint order clear of the navbar (z-50) and grain (z-60) */
+    isolation: isolate;
+  }
+
+  /* All three panels occupy the same box. Paint order is DOM order, so each covers the
+     one before it and no z-index is needed — but the background must be opaque or the
+     cover fails and two panels show through each other. */
+  .journey-panel {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* LOAD-BEARING. The run relies on native scroll chaining: a panel taller than the
+       frame eats the wheel until it bottoms out and then hands the rest to the document,
+       which is what advances the stage. `contain` here would strand the reader. */
+    overscroll-behavior-y: auto;
+  }
+  .journey-panel:not(:first-child) { will-change: opacity, transform; }
+
+  /* `margin-block: auto`, NOT `justify-content: center`. Centring a flex item taller than
+     its container clips the TOP of it and makes it permanently unreachable by scrolling —
+     and the panel still swallows the wheel, so the page deadlocks. Auto margins collapse
+     to 0 when free space is negative: tall content top-aligns and stays scrollable, short
+     content still centres. */
+  .journey-panel > * {
+    flex: 0 0 auto;
+    margin-block: auto;
+    width: 100%;
+  }
+
+  /* Inside the stage the vertical rhythm is the frame's, not the document's. ~100px a
+     side is right in a long column and wrong in an 800px frame — at 1024x768 it is the
+     difference between the receptionist fitting and scrolling.
+
+     `margin-block: auto` is repeated here rather than left to `.journey-panel > *`
+     because `.journey-section`'s own `margin: 0 auto` has equal specificity and comes
+     later in the file, which pinned the content to the top of the frame. */
+  .journey-stage .journey-section {
+    padding-block: clamp(24px, 4vh, 56px);
+    margin-block: auto;
+  }
+  .journey-stage .calc-section {
+    padding-block: clamp(20px, 3vh, 44px);
+    margin-block: auto;
+  }
+
+  .journey-snap {
+    display: block;
+    position: absolute;
+    left: 0;
+    width: 1px;
+    height: 1px;
+    pointer-events: none;
+    top: calc(var(--i) * var(--journey-stage-h));
+    scroll-snap-align: start;
+    /* lands the document on the pin geometry rather than 65px past it */
+    scroll-margin-top: var(--nav-h);
+  }
+
+  /* `proximity`, not `mandatory`. Mandatory forces every resting position to be a snap
+     position, and with snap areas only inside the run it drags the reader out of the hero
+     and resists letting them leave. Proximity is safe here because the markers sit where
+     each entrance has already FINISHED — the transition bands lie strictly between
+     markers, so a snap position can never land mid-fade. */
+  html { scroll-snap-type: y proximity; }
+}
+
+/* Was inline on each <section>. It has to be a class so the pinned stage can override
+   it: inside a viewport-height frame this padding is the difference between the panel
+   fitting and scrolling. Values are unchanged, so nothing moves outside the stage. */
+.journey-section {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: clamp(64px, 7vw, 120px) clamp(18px, 4vw, 56px);
+}
+
+.calc-section {
+  position: relative;
+  padding: clamp(56px, 7vw, 120px) 0;
+  overflow: hidden;
+}
+.journey-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(32px, 4vw, 64px);
+  align-items: center;
+}
+
+/* Let the headline wrap instead of forcing the track wider than its share. */
+.journey-grid > * { min-width: 0; }
+
+@media (min-width: 900px) {
+  .journey-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 1.05fr);
+    gap: clamp(40px, 5vw, 80px);
+  }
+
+  /* Flipped sections: visual takes column 1, copy column 2. Both tracks keep their
+     widths, so the visual column stays the wider of the two either way. */
+  .journey-grid--flip {
+    grid-template-columns: minmax(380px, 1.05fr) minmax(0, 1fr);
+  }
+  .journey-grid--flip > .journey-visual { order: -1; }
+}
+
+.journey-bullets {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--fg-3);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 22px;
+  padding-top: 20px;
   border-top: 1px solid var(--rule);
 }
 
-.hero-offer li {
+/* ── Home pricing cards ──────────────────────────────────────
+   Three plans, three weights. Growth is the plan this page is written to sell, so it
+   carries the accent border and the glow; Starter is a full-strength alternative beside
+   it; Enterprise is deliberately quiet — same card, same information, less voice. */
+.home-pricing-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 3px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--rule);
+  gap: 16px;
+  max-width: 980px;
+  margin: 0 auto;
+  align-items: start;
 }
 
-@media (min-width: 560px) {
-  .hero-offer li {
-    /* Label column sized to the longest label ("The receptionist") so the copy edges
-       line up without a hardcoded ch value drifting when a label changes. */
-    grid-template-columns: minmax(120px, max-content) 1fr;
-    gap: 18px;
-    align-items: baseline;
-  }
-}
-
-/* At ≥900px the offer strip becomes a direct child of .hero-grid (see JSX) and spans
-   both column tracks as a full-width closing row of 3, divided by vertical rules rather
-   than the stacked rows' horizontal ones. */
-@media (min-width: 900px) {
-  .hero-offer {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .hero-offer li {
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 6px;
-    padding: 24px 28px;
-    border-bottom: none;
-  }
-
-  .hero-offer li:not(:first-child) {
-    border-left: 1px solid var(--rule);
-  }
-
-  .hero-offer li:first-child {
-    padding-left: 0;
-  }
-
-  .hero-offer li:last-child {
-    padding-right: 0;
+@media (min-width: 860px) {
+  .home-pricing-grid {
+    /* Growth's track is wider as well as louder — at three equal columns the glow was
+       doing all the work and the hierarchy vanished in light mode. */
+    grid-template-columns: 1fr 1.12fr 1fr;
   }
 }
 
-.hero-offer-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.home-pricing-card {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: clamp(22px, 2.5vw, 32px);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-pricing-card p {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  margin: 0;
+}
+
+.home-pricing-card--featured {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 28px var(--accent-glow);
+  padding: clamp(26px, 3vw, 38px);
+}
+
+/* Muted, not hidden. Transparent ground and a weaker rule drop it behind the two cards
+   either side without changing its structure or making the price hard to read. */
+.home-pricing-card--muted {
+  background: transparent;
+  border-color: var(--rule-weak);
+}
+
+.home-pricing-card--muted .kicker,
+.home-pricing-card--muted p {
+  color: var(--fg-3);
+}
+
+.home-pricing-card--muted .home-pricing-price {
+  color: var(--fg-2);
+}
+
+.home-pricing-card--muted a {
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.home-pricing-card--muted a:hover {
   color: var(--accent-2);
 }
 
-.hero-offer-copy {
-  font-size: 15.5px;
+.home-pricing-price {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 3.6vw, 46px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: var(--tracking-tightest);
+  color: var(--fg);
+}
+
+.home-pricing-price span {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--fg-3);
+  margin-left: 3px;
+}
+
+/* ── Closing rail ────────────────────────────────────────────
+   Replaced `.dial-aside` and the 128px closing headline above it. Two halves either side
+   of a rule: stacked with a horizontal divider on a phone, side by side with a vertical
+   one from 860px. Never sticky — see the note in RailCTA. */
+.rail-cta {
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: clamp(24px, 3vw, 34px) clamp(22px, 3vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(22px, 3vw, 32px);
+  /* Sits under the pricing cards inside the same section, so it carries the gap that
+     used to be its own section's padding. */
+  margin-top: clamp(32px, 3.5vw, 52px);
+}
+
+/* Get Started + View plans, the pair that replaced the pricing section's own button
+   column. Stacked full-width on a phone, side by side once there is room. */
+.rail-cta-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+/* `width: auto` matters: left at 100% the pair spans the whole half and the buttons sit
+   against its left edge while the caption above them stays centred. */
+@media (min-width: 560px) {
+  .rail-cta-pair { flex-direction: row; align-items: center; width: auto; }
+}
+
+.rail-cta-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  /* Both halves shrink to their content rather than to their track, so the two buttons
+     stay the same distance from the rule as the copy above them. */
+  min-width: 0;
+}
+
+.rail-cta-copy {
+  font-size: 15px;
   line-height: 1.5;
   color: var(--fg-2);
+  margin: 0;
+  text-wrap: balance;
+}
+
+/* The half of the sentence that says who this action is for. */
+.rail-cta-lead {
+  font-weight: 700;
+  color: var(--fg);
+}
+
+/* Horizontal on a phone, vertical beside the halves on a desktop. A bare border on the
+   half itself can't do both without also drawing on the outer edges. */
+.rail-cta-rule {
+  align-self: stretch;
+  background: var(--rule);
+  height: 1px;
+  flex-shrink: 0;
+}
+
+.rail-cta-btn,
+.rail-cta-tel {
+  width: 100%;
+  justify-content: center;
+}
+
+.rail-cta-tel {
+  font-size: clamp(18px, 2.4vw, 24px);
+  padding: 14px 28px;
+}
+
+@media (min-width: 860px) {
+  .rail-cta {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(28px, 3.5vw, 48px);
+  }
+  .rail-cta-rule {
+    width: 1px;
+    height: auto;
+    /* Shorter than the full padded height, so it reads as a divider between two blocks
+       rather than as the rail being split into two boxes. */
+    align-self: center;
+    min-height: 84px;
+  }
+  .rail-cta-btn,
+  .rail-cta-tel {
+    width: auto;
+  }
 }
 
 /* ── Outcomes strip ──────────────────────────────────────── */
@@ -1483,45 +1845,14 @@ select option {
   .outcomes-grid > div:last-child { border-right: none; }
 }
 
-/* ── Calc accordion ──────────────────────────────────────── */
-.calc-accordion {
-  margin-top: 20px;
-}
-
-.calc-accordion > summary {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-  color: var(--accent);
-  cursor: pointer;
-  user-select: none;
-  list-style: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.calc-accordion > summary::-webkit-details-marker {
-  display: none;
-}
-
-.calc-accordion[open] > summary {
-  margin-bottom: 16px;
-}
-
-.calc-accordion-content {
-  padding: 0;
-}
+/* `.calc-accordion` lived here — the native <details> that held the calculator's
+   methodology. The methodology is now the calculator's third view rather than a
+   disclosure inside its second, so the accordion went with it. */
 
 /* ── FAQ accordion ───────────────────────────────────────────
    Button/div markup driven by React state + Framer Motion (see StraightAnswers/FaqItem
    in homepageclient.tsx) rather than <details>/<summary> — needed for a smooth animated
-   height on open/close, which native <details> can't do. Independent of .calc-accordion,
-   which stays native <details> for the calculator's methodology block. */
+   height on open/close, which native <details> can't do. */
 .faq-item {
   border-bottom: 1px solid var(--rule);
 }
@@ -1590,17 +1921,10 @@ select option {
     display: none;
   }
 
-  /* Calculator reveal collapses to an instant state change */
-  .calc-layout,
-  .calc-inputs,
-  .calc-results,
-  .calc-reveal,
-  .calc-gate,
+  /* The calculator's own reduced-motion handling sits with its rules above; only the
+     slider value's shadow transition is left to silence here. */
   .calc-row-value {
     transition: none !important;
-  }
-  .calc-reveal {
-    transform: none !important;
   }
 }
 
@@ -1810,26 +2134,8 @@ select option {
   .film-stage { min-height: 556px; }
 }
 
-/* ── Closing CTA aside (hear the receptionist) ──────────── */
-.dial-aside {
-  margin-top: clamp(48px, 6vw, 88px);
-  padding-top: clamp(32px, 4vw, 52px);
-  border-top: 1px solid var(--rule);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 26px;
-  text-align: center;
-}
-@media (min-width: 860px) {
-  .dial-aside {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    text-align: left;
-    gap: 40px;
-  }
-}
+/* `.dial-aside` lived here — the headed "Dial it yourself" block at the foot of the old
+   closing section. Both of its actions now sit in `.rail-cta` above. */
 
 /* ── Portal: rail + stage shell ─────────────────────────────
    Rail and stage share one grid, so the site name, the nav and the first card all sit on

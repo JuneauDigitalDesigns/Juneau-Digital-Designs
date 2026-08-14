@@ -18,8 +18,11 @@ export default function FeaturedSites({ sites }: { sites: PublishedFeaturedSite[
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
       <div className="kicker" style={{ marginBottom: 14 }}>Client work</div>
+      {/* "In the wild", not "Sites we run": in its new slot this section is evidence for
+          the argument above it, and what makes it evidence is that these are live and
+          someone else's, not that we operate them. */}
       <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-        Sites we run.
+        In the wild.
       </h2>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 20 }}>
