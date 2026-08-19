@@ -243,6 +243,17 @@ export async function POST(request: Request) {
         const selectedPlan: PlanSlug = validPlans.includes(rawPlan as PlanSlug) ? (rawPlan as PlanSlug) : "starter";
 
         // ── Facts ──
+        //
+        // This deliberately still accepts fields the wizard no longer asks for — brandShort,
+        // license, established, notableClients, certifications, businessHours, serviceArea,
+        // agentName, announcement.
+        //
+        // Narrowing it to match the new form would defeat the point: a client who loaded the
+        // old wizard before a deploy and submits after it would have their answers rejected
+        // at the one moment they cannot retry. `sanitize` already returns "" for anything
+        // absent and `sanitizeStringArray` returns [], so the new shape passes through
+        // untouched while the old one keeps working. The wide door costs nothing and closes
+        // the deploy window.
         const brandName = sanitize(body.brandName, 160);
         const brandShort = sanitize(body.brandShort, 80);
         const email = sanitize(body.email, 160);
