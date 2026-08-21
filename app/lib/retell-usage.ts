@@ -1,5 +1,14 @@
 import "server-only";
-import type { PortalSite } from "@jdd/schema";
+import {
+  meteringGroups as schemaMeteringGroups,
+  meteringGroupFor as schemaMeteringGroupFor,
+  type MeteringGroup,
+  type MinuteCaps,
+  type PortalSite,
+} from "@jdd/schema";
+import { getSchedule } from "./legal/schedules";
+
+export { voiceSitesOf, ENTERPRISE_GROUP_REF, type MeteringGroup } from "@jdd/schema";
 
 const PAGE_SIZE = 100;
 // 5,000 calls max per query — well beyond any monthly cap check
@@ -74,27 +83,41 @@ export async function fetchAgentSeconds(
 }
 
 /**
- * The sites on an account whose minutes count against its allowance.
+ * Included minutes per voice plan, read from the Schedule A the client actually signed.
  *
- * A site still in `pending-onboarding` has no agent answering anything yet, so metering it
- * would bill a client for a receptionist they don't have. Everything else with a provisioned
- * agent counts, including `building` — the agent is live on the phone number from the moment
- * onboard.js creates it, whether or not the website has finished deploying.
+ * The grouping logic lives in `@jdd/schema` so it can be unit tested without Retell or
+ * Stripe, and takes its caps as an argument for exactly this reason: the numbers belong to
+ * the agreement, and a second copy of "350" in a shared package would be free to drift from
+ * the contract.
  */
-export function voiceSitesOf(sites: PortalSite[]): PortalSite[] {
-  return sites.filter(
-    (s) =>
-      (s.plan === "growth" || s.plan === "enterprise") &&
-      s.retellAgentId &&
-      s.status !== "pending-onboarding",
-  );
+function minuteCaps(): MinuteCaps {
+  return {
+    growth: getSchedule("growth").callMinutes ?? 0,
+    enterprise: getSchedule("enterprise").callMinutes ?? 0,
+  };
 }
 
 /**
- * Billable **seconds** across every voice agent on an account, for one window.
+ * Split an account's voice sites into the allowances they actually draw on.
  *
- * Enterprise pools its allowance across all of its sites, so this sums the agents rather
- * than reporting per-site.
+ * Growth is metered per site, Enterprise as one pool — see `@jdd/schema`'s `metering` module
+ * for why that distinction is load-bearing. This wrapper exists only to supply the caps.
+ */
+export function meteringGroups(sites: PortalSite[]): MeteringGroup[] {
+  return schemaMeteringGroups(sites, minuteCaps());
+}
+
+/** The allowance a given site draws on, or null when it has no voice agent. */
+export function meteringGroupFor(sites: PortalSite[], slug: string): MeteringGroup | null {
+  return schemaMeteringGroupFor(sites, slug, minuteCaps());
+}
+
+/**
+ * Billable **seconds** across the given sites, for one window.
+ *
+ * Callers pass one `MeteringGroup`'s sites, not a whole account — that is one site for
+ * Growth and the whole bundle for Enterprise. Passing every voice site on an account is the
+ * bug this signature used to invite.
  *
  * This used to return `Math.ceil(seconds / 60)`, and that single integer fed the tile, the
  * cap comparison, the overage and the Stripe invoice at once. Rounding here meant a client
