@@ -27,6 +27,16 @@ const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "O
 export default function AgreementClient({ plan, sections, version, upgradeSlug = null }: Props) {
     const isUpgrade = upgradeSlug !== null;
     const isEnterprise = plan === "enterprise";
+    /**
+     * Starter has no AI receptionist, no Retell agent, and no Twilio number, so there is
+     * nothing that could ever send a call summary. Offering the opt-in here would collect
+     * permission for messages the system cannot produce.
+     *
+     * Keyed on the plan being signed for, never on "is this an existing starter client".
+     * An upgrade signature arrives as `?plan=growth&upgrade=<slug>`, and that page is
+     * precisely where a starter client should be able to opt in.
+     */
+    const isStarter = plan === "starter";
     const sigRef = useRef<SignatureCanvasHandle>(null);
 
     // Signing is gated on reaching the end of the terms. Both timestamps go to
@@ -254,14 +264,16 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
                                 onChange={(v) => update("signerEmail", v)}
                                 required
                             />
-                            <Field
-                                label="Mobile number for call alerts"
-                                type="tel"
-                                placeholder="(907) 555-0142"
-                                value={form.alertPhone}
-                                onChange={(v) => update("alertPhone", v)}
-                                hint="Optional. Used only if you turn on call summary texts below."
-                            />
+                            {!isStarter && (
+                                <Field
+                                    label="Mobile number for call alerts"
+                                    type="tel"
+                                    placeholder="(907) 555-0142"
+                                    value={form.alertPhone}
+                                    onChange={(v) => update("alertPhone", v)}
+                                    hint="Optional. Used only if you turn on call summary texts below."
+                                />
+                            )}
 
                             {isEnterprise && (
                                 <div
@@ -362,58 +374,78 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
                     */}
                     <div style={{ marginTop: 16 }}>
                         <div className="kicker" style={{ marginBottom: 10 }}>
-                            ━ OPTIONAL · CALL ALERT TEXTS
+                            {/* No "OPTIONAL" on starter: there is nothing here to opt into. */}
+                            ━ {isStarter ? "CALL ALERT TEXTS" : "OPTIONAL · CALL ALERT TEXTS"}
                         </div>
-                        <label
-                            style={{
-                                display: "flex",
-                                alignItems: "flex-start",
-                                gap: 12,
-                                padding: "16px 18px",
-                                background: "transparent",
-                                border: "1px dashed var(--rule)",
-                                borderRadius: 10,
-                                cursor: "pointer",
-                            }}
-                        >
-                            <input
-                                type="checkbox"
-                                checked={smsConsent}
-                                onChange={(e) => setSmsConsent(e.target.checked)}
+                        {isStarter ? (
+                            // A statement, not a control. No checkbox, no border, nothing that
+                            // invites a click — the same treatment LockNote uses for copy whose
+                            // whole job is explaining why there is nothing to do here.
+                            <p
                                 style={{
-                                    marginTop: 2,
-                                    width: 18,
-                                    height: 18,
-                                    accentColor: "var(--accent)",
+                                    margin: 0,
+                                    fontSize: 13.5,
+                                    color: "var(--fg-3)",
+                                    lineHeight: 1.55,
+                                }}
+                            >
+                                Call summary texts are part of the Growth and Enterprise plans.
+                                Starter does not include the AI receptionist, so there are no calls
+                                for us to text you about, and we will not send you text messages on
+                                this plan.
+                            </p>
+                        ) : (
+                            <label
+                                style={{
+                                    display: "flex",
+                                    alignItems: "flex-start",
+                                    gap: 12,
+                                    padding: "16px 18px",
+                                    background: "transparent",
+                                    border: "1px dashed var(--rule)",
+                                    borderRadius: 10,
                                     cursor: "pointer",
                                 }}
-                            />
-                            <span style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                                {/*
-                                    Rendered from the same constant that gets hashed into the
-                                    consent record, so the words on screen and the words we can
-                                    prove they saw cannot drift apart.
-                                */}
-                                {splitConsentText().map((seg, i) =>
-                                    seg.kind === "link" ? (
-                                        <Link
-                                            key={i}
-                                            href={seg.href}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            // Inside a <label>, a click would otherwise toggle
-                                            // the box on the way to opening the link.
-                                            onClick={(e) => e.stopPropagation()}
-                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
-                                        >
-                                            {seg.value}
-                                        </Link>
-                                    ) : (
-                                        <span key={i}>{seg.value}</span>
-                                    ),
-                                )}
-                            </span>
-                        </label>
+                            >
+                                <input
+                                    type="checkbox"
+                                    checked={smsConsent}
+                                    onChange={(e) => setSmsConsent(e.target.checked)}
+                                    style={{
+                                        marginTop: 2,
+                                        width: 18,
+                                        height: 18,
+                                        accentColor: "var(--accent)",
+                                        cursor: "pointer",
+                                    }}
+                                />
+                                <span style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                    {/*
+                                        Rendered from the same constant that gets hashed into the
+                                        consent record, so the words on screen and the words we can
+                                        prove they saw cannot drift apart.
+                                    */}
+                                    {splitConsentText().map((seg, i) =>
+                                        seg.kind === "link" ? (
+                                            <Link
+                                                key={i}
+                                                href={seg.href}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                // Inside a <label>, a click would otherwise toggle
+                                                // the box on the way to opening the link.
+                                                onClick={(e) => e.stopPropagation()}
+                                                style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                            >
+                                                {seg.value}
+                                            </Link>
+                                        ) : (
+                                            <span key={i}>{seg.value}</span>
+                                        ),
+                                    )}
+                                </span>
+                            </label>
+                        )}
                     </div>
 
                     {error && (

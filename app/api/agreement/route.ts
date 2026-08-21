@@ -170,6 +170,14 @@ function validate(body: AgreementSubmission): string | null {
     const sites = (body.additionalSites || []).filter(nonEmpty);
     if (sites.length < 2) return "Enterprise requires at least 2 site names";
   }
+  // Starter has no AI receptionist and no Twilio number, so nothing on that plan can ever
+  // send a call summary. The form no longer offers the box, which is exactly why this check
+  // belongs here: the server must not rely on the UI to enforce a plan boundary. Ordered
+  // before the phone check so a well-formed number on starter still fails, and fails for
+  // the real reason.
+  if (body.smsConsent && body.plan === "starter") {
+    return "Call alert texts are not available on the Starter plan";
+  }
   // Consent without a reachable number is not consent to anything. Checked in the UI too,
   // but a record claiming permission to text an unparseable string is worse than no record.
   if (body.smsConsent && !normalizeE164(body.alertPhone)) {
