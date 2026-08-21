@@ -1,7 +1,24 @@
 export type PlanSlug = "starter" | "growth" | "enterprise";
 
+/**
+ * Which instrument is being signed.
+ *
+ * `master` is the full Service Agreement, signed once per account. `addendum` is the
+ * one-page Site Addendum a returning client signs for each later site: it adopts the master
+ * by reference and carries its own contracting entity, because a second site is often bought
+ * by a different LLC and re-signing the master would overwrite the first entity's details.
+ */
+export type AgreementKind = "master" | "addendum";
+
 export interface AgreementSubmission {
   plan: PlanSlug;
+  /**
+   * Absent means `master`. Defaulting rather than requiring keeps every existing caller —
+   * and any signature in flight across a deploy — valid without a migration.
+   */
+  kind?: AgreementKind;
+  /** The master this addendum hangs off. Required for `addendum`, meaningless otherwise. */
+  parentAgreementId?: string;
   clientLegalName: string;
   clientEntityType: string;
   clientAddress: string;
@@ -54,6 +71,10 @@ export interface AgreementAudit {
 export interface AgreementRecord {
   id: string;
   plan: PlanSlug;
+  /** Absent on records written before the master/addendum split — treat as `master`. */
+  kind?: AgreementKind;
+  /** Set on addenda. The master whose terms this instrument adopts by reference. */
+  parentAgreementId?: string;
   clientLegalName: string;
   clientEntityType: string;
   clientAddress: string;

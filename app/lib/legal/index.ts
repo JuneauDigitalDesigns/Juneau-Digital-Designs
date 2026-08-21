@@ -5,6 +5,10 @@ import type { Block, PlanSchedule, ResolvedTerms, Section, SectionDef } from "./
 
 export { TERMS_VERSION, PROVIDER } from "./terms-v4";
 export { getSchedule, SCHEDULES } from "./schedules";
+// The short instrument a returning client signs for their second site and every one after.
+// Built from the same Section/Block vocabulary as the master, so `TermsReader` and
+// `pdf-renderer` consume it without knowing which document they were handed.
+export { getAddendumForPlan, ADDENDUM_VERSION } from "./addendum-v1";
 export type { Block, PlanSchedule, ResolvedTerms, Section, Subsection } from "./types";
 
 const TOKEN = /\{§([a-z]+)\}/g;

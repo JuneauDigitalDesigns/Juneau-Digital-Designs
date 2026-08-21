@@ -64,6 +64,26 @@ export async function POST(req: Request) {
     );
   }
 
+  /**
+   * An addendum only authorises a purchase if it hangs off *this account's* master.
+   *
+   * Without the check, an addendum id is a bearer token: it names no account, so one
+   * client's could be replayed by another to buy under terms they never signed. The plan
+   * match above does not catch that — both documents can be for the same tier.
+   */
+  if (agreement.kind === "addendum") {
+    const master = account.masterAgreement;
+    if (!master?.agreementId || agreement.parentAgreementId !== master.agreementId) {
+      console.error(
+        "[/api/checkout] addendum parent does not match the account's master",
+        account.email,
+        agreement.id,
+        agreement.parentAgreementId,
+      );
+      return NextResponse.json({ error: "Agreement does not belong to this account" }, { status: 403 });
+    }
+  }
+
   const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
 
   const line_items: { price: string; quantity: number }[] = [

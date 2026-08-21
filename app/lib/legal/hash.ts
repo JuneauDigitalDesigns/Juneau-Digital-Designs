@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { PlanSlug } from "../agreement-types";
-import { getTermsForPlan } from "./index";
+import { getAddendumForPlan, getSchedule, getTermsForPlan } from "./index";
 import type { Block, Section } from "./types";
 
 /**
@@ -18,6 +18,24 @@ import type { Block, Section } from "./types";
  */
 export function hashTermsForPlan(plan: PlanSlug): string {
   const { version, sections } = getTermsForPlan(plan);
+  return hashSections(version, plan, sections);
+}
+
+/**
+ * The same evidence, for the Site Addendum.
+ *
+ * Canonical in the same sense: the site names a client typed are excluded, so this
+ * identifies the addendum *text* for a plan rather than one client's signing of it.
+ * Master and addendum hashes cannot collide — the version string differs and is the first
+ * line of the canonical form.
+ */
+export function hashAddendumForPlan(plan: PlanSlug): string {
+  const { version, sections } = getAddendumForPlan(getSchedule(plan));
+  return hashSections(version, plan, sections);
+}
+
+/** Shared canonical form, so the two documents can never be hashed by different rules. */
+function hashSections(version: string, plan: PlanSlug, sections: Section[]): string {
   const canon = [version, plan, ...sections.flatMap(flattenSection)].join("\n");
   return createHash("sha256").update(canon, "utf8").digest("hex");
 }

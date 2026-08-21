@@ -3,7 +3,7 @@ import { PDFDocument } from "pdf-lib";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { getTermsForPlan, PROVIDER } from "./legal";
+import { getAddendumForPlan, getSchedule, getTermsForPlan, PROVIDER } from "./legal";
 import { PdfDoc, renderSections } from "./legal/pdf-renderer";
 import type { AgreementSubmission, AgreementAudit } from "./agreement-types";
 
@@ -22,9 +22,19 @@ export async function generateSignedPdf(
   audit: AgreementAudit,
   agreementId: string,
 ): Promise<Uint8Array> {
-  const { version, sections, schedule } = getTermsForPlan(submission.plan, {
-    siteNames: submission.additionalSites,
-  });
+  /**
+   * Master or addendum, resolved once here.
+   *
+   * Both are built from the same `Section`/`Block` vocabulary, so everything below this
+   * branch — cover, `renderSections`, signature block, audit page — is identical for either.
+   * That was the constraint the addendum was authored under, and it is why a second
+   * instrument costs one branch instead of a second renderer.
+   */
+  const isAddendum = submission.kind === "addendum";
+  const schedule = getSchedule(submission.plan);
+  const { version, sections } = isAddendum
+    ? getAddendumForPlan(schedule, { siteNames: submission.additionalSites })
+    : getTermsForPlan(submission.plan, { siteNames: submission.additionalSites });
 
   const doc = await PdfDoc.create();
   const today = new Date().toLocaleDateString("en-US", {
@@ -35,7 +45,7 @@ export async function generateSignedPdf(
   });
 
   /* ── Cover ── */
-  doc.text("SERVICE AGREEMENT", { size: 18, bold: true, after: 2 });
+  doc.text(isAddendum ? "SITE ADDENDUM" : "SERVICE AGREEMENT", { size: 18, bold: true, after: 2 });
   doc.text(`${schedule.name.toUpperCase()} PLAN — ${version.toUpperCase()}`, {
     size: 11,
     bold: true,
@@ -47,10 +57,12 @@ export async function generateSignedPdf(
   doc.text(PROVIDER.legalName, { size: 10.5, bold: true, after: 1 });
   doc.text(`${PROVIDER.addressLine}, ${PROVIDER.cityStateZip}`, { size: 9.5, after: 14 });
 
-  doc.text('This Service Agreement ("Agreement") is entered into between:', {
-    size: 9.5,
-    after: 10,
-  });
+  doc.text(
+    isAddendum
+      ? 'This Site Addendum ("Addendum") is entered into between:'
+      : 'This Service Agreement ("Agreement") is entered into between:',
+    { size: 9.5, after: 10 },
+  );
 
   doc.text(
     `Provider: ${PROVIDER.legalName}, a Florida limited liability company located at ${PROVIDER.addressLine}, ${PROVIDER.cityStateZip} ("we," "us," or "JDD").`,
@@ -64,8 +76,8 @@ export async function generateSignedPdf(
 
   doc.callout(
     `PLAN SELECTED: ${schedule.name.toUpperCase()} — $${schedule.monthlyPrice.toLocaleString("en-US")} PER MONTH. ` +
-      `THIS AGREEMENT COVERS ${schedule.siteLabel.toUpperCase()}. ` +
-      `IF YOU INTENDED TO SIGN UP FOR A DIFFERENT PLAN, DO NOT SIGN THIS AGREEMENT — CONTACT PROVIDER FOR THE CORRECT DOCUMENT.`,
+      `THIS ${isAddendum ? "ADDENDUM" : "AGREEMENT"} COVERS ${schedule.siteLabel.toUpperCase()}. ` +
+      `IF YOU INTENDED TO SIGN UP FOR A DIFFERENT PLAN, DO NOT SIGN THIS DOCUMENT — CONTACT PROVIDER FOR THE CORRECT ONE.`,
   );
 
   /* ── Body + Schedule A ── */

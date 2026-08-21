@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import AgreementClient from "../components/agreement/AgreementClient";
 import UpgradeUnavailable from "../components/agreement/UpgradeUnavailable";
-import { getTermsForPlan } from "../lib/legal";
+import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../lib/legal";
+import { getAgreement } from "../lib/kv";
+import { legacyMasterFrom } from "@jdd/schema";
 import { resolveAccountForUser } from "../lib/portal-account";
 import { upgradeBlockReason } from "../lib/plan-billing";
 import type { PlanSlug } from "../lib/agreement-types";
@@ -23,7 +25,7 @@ const SIGNING_METADATA: Metadata = {
 export async function generateMetadata({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string }>;
 }): Promise<Metadata> {
     const { upgrade } = await searchParams;
     const slug = upgrade?.trim();
@@ -38,9 +40,9 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string }>;
 }) {
-    const { plan, upgrade } = await searchParams;
+    const { plan, upgrade, kind } = await searchParams;
     const selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
@@ -61,10 +63,32 @@ export default async function AgreementPage({
     const { userId } = await auth();
     if (!userId) redirect(`/start?plan=${selectedPlan}`);
 
-    // Terms resolve on the server so the client never ships the full body of
-    // all three plans, and so the text rendered here is the same text the
-    // signed PDF is generated from.
-    const { sections, version } = getTermsForPlan(selectedPlan);
+    /**
+     * Master or addendum.
+     *
+     * `/start` decides which, having compared the account's recorded master against the
+     * current terms version and the tier being bought, and says so in `?kind=`. It is not
+     * trusted blind: the account is re-read here and an addendum is only honoured if a master
+     * actually exists to hang it off. A stale or hand-edited link asking for the short form
+     * when there is no master falls back to the full terms, which is the safe direction —
+     * the failure mode is a client reading more than they had to, not less.
+     */
+    const account = await resolveAccountForUser(userId);
+    const master = account?.masterAgreement ?? legacyMasterFrom(account?.sites ?? []);
+    const wantsAddendum = kind === "addendum";
+    const isAddendum = wantsAddendum && Boolean(master?.agreementId);
+
+    if (wantsAddendum && !isAddendum) {
+        console.warn(
+            `[agreement] addendum requested with no master on file (${account?.email ?? "no account"}) — serving full terms`,
+        );
+    }
+
+    // Resolved on the server so the client never ships the full body of all three plans, and
+    // so the text rendered here is the text the signed PDF is generated from.
+    const { sections, version } = isAddendum
+        ? getAddendumForPlan(getSchedule(selectedPlan))
+        : getTermsForPlan(selectedPlan);
 
     const upgradeSlug = upgrade?.trim() || null;
 
@@ -90,8 +114,47 @@ export default async function AgreementPage({
             sections={sections}
             version={version}
             upgradeSlug={upgradeSlug}
+            kind={isAddendum ? "addendum" : "master"}
+            parentAgreementId={isAddendum ? master?.agreementId ?? undefined : undefined}
+            /*
+             * Prefilled, not fixed. A returning client usually contracts as the same entity,
+             * so retyping it is friction — but a second site bought by a different LLC is
+             * exactly the case the addendum exists for, so every field stays editable.
+             *
+             * Taken from the master agreement record rather than the account profile, because
+             * that record holds the *contracting* entity — legal name, entity type, registered
+             * address — which the profile does not. Paid agreements no longer expire, so it
+             * is still there to read.
+             */
+            prefill={isAddendum ? await masterPrefill(master?.agreementId) : undefined}
         />
     );
+}
+
+/**
+ * The contracting details from the client's master, to prefill the addendum's entity block.
+ *
+ * Returns undefined rather than throwing when the master has gone — an agreement signed
+ * before paid records stopped expiring may simply not be there. An addendum with a blank
+ * entity block is still perfectly signable; the client just types it.
+ */
+async function masterPrefill(agreementId: string | null | undefined) {
+    if (!agreementId) return undefined;
+    try {
+        const master = await getAgreement(agreementId);
+        if (!master) return undefined;
+        return {
+            clientLegalName: master.clientLegalName,
+            clientEntityType: master.clientEntityType,
+            clientAddress: master.clientAddress,
+            signerName: master.signerName,
+            signerTitle: master.signerTitle,
+            signerEmail: master.signerEmail,
+        };
+    } catch (e) {
+        console.error("[agreement] could not read master for prefill", agreementId, e);
+        return undefined;
+    }
 }
 
 /**

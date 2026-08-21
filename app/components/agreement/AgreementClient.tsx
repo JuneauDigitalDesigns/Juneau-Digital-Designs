@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import type { PlanSlug } from "@/app/lib/agreement-types";
+import type { AgreementKind, PlanSlug } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
@@ -20,12 +20,41 @@ interface Props {
      * starting a second one.
      */
     upgradeSlug?: string | null;
+    /**
+     * Which instrument is on screen. `addendum` is the one-page Site Addendum a returning
+     * client signs for a later site; it adopts their master by reference.
+     */
+    kind?: AgreementKind;
+    /** The master an addendum hangs off. Sent back with the signature. */
+    parentAgreementId?: string;
+    /**
+     * Contracting details carried over from the master, so a returning client isn't retyping
+     * their own address. Every field stays editable — a second site bought by a different
+     * legal entity is the case the addendum exists for.
+     */
+    prefill?: Partial<{
+        clientLegalName: string;
+        clientEntityType: string;
+        clientAddress: string;
+        signerName: string;
+        signerTitle: string;
+        signerEmail: string;
+    }>;
 }
 
 const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "Other"];
 
-export default function AgreementClient({ plan, sections, version, upgradeSlug = null }: Props) {
+export default function AgreementClient({
+    plan,
+    sections,
+    version,
+    upgradeSlug = null,
+    kind = "master",
+    parentAgreementId,
+    prefill,
+}: Props) {
     const isUpgrade = upgradeSlug !== null;
+    const isAddendum = kind === "addendum";
     const isEnterprise = plan === "enterprise";
     /**
      * Starter has no AI receptionist, no Retell agent, and no Twilio number, so there is
@@ -50,12 +79,12 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
     }, []);
 
     const [form, setForm] = useState({
-        clientLegalName: "",
-        clientEntityType: "LLC",
-        clientAddress: "",
-        signerName: "",
-        signerTitle: "",
-        signerEmail: "",
+        clientLegalName: prefill?.clientLegalName ?? "",
+        clientEntityType: prefill?.clientEntityType ?? "LLC",
+        clientAddress: prefill?.clientAddress ?? "",
+        signerName: prefill?.signerName ?? "",
+        signerTitle: prefill?.signerTitle ?? "",
+        signerEmail: prefill?.signerEmail ?? "",
         alertPhone: "",
         site1: "",
         site2: "",
@@ -138,6 +167,10 @@ export default function AgreementClient({ plan, sections, version, upgradeSlug =
                     // below actually goes through. Not an authorization claim — the upgrade
                     // endpoint re-resolves this slug against the signed-in account.
                     ...(isUpgrade ? { upgradeSlug } : {}),
+                    // Which document was on screen. The route hashes the text it is told was
+                    // shown, so this has to match what the server rendered — it does, because
+                    // the server decided it and passed it down as a prop.
+                    ...(isAddendum ? { kind: "addendum", parentAgreementId } : {}),
                 }),
             });
             const sigData = (await sigRes.json()) as { agreement_id?: string; error?: string };

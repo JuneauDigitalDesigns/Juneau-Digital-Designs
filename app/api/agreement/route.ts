@@ -2,9 +2,13 @@ import { NextResponse, after } from "next/server";
 import { put } from "@vercel/blob";
 import { randomUUID } from "node:crypto";
 import { generateSignedPdf, hashSubmission, stripLastPage } from "@/app/lib/pdf-signer";
-import { hashTermsForPlan } from "@/app/lib/legal/hash";
-import { TERMS_VERSION } from "@/app/lib/legal";
+import { auth } from "@clerk/nextjs/server";
+import type { MasterAgreementRef } from "@jdd/schema";
+import { hashAddendumForPlan, hashTermsForPlan } from "@/app/lib/legal/hash";
+import { ADDENDUM_VERSION, TERMS_VERSION } from "@/app/lib/legal";
 import { saveAgreement } from "@/app/lib/kv";
+import { saveAccount } from "@/app/lib/account-store";
+import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
 import { SMS_CONSENT_TEXT_VERSION } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
@@ -33,6 +37,7 @@ export async function POST(req: Request) {
   const id = randomUUID();
   const signedAt = new Date();
   const openedAt = new Date(body.pageOpenedAt);
+  const isAddendum = body.kind === "addendum";
 
   const audit: AgreementAudit = {
     ip: clientIp(req),
@@ -43,7 +48,9 @@ export async function POST(req: Request) {
     // Derived from the two client timestamps rather than trusting a duration
     // the client computed for itself.
     dwellMs: Math.max(0, signedAt.getTime() - openedAt.getTime()),
-    termsHash: hashTermsForPlan(body.plan),
+    // Hash the document that was actually shown. Signing an addendum and recording the
+    // master's hash would attest to words the client never saw.
+    termsHash: isAddendum ? hashAddendumForPlan(body.plan) : hashTermsForPlan(body.plan),
   };
 
   let pdfBytes: Uint8Array;
@@ -79,7 +86,13 @@ export async function POST(req: Request) {
     additionalSites: body.additionalSites,
     pdfUrl,
     audit,
-    agreementVersion: TERMS_VERSION,
+    // The addendum carries its own version. Stamping TERMS_VERSION on it would make a
+    // client look as though they had re-signed the master when they had not — and
+    // `masterNeedsResign` reads exactly this field to decide whether they still need to.
+    agreementVersion: isAddendum ? ADDENDUM_VERSION : TERMS_VERSION,
+    ...(isAddendum
+      ? { kind: "addendum" as const, parentAgreementId: body.parentAgreementId }
+      : { kind: "master" as const }),
     ...(body.upgradeSlug
       ? { pendingUpgrade: true, upgradeSlug: body.upgradeSlug.trim() }
       : {}),
@@ -90,6 +103,41 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[/api/agreement] KV save failed", e);
     return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
+  }
+
+  /**
+   * Record the master on the account, so later purchases can take an addendum.
+   *
+   * Written at signature rather than at payment, deliberately. `masterNeedsResign` asks
+   * "have these terms been agreed to", and the answer becomes yes the moment they sign — an
+   * abandoned checkout does not un-sign an agreement, and making someone re-read the full
+   * terms because their card was declined would be absurd.
+   *
+   * The ceiling is exactly the plan just signed — deliberately *not* carried over from a
+   * previous master. Terms differ per plan, so a client re-signing at Starter level after a
+   * version bump has only agreed to Starter terms at this version, and buying Enterprise
+   * later should ask them again. Inflating the ceiling to whatever they once held would
+   * silently authorise a tier under terms that never contemplated it.
+   *
+   * Best effort: the agreement itself is already stored, which is the artefact that must
+   * survive. Losing this costs one extra full signature later, not the signature just given.
+   */
+  if (!isAddendum) {
+    try {
+      const { userId } = await auth();
+      const account = userId ? await resolveAccountForUser(userId) : null;
+      if (account) {
+        const master: MasterAgreementRef = {
+          agreementId: id,
+          version: TERMS_VERSION,
+          tierCeiling: body.plan,
+          signedAt: signedAt.getTime(),
+        };
+        await saveAccount({ ...account, masterAgreement: master, updatedAt: Date.now() });
+      }
+    } catch (e) {
+      console.error(`[/api/agreement] ${id} could not record master on account`, e);
+    }
   }
 
   // SMS consent, if given, is held rather than activated: nobody gets texted for a
@@ -151,6 +199,14 @@ function clientIp(req: Request): string {
 
 function validate(body: AgreementSubmission): string | null {
   if (!VALID_PLANS.includes(body.plan)) return "Invalid plan";
+  if (body.kind && body.kind !== "master" && body.kind !== "addendum") {
+    return "Invalid agreement kind";
+  }
+  // An addendum with no master to adopt is not an addendum. `/start` always supplies this;
+  // its absence means the client reached the signing form some other way.
+  if (body.kind === "addendum" && !nonEmpty(body.parentAgreementId)) {
+    return "Missing parent agreement";
+  }
   if (!nonEmpty(body.clientLegalName)) return "Missing client legal name";
   if (!nonEmpty(body.clientEntityType)) return "Missing entity type";
   if (!nonEmpty(body.clientAddress)) return "Missing client address";
@@ -166,7 +222,11 @@ function validate(body: AgreementSubmission): string | null {
   if (!validTimestamp(body.scrollCompletedAt)) {
     return "Agreement was not read to the end";
   }
-  if (body.plan === "enterprise") {
+  // Only on a master. The Enterprise master is where the client commits to the site list, so
+  // it has to be named there. An addendum adding a site to an existing Enterprise bundle
+  // derives its sites from `account.sites` instead — the account record is the truth about
+  // what they own by then, and asking them to retype it invites the two to disagree.
+  if (body.plan === "enterprise" && body.kind !== "addendum") {
     const sites = (body.additionalSites || []).filter(nonEmpty);
     if (sites.length < 2) return "Enterprise requires at least 2 site names";
   }
