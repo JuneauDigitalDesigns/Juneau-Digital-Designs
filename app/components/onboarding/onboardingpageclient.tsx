@@ -970,9 +970,13 @@ export default function OnboardingPageClient({
 
         // The site is named in the query string, not the body: it is an authorization
         // parameter, and `resolvePortalRequest` already reads `?site=` for every portal route.
-        const endpoint = portalMode
-            ? `/api/portal/onboarding${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`
-            : "/api/onboarding";
+        //
+        // No longer a branch. `/api/onboarding` is gone along with the anonymous funnel — the
+        // gate authenticates before checkout, so there is no unauthenticated wizard left to
+        // serve. `portalMode` and the Turnstile/consent/honeypot machinery it gates are dead
+        // weight now; removing them is mechanical and deliberately left as its own change so
+        // it doesn't hide inside a behavioural one.
+        const endpoint = `/api/portal/onboarding${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`;
 
         try {
             const response = await fetch(endpoint, {

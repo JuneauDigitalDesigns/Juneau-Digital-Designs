@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth, clerkClient } from "@clerk/nextjs/server";
-import { canAddPlan, createAccount, masterNeedsResign, legacyMasterFrom } from "@jdd/schema";
+import {
+    canAddPlan,
+    createAccount,
+    growthSitesForConsolidation,
+    masterNeedsResign,
+    legacyMasterFrom,
+} from "@jdd/schema";
 import { getAccount, saveAccount, linkClerkUser } from "@/app/lib/account-store";
 import { verifiedEmailOf, resolveAccountForUser } from "@/app/lib/portal-account";
 import { planLimits } from "@/app/lib/plan-limits";
@@ -66,6 +72,23 @@ export default async function StartPage({
     const block = canAddPlan(account, plan, planLimits());
     if (block) {
         return <UpsellEnterprise account={account} requestedPlan={plan} reason={block} />;
+    }
+
+    /**
+     * Buying Enterprise while holding Growth subscriptions is a consolidation, not a purchase.
+     *
+     * `canAddPlan` says yes here, correctly — it answers "may this account hold an Enterprise
+     * bundle", and it may. What it cannot know is that this account is already paying for
+     * Growth sites the bundle is meant to *absorb*. Left alone, the ordinary path would open a
+     * third subscription alongside the two they already have and bill for all three, which is
+     * exactly the outcome the upsell page promises to save them from.
+     *
+     * Routed apart here rather than folded into `canAddPlan` because this is a fact about
+     * billing state, not entitlement, and that helper is pure and shared with layers that have
+     * no business knowing about Stripe subscriptions.
+     */
+    if (plan === "enterprise" && growthSitesForConsolidation(account).length > 0) {
+        redirect("/portal/consolidate");
     }
 
     /**

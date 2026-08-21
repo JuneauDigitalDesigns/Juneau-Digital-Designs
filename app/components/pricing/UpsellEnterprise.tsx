@@ -117,7 +117,14 @@ export default function UpsellEnterprise({
                 </p>
 
                 <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-                    <Link href="/start?plan=enterprise" className="btn primary">
+                    {/*
+                      * Straight to the consolidation flow, not `/start?plan=enterprise`. That
+                      * route treats a tier as an ordinary purchase and would open a third
+                      * subscription beside the two Growth ones, billing for all three — the
+                      * exact opposite of what this page just promised. `/start` redirects here
+                      * for the same reason, so a stale link cannot get around it either.
+                      */}
+                    <Link href="/portal/consolidate" className="btn primary">
                         Move to Enterprise
                     </Link>
                     <Link

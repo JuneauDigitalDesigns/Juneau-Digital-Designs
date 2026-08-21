@@ -9,6 +9,7 @@ import {
     type Intake,
 } from "@/app/lib/site-schema";
 import { sendClientCompleteNotification } from "@/app/lib/notification-email";
+import { gatherClientContext } from "@/app/lib/client-context";
 import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
 import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
@@ -283,6 +284,12 @@ export async function POST(request: Request) {
         deleteDraft(userId, site.slug).catch(() => {});
 
         after(async () => {
+            // What they paid and what they signed, resolved from the site's checkout session.
+            // This route used to send all three as null, which was survivable while the
+            // anonymous funnel still existed and carried them — now that this is the only
+            // onboarding path, that would have quietly stripped payment details and the
+            // signed agreement out of every operator email.
+            const { payment, agreement, agreementPdf } = await gatherClientContext(sessionId);
             await sendClientCompleteNotification({
                 brandName: brandName || "(unnamed)",
                 email,
@@ -291,9 +298,9 @@ export async function POST(request: Request) {
                 websiteType: industry,
                 servicesCount: serviceList.length,
                 payloadJson,
-                payment: null,
-                agreement: null,
-                agreementPdf: null,
+                payment,
+                agreement,
+                agreementPdf,
             }).catch((e) => console.error("[portal/onboarding] notification email failed", e));
         });
 
