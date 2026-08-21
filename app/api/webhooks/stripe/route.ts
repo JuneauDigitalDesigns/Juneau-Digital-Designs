@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/app/lib/stripe";
-import { getAgreement, persistAgreement } from "@/app/lib/kv";
-import { getPurchaseIntent, markIntentConsumed } from "@/app/lib/purchase-intent";
-import { createPendingSite, getAccount, saveAccount } from "@/app/lib/account-store";
+import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
+import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
-import { doubleOptInEnabled, promotePendingConsent } from "@/app/lib/sms-consent";
-import { sendSms } from "@/app/lib/twilio";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -82,133 +79,21 @@ export async function POST(req: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    if (session.payment_status === "paid") {
-      const agreementId = session.metadata?.agreement_id;
-      const purchaseId = session.metadata?.purchase_id;
-      const rawPlan = session.metadata?.plan ?? "";
-      const plan: PortalPlan = VALID_PLANS.includes(rawPlan as PortalPlan)
-        ? (rawPlan as PortalPlan)
-        : "starter";
-
-      if (agreementId) {
-        try {
-          const agreement = await getAgreement(agreementId);
-          if (agreement) {
-            /**
-             * Whose purchase is this?
-             *
-             * The intent, when there is one. It was written server-side while the buyer was
-             * authenticated, so it records who was actually signed in — not
-             * `agreement.signerEmail`, which is a string typed into a form and which Stripe
-             * lets the client change again on its own checkout page. Getting this wrong
-             * creates an account nobody can sign into.
-             *
-             * The fallback covers sessions opened before the intent existed and still in
-             * flight at deploy. Delete it once none can remain.
-             */
-            const intent = purchaseId ? await getPurchaseIntent(purchaseId) : null;
-            if (purchaseId && !intent) {
-              console.warn("[stripe webhook] purchase intent missing", purchaseId, session.id);
-            }
-            if (intent?.consumedAt) {
-              console.log("[stripe webhook] intent already consumed, replay", purchaseId);
-            }
-            const email = intent?.accountEmail ?? agreement.signerEmail;
-
-            /**
-             * A placeholder, deliberately. The real slug is assigned by the wizard.
-             *
-             * This used to be `slugifyBrand(agreement.clientLegalName)`, which is stable per
-             * legal entity — so a returning client buying a second site produced the *same*
-             * slug as their first, and `upsertSite` merged the new purchase into their
-             * existing live site: status flipped back to `pending-onboarding`, `sessionId`
-             * and `name` overwritten, and the old `stripeSubscriptionId` left in place while
-             * the subscription they had just paid for was orphaned. Silent, and it destroyed
-             * the record of a working site.
-             *
-             * Derived from the checkout session because that is what identifies this
-             * purchase and nothing else. `upsertSiteBySessionId` relocates the site by that
-             * same id when the wizard submits, at which point it takes a real slug from the
-             * brand name — so nothing downstream ever sees this string for long.
-             */
-            const slug = `pending-${session.id.slice(-8)}`;
-            await createPendingSite(email, {
-              slug,
-              name: agreement.clientLegalName || "(pending)",
-              plan,
-              status: "pending-onboarding",
-              sessionId: session.id,
-              signerEmail: agreement.signerEmail,
-              signerName: agreement.signerName,
-              onboardingCompletedAt: null,
-              addedAt: Date.now(),
-              // The agreement record is written with a 30-day TTL, so copying its identity
-              // here is what keeps "which terms authorised this site" answerable afterwards.
-              agreementId,
-              agreementPdfUrl: agreement.pdfUrl,
-              agreementVersion: agreement.agreementVersion,
-              ...(purchaseId ? { purchaseId } : {}),
-              // The Customer that actually paid, so metering and consolidation have a handle
-              // without re-deriving one. `customer` is a string in the webhook payload.
-              ...(typeof session.customer === "string"
-                ? { stripeCustomerId: session.customer }
-                : {}),
-            });
-            console.log("[stripe webhook] pending site created", email, slug, plan);
-
-            if (intent) await markIntentConsumed(intent, slug);
-
-            /**
-             * Keep the signed agreement past its TTL now that it has been paid for.
-             *
-             * `saveAgreement` sets a 30-day expiry, which was fine when the record's only job
-             * was to survive the gap between signing and checkout. It is now the audit trail
-             * behind a live site — and for the master/addendum model it is the thing later
-             * addenda are written against. Losing it after a month is not acceptable.
-             *
-             * Best effort: the site fields copied above are what the app reads, so a failure
-             * here costs the audit copy, not the client's access.
-             */
-            await persistAgreement(agreementId).catch((e) =>
-              console.error("[stripe webhook] could not persist agreement", agreementId, e),
-            );
-
-            // Payment cleared, so any consent held since signing becomes real. Its own
-            // try/catch: a client who paid must still get their site record even if the
-            // consent promotion fails, and the failure is recoverable by hand from the
-            // pending key. Idempotent, which matters because this handler is replayed.
-            try {
-              const promoted = await promotePendingConsent(agreementId, email);
-              if (promoted) {
-                console.log("[stripe webhook] sms consent activated", email, promoted.phone);
-
-                // With double opt-in on, promotion leaves the consent pending-confirmation
-                // and this message is what lets them complete it. Its own catch: a failed
-                // send is recoverable from the portal, a thrown error here is not.
-                if (doubleOptInEnabled()) {
-                  await sendSms({
-                    to: promoted.phone,
-                    body:
-                      "Juneau Digital Designs: reply YES to confirm you want a text summary " +
-                      "after each call. Msg & data rates may apply. Reply STOP to opt out, " +
-                      "HELP for help.",
-                  }).catch((e) =>
-                    console.error("[stripe webhook] confirmation send failed", promoted.phone, e),
-                  );
-                }
-              }
-            } catch (e) {
-              console.error("[stripe webhook] sms consent promotion failed", agreementId, e);
-            }
-          } else {
-            console.warn("[stripe webhook] agreement not found", agreementId);
-          }
-        } catch (e) {
-          console.error("[stripe webhook] createPendingSite failed", session.id, e);
-        }
-      } else {
-        console.warn("[stripe webhook] no agreement_id in session metadata", session.id);
-      }
+    /**
+     * Fulfilment lives in `checkout-fulfillment.ts` because `/checkout/success` runs it too.
+     *
+     * This handler is authoritative but asynchronous, so the browser routinely gets back
+     * before it fires and finds no site to be sent to. The success page is synchronous with
+     * the client but only runs if they actually return. Running both, over one idempotent
+     * function, is what makes the post-payment redirect deterministic.
+     *
+     * The try/catch stays here: a webhook that throws gets retried by Stripe, and a 500 on a
+     * session that was already provisioned would be noise.
+     */
+    try {
+      await provisionPaidSession(session);
+    } catch (e) {
+      console.error("[stripe webhook] fulfilment failed", session.id, e);
     }
   }
 

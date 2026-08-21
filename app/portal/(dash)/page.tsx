@@ -12,6 +12,7 @@ import {
     LatestCalls,
     OverviewAside,
 } from "@/app/components/portal/OverviewSection";
+import { PendingSiteBanner } from "@/app/components/portal/PendingSiteBanner";
 import { SectionHeader, Card } from "@/app/components/portal/ui/Card";
 import {
     StatRowSkeleton,
@@ -83,6 +84,14 @@ export default async function OverviewPage({
                 title={building ? "Your site is being built" : "Overview"}
                 meta={building ? undefined : "Everything we watch for you, live"}
             />
+
+            {/*
+              * Above everything else on purpose. A site that has been paid for and not yet
+              * described is the only thing on this page the client has to act on — the rest
+              * reports state they can read at their leisure. Renders nothing when there is
+              * nothing outstanding.
+              */}
+            <PendingSiteBanner sites={account.sites} currentSlug={site.slug} />
 
             {provisioningGrowth && (
                 <GrowthProvisioning
