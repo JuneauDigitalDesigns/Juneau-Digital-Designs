@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
+import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import AgreementClient from "../components/agreement/AgreementClient";
 import UpgradeUnavailable from "../components/agreement/UpgradeUnavailable";
@@ -43,6 +44,22 @@ export default async function AgreementPage({
     const selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
+
+    /**
+     * Nobody signs anonymously any more.
+     *
+     * `/start` is the front door and authenticates before sending anyone here, but this page
+     * is a plain URL and people bookmark and share those. Without the guard a signed-out
+     * visitor could read the terms, sign them, and only *then* be refused by `/api/checkout`
+     * — having produced a legally signed agreement, and an emailed copy of it, for a purchase
+     * that can never complete.
+     *
+     * Bounced through `/start` rather than straight to sign-in, so they rejoin the funnel at
+     * the entitlement check: a client whose account already rules this purchase out should
+     * meet the upsell, not the signature form.
+     */
+    const { userId } = await auth();
+    if (!userId) redirect(`/start?plan=${selectedPlan}`);
 
     // Terms resolve on the server so the client never ships the full body of
     // all three plans, and so the text rendered here is the same text the

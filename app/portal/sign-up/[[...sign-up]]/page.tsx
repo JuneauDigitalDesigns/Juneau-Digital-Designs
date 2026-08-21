@@ -1,8 +1,24 @@
 import { SignUp } from "@clerk/nextjs";
 import PortalScope from "@/app/components/portal/PortalScope";
+import { safeRedirectPath } from "@/app/lib/safe-redirect";
 import { portalClerkAppearance } from "../../clerkAppearance";
 
-export default function PortalSignUpPage() {
+export default async function PortalSignUpPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ redirect_url?: string | string[] }>;
+}) {
+    /**
+     * Honour where the visitor was actually headed.
+     *
+     * `forceRedirectUrl` was hardcoded to "/portal", and in Clerk that outranks the
+     * `redirect_url` query param — so once the purchase gate started routing buyers through
+     * here, every one of them would have been dropped on the dashboard with the plan they
+     * had just chosen silently discarded. Validated rather than passed straight through:
+     * a query param that decides where the browser goes next is an open redirect otherwise.
+     */
+    const redirectUrl = safeRedirectPath((await searchParams).redirect_url);
+
     return (
         <PortalScope>
             <div
@@ -49,8 +65,8 @@ export default function PortalSignUpPage() {
                         <SignUp
                             path="/portal/sign-up"
                             routing="path"
-                            signInUrl="/portal/sign-in"
-                            forceRedirectUrl="/portal"
+                            signInUrl={`/portal/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`}
+                            forceRedirectUrl={redirectUrl}
                             appearance={portalClerkAppearance}
                         />
                     </div>
