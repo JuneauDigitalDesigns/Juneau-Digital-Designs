@@ -1,6 +1,8 @@
 import "server-only";
 import type Stripe from "stripe";
+import type { PortalAccount } from "@jdd/schema";
 import { stripe } from "./stripe";
+import { saveAccount } from "./account-store";
 import { getPlan, type PlanSlug } from "./plans";
 
 /**
@@ -96,6 +98,74 @@ export function upgradeBlockReason(site: {
     if (site.plan !== "starter") return "not-starter";
     if (site.status === "pending-onboarding") return "pending-onboarding";
     if (!hasBillingLink(site)) return "no-billing-link";
+    return null;
+}
+
+/**
+ * The one Stripe Customer this account bills to, creating it if this is their first purchase.
+ *
+ * Checkout used to pass `customer_email`, which looks nothing up — Stripe mints a brand new
+ * Customer for every session. A client who bought three sites therefore had three Customers,
+ * three saved cards and three unrelated invoice streams: no way to show them one bill, no way
+ * to charge a second site to the card already on file, and nothing for a consolidation to
+ * attach to.
+ *
+ * Resolution order matters. An account predating this field almost certainly *has* a Customer
+ * already, reachable through any site's subscription; minting a fresh one would strand their
+ * payment method and quietly open a second billing relationship. So: stored id, else recover
+ * from a subscription and persist, else create.
+ *
+ * Writing the recovered id back also un-breaks `usage-billing`, which skips an account
+ * outright when it cannot find a customer — true for nearly everyone, because the per-site
+ * `stripeCustomerId` was only ever written by the cancellation route.
+ */
+export async function getOrCreateCustomerId(account: PortalAccount): Promise<string> {
+    if (account.stripeCustomerId) return account.stripeCustomerId;
+
+    const recovered = await recoverCustomerId(account);
+    if (recovered) {
+        await saveAccount({ ...account, stripeCustomerId: recovered, updatedAt: Date.now() });
+        console.log("[plan-billing] recovered stripe customer", account.email, recovered);
+        return recovered;
+    }
+
+    const customer = await stripe.customers.create({
+        email: account.email,
+        metadata: {
+            account_email: account.email,
+            ...(account.clerkUserId ? { clerk_user_id: account.clerkUserId } : {}),
+        },
+    });
+    await saveAccount({ ...account, stripeCustomerId: customer.id, updatedAt: Date.now() });
+    return customer.id;
+}
+
+/**
+ * Dig an existing Customer out of whatever billing pointers the account's sites carry.
+ *
+ * Site-level `stripeCustomerId` first because it costs nothing, then Stripe via a
+ * subscription. Returns the first hit: a pre-cutover multi-site client may genuinely have
+ * several Customers, and standardising on one of them is the point — Stripe cannot merge
+ * them, so the alternative to picking one is not "the right one", it is a fourth one.
+ */
+async function recoverCustomerId(account: PortalAccount): Promise<string | null> {
+    for (const site of account.sites) {
+        if (site.stripeCustomerId) return site.stripeCustomerId;
+    }
+
+    for (const site of account.sites) {
+        const subscriptionId = await resolveSubscriptionId(site);
+        if (!subscriptionId) continue;
+        try {
+            const sub = await stripe.subscriptions.retrieve(subscriptionId);
+            const customer = sub.customer;
+            const id = typeof customer === "string" ? customer : customer?.id;
+            if (id) return id;
+        } catch (e) {
+            console.error("[plan-billing] customer recovery failed", site.slug, subscriptionId, e);
+        }
+    }
+
     return null;
 }
 

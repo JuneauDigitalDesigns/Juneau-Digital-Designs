@@ -6,7 +6,9 @@ export async function GET(request: Request) {
   const ctx = await resolvePortalRequest(request);
   if (!ctx.ok) return ctx.response;
 
-  const draft = await getDraft(ctx.userId);
+  // `ctx.site` is resolved from `?site=` and validated against the account, so the draft is
+  // always scoped to a site this client actually owns.
+  const draft = await getDraft(ctx.userId, ctx.site.slug);
   return NextResponse.json({ data: draft?.data ?? null, savedAt: draft?.savedAt ?? null });
 }
 
@@ -25,6 +27,6 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 });
   }
 
-  await saveDraft(ctx.userId, body.data);
+  await saveDraft(ctx.userId, body.data, ctx.site.slug);
   return NextResponse.json({ ok: true });
 }

@@ -120,8 +120,19 @@ export default function PricingPageClient() {
 
     function subscribe(slug: PlanSlug) {
         setLoadingPlan(slug);
-        // Send users to the MSA signing page first; payment happens after signing.
-        window.location.href = `/agreement?plan=${slug}`;
+        /**
+         * Everyone goes to `/start`, signed in or not.
+         *
+         * This used to jump straight to `/agreement`, which meant the funnel did not learn who
+         * the buyer was until they typed an email into the signature form — after reading the
+         * terms, and with no way to tell a returning client from a new one. `/start`
+         * authenticates, resolves the account, and only then decides whether this is a
+         * purchase, an addendum, or an upsell.
+         *
+         * This page stays static and anonymous: it renders identically for everyone and holds
+         * no entitlement logic, so there is nothing here to disagree with the server.
+         */
+        window.location.href = `/start?plan=${slug}`;
     }
 
     return (

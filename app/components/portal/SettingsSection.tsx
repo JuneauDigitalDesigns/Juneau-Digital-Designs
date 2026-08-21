@@ -286,7 +286,41 @@ function FeaturedSection({
  * against words the client actually saw at that moment, not words they saw months ago on
  * a page they no longer remember.
  */
-function SmsAlertsSection({ consent }: { consent: SmsConsentProps | null }) {
+function SmsAlertsSection({
+    consent,
+    plan,
+}: {
+    consent: SmsConsentProps | null;
+    plan: PortalSiteProps["plan"];
+}) {
+    // Same boundary as the agreement page: starter has no receptionist, so there are no
+    // calls to summarize and nothing here would ever fire. Shown rather than hidden, so a
+    // client who read about call texts on the marketing site learns why they can't find them.
+    //
+    // The branch lives here, in a component with no state of its own, so the controls below
+    // can keep their hooks at the top of an unconditional body.
+    if (plan === "starter") {
+        return (
+            <SectionCard title="Call alert texts">
+                <p
+                    style={{
+                        fontSize: 14,
+                        color: "var(--fg-2)",
+                        margin: 0,
+                        lineHeight: "var(--leading-relaxed, 1.6)",
+                    }}
+                >
+                    Call summary texts are part of the Growth and Enterprise plans. Starter does not
+                    include the AI receptionist, so there are no calls for us to text you about, and
+                    we will not send you text messages on this plan.
+                </p>
+            </SectionCard>
+        );
+    }
+    return <SmsAlertsControls consent={consent} />;
+}
+
+function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
     const active = consent?.status === "granted" || consent?.status === "pending-confirmation";
     const [enabled, setEnabled] = useState(active);
     const [phone, setPhone] = useState(consent?.phone ?? "");
@@ -472,7 +506,7 @@ export default function SettingsSection({
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
-            <SmsAlertsSection consent={smsConsent} />
+            <SmsAlertsSection consent={smsConsent} plan={site.plan} />
             <FeaturedSection site={site} />
         </div>
     );

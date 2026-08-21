@@ -14,7 +14,15 @@ import {
     auditPalette,
     presetById,
     presetToPick,
+    palettesForVertical,
     DEFAULT_PALETTE_PRESET_ID,
+    INDUSTRY_MENUS,
+    OTHER_INDUSTRY,
+    VOICE_OPTIONS,
+    menuFor,
+    differentiatorsFor,
+    customersFor,
+    joinChoices,
     type BrandIntakeSubmission,
     type BrandPalette,
     type PalettePick,
@@ -52,39 +60,55 @@ type AdditionalSiteForm = {
  * into BrandDirection at submit), adjectives are free text (split at submit),
  * and consent/turnstile/honeypot/currentStep are meta.
  */
+/**
+ * What the wizard collects.
+ *
+ * ── Four typed fields, everything else picked ───────────────────────────────
+ *
+ * This used to be ~30 blank inputs across nine steps, which is a writing assignment rather
+ * than an onboarding form. Only `brandName`, `email`, `phone` and `address` are typed now;
+ * industry, services, differentiators, audience, voice and colours are all chosen from
+ * options, each with an optional free-text box for anyone who wants to add their own.
+ *
+ * ── Chips are stored separately from the free text ──────────────────────────
+ *
+ * `diffChips`/`diffText` and `customerChips`/`customerText` are joined into the single
+ * strings `BrandDirection` expects only at submit, via `joinChoices`. Keeping them apart in
+ * form state is what lets a client deselect a chip without their own typed sentence being
+ * rebuilt or lost.
+ *
+ * ── What's gone, and where it comes from now ────────────────────────────────
+ *
+ * `brandShort` derives from `brandName`. `license`, `established`, `notableClients`,
+ * `certifications`, `businessHours`, `serviceArea` come from the website scan when the
+ * client has a site, the console otherwise, or are honestly absent — the copywriter is
+ * forbidden from inventing them. `agentName` defaults in the console. `announcement` is a
+ * post-launch promo. `vibe`/`adjectivesText`/`references` collapsed into one `voice` picker;
+ * all three fed the same paragraph of the copywriter prompt anyway.
+ */
 type WizardData = {
     selectedPlan: PlanSlug;
-    // Contact facts
+    // The only fields a client must type.
     brandName: string;
-    brandShort: string;
     email: string;
     phone: string;
     address: string;
-    license: string;
-    // Business facts
+    // Picked. Drives the service, differentiator, audience and palette options downstream.
     industry: string;
-    established: string;
-    notableClients: string;
-    certifications: string;
-    businessHours: string;
-    serviceArea: string;
-    agentName: string;
     serviceList: ServiceEntry[];
-    // Brand direction (flat; assembled at submit)
-    differentiators: string;
-    targetCustomer: string;
-    vibe: string[];
-    tone: string[];
-    adjectivesText: string;
-    references: string;
+    // Brand direction — chips plus optional free text, joined at submit.
+    diffChips: string[];
+    diffText: string;
+    customerChips: string[];
+    customerText: string;
+    voice: string[];
     forbidden: string;
     // Look & feel
     palette: PalettePick;
     hasLogo: boolean;
     images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
-    // Existing site + optional
+    /** Fed to the copywriter's website scan — the single input that saves the most typing. */
     existingWebsiteUrl: string;
-    announcement: string;
     // Enterprise
     additionalSites: AdditionalSiteForm[];
     // Meta
@@ -94,6 +118,8 @@ type WizardData = {
     currentStep: number;
     /** Which screen of the Look & feel color sub-wizard (0 pick, 1 preview, 2 confirm). */
     colorStep: number;
+    /** Reveal all ten palettes rather than the four suited to their trade. */
+    showAllPalettes: boolean;
 };
 
 /** Number of screens in the color sub-wizard nested inside the "look" step. */
@@ -113,18 +139,23 @@ function schedulePlanMeta(slug: PlanSlug) {
     return { label: s.name, price: `$${s.monthlyPrice}/month`, maxSites: s.maxSites };
 }
 
+/**
+ * Derived from the shared menus rather than written out again.
+ *
+ * This list used to be a local literal that happened to use the same six ids as the
+ * console's `VerticalId` union. Nothing compared them, so a rename on either side would
+ * have surfaced as the console quietly falling back to a manual vertical pick rather than
+ * as an error. @jdd/schema is canonical now; "Other" is appended because it is a real answer
+ * a client can give but not a trade we hold a menu for.
+ */
 const INDUSTRY_OPTIONS: { id: string; label: string }[] = [
-    { id: "hvac", label: "HVAC / Heating & Cooling" },
-    { id: "plumbing", label: "Plumbing" },
-    { id: "roofing", label: "Roofing" },
-    { id: "lawn-care", label: "Lawn Care / Landscaping" },
-    { id: "car-detailing", label: "Car Detailing / Auto" },
-    { id: "health", label: "Health & Wellness" },
-    { id: "other", label: "Other / Not listed" },
+    ...INDUSTRY_MENUS.map((m) => ({ id: m.id as string, label: m.label })),
+    { id: OTHER_INDUSTRY, label: "Other / Not listed" },
 ];
 
-const VIBE_OPTIONS = ["Modern", "Classic", "Bold", "Minimal", "Warm", "Premium", "Playful", "Rugged"];
-const TONE_OPTIONS = ["Friendly", "Professional", "Authoritative", "Playful", "Calm", "Confident"];
+// Vibe, tone and free-text adjectives were three questions describing one thing, and all
+// three collapsed into the same paragraph of the copywriter prompt. VOICE_OPTIONS from
+// @jdd/schema replaces them with a single picker.
 
 const emptyPalette = (): PalettePick => ({ mode: "preset", presetId: DEFAULT_PALETTE_PRESET_ID });
 const COLOR_SUB_LABELS = ["Theme", "Preview", "Confirm"];
@@ -187,37 +218,30 @@ function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
     return {
         selectedPlan: plan,
         brandName: "",
-        brandShort: "",
         email: prefillEmail,
         phone: "",
         address: "",
-        license: "",
         industry: "",
-        established: "",
-        notableClients: "",
-        certifications: "",
-        businessHours: "",
-        serviceArea: "",
-        agentName: "",
-        serviceList: [emptyService()],
-        differentiators: "",
-        targetCustomer: "",
-        vibe: [],
-        tone: [],
-        adjectivesText: "",
-        references: "",
+        // No blank starter row: services are chosen from chips now, and an empty row sitting
+        // under them reads as "you still have to type one".
+        serviceList: [],
+        diffChips: [],
+        diffText: "",
+        customerChips: [],
+        customerText: "",
+        voice: [],
         forbidden: "",
         palette: emptyPalette(),
         hasLogo: false,
         images: { heroSlides: [] },
         existingWebsiteUrl: "",
-        announcement: "",
         additionalSites: [],
         consent: false,
         turnstileToken: "",
         website: "",
         currentStep: 0,
         colorStep: 0,
+        showAllPalettes: false,
     };
 }
 
@@ -240,12 +264,19 @@ function safeStorageKey(sessionId: string): string | null {
     return /^cs_[a-zA-Z0-9_]+$/.test(sessionId) ? `jdd-onboarding-${sessionId}` : null;
 }
 
-function portalStorageKey(clerkUserId: string): string | null {
-    return clerkUserId ? `jdd-onboarding-portal-${clerkUserId}` : null;
-}
-
-function splitList(value: string): string[] {
-    return (value || "").split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+/**
+ * Scoped to the site, not just the user.
+ *
+ * A client can have more than one site awaiting its wizard — buy two starters in a row and
+ * both sit there pending. Keying on `clerkUserId` alone gave them one shared draft, so
+ * whichever site they opened second showed the first one's answers and autosave overwrote
+ * them on the way out.
+ */
+function portalStorageKey(clerkUserId: string, siteRef: string): string | null {
+    if (!clerkUserId) return null;
+    return siteRef
+        ? `jdd-onboarding-portal-${clerkUserId}-${siteRef}`
+        : `jdd-onboarding-portal-${clerkUserId}`;
 }
 
 // ── Small presentational helpers ─────────────────────────────────────────────
@@ -454,14 +485,21 @@ export default function OnboardingPageClient({
     sessionId = "",
     portalMode = false,
     clerkUserId = "",
+    siteRef = "",
 }: {
     plan: PlanSlug;
     prefillEmail?: string;
     sessionId?: string;
     /** When true: no Turnstile, no consent, submit goes to /api/portal/onboarding. */
     portalMode?: boolean;
-    /** Used as the localStorage key in portal mode (pass the Clerk userId). */
+    /** Used as part of the localStorage key in portal mode (pass the Clerk userId). */
     clerkUserId?: string;
+    /**
+     * Which site this wizard is filling in. Scopes the draft and is sent with the
+     * submission, so a client with two pending sites can't answer for one and save it
+     * against the other.
+     */
+    siteRef?: string;
 }) {
     const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     // The server render and the first client render MUST be identical, so the saved
@@ -476,6 +514,10 @@ export default function OnboardingPageClient({
     const [uploadingSlots, setUploadingSlots] = useState<Set<string>>(new Set());
     const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
     const [maxVisited, setMaxVisited] = useState(0);
+    // The real slug the server assigned on submit. The wizard arrives at a placeholder
+    // (`pending-<session>`) and the brand name replaces it, so this is only known after the
+    // response — and it is what the success redirect has to point at.
+    const [completedSlug, setCompletedSlug] = useState<string | null>(null);
     // Deliberately not persisted: a reload returns the client to the "happy with
     // these?" gate with their adjustments intact, rather than mid-edit.
     const [colorAdjusting, setColorAdjusting] = useState(false);
@@ -503,11 +545,12 @@ export default function OnboardingPageClient({
     // ── Draft restore (post-hydration only) ──
     // Runs after mount so the first client render still matches the server HTML.
     useEffect(() => {
-        const key = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+        const key = portalMode ? portalStorageKey(clerkUserId, siteRef) : safeStorageKey(sessionId);
         if (!key && !portalMode) {
             didRestoreRef.current = true;
             return;
         }
+        const draftUrl = `/api/portal/onboarding/draft${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`;
 
         async function restore() {
             let localSavedAt: Date | null = null;
@@ -534,7 +577,7 @@ export default function OnboardingPageClient({
             // 2. In portal mode, also fetch server draft and use whichever is newer.
             if (portalMode) {
                 try {
-                    const res = await fetch("/api/portal/onboarding/draft", { cache: "no-store" });
+                    const res = await fetch(draftUrl, { cache: "no-store" });
                     if (res.ok) {
                         const body = (await res.json()) as { data: Partial<WizardData> | null; savedAt: string | null };
                         if (body.data && body.savedAt) {
@@ -571,7 +614,7 @@ export default function OnboardingPageClient({
 
     // ── Draft autosave (persists currentStep too) ──
     useEffect(() => {
-        const key = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+        const key = portalMode ? portalStorageKey(clerkUserId, siteRef) : safeStorageKey(sessionId);
         if (!didRestoreRef.current) return;
         if (!key && !portalMode) return;
         const id = setTimeout(() => {
@@ -583,12 +626,15 @@ export default function OnboardingPageClient({
             }
             // In portal mode also sync to the server so the draft survives a cache clear.
             if (portalMode) {
-                fetch("/api/portal/onboarding/draft", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ data: record }),
-                    keepalive: true,
-                }).catch(() => {});
+                fetch(
+                    `/api/portal/onboarding/draft${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`,
+                    {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ data: record }),
+                        keepalive: true,
+                    },
+                ).catch(() => {});
             }
         }, 800);
         return () => clearTimeout(id);
@@ -606,10 +652,30 @@ export default function OnboardingPageClient({
     function set<K extends keyof WizardData>(field: K, value: WizardData[K]) {
         setFormData((prev) => ({ ...prev, [field]: value }));
     }
-    function toggleIn(field: "vibe" | "tone", value: string) {
+    function toggleIn(field: "voice" | "diffChips" | "customerChips", value: string) {
         setFormData((prev) => {
             const has = prev[field].includes(value);
             return { ...prev, [field]: has ? prev[field].filter((v) => v !== value) : [...prev[field], value] };
+        });
+    }
+
+    /**
+     * Tick or untick a service chip.
+     *
+     * `serviceList` stays a structured `ServiceEntry[]` rather than a list of labels because
+     * it becomes real site content — the tag is the category shown on the built page. Custom
+     * rows the client types live in the same array, so unticking a chip must match on name
+     * and leave their own entries alone.
+     */
+    function toggleService(label: string, tag: string) {
+        setFormData((prev) => {
+            const has = prev.serviceList.some((s) => s.name === label);
+            return {
+                ...prev,
+                serviceList: has
+                    ? prev.serviceList.filter((s) => s.name !== label)
+                    : [...prev.serviceList, { name: label, tag }],
+            };
         });
     }
 
@@ -726,15 +792,24 @@ export default function OnboardingPageClient({
     }
 
     // ── Steps ──
+    /**
+     * Five steps, in the order the answers build on each other.
+     *
+     * `business` comes first because the industry picked there decides what every later step
+     * offers — services, differentiators, audiences and which palettes lead. The old order
+     * put the existing-site URL on the second-to-last screen, where the one input that saves
+     * the client the most typing was invisible until they had already typed everything.
+     *
+     * Welcome and the separate media/existing-site steps are gone: a screen that only sets
+     * expectations is a click, and photos belong with the rest of the look.
+     */
     const steps: { key: string; label: string }[] = [
-        { key: "welcome", label: "Welcome" },
-        { key: "contact", label: "Contact" },
-        { key: "business", label: "Business" },
-        { key: "direction", label: "Brand direction" },
-        { key: "media", label: "Logo & photos" },
-        { key: "look", label: "Look & feel" },
+        { key: "business", label: "Your business" },
+        { key: "services", label: "What you do" },
+        { key: "apart", label: "What sets you apart" },
+        { key: "sound", label: "How it should sound" },
+        { key: "look", label: "Look" },
         ...(plan === "enterprise" ? [{ key: "sites", label: "Extra sites" }] : []),
-        { key: "existing", label: "Existing site" },
         { key: "review", label: "Review & submit" },
     ];
     const lastStep = steps.length - 1;
@@ -742,6 +817,29 @@ export default function OnboardingPageClient({
 
     const lookIndex = steps.findIndex((s) => s.key === "look");
     const onLook = steps[step].key === "look";
+
+    /** The chip menu for the chosen trade, or null for "Other" — the free-text fallback. */
+    const menu = menuFor(formData.industry);
+
+    /**
+     * Services the client typed rather than ticked.
+     *
+     * Split out by identity against the menu so the custom rows render as editable inputs
+     * while ticked chips stay chips. Carrying the original index matters: `updateService`
+     * and `removeService` address `serviceList` positionally, so filtering without it would
+     * edit the wrong row.
+     */
+    const customServices = formData.serviceList
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => !menu?.services.some((s) => s.label === entry.name));
+
+    /**
+     * Palettes to show. Four that suit the trade, or all ten once the client asks —
+     * `palettesForVertical` already falls back to all of them for "Other".
+     */
+    const shownPalettes = formData.showAllPalettes
+        ? PALETTE_PRESETS
+        : palettesForVertical(formData.industry);
     const colorStep = Math.max(0, Math.min(COLOR_STEPS - 1, formData.colorStep ?? 0));
 
     const scrollTop = () => {
@@ -776,15 +874,21 @@ export default function OnboardingPageClient({
     const next = () => (onLook && colorStep < COLOR_STEPS - 1 ? goToColorStep(colorStep + 1) : goTo(step + 1));
     const back = () => (onLook && colorStep > 0 ? goToColorStep(colorStep - 1) : goTo(step - 1));
 
-    // Count how many fields the client left blank, for an advisory hint only.
+    /**
+     * How much the client left blank, for an advisory hint only — nothing blocks submit.
+     *
+     * Counts only what we still ask for. It used to include `license` and `established`,
+     * which the wizard no longer collects at all, so it would have reported every client as
+     * two fields short of complete no matter what they did.
+     */
     function blankCount(): number {
         let n = 0;
-        const factStrings = [formData.phone, formData.address, formData.license, formData.established, formData.industry, formData.existingWebsiteUrl];
+        const factStrings = [formData.phone, formData.address, formData.industry, formData.existingWebsiteUrl];
         n += factStrings.filter((v) => !v || !v.trim()).length;
         if (!formData.serviceList.some((s) => s.name.trim())) n += 1;
         if (!formData.hasLogo) n += 1;
         if (formData.images.heroSlides.length === 0) n += 1;
-        if (!formData.differentiators.trim()) n += 1;
+        if (!formData.diffChips.length && !formData.diffText.trim()) n += 1;
         return n;
     }
 
@@ -792,33 +896,30 @@ export default function OnboardingPageClient({
         return {
             selectedPlan: plan,
             brandName: formData.brandName,
-            brandShort: formData.brandShort,
             email: formData.email,
             phone: formData.phone,
             address: formData.address,
-            license: formData.license,
             industry: formData.industry,
-            established: formData.established,
-            notableClients: formData.notableClients,
-            certifications: formData.certifications,
-            businessHours: formData.businessHours,
-            serviceArea: formData.serviceArea,
-            agentName: formData.agentName,
             serviceList: formData.serviceList.filter((s) => s.name.trim()),
+            // Chips and free text are joined here, not in form state, so unticking a chip
+            // never rebuilds or loses a sentence the client typed themselves.
+            //
+            // `vibe`, `adjectives` and `references` are sent empty rather than dropped:
+            // BrandDirection still declares them, and brandDirectionToDetails already skips
+            // empty arrays, so the copywriter prompt is unchanged by their absence.
             brandDirection: {
-                differentiators: formData.differentiators,
-                targetCustomer: formData.targetCustomer,
-                vibe: formData.vibe,
-                tone: formData.tone,
-                adjectives: splitList(formData.adjectivesText),
-                references: formData.references,
+                differentiators: joinChoices(formData.diffChips, formData.diffText),
+                targetCustomer: joinChoices(formData.customerChips, formData.customerText),
+                vibe: [],
+                tone: formData.voice,
+                adjectives: [],
+                references: "",
                 forbidden: formData.forbidden,
             },
             palette: formData.palette,
             hasLogo: formData.hasLogo,
             images: formData.images,
             existingWebsiteUrl: formData.existingWebsiteUrl,
-            announcement: formData.announcement,
             additionalSites:
                 plan === "enterprise"
                     ? formData.additionalSites
@@ -867,7 +968,11 @@ export default function OnboardingPageClient({
         setSubmitting(true);
         setSubmitState({ type: "idle", message: "" });
 
-        const endpoint = portalMode ? "/api/portal/onboarding" : "/api/onboarding";
+        // The site is named in the query string, not the body: it is an authorization
+        // parameter, and `resolvePortalRequest` already reads `?site=` for every portal route.
+        const endpoint = portalMode
+            ? `/api/portal/onboarding${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`
+            : "/api/onboarding";
 
         try {
             const response = await fetch(endpoint, {
@@ -883,11 +988,14 @@ export default function OnboardingPageClient({
                     }),
                 }),
             });
-            const data = (await response.json()) as { message?: string };
+            const data = (await response.json()) as { message?: string; slug?: string };
             if (!response.ok) throw new Error(data.message || "Unable to submit your onboarding form right now.");
+            // The wizard renames the site from its placeholder, so the slug we arrived with is
+            // already stale. Keep the one the server actually assigned for the redirect below.
+            if (data.slug) setCompletedSlug(data.slug);
             setSubmitState({ type: "success", message: "" });
             // Clear local draft
-            const storageKey = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+            const storageKey = portalMode ? portalStorageKey(clerkUserId, siteRef) : safeStorageKey(sessionId);
             if (storageKey) localStorage.removeItem(storageKey);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Something went wrong.";
@@ -900,7 +1008,15 @@ export default function OnboardingPageClient({
     if (submitState.type === "success") {
         if (portalMode) {
             // Portal mode: redirect immediately — they're already logged in.
-            window.location.assign("/portal");
+            //
+            // Carrying the slug matters for a multi-site client. Bare `/portal` re-runs
+            // `selectSite`, which prefers a *live* site — so a client who had just spent ten
+            // minutes describing their second site landed back on their first one with no
+            // acknowledgement that anything had been submitted.
+            const target = completedSlug
+                ? `/portal?site=${encodeURIComponent(completedSlug)}`
+                : "/portal";
+            window.location.assign(target);
             return null;
         }
         return (
@@ -1008,154 +1124,134 @@ export default function OnboardingPageClient({
                     </label>
 
                     <section className="glass p-6 sm:p-8" style={{ borderRadius: 22 }}>
-                        {/* ── Step: Welcome ── */}
-                        {steps[step].key === "welcome" && (
+                        {/* ── Step: Your business ── */}
+                        {steps[step].key === "business" && (
                             <div className="space-y-6">
                                 <div>
                                     <span className="eyebrow">Onboarding</span>
                                     <h1 style={{ fontSize: "var(--text-2xl)", marginTop: 12, marginBottom: 12 }}>Tell us about your business</h1>
                                     <div className="rounded-xl p-4" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)" }}>
                                         <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15 }}>
-                                            <strong style={{ color: "var(--fg)" }}>Nothing here is required.</strong> Share what you have — facts about your
-                                            business and the feel you want. <strong style={{ color: "var(--fg)" }}>You don&apos;t write any copy</strong>;
-                                            our team writes your headlines, service descriptions, and everything else from what you give us.
-                                            Anything you leave blank, we&apos;ll follow up on before we build.
+                                            <strong style={{ color: "var(--fg)" }}>Mostly clicking, not typing.</strong> Pick your trade and we&apos;ll
+                                            offer you the rest &mdash; services, what sets you apart, how you want to sound.
+                                            <strong style={{ color: "var(--fg)" }}> You never write any copy</strong>; we write your headlines and
+                                            descriptions from what you choose here. Nothing is required.
                                         </p>
                                     </div>
                                 </div>
-                                <Field label="What industry are you in?" hint="Helps us match the right tone and examples.">
-                                    <select className={`${inputCls} cursor-pointer`} value={formData.industry} onChange={(e) => set("industry", e.target.value)}>
-                                        <option value="">Select an industry…</option>
-                                        {INDUSTRY_OPTIONS.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
-                                    </select>
-                                </Field>
-                            </div>
-                        )}
 
-                        {/* ── Step: Contact ── */}
-                        {steps[step].key === "contact" && (
-                            <div className="space-y-5">
-                                <StepTitle title="Contact & business name" sub="The essentials so we can reach you and label your site." />
+                                {/* Industry leads the whole wizard: it decides which services, differentiators,
+                                    audiences and palettes every later step offers. */}
+                                <Field label="What do you do?" hint="This tailors everything we offer you from here on.">
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        {INDUSTRY_OPTIONS.map((o) => {
+                                            const on = formData.industry === o.id;
+                                            return (
+                                                <button
+                                                    key={o.id}
+                                                    type="button"
+                                                    onClick={() => set("industry", o.id)}
+                                                    className="rounded-xl px-4 py-3 text-left text-sm font-semibold transition"
+                                                    style={{
+                                                        border: `1px solid ${on ? "var(--accent)" : "var(--rule-strong)"}`,
+                                                        background: on ? "var(--accent)" : "var(--surface)",
+                                                        color: on ? "var(--on-accent)" : "var(--fg-2)",
+                                                        cursor: "pointer",
+                                                    }}
+                                                    aria-pressed={on}
+                                                >
+                                                    {o.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </Field>
+
                                 <div className="grid gap-5 sm:grid-cols-2">
                                     <Field label="Business name"><input className={inputCls} value={formData.brandName} onChange={(e) => set("brandName", e.target.value)} placeholder="Peak Home Services" /></Field>
-                                    <Field label="Short name" hint="Used in tight spots like the nav/logo. Defaults to your business name."><input className={inputCls} value={formData.brandShort} onChange={(e) => set("brandShort", e.target.value)} placeholder="Peak" /></Field>
                                     <Field label="Email"><input type="email" className={inputCls} value={formData.email} onChange={(e) => set("email", e.target.value)} placeholder="owner@business.com" /></Field>
                                     <Field label="Phone"><input className={inputCls} value={formData.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(907) 555-0142" /></Field>
                                     <Field label="Business address"><input className={inputCls} value={formData.address} onChange={(e) => set("address", e.target.value)} placeholder="318 Glacier Ave, Juneau, AK" /></Field>
-                                    <Field label="License #" hint="If you're licensed — shown as a trust signal."><input className={inputCls} value={formData.license} onChange={(e) => set("license", e.target.value)} placeholder="AK-GC-2019-04817" /></Field>
                                 </div>
                             </div>
                         )}
 
-                        {/* ── Step: Business ── */}
-                        {steps[step].key === "business" && (
-                            <div className="space-y-5">
-                                <StepTitle title="Business facts" sub="Real details we can ground your copy in — never invented." />
-                                <div className="grid gap-5 sm:grid-cols-2">
-                                    <Field label="Year established"><input className={inputCls} value={formData.established} onChange={(e) => set("established", e.target.value)} placeholder="2011" /></Field>
-                                    <Field label="Business hours"><input className={inputCls} value={formData.businessHours} onChange={(e) => set("businessHours", e.target.value)} placeholder="Mon–Fri 7am–6pm" /></Field>
-                                    <Field label="Service area" hint="Towns/regions you serve, comma-separated."><input className={inputCls} value={formData.serviceArea} onChange={(e) => set("serviceArea", e.target.value)} placeholder="Juneau, Douglas, Auke Bay" /></Field>
-                                    <Field label="Certifications / affiliations" hint="Comma-separated."><input className={inputCls} value={formData.certifications} onChange={(e) => set("certifications", e.target.value)} placeholder="EPA 608, NATE, BBB Accredited" /></Field>
-                                    <Field label="Notable clients" hint="Comma-separated; shown as a trust strip."><input className={inputCls} value={formData.notableClients} onChange={(e) => set("notableClients", e.target.value)} placeholder="City of Juneau, Bergmann Properties" /></Field>
-                                    {plan !== "starter" && (
-                                        <Field label="AI phone-agent name" hint="First name for your AI receptionist (optional)."><input className={inputCls} value={formData.agentName} onChange={(e) => set("agentName", e.target.value)} placeholder="Mia" /></Field>
-                                    )}
-                                </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Your services</p>
-                                        <p style={helpText}>List what you offer — just the name + a short category. We write the descriptions.</p>
+                        {/* ── Step: What you do ── */}
+                        {steps[step].key === "services" && (
+                            <div className="space-y-6">
+                                <StepTitle title="What you do" sub="Tick what you offer. We write the descriptions." />
+
+                                {menu ? (
+                                    <div className="space-y-2">
+                                        <Chips
+                                            options={menu.services.map((s) => s.label)}
+                                            selected={formData.serviceList.map((s) => s.name)}
+                                            onToggle={(label) => {
+                                                const hit = menu.services.find((s) => s.label === label);
+                                                if (hit) toggleService(hit.label, hit.tag);
+                                            }}
+                                        />
+                                        <p style={helpText}>Missing something? Add it below.</p>
                                     </div>
-                                    {formData.serviceList.map((s, i) => (
-                                        <div key={i} className="flex items-end gap-2">
-                                            <div className="flex-1"><Field label={i === 0 ? "Service name" : ""}><input className={inputCls} value={s.name} onChange={(e) => updateService(i, "name", e.target.value)} placeholder="AC Repair" /></Field></div>
-                                            <div style={{ width: 160 }}><Field label={i === 0 ? "Category tag" : ""}><input className={inputCls} value={s.tag} onChange={(e) => updateService(i, "tag", e.target.value)} placeholder="HVAC" /></Field></div>
-                                            <button type="button" className={removeRowBtnCls} onClick={() => removeService(i)} aria-label="Remove service"><Trash size={16} /></button>
+                                ) : (
+                                    // "Other" has no menu, so this step falls back to typing. Roughly one client
+                                    // in seven lands here, and they genuinely do have to describe themselves —
+                                    // the alternative is offering options that don't fit.
+                                    <p style={helpText}>Tell us what you offer &mdash; just the name and a short category. We write the descriptions.</p>
+                                )}
+
+                                {/* Custom rows live in the same serviceList as the chips, so a client can mix
+                                    ticked options with their own without the two competing. */}
+                                <div className="space-y-3">
+                                    {customServices.map(({ entry, index }) => (
+                                        <div key={index} className="flex items-end gap-2">
+                                            <div className="flex-1"><Field label=""><input className={inputCls} value={entry.name} onChange={(e) => updateService(index, "name", e.target.value)} placeholder="Service name" /></Field></div>
+                                            <div style={{ width: 160 }}><Field label=""><input className={inputCls} value={entry.tag} onChange={(e) => updateService(index, "tag", e.target.value)} placeholder="Category" /></Field></div>
+                                            <button type="button" className={removeRowBtnCls} onClick={() => removeService(index)} aria-label="Remove service"><Trash size={16} /></button>
                                         </div>
                                     ))}
-                                    {formData.serviceList.length < 8 && (<button type="button" className={addBtnCls} onClick={addService}><Plus size={16} /> Add service</button>)}
+                                    {formData.serviceList.length < 12 && (
+                                        <button type="button" className={addBtnCls} onClick={addService}><Plus size={16} /> Add your own</button>
+                                    )}
                                 </div>
-                            </div>
-                        )}
 
-                        {/* ── Step: Brand direction ── */}
-                        {steps[step].key === "direction" && (
-                            <div className="space-y-5">
-                                <StepTitle title="Brand direction" sub="This steers how we write your copy — not the copy itself. The more you share, the closer our first draft lands." />
-                                <Field label="What makes you different?" hint="The #1 thing to get across — your edge, guarantee, or promise.">
-                                    <textarea className={inputCls} rows={3} value={formData.differentiators} onChange={(e) => set("differentiators", e.target.value)} placeholder="Same-day diagnostics with a price-lock guarantee — no surprise invoices." />
-                                </Field>
-                                <Field label="Who is your ideal customer?" hint="One line.">
-                                    <input className={inputCls} value={formData.targetCustomer} onChange={(e) => set("targetCustomer", e.target.value)} placeholder="Homeowners who want it done right the first time" />
-                                </Field>
-                                <div className="space-y-2">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Visual vibe</span>
-                                    <Chips options={VIBE_OPTIONS} selected={formData.vibe} onToggle={(v) => toggleIn("vibe", v)} />
-                                </div>
-                                <div className="space-y-2">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Tone of voice</span>
-                                    <Chips options={TONE_OPTIONS} selected={formData.tone} onToggle={(v) => toggleIn("tone", v)} />
-                                </div>
-                                <div className="grid gap-5 sm:grid-cols-2">
-                                    <Field label="Brand adjectives" hint="3–5 words, comma-separated."><input className={inputCls} value={formData.adjectivesText} onChange={(e) => set("adjectivesText", e.target.value)} placeholder="fast, honest, local" /></Field>
-                                    <Field label="Sites / brands you admire" hint="Anything whose feel you like."><input className={inputCls} value={formData.references} onChange={(e) => set("references", e.target.value)} placeholder="e.g. a competitor's site you love" /></Field>
-                                </div>
-                                <Field label="Anything to avoid?" hint="Words, claims, or styles you don't want.">
-                                    <input className={inputCls} value={formData.forbidden} onChange={(e) => set("forbidden", e.target.value)} placeholder='e.g. "cheap", overly corporate tone' />
+                                {/* The single highest-value input on the form: it lets the copywriter read their
+                                    real site and recover the facts we no longer ask anyone to retype. */}
+                                <Field label="Do you have a website already?" hint="We'll read it so you don't have to retype your hours, credentials or reviews. Leave blank if you don't have one.">
+                                    <input className={inputCls} value={formData.existingWebsiteUrl} onChange={(e) => set("existingWebsiteUrl", e.target.value)} placeholder="https://yourbusiness.com" />
                                 </Field>
                             </div>
                         )}
 
-                        {/* ── Step: Logo & photos ── */}
-                        {steps[step].key === "media" && (
+                        {/* ── Step: What sets you apart ── */}
+                        {steps[step].key === "apart" && (
                             <div className="space-y-6">
-                                <StepTitle title="Logo & photos" sub="Share what you have. Anything you skip, we'll design or source for you." />
+                                <StepTitle title="What sets you apart" sub="The most useful thing we can know. Pick anything that is true." />
 
-                                {/* Logo */}
-                                <div className="space-y-3">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Logo</span>
-                                    {formData.images.logo ? (
-                                        <div className="flex items-center gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-3">
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={formData.images.logo.url} alt="Logo preview" style={{ height: 40, borderRadius: 6 }} />
-                                            <span className="flex-1 truncate text-sm" style={{ color: "var(--fg-2)" }}>{formData.images.logo.filename}</span>
-                                            <button type="button" className="text-sm" style={{ color: "var(--accent-2)", cursor: "pointer" }} onClick={() => setFormData((prev) => ({ ...prev, images: { ...prev.images, logo: undefined } }))}>Remove</button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-wrap items-center gap-4">
-                                            <label className={uploadBtnCls}>
-                                                {uploadingSlots.has("logo") ? "Uploading…" : "Upload logo"}
-                                                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} />
-                                            </label>
-                                            <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: "var(--fg-2)" }}>
-                                                <input type="checkbox" checked={!formData.hasLogo} onChange={(e) => set("hasLogo", !e.target.checked)} className="h-4 w-4 cursor-pointer" />
-                                                No logo yet — design one for me
-                                            </label>
-                                        </div>
-                                    )}
-                                    {uploadErrors["logo"] && <p className="text-sm" style={{ color: "var(--accent-2)" }}>{uploadErrors["logo"]}</p>}
+                                <div className="space-y-2">
+                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>What makes you different?</span>
+                                    <Chips options={differentiatorsFor(formData.industry)} selected={formData.diffChips} onToggle={(v) => toggleIn("diffChips", v)} />
+                                    <input className={inputCls} value={formData.diffText} onChange={(e) => set("diffText", e.target.value)} placeholder="Anything else that sets you apart (optional)" />
                                 </div>
 
-                                {/* Photos */}
-                                <div className="space-y-3">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Photos <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>(optional — real photos of your work/team beat stock)</span></span>
-                                    <label className={uploadBtnCls}>
-                                        {uploadingSlots.has("hero") ? "Uploading…" : "Add photos"}
-                                        <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleHeroSlideUpload} />
-                                    </label>
-                                    {uploadErrors["hero"] && <p className="text-sm" style={{ color: "var(--accent-2)" }}>{uploadErrors["hero"]}</p>}
-                                    {formData.images.heroSlides.length > 0 && (
-                                        <div className="flex flex-wrap gap-3">
-                                            {formData.images.heroSlides.map((img, i) => (
-                                                <div key={i} className="relative">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img src={img.url} alt={`Upload ${i + 1}`} style={{ height: 72, width: 96, objectFit: "cover", borderRadius: 8, border: "1px solid var(--rule)" }} />
-                                                    <button type="button" onClick={() => removeHeroSlide(i)} className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full" style={{ background: "var(--surface)", border: "1px solid var(--rule-strong)", color: "var(--fg-3)", cursor: "pointer" }} aria-label="Remove photo">✕</button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="space-y-2">
+                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Who do you serve?</span>
+                                    <Chips options={customersFor(formData.industry)} selected={formData.customerChips} onToggle={(v) => toggleIn("customerChips", v)} />
+                                    <input className={inputCls} value={formData.customerText} onChange={(e) => set("customerText", e.target.value)} placeholder="Anyone else you would add (optional)" />
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Step: How it should sound ── */}
+                        {steps[step].key === "sound" && (
+                            <div className="space-y-6">
+                                <StepTitle title="How it should sound" sub="Steers how we write. Pick a few that feel right." />
+                                <div className="space-y-2">
+                                    <Chips options={VOICE_OPTIONS} selected={formData.voice} onToggle={(v) => toggleIn("voice", v)} />
+                                </div>
+                                <Field label="Anything to avoid?" hint="Words, claims, or styles you do not want. Optional.">
+                                    <input className={inputCls} value={formData.forbidden} onChange={(e) => set("forbidden", e.target.value)} placeholder="e.g. cheap, overly corporate tone" />
+                                </Field>
                             </div>
                         )}
 
@@ -1167,9 +1263,16 @@ export default function OnboardingPageClient({
                                 {/* Screen 0 — pick a preset */}
                                 {colorStep === 0 && (
                                     <div className="space-y-4">
-                                        <StepTitle title="Choose a color theme" sub="Pick the direction that feels closest to your brand. You'll see it previewed next, and you can fine-tune it there." />
+                                        <StepTitle
+                                            title="Choose a color theme"
+                                            sub={
+                                                formData.showAllPalettes || !menu
+                                                    ? "Pick the direction that feels closest to your brand. You'll see it previewed next, and you can fine-tune it there."
+                                                    : "These suit your trade. You'll see your pick previewed next, and you can fine-tune it there."
+                                            }
+                                        />
                                         <div className="grid gap-3 sm:grid-cols-2">
-                                            {PALETTE_PRESETS.map((preset) => {
+                                            {shownPalettes.map((preset) => {
                                                 const on = formData.palette.presetId === preset.id;
                                                 return (
                                                     <button key={preset.id} type="button" onClick={() => { set("palette", { mode: "preset", presetId: preset.id }); setColorAdjusting(false); }} className={cardCls} style={{ borderColor: on ? "var(--accent)" : "var(--rule)", boxShadow: on ? "0 0 0 1px var(--accent)" : "none", textAlign: "left", cursor: "pointer" }}>
@@ -1186,6 +1289,20 @@ export default function OnboardingPageClient({
                                                 );
                                             })}
                                         </div>
+
+                                        {/* Narrowing the opening choice, not taking one away: every palette
+                                            stays reachable, it just isn't all ten at once for a client who
+                                            has no reason to judge them cold. */}
+                                        {!formData.showAllPalettes && menu && shownPalettes.length < PALETTE_PRESETS.length && (
+                                            <button
+                                                type="button"
+                                                onClick={() => set("showAllPalettes", true)}
+                                                className="text-sm font-semibold"
+                                                style={{ color: "var(--fg-3)", textDecoration: "underline", cursor: "pointer" }}
+                                            >
+                                                See all {PALETTE_PRESETS.length} themes
+                                            </button>
+                                        )}
                                     </div>
                                 )}
 
@@ -1251,6 +1368,61 @@ export default function OnboardingPageClient({
                             </div>
                         )}
 
+                        {/* Logo & photos, shown on the last Look screen — media belongs with the
+                            rest of the look, and a step of its own was one more click. */}
+                        {steps[step].key === "look" && colorStep === COLOR_STEPS - 1 && (
+                            <div className="space-y-6">
+                                <StepTitle title="Logo & photos" sub="Share what you have. Anything you skip, we'll design or source for you." />
+
+                                {/* Logo */}
+                                <div className="space-y-3">
+                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Logo</span>
+                                    {formData.images.logo ? (
+                                        <div className="flex items-center gap-3 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-3">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={formData.images.logo.url} alt="Logo preview" style={{ height: 40, borderRadius: 6 }} />
+                                            <span className="flex-1 truncate text-sm" style={{ color: "var(--fg-2)" }}>{formData.images.logo.filename}</span>
+                                            <button type="button" className="text-sm" style={{ color: "var(--accent-2)", cursor: "pointer" }} onClick={() => setFormData((prev) => ({ ...prev, images: { ...prev.images, logo: undefined } }))}>Remove</button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-wrap items-center gap-4">
+                                            <label className={uploadBtnCls}>
+                                                {uploadingSlots.has("logo") ? "Uploading…" : "Upload logo"}
+                                                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleLogoUpload} />
+                                            </label>
+                                            <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: "var(--fg-2)" }}>
+                                                <input type="checkbox" checked={!formData.hasLogo} onChange={(e) => set("hasLogo", !e.target.checked)} className="h-4 w-4 cursor-pointer" />
+                                                No logo yet — design one for me
+                                            </label>
+                                        </div>
+                                    )}
+                                    {uploadErrors["logo"] && <p className="text-sm" style={{ color: "var(--accent-2)" }}>{uploadErrors["logo"]}</p>}
+                                </div>
+
+                                {/* Photos */}
+                                <div className="space-y-3">
+                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Photos <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>(optional — real photos of your work/team beat stock)</span></span>
+                                    <label className={uploadBtnCls}>
+                                        {uploadingSlots.has("hero") ? "Uploading…" : "Add photos"}
+                                        <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleHeroSlideUpload} />
+                                    </label>
+                                    {uploadErrors["hero"] && <p className="text-sm" style={{ color: "var(--accent-2)" }}>{uploadErrors["hero"]}</p>}
+                                    {formData.images.heroSlides.length > 0 && (
+                                        <div className="flex flex-wrap gap-3">
+                                            {formData.images.heroSlides.map((img, i) => (
+                                                <div key={i} className="relative">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={img.url} alt={`Upload ${i + 1}`} style={{ height: 72, width: 96, objectFit: "cover", borderRadius: 8, border: "1px solid var(--rule)" }} />
+                                                    <button type="button" onClick={() => removeHeroSlide(i)} className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full" style={{ background: "var(--surface)", border: "1px solid var(--rule-strong)", color: "var(--fg-3)", cursor: "pointer" }} aria-label="Remove photo">✕</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+
                         {/* ── Step: Enterprise additional sites ── */}
                         {steps[step].key === "sites" && (
                             <div className="space-y-5">
@@ -1289,19 +1461,6 @@ export default function OnboardingPageClient({
                             </div>
                         )}
 
-                        {/* ── Step: Existing site ── */}
-                        {steps[step].key === "existing" && (
-                            <div className="space-y-5">
-                                <StepTitle title="Existing website" sub="If you already have a site, we'll pull real details from it to ground your new copy." />
-                                <Field label="Current website URL" hint="Leave blank if you don't have one.">
-                                    <input className={inputCls} value={formData.existingWebsiteUrl} onChange={(e) => set("existingWebsiteUrl", e.target.value)} placeholder="https://yourbusiness.com" />
-                                </Field>
-                                <Field label="Announcement / promo" hint="Anything timely you want featured up top (optional).">
-                                    <input className={inputCls} value={formData.announcement} onChange={(e) => set("announcement", e.target.value)} placeholder="Now booking summer AC tune-ups — save $40 before June 1" />
-                                </Field>
-                            </div>
-                        )}
-
                         {/* ── Step: Review & submit ── */}
                         {steps[step].key === "review" && (
                             <div className="space-y-5">
@@ -1312,6 +1471,12 @@ export default function OnboardingPageClient({
                                     <ReviewItem label="Email" value={formData.email} />
                                     <ReviewItem label="Phone" value={formData.phone} />
                                     <ReviewItem label="Services" value={formData.serviceList.filter((s) => s.name.trim()).map((s) => s.name).join(", ")} />
+                                    {/* The direction answers are what actually steer the copy, so the
+                                        review should show them rather than only the contact facts. */}
+                                    <ReviewItem label="Sets you apart" value={joinChoices(formData.diffChips, formData.diffText)} />
+                                    <ReviewItem label="You serve" value={joinChoices(formData.customerChips, formData.customerText)} />
+                                    <ReviewItem label="Voice" value={formData.voice.join(", ")} />
+                                    <ReviewItem label="Color theme" value={presetById(formData.palette.presetId)?.label ?? "Custom"} />
                                     <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "—" : "Design one for me"} />
                                     <ReviewItem label="Photos" value={formData.images.heroSlides.length ? `${formData.images.heroSlides.length} uploaded` : "None"} />
                                     <ReviewItem label="Existing site" value={formData.existingWebsiteUrl} />

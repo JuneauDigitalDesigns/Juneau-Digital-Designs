@@ -73,6 +73,17 @@ export async function POST(request: Request) {
     });
   }
 
+  // Only the enable path is plan-gated. Turning alerts OFF must work on every plan and from
+  // every state — a client who downgraded to Starter while holding a live consent still
+  // needs a working off switch, and refusing a revocation over a plan check is the one
+  // failure here that would actually matter.
+  if (ctx.site.plan === "starter") {
+    return NextResponse.json(
+      { error: "Call alert texts are not available on the Starter plan" },
+      { status: 400 },
+    );
+  }
+
   const next = normalizeE164(typeof phone === "string" ? phone : "");
   if (!next) {
     return NextResponse.json(

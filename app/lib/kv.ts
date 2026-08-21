@@ -27,3 +27,18 @@ export async function saveAgreement(record: AgreementRecord): Promise<void> {
 export async function getAgreement(id: string): Promise<AgreementRecord | null> {
   return getRedis().get<AgreementRecord>(key(id));
 }
+
+/**
+ * Drop the expiry once the agreement has been paid for.
+ *
+ * The 30-day TTL is sized for the gap between signing and checkout: an agreement nobody paid
+ * for is an abandoned draft, and letting it expire is the right outcome. One that *was* paid
+ * for is something else — the audit trail behind a live site, and the master that later
+ * addenda are written against. Neither can survive on a month's lease.
+ *
+ * A signature alone does not qualify. Payment is the event that turns a draft into a record
+ * worth keeping, which is why this is called from the webhook rather than the signing route.
+ */
+export async function persistAgreement(id: string): Promise<void> {
+  await getRedis().persist(key(id));
+}

@@ -1,6 +1,6 @@
 import "server-only";
 import type { PortalAccount, PortalSite } from "@jdd/schema";
-import { voiceSitesOf, sumAgentSeconds } from "./retell-usage";
+import { meteringGroupFor, sumAgentSeconds, type MeteringGroup } from "./retell-usage";
 import { getBillingPeriod, type WhichPeriod } from "./billing-period";
 import { getSchedule } from "./legal/schedules";
 import type { PlanSlug } from "./agreement-types";
@@ -9,10 +9,10 @@ import { accountScope, usageKey, getCached, setCached, USAGE_TTL } from "./porta
 /**
  * How much of this client's included call-time they've used in a billing period.
  *
- * Reads the same numbers the billing cron does — `voiceSitesOf` and `sumAgentSeconds` are
+ * Reads the same numbers the billing cron does — `meteringGroups` and `sumAgentSeconds` are
  * shared with `usage-billing.ts` on purpose. Showing a client 300 minutes and then invoicing
  * them for 400 is a refund and a lost customer, so there is exactly one definition of "how
- * much did they use".
+ * much did they use" and, just as importantly, one definition of *whose* minutes those are.
  *
  * Carried in **seconds**, not minutes. The previous version rounded to whole minutes here and
  * that one integer fed the tile, the cap, the overage and the Stripe line item, so a 4m 44s
@@ -63,20 +63,31 @@ export async function getUsageSummary(
     which: WhichPeriod = "current",
 ): Promise<UsageSummary> {
     const schedule = getSchedule(site.plan as PlanSlug);
-    const cap = schedule.callMinutes;
 
     // Starter has no voice agent at all, so there is no allowance to report against.
-    if (!cap) return { ...EMPTY, state: "not-on-plan" };
+    if (!schedule.callMinutes) return { ...EMPTY, state: "not-on-plan" };
     if (site.status !== "live") return { ...EMPTY, state: "pending-build" };
 
-    // Account-scoped and slug-free: enterprise pools across sites, so all of them share one
-    // entry. Keyed by period as well, so reading the previous window can never overwrite the
-    // current one's figure.
-    const key = usageKey(accountScope(account.email), which);
+    /**
+     * The allowance this site actually draws on, which is not the account's.
+     *
+     * Growth is sold per site at 350 minutes each and the pools never meet; only Enterprise
+     * pools, across its own bundle. This used to sum every voice agent on the account against
+     * one cap, so a client with two Growth sites saw both sites' minutes on both tiles and a
+     * cap that was 350 for the pair. `meteringGroups` is the same helper the billing cron
+     * runs on, which is what keeps the number shown equal to the number billed.
+     */
+    const group = meteringGroupFor(account.sites, site.slug);
+    if (!group) return { ...EMPTY, state: "pending-build" };
+
+    // Scoped to the allowance, not the account: two Growth sites are two different numbers
+    // and would otherwise collide on one entry. Keyed by period as well, so reading the
+    // previous window can never overwrite the current one's figure.
+    const key = usageKey(accountScope(account.email), group.ref, which);
     const hit = await getCached<UsageSummary>(key);
     if (hit) return hit;
 
-    const result = await loadUsage(account, site, cap, schedule.overagePerMinute ?? 0, which);
+    const result = await loadUsage(account, site, group, schedule.overagePerMinute ?? 0, which);
     if (result.state === "ready") await setCached(key, USAGE_TTL, result);
     return result;
 }
@@ -84,7 +95,7 @@ export async function getUsageSummary(
 async function loadUsage(
     account: PortalAccount,
     site: PortalSite,
-    cap: number,
+    group: MeteringGroup,
     overageRate: number,
     which: WhichPeriod,
 ): Promise<UsageSummary> {
@@ -95,24 +106,22 @@ async function loadUsage(
             return EMPTY;
         }
 
-        const voiceSites = voiceSitesOf(account.sites);
-        if (voiceSites.length === 0) return { ...EMPTY, state: "pending-build" };
-
         // The allowance resets on the Stripe renewal date, not the 1st of the month, so the
         // window comes from the subscription rather than the calendar.
         const period = await getBillingPeriod(site, account.email, which);
         if (!period) return EMPTY;
 
-        // Never query past now — a future end date would return the same calls, but this makes
-        // it explicit that an open period reports usage *so far*. A closed period (previous)
-        // clamps to its own end instead.
+        // Only this allowance's agents. Never query past now — a future end date would return
+        // the same calls, but this makes it explicit that an open period reports usage *so
+        // far*. A closed period (previous) clamps to its own end instead.
         const secondsUsed = await sumAgentSeconds(
             apiKey,
-            voiceSites,
+            group.sites,
             period.startMs,
             Math.min(period.endMs, Date.now()),
         );
 
+        const cap = group.cap;
         const capSeconds = cap * 60;
         const overageSeconds = Math.max(0, secondsUsed - capSeconds);
 

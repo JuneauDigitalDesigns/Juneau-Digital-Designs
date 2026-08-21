@@ -88,9 +88,11 @@ export default function SmsTermsPage() {
                                     </li>
                                 </ul>
                                 <p>
-                                    The program is available only to paying Juneau Digital Designs clients, and only for the
-                                    mobile number that client provides. We do not send marketing or promotional messages through
-                                    this program, and we never message your customers.
+                                    The program is available only to Juneau Digital Designs clients on the Growth and Enterprise
+                                    plans, which are the plans that include the AI receptionist, and only for the mobile number
+                                    that client provides. The Starter plan does not include the receptionist and receives no text
+                                    messages. We do not send marketing or promotional messages through this program, and we never
+                                    message your customers.
                                 </p>
                             </>
                         ),

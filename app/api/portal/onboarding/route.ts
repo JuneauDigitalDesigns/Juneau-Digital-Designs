@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import {
     mapBrandIntakeToIntake,
+    uniqueSlug,
     zBrandIntakeSubmission,
     type BrandIntakeSubmission,
     type PalettePick,
@@ -239,7 +240,11 @@ export async function POST(request: Request) {
         };
         const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
         const slugSource = brandShort || brandName || "client";
-        const newSlug = slugifyBrand(slugSource);
+        // Suffixed against the account's other sites. Nothing checked this before, so two
+        // sites under one client could land on the same slug — after which `resolveSite` and
+        // `upsertSite`, both slug-keyed, silently act on whichever came first. `site.slug` is
+        // excluded so the placeholder this record still carries isn't treated as a rival.
+        const newSlug = uniqueSlug(slugifyBrand(slugSource), account, site.slug);
         const sessionId = site.sessionId ?? "";
 
         // Enqueue intake for the console Build wizard.
@@ -273,8 +278,9 @@ export async function POST(request: Request) {
             console.error("[portal/onboarding] completeSiteOnboarding failed", account.email, e);
         }
 
-        // Delete server-side draft now that submission succeeded.
-        deleteDraft(userId).catch(() => {});
+        // Delete server-side draft now that submission succeeded. Scoped to the site that was
+        // just filled in — an unscoped delete would wipe a sibling site's unfinished draft.
+        deleteDraft(userId, site.slug).catch(() => {});
 
         after(async () => {
             await sendClientCompleteNotification({
@@ -291,7 +297,13 @@ export async function POST(request: Request) {
             }).catch((e) => console.error("[portal/onboarding] notification email failed", e));
         });
 
-        return NextResponse.json({ message: "Onboarding submitted successfully." }, { status: 200 });
+        // The slug goes back because the client cannot know it: they arrived at a placeholder
+        // and the brand name they just typed replaced it. Without this the success redirect
+        // has nothing to point at and falls back to whichever site `selectSite` prefers.
+        return NextResponse.json(
+            { message: "Onboarding submitted successfully.", slug: newSlug },
+            { status: 200 },
+        );
     } catch {
         return NextResponse.json({ message: "Unexpected server error." }, { status: 500 });
     }

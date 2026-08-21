@@ -612,137 +612,181 @@ select option {
 }
 
 /* ── Calculator faders ──────────────────────────────────────────
-   Switchboard console, not a default range input. A routed channel with a
-   radio-dial tick scale above it and a coral fader cap riding in it. The cap
-   is --accent-2 against an --accent fill on purpose: previously both were
-   --accent, so the handle vanished into the filled portion. */
+   A measured rail, not a console channel. This replaced a 7px slot carrying a
+   radio-dial tick scale, an --accent fill with a radial bloom tracking the
+   thumb, and a 14x26 coral fader cap with its own glow. Three problems with
+   that: the bloom muddied the junction where the fill met the cap, unlabelled
+   ticks implied a precision the log-scale job-value slider does not have, and
+   all of it was decoration on top of a control that sat inside two nested
+   boxes. What is left is a hairline, a fill, and a knob.
+
+   The range this moves through is stated by the mono labels flanking the rail
+   rather than by graduations, because a number at each end is the thing a
+   reader actually wants and a tick is not. */
 .calc-fader {
-  grid-column: 2;
-  position: relative;
-  margin-top: 14px;
-  padding-top: 11px;   /* room for the tick scale above the track */
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* Radio-dial graduations. Two layers: fine minors throughout, taller majors
-   at every fourth. Unlabelled — the sentence already states the exact value. */
-.calc-fader::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 8px;
-  pointer-events: none;
-  background-image:
-    repeating-linear-gradient(to right, var(--rule-strong) 0 1px, transparent 1px 12.5%),
-    repeating-linear-gradient(to right, var(--rule) 0 1px, transparent 1px 3.125%);
-  background-size: 100% 8px, 100% 4px;
-  background-position: 0 0, 0 4px;
-  background-repeat: no-repeat;
+.calc-fader-end {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
 }
 
+/* The element is 26px tall so it can be grabbed; the rail is a 3px band drawn
+   centred inside it. Making the input itself 3px tall would be a hairline you
+   could see and not hit — 26px keeps a real target without the visual weight. */
 .calc-slider {
   -webkit-appearance: none;
   appearance: none;
+  flex: 1;
+  min-width: 0;
   display: block;
-  width: 100%;
-  height: 7px;
-  border-radius: 2px;
+  height: 26px;
+  background-color: transparent;
   outline: none;
   cursor: pointer;
-  /* bloom sits where the fill meets the cap, so the channel reads as lit */
-  background-image:
-    radial-gradient(circle at var(--pct, 0%) 50%, var(--accent-glow) 0, transparent 22px),
-    linear-gradient(
-      to right,
-      var(--accent) 0 var(--pct, 0%),
-      var(--rule-strong) var(--pct, 0%) 100%
-    );
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  background-image: linear-gradient(
+    to right,
+    var(--accent) 0 var(--pct, 0%),
+    var(--rule-strong) var(--pct, 0%) 100%
+  );
+  background-size: 100% 3px;
+  background-position: 0 50%;
+  background-repeat: no-repeat;
 }
 
-/* A thumb can't host a pseudo-element, so the centre notch is a gradient. */
+/* Firefox draws its own track behind the band above, which would double it up.
+   Handing the rail entirely to the input's background keeps one source of truth. */
+.calc-slider::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: 3px;
+}
+
 .calc-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 26px;
-  border-radius: 3px;
-  background: linear-gradient(
-    var(--accent-2) 0 46%,
-    rgba(0, 0, 0, 0.35) 46% 54%,
-    var(--accent-2) 54% 100%
-  );
-  box-shadow: 0 0 0 1px var(--rule-strong), 0 0 14px var(--accent-glow);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
-}
-
-.calc-slider::-webkit-slider-thumb:hover,
-.calc-slider:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 1px var(--rule-strong), 0 0 22px 3px var(--accent-glow);
-  transform: scaleY(1.08);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--rule-strong);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .calc-slider::-moz-range-thumb {
-  width: 14px;
-  height: 26px;
+  width: 18px;
+  height: 18px;
   border: none;
-  border-radius: 3px;
-  background: linear-gradient(
-    var(--accent-2) 0 46%,
-    rgba(0, 0, 0, 0.35) 46% 54%,
-    var(--accent-2) 54% 100%
-  );
-  box-shadow: 0 0 0 1px var(--rule-strong), 0 0 14px var(--accent-glow);
+  border-radius: 999px;
+  background: var(--accent-2);
+  box-shadow: 0 0 0 1px var(--rule-strong);
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Scale plus a thicker ring, in place of the glow that used to signal this. */
+.calc-slider:hover::-webkit-slider-thumb,
+.calc-slider:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--accent-2);
+}
+.calc-slider:hover::-moz-range-thumb,
+.calc-slider:active::-moz-range-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--accent-2);
+}
+
+/* The element keeps `outline: none`, so a keyboard ring has to be drawn by the
+   thumb. The --bg gap is what separates the ring from the knob's own fill. */
+.calc-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+}
+.calc-slider:focus-visible::-moz-range-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 /* ── Calculator input rows ───────────────────────────────────
-   Each input reads as one self-describing sentence with the value inline,
-   so there is no label→value mapping to perform. The 28px index column is a
-   fixed left rail the eye can land on; putting the track in column 2 keeps
-   it flush with the sentence and preserves the rail when copy wraps. */
-.calc-row {
+   Each input reads as one self-describing sentence with the value inline, so
+   there is no label→value mapping to perform. Sentence left, rail right, on a
+   40/60 split: the rail wants the longer run (the job-value slider maps 0–100
+   onto $50–$500K logarithmically, so drag resolution is the whole game) and
+   the sentence wants a tight measure.
+
+   Rows are separated by whitespace alone. The hairline rules and the 28px
+   01/02/03 index rail that used to do this job went with the boxes — with no
+   card around the panel they were structure holding up nothing.
+
+   The submit row shares the template so Calculate lands under the rail rather
+   than spanning the full measure, which reads as the end of the sequence. */
+.calc-row,
+.calc-submit {
   display: grid;
-  grid-template-columns: 28px 1fr;
-  column-gap: 12px;
-  align-items: baseline;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  column-gap: clamp(20px, 3vw, 40px);
+  /* Not baseline: rows 02 and 03 wrap to two lines in a 40% column and the rail
+     should sit against the middle of the copy block, whatever height it lands on. */
+  align-items: center;
 }
 
-.calc-row-index {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--fg-3);
+.calc-submit > .btn {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .calc-row-copy {
   font-size: 17px;
   line-height: 1.5;
   color: var(--fg-2);
+  text-wrap: balance;
 }
 
-/* Poster scale before calculating — the number is the only content on a 600px
-   card, so it earns the drama — then it eases down in step with the card grow
-   and hands focus to the result figures. */
+/* Was clamp(30px, 7vw, 40px) — poster scale, which it earned when the number was
+   the only content inside a 600px card. Unboxed and set beside its own rail, three
+   40px numerals stacked would be the loudest thing in the section. */
 .calc-row-value {
   font-family: var(--font-display);
-  /* Fluid rather than a media step-down: 40px condensed numerals blow out a
-     213px mobile column, and a separate @media block lost the cascade here. */
-  font-size: clamp(30px, 7vw, 40px);
+  font-size: clamp(22px, 4.5vw, 26px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: var(--tracking-tight);
   color: var(--accent-2);
-  /* text-shadow carries the ≥90% "you're already covered" state. The font-size
-     transition went with `.calc-layout.is-calculated`, which used to bump this to 26px
-     as the card inflated — there is no inflation to track any more. */
-  transition: text-shadow 0.25s ease;
+  /* The value sits mid-sentence, so a digit narrower than its neighbour shoves the
+     words after it sideways on every drag. tabular-nums fixes that where the font
+     ships the feature; the per-row --val-w floor covers it where it does not, and
+     also absorbs 10→9 and 100%→99% losing a character outright. */
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  text-align: center;
+  min-width: var(--val-w, 2ch);
 }
 
-.calc-row + .calc-row {
-  border-top: 1px solid var(--rule-weak);
-  padding-top: 26px;
+/* Two columns do not survive a 320px screen. The sentence takes the full width and the
+   rail drops beneath it — and the endpoint labels go, because their ~24px a side is
+   room the rail needs more than the reader needs the range restated. Calculate spans
+   the measure here: there is no rail column left to align it to. */
+@media (max-width: 639px) {
+  .calc-row,
+  .calc-submit {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
+
+  .calc-fader-end { display: none; }
+
+  .calc-submit > .btn {
+    grid-column: 1;
+    justify-self: stretch;
+  }
 }
 
 /* ── "How we calculate this" modal ──────────────────────────── */
@@ -1247,32 +1291,27 @@ select option {
   animation-duration: 70s;
 }
 
-/* ── Calculator: gated reveal-by-expansion layout ────────────
-   Flex, not grid, on purpose: grid-template-columns only interpolates
-   1fr → 1fr 1fr in Chromium, and a grid reflow would squeeze the slider
-   column to ~236px mid-grow and spring it back. With a fixed-basis input
-   column, the results column expands from 0 as max-width animates, so the
-   sliders never change size and it behaves the same in every browser. */
-/* Pre-calc the card is INVISIBLE and exactly deck-sized: no padding, no fill,
-   a transparent border holding its 1px so nothing shifts. All the user sees is
-   the recessed fader deck. On calculate the card inflates around it — padding
-   opens, the panel fill and rule fade up — so the answer surface appears to
-   grow out of the controls rather than being there all along. */
 /* ── Calculator: one fixed card, three states ─────────────────
    This replaced a card that grew on Calculate (530x481 → 1125x764) and again when
    the methodology opened (→1336px). It outgrew every viewport height we support,
    which made it the one section that could not sit in the pinned journey. Now the
    box holds still and its contents swap: sliders → results → breakdown.
 
-   The height is set by stacking, not by a number — see `.calc-stack`. */
+   The height is set by stacking, not by a number — see `.calc-stack`.
+
+   The card is no longer drawn. It used to carry a border and a --panel fill around
+   all three views, with a second recessed --surface deck (`.calc-inputs`) nested
+   inside the sliders view — a box inside a box. The frame moved to `.calc-panel`, so
+   the answer states keep a container and the inputs sit on the page. What is left
+   here is the measure: 860px, unchanged, and deliberately so. The sliders could take
+   the full 1240px container now that nothing frames them, but then the region would
+   visibly widen on Calculate and narrow again on Recalculate, which is exactly the
+   resize the stacking above exists to prevent. The rail gets its extra length from
+   the deleted deck padding and index rail instead. */
 .calc-card {
   position: relative;
   margin: 0 auto;
   max-width: 860px;
-  padding: 26px 22px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background-color: var(--panel);
 }
 
 /* All three views share one grid cell. Inactive ones are `visibility: hidden`, which
@@ -1324,23 +1363,28 @@ select option {
   .calc-view.is-active { opacity: 1; }
 }
 
-/* The recessed deck the sliders sit on. */
+/* Layout only. This was a recessed deck — --surface fill, inset shadow, 24px of
+   padding — sitting inside the card's own box. Both are gone; the gap is the only
+   thing separating one input from the next now, so it is wider than the 30px it was
+   when hairline rules were also doing that work. */
 .calc-inputs {
   display: flex;
   flex-direction: column;
-  gap: 30px;
-  background: var(--surface);
-  border-radius: 8px;
-  padding: 24px 22px;
-  box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.10),
-    inset 0 0 0 1px var(--rule-weak);
+  gap: clamp(30px, 4vh, 42px);
 }
 
+/* Carries the frame the card gave up, which is why the answer states still read as a
+   surface handed back to you while the inputs read as part of the page. Shared by the
+   results and breakdown views, so going back and forth between them changes nothing
+   but the contents. */
 .calc-panel {
   display: flex;
   flex-direction: column;
   gap: 26px;
+  padding: 26px 22px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background-color: var(--panel);
 }
 
 /* Top-left in both results and breakdown, same position, contextual label — so it
@@ -1402,6 +1446,12 @@ select option {
   color: var(--accent-2);
   text-shadow: 0 0 40px var(--accent-glow);
 }
+
+/* The loss figure, one step back. Same size, same weight, so the pair still reads as a
+   comparison — but the eye now travels loss → gain and lands on the coral, which is the
+   number the remark underneath argues. Both figures at full --fg made them compete, and
+   the one that won was the one we are not selling. */
+.calc-figure--muted { color: var(--fg-2); }
 
 .calc-remark {
   font-weight: 700;
@@ -1503,18 +1553,27 @@ select option {
   --nav-h: 65px;
   --journey-stage-h: calc(100vh - var(--nav-h));
   --journey-stage-h: calc(100dvh - var(--nav-h));
+  /* Scroll distance that advances one panel. Mirrored by JOURNEY_STEP_RATIO in
+     homepageclient.tsx, which uses it to compute each panel's settle offset — the two
+     have to agree or the programmatic settle lands off the panel it just committed to. */
+  --journey-step: calc(var(--journey-stage-h) * 0.5);
 }
 
 .journey-track { position: relative; }
 .journey-stage,
-.journey-panel { display: contents; }
-.journey-snap { display: none; }
+.journey-panel,
+.journey-panel-content { display: contents; }
 
 @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
-  /* Height comes from the viewport, not from content. This is why the calculator can
-     change size at runtime without changing the pace or the track. */
+  /* Height comes from the viewport, not from content — the calculator can change size at
+     runtime without changing the pace. One stage to hold the frame, then one step per
+     remaining panel plus the tail dwell. At 1440x900 that is ~1837px, against the ~3340px
+     it took when a panel cost a whole viewport to advance. */
   .journey-track {
-    height: calc((var(--journey-panels) + var(--journey-tail)) * var(--journey-stage-h));
+    height: calc(
+      var(--journey-stage-h) +
+      (var(--journey-panels) - 1 + var(--journey-tail)) * var(--journey-step)
+    );
   }
 
   .journey-stage {
@@ -1545,12 +1604,18 @@ select option {
   }
   .journey-panel:not(:first-child) { will-change: opacity, transform; }
 
-  /* `margin-block: auto`, NOT `justify-content: center`. Centring a flex item taller than
+  /* The panel carries the opaque background and nothing else; this wrapper carries the
+     fade and the rise. They must stay separate — with one element the background fades
+     too, and a half-faded background is exactly how the previous panel used to show
+     through mid-transition.
+
+     `margin-block: auto`, NOT `justify-content: center`. Centring a flex item taller than
      its container clips the TOP of it and makes it permanently unreachable by scrolling —
      and the panel still swallows the wheel, so the page deadlocks. Auto margins collapse
      to 0 when free space is negative: tall content top-aligns and stays scrollable, short
      content still centres. */
-  .journey-panel > * {
+  .journey-panel-content {
+    display: block;
     flex: 0 0 auto;
     margin-block: auto;
     width: 100%;
@@ -1560,38 +1625,38 @@ select option {
      side is right in a long column and wrong in an 800px frame — at 1024x768 it is the
      difference between the receptionist fitting and scrolling.
 
-     `margin-block: auto` is repeated here rather than left to `.journey-panel > *`
-     because `.journey-section`'s own `margin: 0 auto` has equal specificity and comes
-     later in the file, which pinned the content to the top of the frame. */
-  .journey-stage .journey-section {
-    padding-block: clamp(24px, 4vh, 56px);
-    margin-block: auto;
-  }
-  .journey-stage .calc-section {
-    padding-block: clamp(20px, 3vh, 44px);
-    margin-block: auto;
-  }
+     Vertical centring is `.journey-panel-content`'s job now, not the section's — the
+     section is no longer the flex item, so its own `margin: 0 auto` no longer competes. */
+  .journey-stage .journey-section { padding-block: clamp(24px, 4vh, 56px); }
+  .journey-stage .calc-section { padding-block: clamp(20px, 3vh, 44px); }
 
-  .journey-snap {
-    display: block;
-    position: absolute;
-    left: 0;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
-    top: calc(var(--i) * var(--journey-stage-h));
-    scroll-snap-align: start;
-    /* lands the document on the pin geometry rather than 65px past it */
-    scroll-margin-top: var(--nav-h);
-  }
+  /* The outcome rows arrive one at a time, AFTER the panel has settled, so they read as
+     evidence accumulating rather than as more of the panel swap.
 
-  /* `proximity`, not `mandatory`. Mandatory forces every resting position to be a snap
-     position, and with snap areas only inside the run it drags the reader out of the hero
-     and resists letting them leave. Proximity is safe here because the markers sit where
-     each entrance has already FINISHED — the transition bands lie strictly between
-     markers, so a snap position can never land mid-fade. */
-  html { scroll-snap-type: y proximity; }
+     Keyed to `[data-active]`, NOT to <JourneyReveal>. All three panels are
+     `position: absolute; inset: 0`, so all three geometrically intersect the viewport the
+     moment the stage pins — and IntersectionObserver measures geometry, not opacity. The
+     `whileInView ... once: true` reveals on panels 02 and 03 therefore fire and latch
+     while panel 01 is still on screen. Anything hung off them is over before the reader
+     arrives. Applying a class that carries an `animation` replays it each time, which is
+     also why this needs no key or remount (same trick as `.calc-step`).
+
+     700ms base = PANEL_OUT_MS 280 + PANEL_IN_MS 420, i.e. the moment the panel's own
+     content finishes arriving. Keep the two in step if either constant moves.
+
+     Scoped inside this media query on purpose: below 1024px, and under reduced motion,
+     `display: contents` puts the sections back in normal flow and <JourneyReveal> handles
+     the entrance. The rows must never be left holding `opacity: 0` down there. */
+  .journey-panel[data-active="true"] .journey-outcome {
+    animation: calc-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: calc(700ms + var(--row) * 120ms);
+  }
 }
+
+/* CSS scroll-snap used to settle the run. It was removed with the move to triggered
+   transitions: the controller in ScrollJourney now scrolls to each panel's settle offset
+   itself, and a snap engine fighting a smooth programmatic scrollTo produces exactly the
+   stutter this was meant to prevent. */
 
 /* Was inline on each <section>. It has to be a class so the pinned stage can override
    it: inside a viewport-height frame this padding is the difference between the panel
@@ -1631,17 +1696,48 @@ select option {
   .journey-grid--flip > .journey-visual { order: -1; }
 }
 
-.journey-bullets {
-  font-family: var(--font-mono);
-  font-size: 13px;
+/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page, sitting
+   under the body paragraph at 16.5px/--fg-2. The most specific and most persuasive
+   content in each section was rendered in the least visible type on it, so the visual
+   hierarchy ran against the value hierarchy. These are now full-contrast sentences and
+   the arrow prefix is gone with the list framing.
+
+   The rule above them stays: it is what separates the claim from its proof.
+
+   They are rows now, not a stack. As three same-weight sentences 10px apart they read
+   as text that happened to land there; as ruled rows with a marker in a fixed left
+   column they read as a finite, deliberate set. Type is untouched at 18px/--fg — the
+   fix is structure around the sentences, not less voice in them. */
+.journey-outcomes {
+  font-size: 18px;
   line-height: 1.45;
-  color: var(--fg-3);
+  color: var(--fg);
   display: flex;
   flex-direction: column;
-  gap: 9px;
   margin-top: 22px;
-  padding-top: 20px;
   border-top: 1px solid var(--rule);
+}
+
+/* Row padding replaces the container's `gap` and `padding-top`: the rule has to run the
+   full width between rows, which a gap cannot draw. Container border-top + one
+   border-bottom per row gives four rules across three rows. */
+.journey-outcome {
+  display: grid;
+  grid-template-columns: 2px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+/* --accent (teal), not --accent-2. The coral is spoken for: it carries the recoverable
+   figure in the calculator and the primary CTAs, and it stops meaning "this is the
+   number" the moment it also means "this is a list item". */
+.journey-outcome::before {
+  content: "";
+  align-self: stretch;
+  background: var(--accent);
+  border-radius: 1px;
 }
 
 /* ── Home pricing cards ──────────────────────────────────────
@@ -1922,9 +2018,15 @@ select option {
   }
 
   /* The calculator's own reduced-motion handling sits with its rules above; only the
-     slider value's shadow transition is left to silence here. */
-  .calc-row-value {
+     knob's hover/focus scale is left to silence here. The ring still thickens, so the
+     state is not lost, it just stops moving. */
+  .calc-slider::-webkit-slider-thumb {
     transition: none !important;
+    transform: none !important;
+  }
+  .calc-slider::-moz-range-thumb {
+    transition: none !important;
+    transform: none !important;
   }
 }
 
@@ -2062,6 +2164,10 @@ select option {
   text-transform: uppercase;
   color: var(--fg-3);
 }
+/* LOAD-BEARING that this is absolute. Both the pre-film gate and the post-film replay
+   render into this slot, so the stage occupies the same height at every phase. The
+   `.film-recap` block this replaced was a sibling BELOW the phone, which grew the stage
+   after the pinned panel had already committed and pushed the section past the frame. */
 .film-gate {
   position: absolute;
   inset: 0;
@@ -2069,6 +2175,43 @@ select option {
   align-items: center;
   justify-content: center;
   z-index: 30;
+}
+
+.film-gate-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.film-gate-line {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  text-align: center;
+}
+
+/* Bottom-anchored rather than centred: the last frame is the text message the whole film
+   builds to, and its bubble sits at the top of the screen. The padding drops the control
+   into the empty lower half without clearing the phone entirely, which would add height. */
+.film-gate--replay {
+  align-items: flex-end;
+  padding-bottom: 72px;
+  /* the finished screen underneath stays readable and selectable */
+  pointer-events: none;
+}
+.film-gate--replay > * {
+  pointer-events: auto;
+}
+
+.film-replay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(6px);
 }
 
 /* The phone is a fixed 300px wide at every size, so a default-width button reads as
@@ -2092,42 +2235,11 @@ select option {
   }
 }
 
-.film-recap {
-  width: 100%;
-  max-width: 560px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-}
-.film-chain {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg);
-}
-.film-chain-arrow { color: var(--accent-2); }
-.film-recap-copy {
-  font-size: 17px;
-  line-height: 1.55;
-  color: var(--fg-2);
-  margin: 0;
-  max-width: 46ch;
-}
-.film-recap-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-}
+/* `.film-recap`, `.film-chain`, `.film-chain-arrow`, `.film-recap-copy` and
+   `.film-recap-actions` lived here. The block they styled was appended below the phone
+   once the film ended, which changed the stage's height mid-panel. Its Get Started went
+   with it — the calculator and the pricing rail already carry the asks — and its replay
+   control moved into `.film-gate--replay` above, where it costs no height. */
 
 @media (max-width: 420px) {
   .film-phone { width: 264px; height: 500px; }

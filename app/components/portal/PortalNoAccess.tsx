@@ -36,10 +36,16 @@ export default function PortalNoAccess() {
                     className="mt-4"
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)", fontSize: 16 }}
                 >
-                    This login isn&apos;t linked to a client site. If you recently completed
-                    onboarding, make sure you signed in with the same email you used at
-                    checkout. If you signed up with a different email, sign out and try again
-                    with that address.
+                    There&apos;s no site on this login yet. If you haven&apos;t picked a plan,
+                    that&apos;s the next step — your portal fills in once a site is set up.
+                </p>
+                <p
+                    className="mt-4"
+                    style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)", fontSize: 16 }}
+                >
+                    If you recently completed onboarding, make sure you signed in with the same
+                    email you used at checkout. If you signed up with a different email, sign out
+                    and try again with that address.
                 </p>
                 <p className="mt-4" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)", fontSize: 16 }}>
                     Still stuck? Email{" "}
@@ -53,6 +59,15 @@ export default function PortalNoAccess() {
                 </p>
 
                 <div className="mt-10 flex flex-wrap gap-3 justify-center">
+                    {/*
+                      * Signing up now happens *before* buying, so this page is the normal
+                      * landing spot for someone who created a login and hasn't chosen a plan
+                      * yet — not only the error state it used to be. It has to offer the way
+                      * forward, or the front of the funnel is a dead end.
+                      */}
+                    <Link href="/pricing" className="btn primary" style={{ display: "inline-flex" }}>
+                        Pick a plan
+                    </Link>
                     <Link href="/" className="btn ghost" style={{ display: "inline-flex" }}>
                         Back to site
                     </Link>

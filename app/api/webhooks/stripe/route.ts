@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/app/lib/stripe";
-import { getAgreement } from "@/app/lib/kv";
+import { getAgreement, persistAgreement } from "@/app/lib/kv";
+import { getPurchaseIntent, markIntentConsumed } from "@/app/lib/purchase-intent";
 import { createPendingSite, getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
-import { slugifyBrand } from "@/app/lib/intake-queue";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
 import { doubleOptInEnabled, promotePendingConsent } from "@/app/lib/sms-consent";
 import { sendSms } from "@/app/lib/twilio";
@@ -84,6 +84,7 @@ export async function POST(req: Request) {
 
     if (session.payment_status === "paid") {
       const agreementId = session.metadata?.agreement_id;
+      const purchaseId = session.metadata?.purchase_id;
       const rawPlan = session.metadata?.plan ?? "";
       const plan: PortalPlan = VALID_PLANS.includes(rawPlan as PortalPlan)
         ? (rawPlan as PortalPlan)
@@ -93,8 +94,44 @@ export async function POST(req: Request) {
         try {
           const agreement = await getAgreement(agreementId);
           if (agreement) {
-            const email = agreement.signerEmail;
-            const slug = slugifyBrand(agreement.clientLegalName || agreement.signerName || email);
+            /**
+             * Whose purchase is this?
+             *
+             * The intent, when there is one. It was written server-side while the buyer was
+             * authenticated, so it records who was actually signed in — not
+             * `agreement.signerEmail`, which is a string typed into a form and which Stripe
+             * lets the client change again on its own checkout page. Getting this wrong
+             * creates an account nobody can sign into.
+             *
+             * The fallback covers sessions opened before the intent existed and still in
+             * flight at deploy. Delete it once none can remain.
+             */
+            const intent = purchaseId ? await getPurchaseIntent(purchaseId) : null;
+            if (purchaseId && !intent) {
+              console.warn("[stripe webhook] purchase intent missing", purchaseId, session.id);
+            }
+            if (intent?.consumedAt) {
+              console.log("[stripe webhook] intent already consumed, replay", purchaseId);
+            }
+            const email = intent?.accountEmail ?? agreement.signerEmail;
+
+            /**
+             * A placeholder, deliberately. The real slug is assigned by the wizard.
+             *
+             * This used to be `slugifyBrand(agreement.clientLegalName)`, which is stable per
+             * legal entity — so a returning client buying a second site produced the *same*
+             * slug as their first, and `upsertSite` merged the new purchase into their
+             * existing live site: status flipped back to `pending-onboarding`, `sessionId`
+             * and `name` overwritten, and the old `stripeSubscriptionId` left in place while
+             * the subscription they had just paid for was orphaned. Silent, and it destroyed
+             * the record of a working site.
+             *
+             * Derived from the checkout session because that is what identifies this
+             * purchase and nothing else. `upsertSiteBySessionId` relocates the site by that
+             * same id when the wizard submits, at which point it takes a real slug from the
+             * brand name — so nothing downstream ever sees this string for long.
+             */
+            const slug = `pending-${session.id.slice(-8)}`;
             await createPendingSite(email, {
               slug,
               name: agreement.clientLegalName || "(pending)",
@@ -105,8 +142,36 @@ export async function POST(req: Request) {
               signerName: agreement.signerName,
               onboardingCompletedAt: null,
               addedAt: Date.now(),
+              // The agreement record is written with a 30-day TTL, so copying its identity
+              // here is what keeps "which terms authorised this site" answerable afterwards.
+              agreementId,
+              agreementPdfUrl: agreement.pdfUrl,
+              agreementVersion: agreement.agreementVersion,
+              ...(purchaseId ? { purchaseId } : {}),
+              // The Customer that actually paid, so metering and consolidation have a handle
+              // without re-deriving one. `customer` is a string in the webhook payload.
+              ...(typeof session.customer === "string"
+                ? { stripeCustomerId: session.customer }
+                : {}),
             });
             console.log("[stripe webhook] pending site created", email, slug, plan);
+
+            if (intent) await markIntentConsumed(intent, slug);
+
+            /**
+             * Keep the signed agreement past its TTL now that it has been paid for.
+             *
+             * `saveAgreement` sets a 30-day expiry, which was fine when the record's only job
+             * was to survive the gap between signing and checkout. It is now the audit trail
+             * behind a live site — and for the master/addendum model it is the thing later
+             * addenda are written against. Losing it after a month is not acceptable.
+             *
+             * Best effort: the site fields copied above are what the app reads, so a failure
+             * here costs the audit copy, not the client's access.
+             */
+            await persistAgreement(agreementId).catch((e) =>
+              console.error("[stripe webhook] could not persist agreement", agreementId, e),
+            );
 
             // Payment cleared, so any consent held since signing becomes real. Its own
             // try/catch: a client who paid must still get their site record even if the

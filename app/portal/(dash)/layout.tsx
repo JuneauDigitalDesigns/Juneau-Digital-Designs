@@ -31,10 +31,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
     const { account, sites } = ctx;
 
-    // Client paid but hasn't completed the wizard yet — send them to complete it.
-    if (account.sites[0]?.status === "pending-onboarding") {
-        redirect("/portal/onboarding");
-    }
+    // The "this client still owes us a wizard" decision deliberately does NOT live here.
+    //
+    // It used to, as `account.sites[0]?.status === "pending-onboarding"`, which only ever
+    // asked about the *first* site. An existing client's live site sits at index 0, so a
+    // second site they had just paid for never triggered anything: they were dropped into
+    // their old portal with no sign the purchase had happened at all.
+    //
+    // Testing `.some()` here instead would be worse — it would lock a client out of a working
+    // live site until they finished onboarding an unrelated new one. The question is
+    // per-site, so it belongs on the page that knows which site is selected. See
+    // `(dash)/page.tsx`. A layout also cannot read the pathname, so a redirect issued here
+    // would loop the moment the wizard lived beneath it.
 
     // A client whose only site is still building used to get a standalone holding page
     // instead of the shell, on the reasoning that there was no dashboard to frame. There is

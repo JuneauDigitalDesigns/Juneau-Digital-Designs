@@ -143,17 +143,25 @@ export const billingKey = (acctScope: string, siteSlug: string, variant: "full" 
  * Ten minutes: short enough that a client who just hung up sees the call counted, long
  * enough that a tab-switching session costs one Retell query rather than a dozen.
  *
- * Deliberately has NO slug segment. Enterprise pools its allowance across every site on the
- * account, so the figure is identical whichever site is selected — keying by slug would
- * store the same number three times and triple the upstream calls to produce it.
+ * Scoped to a metering *group*, not a slug and not the account. Enterprise pools its
+ * allowance across its bundle, so all of its sites share one entry and produce it once —
+ * that part was always right. Growth does not pool: each site has its own 350 minutes, so
+ * two Growth sites are two different figures, and the account-scoped key this replaces
+ * collided them onto one entry and showed each site the other's minutes.
  */
 export const USAGE_TTL = 600;
+// v4: gained a group segment (a Growth site's slug, or "enterprise" for the pooled bundle).
+// Every v3 entry was computed against the wrong denominator for multi-site Growth accounts,
+// so the bump also discards them rather than serving a stale wrong number.
 // v3: the payload moved from whole minutes to exact seconds (`secondsUsed`/`overageSeconds`)
 // and gained `periodStart`. Serving a v2 entry would render a missing figure. Bump on any
 // shape change. The period segment keeps current and previous windows in separate entries so
 // viewing the prior period can never overwrite the current one.
-export const usageKey = (acctScope: string, period: "current" | "previous" = "current") =>
-    `portal:usage:v3:${period}:${acctScope}`;
+export const usageKey = (
+    acctScope: string,
+    groupRef: string,
+    period: "current" | "previous" = "current",
+) => `portal:usage:v4:${period}:${acctScope}:${groupRef}`;
 
 /**
  * The resolved Stripe billing window.
