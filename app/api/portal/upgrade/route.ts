@@ -5,7 +5,8 @@ import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan, upgradeBlockReason } from "@/app/lib/plan-billing";
-import { upsertSite } from "@jdd/schema";
+import { planLimits } from "@/app/lib/plan-limits";
+import { canAddPlan, upsertSite } from "@jdd/schema";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,27 @@ export async function POST(request: Request) {
     if (block === "no-billing-link") {
         return NextResponse.json(
             { error: "We couldn't find your subscription. Please contact us and we'll sort it out." },
+            { status: 409 },
+        );
+    }
+
+    /**
+     * The account-level cap applies here too.
+     *
+     * `upgradeBlockReason` asks whether *this site* may move up; it knows nothing about the
+     * rest of the account. A client already holding two Growth sites who upgrades a Starter
+     * would quietly reach three — walking around the cap `/start` enforces at the front door,
+     * and past the point where Enterprise is the better deal for both sides.
+     *
+     * Same predicate as the gate, so the two cannot disagree about who is allowed what.
+     */
+    if (canAddPlan(account, "growth", planLimits())) {
+        return NextResponse.json(
+            {
+                error:
+                    "You already have two Growth sites. Enterprise covers up to three on one plan, with their minutes pooled.",
+                upsell: "/portal/consolidate",
+            },
             { status: 409 },
         );
     }

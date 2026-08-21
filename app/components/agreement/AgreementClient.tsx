@@ -28,6 +28,12 @@ interface Props {
     /** The master an addendum hangs off. Sent back with the signature. */
     parentAgreementId?: string;
     /**
+     * This signature authorises a Growth → Enterprise consolidation rather than a new site.
+     * Same document, same signature; the step after it opens a Checkout Session that replaces
+     * their existing subscriptions instead of adding one.
+     */
+    consolidate?: boolean;
+    /**
      * Contracting details carried over from the master, so a returning client isn't retyping
      * their own address. Every field stays editable — a second site bought by a different
      * legal entity is the case the addendum exists for.
@@ -51,6 +57,7 @@ export default function AgreementClient({
     upgradeSlug = null,
     kind = "master",
     parentAgreementId,
+    consolidate = false,
     prefill,
 }: Props) {
     const isUpgrade = upgradeSlug !== null;
@@ -178,9 +185,32 @@ export default function AgreementClient({
                 throw new Error(sigData.error || `Signing failed (${sigRes.status})`);
             }
 
-            // 2. Charge. An upgrade edits the subscription the client already pays for; a new
-            //    client gets a Checkout Session. Opening a checkout for an upgrade would leave
-            //    them holding two subscriptions.
+            // 2. Charge. Three endings, and picking the wrong one costs the client money:
+            //    an upgrade edits the subscription they already pay for, a consolidation opens
+            //    one that replaces several, and a new site adds one. Opening a plain checkout
+            //    for either of the first two would leave them paying for both old and new.
+            if (consolidate) {
+                const conRes = await fetch("/api/portal/consolidate", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ agreement_id: sigData.agreement_id }),
+                });
+                // Same expired-session trap as the upgrade path below: a redirect to sign-in
+                // arrives as HTML with a 200, and parsing it as JSON would show a syntax error
+                // seconds after they signed.
+                if (!conRes.headers.get("content-type")?.includes("application/json")) {
+                    throw new Error(
+                        "Your session expired while signing. Your agreement is saved — please sign in and start the move again.",
+                    );
+                }
+                const conData = (await conRes.json()) as { url?: string; error?: string };
+                if (!conRes.ok || !conData.url) {
+                    throw new Error(conData.error || `Could not start the move (${conRes.status})`);
+                }
+                window.location.href = conData.url;
+                return;
+            }
+
             if (isUpgrade) {
                 // Slug goes in the query string, not the body: that is where
                 // resolvePortalRequest looks for it, and it re-resolves it against the

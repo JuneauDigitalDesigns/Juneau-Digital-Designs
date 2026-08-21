@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { stripe } from "@/app/lib/stripe";
 import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
+import { completeConsolidation, getConsolidation } from "@/app/lib/consolidation";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
@@ -90,12 +91,69 @@ export async function POST(req: Request) {
      * The try/catch stays here: a webhook that throws gets retried by Stripe, and a 500 on a
      * session that was already provisioned would be noise.
      */
-    try {
-      await provisionPaidSession(session);
-    } catch (e) {
-      console.error("[stripe webhook] fulfilment failed", session.id, e);
+    /**
+     * A consolidation pays for a bundle that replaces subscriptions the client already has —
+     * it does not add a site. Provisioning one here would leave them with an extra
+     * `pending-onboarding` record and a wizard to fill in for a site that already exists.
+     */
+    const consolidationId = session.metadata?.consolidation_id;
+    if (consolidationId) {
+      try {
+        await finishConsolidation(session, consolidationId);
+      } catch (e) {
+        console.error("[stripe webhook] consolidation failed", consolidationId, session.id, e);
+      }
+    } else {
+      try {
+        await provisionPaidSession(session);
+      } catch (e) {
+        console.error("[stripe webhook] fulfilment failed", session.id, e);
+      }
     }
   }
 
   return NextResponse.json({ received: true });
+}
+
+/**
+ * Payment for an Enterprise bundle has cleared — now close the Growth subscriptions it
+ * replaces and repoint the sites.
+ *
+ * Guarded against redelivery on two levels: a record already `done` is left alone, and
+ * `completeConsolidation` tracks each cancellation individually so a partial run resumes
+ * instead of re-issuing cancels.
+ */
+async function finishConsolidation(
+  session: Stripe.Checkout.Session,
+  consolidationId: string,
+): Promise<void> {
+  if (session.payment_status !== "paid") {
+    console.warn("[stripe webhook] consolidation session not paid", consolidationId, session.id);
+    return;
+  }
+
+  const email = session.metadata?.account_email;
+  if (!email) {
+    console.error("[stripe webhook] consolidation has no account_email", consolidationId);
+    return;
+  }
+
+  const record = await getConsolidation(email);
+  if (!record || record.id !== consolidationId) {
+    console.error("[stripe webhook] no matching consolidation record", consolidationId, email);
+    return;
+  }
+  if (record.status === "done") {
+    console.log("[stripe webhook] consolidation already applied, replay", consolidationId);
+    return;
+  }
+
+  const subscriptionId =
+    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
+  if (!subscriptionId) {
+    console.error("[stripe webhook] consolidation session has no subscription", session.id);
+    return;
+  }
+
+  await completeConsolidation(record, subscriptionId);
 }

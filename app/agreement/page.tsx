@@ -25,7 +25,7 @@ const SIGNING_METADATA: Metadata = {
 export async function generateMetadata({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string }>;
 }): Promise<Metadata> {
     const { upgrade } = await searchParams;
     const slug = upgrade?.trim();
@@ -40,9 +40,9 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string }>;
 }) {
-    const { plan, upgrade, kind } = await searchParams;
+    const { plan, upgrade, kind, consolidate } = await searchParams;
     const selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
@@ -115,6 +115,7 @@ export default async function AgreementPage({
             version={version}
             upgradeSlug={upgradeSlug}
             kind={isAddendum ? "addendum" : "master"}
+            consolidate={consolidate === "1"}
             parentAgreementId={isAddendum ? master?.agreementId ?? undefined : undefined}
             /*
              * Prefilled, not fixed. A returning client usually contracts as the same entity,
