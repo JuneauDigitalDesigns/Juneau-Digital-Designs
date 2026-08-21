@@ -264,8 +264,19 @@ function safeStorageKey(sessionId: string): string | null {
     return /^cs_[a-zA-Z0-9_]+$/.test(sessionId) ? `jdd-onboarding-${sessionId}` : null;
 }
 
-function portalStorageKey(clerkUserId: string): string | null {
-    return clerkUserId ? `jdd-onboarding-portal-${clerkUserId}` : null;
+/**
+ * Scoped to the site, not just the user.
+ *
+ * A client can have more than one site awaiting its wizard — buy two starters in a row and
+ * both sit there pending. Keying on `clerkUserId` alone gave them one shared draft, so
+ * whichever site they opened second showed the first one's answers and autosave overwrote
+ * them on the way out.
+ */
+function portalStorageKey(clerkUserId: string, siteRef: string): string | null {
+    if (!clerkUserId) return null;
+    return siteRef
+        ? `jdd-onboarding-portal-${clerkUserId}-${siteRef}`
+        : `jdd-onboarding-portal-${clerkUserId}`;
 }
 
 // ── Small presentational helpers ─────────────────────────────────────────────
@@ -474,14 +485,21 @@ export default function OnboardingPageClient({
     sessionId = "",
     portalMode = false,
     clerkUserId = "",
+    siteRef = "",
 }: {
     plan: PlanSlug;
     prefillEmail?: string;
     sessionId?: string;
     /** When true: no Turnstile, no consent, submit goes to /api/portal/onboarding. */
     portalMode?: boolean;
-    /** Used as the localStorage key in portal mode (pass the Clerk userId). */
+    /** Used as part of the localStorage key in portal mode (pass the Clerk userId). */
     clerkUserId?: string;
+    /**
+     * Which site this wizard is filling in. Scopes the draft and is sent with the
+     * submission, so a client with two pending sites can't answer for one and save it
+     * against the other.
+     */
+    siteRef?: string;
 }) {
     const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
     // The server render and the first client render MUST be identical, so the saved
@@ -496,6 +514,10 @@ export default function OnboardingPageClient({
     const [uploadingSlots, setUploadingSlots] = useState<Set<string>>(new Set());
     const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
     const [maxVisited, setMaxVisited] = useState(0);
+    // The real slug the server assigned on submit. The wizard arrives at a placeholder
+    // (`pending-<session>`) and the brand name replaces it, so this is only known after the
+    // response — and it is what the success redirect has to point at.
+    const [completedSlug, setCompletedSlug] = useState<string | null>(null);
     // Deliberately not persisted: a reload returns the client to the "happy with
     // these?" gate with their adjustments intact, rather than mid-edit.
     const [colorAdjusting, setColorAdjusting] = useState(false);
@@ -523,11 +545,12 @@ export default function OnboardingPageClient({
     // ── Draft restore (post-hydration only) ──
     // Runs after mount so the first client render still matches the server HTML.
     useEffect(() => {
-        const key = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+        const key = portalMode ? portalStorageKey(clerkUserId, siteRef) : safeStorageKey(sessionId);
         if (!key && !portalMode) {
             didRestoreRef.current = true;
             return;
         }
+        const draftUrl = `/api/portal/onboarding/draft${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`;
 
         async function restore() {
             let localSavedAt: Date | null = null;
@@ -554,7 +577,7 @@ export default function OnboardingPageClient({
             // 2. In portal mode, also fetch server draft and use whichever is newer.
             if (portalMode) {
                 try {
-                    const res = await fetch("/api/portal/onboarding/draft", { cache: "no-store" });
+                    const res = await fetch(draftUrl, { cache: "no-store" });
                     if (res.ok) {
                         const body = (await res.json()) as { data: Partial<WizardData> | null; savedAt: string | null };
                         if (body.data && body.savedAt) {
@@ -591,7 +614,7 @@ export default function OnboardingPageClient({
 
     // ── Draft autosave (persists currentStep too) ──
     useEffect(() => {
-        const key = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+        const key = portalMode ? portalStorageKey(clerkUserId, siteRef) : safeStorageKey(sessionId);
         if (!didRestoreRef.current) return;
         if (!key && !portalMode) return;
         const id = setTimeout(() => {
@@ -603,12 +626,15 @@ export default function OnboardingPageClient({
             }
             // In portal mode also sync to the server so the draft survives a cache clear.
             if (portalMode) {
-                fetch("/api/portal/onboarding/draft", {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ data: record }),
-                    keepalive: true,
-                }).catch(() => {});
+                fetch(
+                    `/api/portal/onboarding/draft${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`,
+                    {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ data: record }),
+                        keepalive: true,
+                    },
+                ).catch(() => {});
             }
         }, 800);
         return () => clearTimeout(id);
@@ -942,7 +968,11 @@ export default function OnboardingPageClient({
         setSubmitting(true);
         setSubmitState({ type: "idle", message: "" });
 
-        const endpoint = portalMode ? "/api/portal/onboarding" : "/api/onboarding";
+        // The site is named in the query string, not the body: it is an authorization
+        // parameter, and `resolvePortalRequest` already reads `?site=` for every portal route.
+        const endpoint = portalMode
+            ? `/api/portal/onboarding${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`
+            : "/api/onboarding";
 
         try {
             const response = await fetch(endpoint, {
@@ -958,11 +988,14 @@ export default function OnboardingPageClient({
                     }),
                 }),
             });
-            const data = (await response.json()) as { message?: string };
+            const data = (await response.json()) as { message?: string; slug?: string };
             if (!response.ok) throw new Error(data.message || "Unable to submit your onboarding form right now.");
+            // The wizard renames the site from its placeholder, so the slug we arrived with is
+            // already stale. Keep the one the server actually assigned for the redirect below.
+            if (data.slug) setCompletedSlug(data.slug);
             setSubmitState({ type: "success", message: "" });
             // Clear local draft
-            const storageKey = portalMode ? portalStorageKey(clerkUserId) : safeStorageKey(sessionId);
+            const storageKey = portalMode ? portalStorageKey(clerkUserId, siteRef) : safeStorageKey(sessionId);
             if (storageKey) localStorage.removeItem(storageKey);
         } catch (error) {
             const message = error instanceof Error ? error.message : "Something went wrong.";
@@ -975,7 +1008,15 @@ export default function OnboardingPageClient({
     if (submitState.type === "success") {
         if (portalMode) {
             // Portal mode: redirect immediately — they're already logged in.
-            window.location.assign("/portal");
+            //
+            // Carrying the slug matters for a multi-site client. Bare `/portal` re-runs
+            // `selectSite`, which prefers a *live* site — so a client who had just spent ten
+            // minutes describing their second site landed back on their first one with no
+            // acknowledgement that anything had been submitted.
+            const target = completedSlug
+                ? `/portal?site=${encodeURIComponent(completedSlug)}`
+                : "/portal";
+            window.location.assign(target);
             return null;
         }
         return (

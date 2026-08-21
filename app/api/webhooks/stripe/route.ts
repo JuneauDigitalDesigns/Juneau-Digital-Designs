@@ -3,7 +3,6 @@ import { stripe } from "@/app/lib/stripe";
 import { getAgreement } from "@/app/lib/kv";
 import { createPendingSite, getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
-import { slugifyBrand } from "@/app/lib/intake-queue";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
 import { doubleOptInEnabled, promotePendingConsent } from "@/app/lib/sms-consent";
 import { sendSms } from "@/app/lib/twilio";
@@ -94,7 +93,24 @@ export async function POST(req: Request) {
           const agreement = await getAgreement(agreementId);
           if (agreement) {
             const email = agreement.signerEmail;
-            const slug = slugifyBrand(agreement.clientLegalName || agreement.signerName || email);
+
+            /**
+             * A placeholder, deliberately. The real slug is assigned by the wizard.
+             *
+             * This used to be `slugifyBrand(agreement.clientLegalName)`, which is stable per
+             * legal entity — so a returning client buying a second site produced the *same*
+             * slug as their first, and `upsertSite` merged the new purchase into their
+             * existing live site: status flipped back to `pending-onboarding`, `sessionId`
+             * and `name` overwritten, and the old `stripeSubscriptionId` left in place while
+             * the subscription they had just paid for was orphaned. Silent, and it destroyed
+             * the record of a working site.
+             *
+             * Derived from the checkout session because that is what identifies this
+             * purchase and nothing else. `upsertSiteBySessionId` relocates the site by that
+             * same id when the wizard submits, at which point it takes a real slug from the
+             * brand name — so nothing downstream ever sees this string for long.
+             */
+            const slug = `pending-${session.id.slice(-8)}`;
             await createPendingSite(email, {
               slug,
               name: agreement.clientLegalName || "(pending)",

@@ -66,6 +66,12 @@ export type PortalTabId = (typeof PORTAL_TABS)[number]["id"];
  * Prefers a live site over an unbuilt one when nothing is specified. The old code took
  * `sites[0]` unconditionally, which meant a client whose first site was still building
  * landed on a holding screen with no navigation — even when their other site was live.
+ *
+ * `pending-onboarding` is the last resort, below even `building`. Landing on a pending site
+ * sends the client straight into that site's wizard, so defaulting to one would ambush a
+ * client who came to check on a build with a form for a different site they bought later.
+ * They still reach it — the site selector lists it, and the Overview redirects once it *is*
+ * selected — but only when they choose it.
  */
 export function selectSite<T extends { slug: string; status: PortalSiteStatus }>(
     sites: T[],
@@ -75,7 +81,11 @@ export function selectSite<T extends { slug: string; status: PortalSiteStatus }>
         const match = sites.find((s) => s.slug === requested);
         if (match) return match;
     }
-    return sites.find((s) => s.status === "live") ?? sites[0];
+    return (
+        sites.find((s) => s.status === "live") ??
+        sites.find((s) => s.status !== "pending-onboarding") ??
+        sites[0]
+    );
 }
 
 /** Preserve the selected site across navigation. */

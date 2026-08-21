@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { PortalAccount, PortalSite } from "@jdd/schema";
 import { HealthStrip } from "@/app/components/portal/HealthStrip";
 import { BuildProgress } from "@/app/components/portal/BuildProgress";
@@ -49,6 +49,22 @@ export default async function OverviewPage({
 
     const { upgraded } = await searchParams;
     const { props: site, raw, account } = ctx;
+
+    /**
+     * A site that has been paid for but never described. There is no dashboard to draw for
+     * it — no deployment, no domain, no agent — so the wizard *is* this site's Overview.
+     *
+     * Scoped to the selected site rather than the account, which is the whole fix. The old
+     * check lived in the layout and asked only about `sites[0]`, so an existing client's
+     * second purchase was invisible; asking `.some()` there instead would have held their
+     * working site hostage to an unrelated new one. Here, a client with one live site and one
+     * pending site gets a normal dashboard on the first and the wizard on the second, and can
+     * switch between them freely with the site selector still in the chrome above.
+     */
+    if (raw.status === "pending-onboarding") {
+        redirect(`/portal/onboarding?site=${encodeURIComponent(site.slug)}`);
+    }
+
     const building = site.status !== "live";
 
     // Only softens the tracker's opening line. It used to be its own card, which meant the
