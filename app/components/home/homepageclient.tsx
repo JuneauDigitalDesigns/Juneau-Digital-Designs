@@ -2,15 +2,7 @@
 /* Z-index constants: navbar 50 | grain 60 | modals 70 */
 
 import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
-import {
-  motion,
-  AnimatePresence,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-  useMotionValueEvent,
-  type MotionValue,
-} from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Info } from "@phosphor-icons/react";
 import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
@@ -60,7 +52,13 @@ function JourneyReveal({
     <motion.div
       className={className}
       style={style}
-      initial={reduceMotion ? false : { opacity: 0, y: 56, scale: 0.97 }}
+      /* Constant, never branched on `reduceMotion`. `useReducedMotion()` reads
+         matchMedia, so it is `false` during SSR and `true` on a reduced-motion client —
+         branching `initial` on it made the server emit `opacity: 0` where the client
+         emitted nothing, which React reports as a hydration mismatch. Reduced motion is
+         handled by collapsing the duration instead, so the element still starts hidden
+         and simply snaps visible the moment it intersects. */
+      initial={{ opacity: 0, y: 56, scale: 0.97 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, amount: 0.12, margin: "0px 0px -6% 0px" }}
       transition={{
@@ -76,29 +74,55 @@ function JourneyReveal({
 
 /* ── The pinned stage ───────────────────────────────────────────
    From the Website section on, the page stops travelling. The three journey sections
-   become three panels stacked in one frame that is pinned to the viewport, and scrolling
-   swaps which one is on top instead of moving the page past them. Each arrives by fading
-   and rising ~48px in place; the one it replaces is not animated at all, it is simply
-   covered by an opaque panel above it.
+   become three panels stacked in one pinned frame, and scrolling swaps which one is on
+   top instead of moving the page past them.
 
-   The scroll budget comes from the VIEWPORT, never from content. Panels are absolutely
-   positioned inside a fixed-height stage, so nothing inside one — including the
-   calculator, which changes size as it is used — can affect the track height or the pace.
+   A scroll is a TRIGGER, not a scrubber. It commits to the next panel, which then fades
+   and rises on its own ~400ms clock and completes regardless of what the reader does
+   next. This is the whole reason the transition is not derived from scroll position:
+   when it was, how far you had scrolled *was* how far the animation had played, so a
+   half-arrived section was reachable and — because opacity applied to the panel's opaque
+   background too — the previous section showed through it for the entire fade.
+
+   Two consequences worth keeping in mind before changing any of this:
+     · The cover and the content are separate elements. The panel carries the opaque
+       background and switches instantly; only its inner wrapper fades. Nested opacity
+       multiplies, so the background paints at full strength while the content is still
+       arriving. Collapse them back into one element and the bleed returns.
+     · No wheel is hijacked. Panels are `position: absolute; inset: 0` inside the sticky
+       stage, so their content does not move with scroll — once opacity is time-based
+       there is no halfway state left for the scroll offset to express, and calling
+       preventDefault would only break the calculator's inner scrolling.
 
    Below 1024px, or with reduced motion, `display: contents` erases the stage and panel
    boxes in CSS and the three sections fall back into ordinary document flow with their
    existing <JourneyReveal> entrances. One set of markup, no second implementation. */
 const JOURNEY_PANELS = 3;
-/* Stage-heights of dwell after the last panel settles. Without it the calculator would
-   become active at the exact instant the stage starts unpinning. */
-const JOURNEY_TAIL = 1;
-const JOURNEY_DENOM = JOURNEY_PANELS - 1 + JOURNEY_TAIL;
-/* Entrance occupies the last 45% of a stage-height before the settle point, so the
-   animation *finishes* on the snap marker rather than running through it. */
-const ENTER_SPAN = 0.45;
-const PANEL_RISE = 48;
+/* Scroll distance that advances one panel, as a fraction of the stage height. Mirrored by
+   `--journey-step` in globals.css, which sizes the track — keep the two in step. */
+const JOURNEY_STEP_RATIO = 0.5;
+/* Steps of dwell after the last panel lands, so the calculator does not arrive at the
+   exact instant the stage starts unpinning. */
+const JOURNEY_TAIL = 0.4;
+const PANEL_RISE = 80;
 /* navbar is `h-16` + a 1px rule, and it is sticky — the stage has to pin below it. */
 const NAV_H = 65;
+/* How far past the current panel's settle point counts as a deliberate scroll. */
+const COMMIT_THRESHOLD = 0.2;
+
+/* The transition is sequential: the outgoing section leaves, then the incoming arrives.
+   They never overlap, which is what keeps the no-bleed guarantee while still letting both
+   halves of the move be seen. */
+const PANEL_OUT_MS = 280;
+const PANEL_IN_MS = 420;
+/* Standard ease-in-out, deliberately NOT the page-wide EASE. That curve is
+   exponential-out: measured on the running page it put the incoming panel at 49% opacity
+   and half its travel within 40ms, so a 400ms transition had nothing perceptible left
+   after ~100ms and read as a snap. An even curve spends the duration on the move. */
+const EASE_PANEL = [0.42, 0, 0.58, 1] as const;
+/* Must outlast the whole transition. While locked, further scrolling is ignored, which is
+   what makes one gesture advance exactly one panel and stops a flick stacking two. */
+const COMMIT_LOCK_MS = PANEL_OUT_MS + PANEL_IN_MS + 80;
 
 /* Server snapshot is `false`, so SSR and the first client render agree and the pinned
    branch can never cause a hydration mismatch. */
@@ -120,23 +144,22 @@ function useMediaQuery(query: string) {
 
 function JourneyPanel({
   index,
-  progress,
   pinned,
   active,
+  reduceMotion,
   children,
 }: {
   index: number;
-  progress: MotionValue<number>;
   pinned: boolean;
   active: number;
+  reduceMotion: boolean;
   children: React.ReactNode;
 }) {
-  /* Panel 0's range starts negative, so it clamps to 1 across the whole track and needs
-     no special case. The outgoing panel is never touched — being covered is its exit. */
-  const start = (index - ENTER_SPAN) / JOURNEY_DENOM;
-  const end = index / JOURNEY_DENOM;
-  const opacity = useTransform(progress, [start, end], [0, 1]);
-  const y = useTransform(progress, [start, end], [PANEL_RISE, 0]);
+  /* Everything at or before the active index is covered: its background is opaque and
+     occludes whatever is beneath. Only the active panel shows its content. Panel 0 is
+     covered and active from the start, so it needs no entrance. */
+  const covered = index <= active;
+  const isActive = index === active;
 
   return (
     <motion.div
@@ -144,10 +167,40 @@ function JourneyPanel({
       /* A panel at opacity 0 still hit-tests, so without this the calculator would
          swallow clicks meant for the receptionist underneath it. Also keeps covered
          panels out of the tab order. */
-      inert={pinned && index !== active}
-      style={pinned ? { opacity, y } : undefined}
+      inert={pinned && !isActive}
+      /* Drives the per-row stagger on `.journey-outcome`, which cannot key off viewport
+         intersection in here: every panel is `inset: 0` and so is always intersecting.
+         Only set while pinned — unpinned, the rows belong to <JourneyReveal>. */
+      data-active={pinned && isActive ? "true" : undefined}
+      /* The cover, and only the cover. Still instant — any ramp here is a window in which
+         two panels are visible at once — but it now waits for the outgoing content to
+         finish leaving. Until then the panel being left keeps its opaque background, so
+         its exit happens IN VIEW instead of behind the incoming panel. The switch lands on
+         a frame where both contents are at zero, so it cannot be seen and cannot bleed. */
+      animate={pinned ? { opacity: covered ? 1 : 0 } : { opacity: 1 }}
+      transition={{ duration: 0, delay: reduceMotion || !pinned ? 0 : PANEL_OUT_MS / 1000 }}
     >
-      {children}
+      <motion.div
+        className="journey-panel-content"
+        /* The resting offset carries the direction: a panel ahead of the active index
+           waits below the frame, one already passed sits above it. So going forward the
+           new section rises from below while the old drifts up, and going back the
+           previous one comes down from above — mirrored, with no direction to track. */
+        animate={
+          pinned
+            ? { opacity: isActive ? 1 : 0, y: isActive ? 0 : index > active ? PANEL_RISE : -PANEL_RISE }
+            : { opacity: 1, y: 0 }
+        }
+        transition={
+          reduceMotion || !pinned
+            ? { duration: 0 }
+            : isActive
+              ? { duration: PANEL_IN_MS / 1000, delay: PANEL_OUT_MS / 1000, ease: EASE_PANEL }
+              : { duration: PANEL_OUT_MS / 1000, ease: EASE_PANEL }
+        }
+      >
+        {children}
+      </motion.div>
     </motion.div>
   );
 }
@@ -157,25 +210,78 @@ function ScrollJourney({ panels }: { panels: React.ReactNode[] }) {
   const reduceMotion = !!useReducedMotion();
   const pinned = useMediaQuery("(min-width: 1024px)") && !reduceMotion;
 
-  /* "start 65px" is the exact moment the stage pins under the navbar and "end end" the
-     moment it releases, so the progress range needs no measurement. framer-motion 12
-     resolves px edges in scroll offsets. Called unconditionally: gating it on `pinned`
-     would mount the driver in an effect, and for one frame every panel would sit at
-     opacity 1 with the calculator painting on top of the website. */
-  const { scrollYProgress } = useScroll({
-    target: trackRef,
-    offset: [`start ${NAV_H}px`, "end end"],
-  });
-
   const [active, setActive] = useState(0);
-  useMotionValueEvent(scrollYProgress, "change", (v) => {
-    let next = 0;
-    for (let i = 1; i < JOURNEY_PANELS; i++) {
-      // hand over at the halfway point of the incoming panel's fade
-      if (v >= (i - ENTER_SPAN / 2) / JOURNEY_DENOM) next = i;
-    }
-    setActive(next);
-  });
+  const activeRef = useRef(0);
+  const lockedRef = useRef(false);
+  const lockTimer = useRef<number | undefined>(undefined);
+
+  /* Reset when the viewport crosses the breakpoint in either direction. Done during
+     render rather than in an effect — React's documented way to adjust state on a
+     changed input, and it avoids rendering one frame with a stale index after a resize
+     back into pinned mode. Remounting via `key` would reset it too, but that would throw
+     away the calculator's state on every resize. */
+  const [lastPinned, setLastPinned] = useState(pinned);
+  if (lastPinned !== pinned) {
+    setLastPinned(pinned);
+    setActive(0);
+  }
+
+  useEffect(() => () => window.clearTimeout(lockTimer.current), []);
+
+  useEffect(() => {
+    // paired with the render-phase reset above; refs can only be touched in an effect
+    activeRef.current = 0;
+    lockedRef.current = false;
+    if (!pinned) return;
+
+    const stepPx = () => (window.innerHeight - NAV_H) * JOURNEY_STEP_RATIO;
+    const settleFor = (i: number) => {
+      const track = trackRef.current;
+      if (!track) return 0;
+      return track.getBoundingClientRect().top + window.scrollY - NAV_H + i * stepPx();
+    };
+
+    /* The active panel gets first refusal on the wheel: if it can still scroll in the
+       direction being asked for, that is what the scroll is for. Keeps a tall calculator
+       on a short viewport scrollable before the stage advances past it. */
+    const panelCanScroll = (dir: number) => {
+      const el = trackRef.current?.querySelectorAll<HTMLElement>(".journey-panel")[activeRef.current];
+      if (!el) return false;
+      const max = el.scrollHeight - el.clientHeight;
+      if (max <= 2) return false;
+      return dir > 0 ? el.scrollTop < max - 1 : el.scrollTop > 1;
+    };
+
+    const onScroll = () => {
+      if (lockedRef.current) return;
+      const track = trackRef.current;
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      // only while the stage is actually pinned — outside the run, scrolling is normal
+      if (rect.top > NAV_H + 2 || rect.bottom < window.innerHeight - 2) return;
+
+      const delta = window.scrollY - settleFor(activeRef.current);
+      if (Math.abs(delta) < stepPx() * COMMIT_THRESHOLD) return;
+
+      const dir = delta > 0 ? 1 : -1;
+      if (panelCanScroll(dir)) return;
+
+      const next = activeRef.current + dir;
+      if (next < 0 || next >= JOURNEY_PANELS) return;
+
+      activeRef.current = next;
+      setActive(next);
+      lockedRef.current = true;
+      window.scrollTo({ top: settleFor(next), behavior: "smooth" });
+      window.clearTimeout(lockTimer.current);
+      lockTimer.current = window.setTimeout(() => {
+        lockedRef.current = false;
+      }, COMMIT_LOCK_MS);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [pinned]);
 
   return (
     <div
@@ -183,16 +289,9 @@ function ScrollJourney({ panels }: { panels: React.ReactNode[] }) {
       className="journey-track"
       style={{ "--journey-panels": JOURNEY_PANELS, "--journey-tail": JOURNEY_TAIL } as React.CSSProperties}
     >
-      {/* Zero-size snap markers at each panel's settled scroll offset. These are the only
-          snap areas on the page, which is what lets `scroll-snap-type: proximity` sit on
-          the root without affecting the hero, FeaturedSites, the FAQ or the footer. */}
-      {panels.map((_, i) => (
-        <span key={`snap-${i}`} className="journey-snap" aria-hidden="true" style={{ "--i": i } as React.CSSProperties} />
-      ))}
-
       <div className="journey-stage">
         {panels.map((panel, i) => (
-          <JourneyPanel key={i} index={i} progress={scrollYProgress} pinned={pinned} active={active}>
+          <JourneyPanel key={i} index={i} pinned={pinned} active={active} reduceMotion={reduceMotion}>
             {panel}
           </JourneyPanel>
         ))}
@@ -247,17 +346,15 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    order survives the flip. */
 
 function JourneySection({
-  kicker,
   heading,
   body,
-  bullets,
+  outcomes,
   visual,
   visualFirst = false,
 }: {
-  kicker: string;
   heading: string;
   body: string;
-  bullets: string[];
+  outcomes: string[];
   visual: React.ReactNode;
   visualFirst?: boolean;
 }) {
@@ -269,17 +366,28 @@ function JourneySection({
       <div className={`journey-grid${visualFirst ? " journey-grid--flip" : ""}`}>
         {/* Copy is always first in DOM: it is what should be read first when the grid
             collapses to one column, and it is step 0 of the stagger either way. */}
+        {/* No kicker. Both headings now name their own subject, so a label reading "The
+            Website" above "A website that makes the phone ring" was saying it twice. */}
         <JourneyReveal delay={0}>
-          <div className="kicker" style={{ marginBottom: 14 }}>{kicker}</div>
           <h2 style={{ fontWeight: 800, fontSize: "clamp(30px,4.2vw,54px)", lineHeight: 0.98, letterSpacing: ".01em", textTransform: "uppercase", maxWidth: "16ch" }}>
             {heading}
           </h2>
           <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 18 }}>
             {body}
           </p>
-          <div className="journey-bullets">
-            {bullets.map((b) => (
-              <span key={b}>&rarr; {b}</span>
+          {/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page,
+              carrying the most specific facts we have. The hierarchy was inverted against
+              the value of the content, so these are now full-contrast sentences. */}
+          {/* `--row` is the stagger index. The rows are revealed by
+              `.journey-panel[data-active]` in globals.css rather than by a <JourneyReveal>
+              per row — inside the pinned stage every panel intersects the viewport at
+              once, so a viewport-triggered stagger would play behind panel 01 and be
+              finished before this panel is ever looked at. */}
+          <div className="journey-outcomes">
+            {outcomes.map((o, i) => (
+              <span key={o} className="journey-outcome" style={{ "--row": i } as React.CSSProperties}>
+                {o}
+              </span>
             ))}
           </div>
         </JourneyReveal>
@@ -296,13 +404,18 @@ function JourneySection({
 function WebsiteSection() {
   return (
     <JourneySection
-      kicker="The Website"
-      heading="Built once. Runs forever."
-      body="Fast, findable on Google, and made to look like the real you. We build it, host it, back it up and keep it current. Your only job is to keep doing the job."
-      bullets={[
-        "Your website goes live in ~1 week",
-        "Hosting + updates included",
-        "Click-to-call everywhere",
+      /* Leads with the outcome and hands straight off to panel 02, which answers it with
+         "Then someone picks up." The old heading described how we work; this one describes
+         what the reader gets. */
+      heading="A website that makes the phone ring."
+      /* The body used to restate the heading ("we build it, host it, keep it current")
+         before adding anything. It now answers the objection that actually stalls buyers,
+         which until this pass only existed in the FAQ below. */
+      body="We write it, build it, and host it. No coding or maintenance on your part, and it&apos;s always up to date."
+      outcomes={[
+        "You answer a few questions.",
+        "It goes live in less than a week.",
+        "Never again worry about your website.",
       ]}
       visualFirst
       visual={
@@ -312,7 +425,7 @@ function WebsiteSection() {
               screenshot, and the old "running live" line stopped being true the moment
               the iframe became an image. */}
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".08em", color: "var(--fg-3)", lineHeight: 1.5 }}>
-            What your website could look like. Built on the same architecture as JuneauDigitalDesigns.com
+            What yours could look like.
           </span>
         </div>
       }
@@ -325,19 +438,29 @@ function WebsiteSection() {
    receptionist directly, beside the copy that names it. It showed the handoff there and
    it shows the handoff here; what it lost was a heading that restated the section it
    was already inside. */
-function ReceptionistSection({ onOpenForm }: { onOpenForm: () => void }) {
+function ReceptionistSection() {
   return (
     <JourneySection
-      kicker="The Receptionist"
-      heading="Picks up in two rings. Books the job. Texts you."
-      body="When you can't pick up, it does. Answers questions, books the job, and texts you the details before the caller hangs up. 3am, Sunday, holidays. Always on."
-      bullets={[
-        "Up and running 24/7, every single day",
-        "Qualifies your customers",
-        "Texts you a summary every time a customer calls",
-        "English & Spanish AI agents available",
+      /* The sequel to panel 01's heading. Read in order the pinned run now argues one
+         continuous line: the site makes the phone ring, then someone picks up, then here
+         is what not picking up costs. The old heading said "Books the job. Texts you.",
+         which the body and two bullets then said again. */
+      heading="Then someone picks up."
+      /* LOAD-BEARING TAIL. "Nights and weekends too" is the only availability claim left
+         on this panel, since the outcomes no longer carry one. Remove it and the section
+         never says the thing people buy this for.
+
+         Deliberately industry-neutral: this page sells to any service business, so no
+         ladders, roofs or vans. */
+      body="You're with a customer and unable to answer the phone. It picks up for you."
+      outcomes={[
+        "It asks the questions you'd ask.",
+        "Then answers in English or Spanish.",
+        "Finally it texts you the name, number and job.",
       ]}
-      visual={<SiteToCallPanel onOpenForm={onOpenForm} />}
+      /* No CTA on this panel by design. The calculator and the pricing rail carry the
+         asks; the film's own Get Started went with the recap block it lived in. */
+      visual={<SiteToCallPanel />}
     />
   );
 }
@@ -428,16 +551,26 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
     return `$${Math.round(n).toLocaleString()}`;
   }
 
+  /* Row 02 states its value in three places — the inline figure, the aria-valuetext,
+     and the two endpoint labels on its rail — and they have to agree. One function so
+     they cannot drift. Separate from `formatDollars` because that one is tuned for
+     six-figure annual sums and would render an $800 job as "$800" via a different
+     branch than a $500K one. */
+  function formatJobValue(n: number): string {
+    return n >= 1000
+      ? `$${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}K`
+      : `$${n.toLocaleString()}`;
+  }
+
   const missedPct = ((missedPerWeek - MISSED_MIN) / (MISSED_MAX - MISSED_MIN)) * 100;
   const jobPct = jobSliderPos;
   const recoveryPct = ((currentRecovery - RECOVERY_MIN) / (RECOVERY_MAX - RECOVERY_MIN)) * 100;
   const revenueFormatted = formatDollars(revenueOnTable);
-  /* Shared by row 02's inline value and its aria-valuetext, so the announced
-     figure can never drift from the visible one. */
-  const avgJobValueFormatted =
-    avgJobValue >= 1000
-      ? `$${(avgJobValue / 1000).toFixed(avgJobValue >= 100000 ? 0 : 1)}K`
-      : `$${avgJobValue.toLocaleString()}`;
+  /* Hoisted for the same reason as `formatJobValue` above: this figure is now stated
+     twice, in the right-hand column and in the remark that argues it, and the two cannot
+     be allowed to drift. */
+  const recoverableFormatted = formatDollars(recoverableRevenue);
+  const avgJobValueFormatted = formatJobValue(avgJobValue);
 
   return (
     <section className="calc-section">
@@ -446,13 +579,16 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
         {/* No kicker here, unlike the two sections above it. Those name a thing we sell;
             this one is about the reader's own business, and labelling it "The Numbers"
             would file it alongside the products as a third thing to buy. */}
+        {/* A question, not an instruction: it puts the reader inside their own numbers
+            before they touch a slider. The sub-line that used to sit here ("Move the
+            sliders to match your business. Then hit calculate.") told them to do the two
+            things three labelled sliders and a button marked Calculate already make
+            obvious, and cost this panel — the tallest of the three — a paragraph plus its
+            margin. */}
         <JourneyReveal style={{ textAlign: "center", marginBottom: 56 }}>
-          <h2 style={{ marginTop: 16, marginBottom: 12, textTransform: "uppercase" }}>
-            Run the numbers. <span style={{ color: "var(--accent-2)" }}>See what you&apos;re leaving.</span>
+          <h2 style={{ marginTop: 16, marginBottom: 0, textTransform: "uppercase" }}>
+            How much are your <span style={{ color: "var(--accent-2)" }}>missed calls</span> worth?
           </h2>
-          <p style={{ color: "var(--fg-2)", fontSize: 16, maxWidth: "50ch", margin: "0 auto", lineHeight: 1.6 }}>
-            Move the sliders to match your business. Then hit calculate.
-          </p>
         </JourneyReveal>
 
         <JourneyReveal delay={1}>
@@ -467,13 +603,22 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
 
             <div className={viewClass("sliders")} inert={view !== "sliders"}>
             <div className="calc-inputs">
+              {/* Each row is sentence-left, rail-right. The `--val-w` on the value span is
+                  a per-row minimum in `ch`: the figure sits mid-sentence, so without a
+                  floor the words after it shift every time the digit count or width
+                  changes while dragging. Sized to each row's widest value. */}
               <div className="calc-row">
-                <span className="calc-row-index" aria-hidden="true">01</span>
                 <p className="calc-row-copy">
-                  I miss <span className="calc-row-value">{missedPerWeek}</span> calls a week
+                  I miss{" "}
+                  <span className="calc-row-value" style={{ "--val-w": "2ch" } as React.CSSProperties}>
+                    {missedPerWeek}
+                  </span>{" "}
+                  calls a week
                 </p>
-                {/* wrapper carries the radio-dial tick scale above the track */}
+                {/* The endpoints are aria-hidden: the input already announces its own
+                    min and max, and the label is only there for the eye. */}
                 <div className="calc-fader">
+                  <span className="calc-fader-end" aria-hidden="true">{MISSED_MIN}</span>
                   <input
                     type="range"
                     className="calc-slider"
@@ -485,15 +630,24 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                     style={{ "--pct": `${missedPct}%` } as React.CSSProperties}
                     aria-label="Missed calls per week"
                   />
+                  <span className="calc-fader-end" aria-hidden="true">{MISSED_MAX}</span>
                 </div>
               </div>
 
               <div className="calc-row">
-                <span className="calc-row-index" aria-hidden="true">02</span>
                 <p className="calc-row-copy">
-                  My average job is worth <span className="calc-row-value">{avgJobValueFormatted}</span>
+                  My average job is worth{" "}
+                  {/* No --val-w: the value ends the sentence, so nothing trails it to be
+                      pushed around, and a floor wide enough for "$500K" would leave "$50"
+                      floating away from "worth". */}
+                  <span className="calc-row-value">{avgJobValueFormatted}</span>
                 </p>
                 <div className="calc-fader">
+                  {/* Formatted from the slider bounds rather than written out, so the
+                      labels track the scale if `sliderToJobValue` is ever retuned. */}
+                  <span className="calc-fader-end" aria-hidden="true">
+                    {formatJobValue(sliderToJobValue(JOB_SLIDER_MIN))}
+                  </span>
                   <input
                     type="range"
                     className="calc-slider"
@@ -508,22 +662,27 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                        meaningless read aloud — announce the dollar figure instead */
                     aria-valuetext={avgJobValueFormatted}
                   />
+                  <span className="calc-fader-end" aria-hidden="true">
+                    {formatJobValue(sliderToJobValue(JOB_SLIDER_MAX))}
+                  </span>
                 </div>
               </div>
 
               <div className="calc-row">
-                <span className="calc-row-index" aria-hidden="true">03</span>
+                {/* "leads", not "calls" or "them". The slider is applied to
+                    `annualLeadCalls` — the 37% subset — not to every missed call, so any
+                    other noun here would describe a different sum than the one computed. */}
                 <p className="calc-row-copy">
-                  Right now I win back{" "}
-                  <span
-                    className="calc-row-value"
-                    style={{ textShadow: currentRecovery >= 90 ? "0 0 40px var(--accent-glow)" : "none" }}
-                  >
+                  I win back{" "}
+                  {/* 3.8ch, not 3.5: measured, "100%" overran 3.5ch and nudged "of those
+                      leads" 2.8px to the right on the last step of the drag. */}
+                  <span className="calc-row-value" style={{ "--val-w": "3.8ch" } as React.CSSProperties}>
                     {currentRecovery}%
                   </span>{" "}
                   of those leads
                 </p>
                 <div className="calc-fader">
+                  <span className="calc-fader-end" aria-hidden="true">{RECOVERY_MIN}%</span>
                   <input
                     type="range"
                     className="calc-slider"
@@ -536,15 +695,18 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                     aria-label="Percent of lead calls you recover today"
                     aria-valuetext={`${currentRecovery}%`}
                   />
+                  <span className="calc-fader-end" aria-hidden="true">{RECOVERY_MAX}%</span>
                 </div>
               </div>
 
-              <div>
+              {/* Shares the rows' column template so the button sits under the rail. Width
+                  and glow were inline here and had to go: inline styles beat the stylesheet,
+                  and the accent bloom was removed from the slider in the same pass. */}
+              <div className="calc-submit">
                 <button
                   type="button"
                   onClick={() => goTo("results")}
                   className="btn primary lg"
-                  style={{ width: "100%", boxShadow: "0 0 32px var(--accent-glow)" }}
                 >
                   Calculate
                 </button>
@@ -562,14 +724,17 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                   and was the single reason the results couldn't fit the sliders' height —
                   and read as two unrelated numbers rather than one comparison. */}
               <div className="calc-figures">
+                {/* "Lost" then "Won Back": an explicit pair. The old labels described the
+                    two numbers accurately but in different grammar, so the card read as
+                    two facts rather than one before-and-after. */}
                 <div>
-                  <div className="kicker">Revenue Left on the Table</div>
-                  <div className="calc-figure">{revenueFormatted}</div>
+                  <div className="kicker">Lost to Missed Calls</div>
+                  <div className="calc-figure calc-figure--muted">{revenueFormatted}</div>
                   <div className="kicker">per year</div>
                 </div>
                 <div>
-                  <div className="kicker">Recoverable via AI Receptionist</div>
-                  <div className="calc-figure calc-figure--accent">{formatDollars(recoverableRevenue)}</div>
+                  <div className="kicker">Won Back With a Receptionist</div>
+                  <div className="calc-figure calc-figure--accent">{recoverableFormatted}</div>
                   <div className="kicker">per year</div>
                 </div>
               </div>
@@ -582,7 +747,16 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
                 {revenueOnTable < 1 ? (
                   <>Nothing on the table at 100%. Almost nobody is at 100%.</>
                 ) : (
-                  <>{revenueFormatted}{" "}a year, if those callers did what most callers do: hang up without leaving a message and try someone else.</>
+                  /* Argues the RECOVERABLE figure, not the loss. This line used to restate
+                     `revenueFormatted` and then hand the sentence to the competitor, which
+                     meant the loss carried both the bigger treatment and the only words on
+                     the card while the number we actually sell — already the loudest thing
+                     here, in accent with a glow — went unmentioned. The reader was left in
+                     the negative at the exact moment they are most persuadable.
+
+                     The close is the objection, not the pitch: the reflex after a figure
+                     this size is "so what do I have to do", and the answer is nothing. */
+                  <>{recoverableFormatted}{" "}of that comes back when every call gets answered. You don&apos;t work any harder, you just stop missing them.</>
                 )}
               </p>
 
@@ -907,7 +1081,7 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
       <ScrollJourney
         panels={[
           <WebsiteSection key="website" />,
-          <ReceptionistSection key="receptionist" onOpenForm={openForm} />,
+          <ReceptionistSection key="receptionist" />,
           <MissedCallsCalculator key="calculator" onOpenForm={openForm} />,
         ]}
       />

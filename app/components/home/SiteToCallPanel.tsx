@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useReducedMotion, AnimatePresence, motion } from "framer-motion";
+import { ArrowCounterClockwise } from "@phosphor-icons/react";
 import { SCENARIOS, CallScenario } from "@/app/data/switchboard-calls";
 
 /**
@@ -396,7 +397,7 @@ function StageCard({ label, sub }: { label: string; sub?: string }) {
 }
 
 /* ── Panel ───────────────────────────────────────────────────── */
-export default function SiteToCallPanel({ onOpenForm }: { onOpenForm: () => void }) {
+export default function SiteToCallPanel() {
   const reduce = useReducedMotion();
   const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -596,46 +597,39 @@ export default function SiteToCallPanel({ onOpenForm }: { onOpenForm: () => void
           )}
         </AnimatePresence>
 
+        {/* Both controls live in `.film-gate`, which is `position: absolute; inset: 0`
+            and therefore contributes NO height. That is the whole point: the stage is the
+            same height at idle, mid-film and at the end.
+
+            What used to be here instead was `.film-recap`, a block appended BELOW the
+            phone once the sequence finished. Inside a pinned journey panel that is a
+            height change after the panel has already committed, which stretched the
+            section past the frame. If you reintroduce anything post-film, it has to be an
+            overlay, not a sibling. */}
         {phase === "idle" && (
           <div className="film-gate">
-            <button type="button" onClick={start} className="btn primary lg film-gate-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>
-              Show me how it works
+            <div className="film-gate-stack">
+              {/* Explains why a film about a phone receptionist opens on a website. */}
+              <p className="film-gate-line">A customer finds you online.</p>
+              <button type="button" onClick={start} className="btn primary lg film-gate-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>
+                Show me how it works
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom-anchored, not centred like the gate: the final screen is the text
+            message the film exists to deliver, and its bubble sits at the top. Centring
+            this would cover the payoff. */}
+        {showRecap && (
+          <div className="film-gate film-gate--replay">
+            <button type="button" onClick={replay} className="btn ghost film-replay-btn">
+              <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
+              Replay
             </button>
           </div>
         )}
       </div>
-
-      {/* Recap — the chain, stated plainly, and the way out */}
-      <AnimatePresence>
-        {showRecap && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.45, ease: "easeOut" }}
-            className="film-recap"
-          >
-            <div className="film-chain">
-              <span>Your site</span>
-              <span className="film-chain-arrow" aria-hidden="true">→</span>
-              <span>Their call</span>
-              <span className="film-chain-arrow" aria-hidden="true">→</span>
-              <span>Your text</span>
-            </div>
-            <p className="film-recap-copy">
-              {scenario.caller.name} called at {scenario.callTime}. Two minutes later you had their
-              name, their problem, and their number, without picking up.
-            </p>
-            <div className="film-recap-actions">
-              <button type="button" onClick={onOpenForm} className="btn primary lg" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>
-                Get Started
-              </button>
-              <button type="button" onClick={replay} className="btn ghost">
-                Show me another business
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
