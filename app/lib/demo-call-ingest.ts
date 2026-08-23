@@ -83,7 +83,7 @@ export async function ingestDemoCall(call: Record<string, unknown>): Promise<Ing
   // ── 4. Idempotency ────────────────────────────────────────────────────────
   // The call record is a plain upsert, so a redelivery just overwrites it. The LEAD is the
   // one that must not double — check the reverse index before creating one. This is what
-  // makes the cron safe to run every 15 minutes over an overlapping window.
+  // makes the cron safe to re-run on an overlapping window.
   const existingLeadId = await leadIdForCall(callId);
 
   if (existingLeadId) {
@@ -102,9 +102,9 @@ export async function ingestDemoCall(call: Record<string, unknown>): Promise<Ing
     id: crypto.randomUUID(),
     receivedAt: startMs,
     source: "call",
-    // A four-minute conversation with our agent is not a cold lead. Entering at
-    // "qualified" is what keeps New meaning "hasn't heard it yet".
-    stage: "qualified",
+    // Enters like every other lead: New means "hasn't been worked yet", and a demo call
+    // hasn't been worked yet either, just heard. The operator promotes it by hand.
+    stage: "new",
     name: callerName,
     businessName: businessName ?? callerName,
     phone: record.fromNumber ?? "",

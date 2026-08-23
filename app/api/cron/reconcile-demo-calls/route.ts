@@ -21,8 +21,14 @@ import { ingestDemoCall, type IngestResult } from "@/app/lib/demo-call-ingest";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Overlaps the 15-minute cron generously — re-ingesting a known call costs one KV read. */
-const DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+/**
+ * Overlaps the daily cron with two hours to spare.
+ *
+ * Hobby does not guarantee the firing minute, so an exactly-24h window can leave an
+ * uncovered gap between two runs that drift apart — precisely the calls this exists to
+ * catch. Re-ingesting a call already seen costs one KV read, so the overlap is nearly free.
+ */
+const DEFAULT_LOOKBACK_MS = 26 * 60 * 60 * 1000;
 /** Retell caps page size; keep well under it and paginate. */
 const PAGE_SIZE = 100;
 /** Stops a bad `since` from walking the entire call history. */

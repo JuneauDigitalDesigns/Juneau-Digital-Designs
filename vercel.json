@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/retell-usage",
       "schedule": "0 9 */3 * *"
+    },
+    {
+      "path": "/api/cron/reconcile-demo-calls",
+      "schedule": "0 7 * * *"
     }
   ]
 }
