@@ -454,9 +454,9 @@ function ReceptionistSection() {
          ladders, roofs or vans. */
       body="You're with a customer and unable to answer the phone. It picks up for you."
       outcomes={[
-        "It asks the questions you'd ask.",
-        "Then answers in English or Spanish.",
-        "Finally it texts you the name, number and job.",
+        "It asks the questions you'd ask, in English or in Spanish.",
+        "It captures the lead's name, number and what the job is.",
+        "Finally it texts you the details, so you can call them back.",
       ]}
       /* No CTA on this panel by design. The calculator and the pricing rail carry the
          asks; the film's own Get Started went with the recap block it lived in. */
