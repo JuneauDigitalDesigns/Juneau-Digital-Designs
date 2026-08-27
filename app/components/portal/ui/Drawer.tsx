@@ -1,14 +1,24 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
+import { useIsMobile } from "./useMediaQuery";
 
 /**
- * Right-side detail drawer.
+ * Detail overlay: a right-side drawer on desktop, a bottom sheet on a phone.
  *
  * Replaces an expanding table row, which could only ever hold one line of text and pushed
- * every row below it down the page. A drawer has room for the full summary, the caller's
+ * every row below it down the page. This has room for the full summary, the caller's
  * details, and a recording — and leaves the list you were scanning where it was.
+ *
+ * The mobile branch is not cosmetic. The desktop drawer put its close button in the top
+ * right, which on a phone is the one corner a thumb cannot reach, and slid in from an edge
+ * no touch gesture is associated with. A sheet rises from the thumb, carries a grip, and
+ * dismisses by flicking down — so the close button stops being the only way out.
+ *
+ * Everything below the presentation layer is shared: one focus trap, one Esc handler, one
+ * scroll lock, one focus-restore. Forking those per viewport is how a keyboard user ends up
+ * trapped in a variant nobody tested.
  */
 export default function Drawer({
     open,
@@ -24,6 +34,7 @@ export default function Drawer({
     const panelRef = useRef<HTMLDivElement>(null);
     const restoreFocusTo = useRef<HTMLElement | null>(null);
     const reduceMotion = useReducedMotion();
+    const isMobile = useIsMobile();
 
     // Esc to close, and trap Tab inside the panel while it's open.
     useEffect(() => {
@@ -67,6 +78,34 @@ export default function Drawer({
         };
     }, [open, onClose]);
 
+    /**
+     * Dismiss on a downward flick, or on a drag that got far enough to read as intent.
+     * Velocity alone is not enough — a slow, deliberate pull to the bottom of the screen
+     * should also close — and distance alone is not enough either, or a quick flick that
+     * only travelled 40px would spring back and feel broken.
+     */
+    function onDragEnd(_: unknown, info: PanInfo) {
+        if (info.velocity.y > 420 || info.offset.y > 110) onClose();
+    }
+
+    const motionProps = reduceMotion
+        ? { initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } }
+        : isMobile
+          ? { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } }
+          : { initial: { x: "100%" }, animate: { x: 0 }, exit: { x: "100%" } };
+
+    const dragProps =
+        isMobile && !reduceMotion
+            ? {
+                  drag: "y" as const,
+                  // Up is clamped to 0 so the sheet cannot be dragged off the top of its own
+                  // container; down is unbounded so the exit follows the finger.
+                  dragConstraints: { top: 0, bottom: 0 },
+                  dragElastic: { top: 0, bottom: 0.9 },
+                  onDragEnd,
+              }
+            : {};
+
     return (
         <AnimatePresence>
             {open && (
@@ -87,19 +126,38 @@ export default function Drawer({
                         aria-modal="true"
                         aria-label={title}
                         tabIndex={-1}
-                        className="fixed right-0 top-0 bottom-0 z-50 w-full sm:w-[26rem] overflow-y-auto outline-none"
-                        style={{
-                            background: "var(--bg)",
-                            borderLeft: "1px solid var(--rule)",
-                            boxShadow: "var(--glass-shadow)",
-                        }}
-                        initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
-                        animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
-                        exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
+                        className={
+                            isMobile
+                                ? "portal-sheet fixed inset-x-0 bottom-0 z-50 overflow-y-auto outline-none"
+                                : "fixed right-0 top-0 bottom-0 z-50 w-full sm:w-[26rem] overflow-y-auto outline-none"
+                        }
+                        style={
+                            isMobile
+                                ? {
+                                      background: "var(--bg)",
+                                      borderTop: "1px solid var(--rule)",
+                                      boxShadow: "var(--glass-shadow)",
+                                  }
+                                : {
+                                      background: "var(--bg)",
+                                      borderLeft: "1px solid var(--rule)",
+                                      boxShadow: "var(--glass-shadow)",
+                                  }
+                        }
+                        {...motionProps}
+                        {...dragProps}
                         transition={{ duration: reduceMotion ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
                     >
+                        {/* Affordance and drag surface both. Hidden from AT because the sheet
+                            is already dismissible by Esc and by the labelled close button. */}
+                        {isMobile && !reduceMotion && (
+                            <div className="portal-sheet-grip" aria-hidden="true" />
+                        )}
+
                         <div
-                            className="flex items-center justify-between gap-4 px-5 py-4 border-b sticky top-0"
+                            className={`flex items-center justify-between gap-4 px-5 border-b sticky top-0 ${
+                                isMobile ? "pb-3 pt-1" : "py-4"
+                            }`}
                             style={{ borderColor: "var(--rule)", background: "var(--bg)" }}
                         >
                             <h2
@@ -112,7 +170,7 @@ export default function Drawer({
                                 type="button"
                                 onClick={onClose}
                                 aria-label="Close"
-                                className="shrink-0 w-8 h-8 rounded flex items-center justify-center cursor-pointer transition-colors"
+                                className="portal-hit shrink-0 w-8 h-8 rounded flex items-center justify-center cursor-pointer transition-colors"
                                 style={{ color: "var(--fg-2)", background: "var(--surface)" }}
                             >
                                 ✕

@@ -175,6 +175,21 @@ export const periodKey = (acctScope: string, slug: string) =>
     `portal:period:v1:${acctScope}:${slug}`;
 
 /**
+ * When this client last looked at this site's Overview.
+ *
+ * Unlike every other key here this is **state, not cache** — a miss is not a slow path, it
+ * changes what renders. So it carries no TTL and is written with a plain `setCached(..., 0)`
+ * equivalent through `setLastVisit`, which passes a very long expiry rather than none, so an
+ * account that stops visiting eventually stops occupying a key.
+ *
+ * A year is well past the point where "since your last visit" means anything useful; past
+ * that the panel correctly falls back to showing nothing.
+ */
+export const LAST_VISIT_TTL = 31_536_000; // 365 days
+export const lastVisitKey = (acctScope: string, slug: string) =>
+    `portal:last-visit:v1:${acctScope}:${slug}`;
+
+/**
  * The resolved account, keyed by Clerk user id.
  *
  * Short on purpose: this record decides which sites a client may see. Every write goes

@@ -1,4 +1,5 @@
 import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import PortalChrome from "@/app/components/portal/PortalChrome";
 import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
@@ -16,6 +17,12 @@ export const dynamic = "force-dynamic";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { userId } = await auth();
     if (!userId) redirect("/portal/sign-in");
+
+    // Read here rather than in the client component so the rail's width is correct in the
+    // server HTML. Held in localStorage it would paint 232px and snap to 64px after
+    // hydration on every single load. This layout is already `force-dynamic`, so a cookie
+    // read costs nothing it wasn't already paying.
+    const railCollapsed = (await cookies()).get("portal_rail")?.value === "collapsed";
 
     const ctx = await resolveDashboard();
 
@@ -55,7 +62,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // client-side navigation changes it, without a server round trip.
     return (
         <PortalScope>
-            <PortalChrome sites={sites} accountEmail={account.email}>
+            <PortalChrome
+                sites={sites}
+                accountEmail={account.email}
+                railCollapsed={railCollapsed}
+            >
                 {children}
             </PortalChrome>
         </PortalScope>

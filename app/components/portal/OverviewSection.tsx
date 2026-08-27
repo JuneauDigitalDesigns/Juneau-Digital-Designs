@@ -73,74 +73,199 @@ export function OverviewMetrics({
 
     const series = data.dailySeries ?? [];
 
+    // Which number leads. The old page rendered five tiles of identical weight in an
+    // auto-fit grid, so "Qualified leads" and "Calls on record" competed as equals and
+    // nothing said where to look. One figure now carries the page and the rest visibly
+    // support it.
+    //
+    // Chosen per plan because the plans genuinely differ: an Outcome column means the client
+    // is triaging leads and the triaged count is the point; without one, volume is all we
+    // can honestly lead with. Starter has no call data at all and is handled a level up, in
+    // `page.tsx`, by rendering the traffic hero instead.
+    const leadsAreTheStory = data.hasOutcome && data.qualifiedThisMonth !== null;
+
     return (
-        <Stagger className="portal-metric-grid">
-            <StaggerItem>
-                <StatTile
-                    label="Calls this month"
+        <div>
+            {leadsAreTheStory ? (
+                <HeroMetric
+                    label="Marked qualified · this period"
                     info={PERIOD_INFO}
-                    value={data.callsThisMonth ?? null}
-                    count={data.callsThisMonth ?? null}
+                    value={data.qualifiedThisMonth ?? 0}
+                    delta={data.qualifiedDelta}
+                    /* States the denominator and claims nothing further. An earlier draft
+                       read "a 45% conversion", which is our arithmetic dressed as their
+                       result — and a call is not a converted lead until the owner rings
+                       back. Same trap `airtable-calls.ts` documents as "0% qualified, a
+                       fabricated statistic presented as a measurement". */
+                    sub={`of ${data.callsThisMonth ?? 0} calls answered`}
+                    series={series}
+                />
+            ) : (
+                <HeroMetric
+                    label="Calls this period"
+                    info={PERIOD_INFO}
+                    value={data.callsThisMonth ?? 0}
                     delta={data.callsDelta}
-                    hint={
+                    sub={
                         data.callsLastMonth !== undefined
-                            ? `${data.callsLastMonth} last month`
+                            ? `${data.callsLastMonth} last period`
                             : undefined
                     }
                     series={series}
                 />
-            </StaggerItem>
-
-            {data.hasOutcome && (
-                <StaggerItem>
-                    <StatTile
-                        label="Qualified leads"
-                        value={data.qualifiedThisMonth ?? null}
-                        count={data.qualifiedThisMonth ?? null}
-                        delta={data.qualifiedDelta}
-                        tone="positive"
-                        hint="this month"
-                    />
-                </StaggerItem>
             )}
 
-            <StaggerItem>
-                <StatTile
-                    label="Avg. call length"
-                    value={duration(data.avgDurationSeconds)}
-                    hint="this month"
-                />
-            </StaggerItem>
-
-            <StaggerItem>
-                <StatTile
+            <StatStrip>
+                <StatStripCell label="Avg. call length" value={duration(data.avgDurationSeconds)} />
+                <StatStripCell
                     label="Calls on record"
-                    value={data.totalCalls ?? null}
-                    count={data.totalCalls ?? null}
-                    hint={`all time · ${site.plan} plan`}
+                    value={data.totalCalls?.toLocaleString() ?? "—"}
+                    unit="all time"
                 />
-            </StaggerItem>
-
-            {/* Only on plans with an allowance, and only once we have a figure we can stand
-                behind — the Call Log carries the full meter and the overage estimate. */}
-            {usage.state === "ready" && usage.secondsUsed !== null && (
-                <StaggerItem>
-                    <StatTile
+                {/* Only on plans with an allowance, and only once we have a figure we can
+                    stand behind — the Call Log carries the full meter and the overage
+                    estimate. */}
+                {usage.state === "ready" && usage.secondsUsed !== null && (
+                    <StatStripCell
                         label="Minutes used"
-                        info={PERIOD_INFO}
-                        // Formatted value with the raw seconds as the count target: StatTile
-                        // animates the number and settles on the string, so this ends reading
-                        // "4m 44s" rather than "284".
                         value={duration(usage.secondsUsed)}
-                        count={usage.secondsUsed}
-                        unit={`of ${usage.minutesCap?.toLocaleString()}m (${Math.round(usage.pct ?? 0)}%)`}
+                        unit={`of ${usage.minutesCap?.toLocaleString()}m`}
                         tone={usageStatTone(usageLevel(usage.pct))}
                         hint={usageGlance(usage)}
                         href={tabHref("calls", site.slug)}
                     />
-                </StaggerItem>
+                )}
+            </StatStrip>
+        </div>
+    );
+}
+
+/**
+ * The page's one large figure.
+ *
+ * Sized from `--text-hero`, which steps once at 1024px rather than using `clamp()` — see the
+ * token note in globals.css. `.portal-numeral` gives it tabular figures so the count-up does
+ * not reflow the line as digits change.
+ */
+export function HeroMetric({
+    label,
+    value,
+    delta,
+    sub,
+    series,
+    info,
+    tone = "default",
+}: {
+    label: string;
+    value: number;
+    delta?: number | null;
+    /** Mono metadata, not prose. State a denominator; do not derive a rate. */
+    sub?: string;
+    series?: number[];
+    info?: string;
+    tone?: "default" | "positive";
+}) {
+    const shown = useCountUp(value);
+
+    return (
+        <section className="portal-hero">
+            <div className="portal-hero-label">
+                {label}
+                {info && <InfoTip text={info} label={`About ${label}`} />}
+            </div>
+
+            <div className="portal-hero-row">
+                <span
+                    className="portal-numeral portal-hero-num"
+                    style={tone === "positive" ? { color: "var(--chart-pos)" } : undefined}
+                >
+                    {shown.toLocaleString()}
+                </span>
+                {delta !== null && delta !== undefined && <DeltaBadge delta={delta} />}
+            </div>
+
+            {sub && <p className="portal-hero-sub">{sub}</p>}
+
+            {series && series.length > 1 && (
+                <div className="portal-hero-spark" aria-hidden="true">
+                    <Sparkline data={series} color="var(--chart-series-1)" height={52} />
+                </div>
             )}
-        </Stagger>
+        </section>
+    );
+}
+
+function DeltaBadge({ delta }: { delta: number }) {
+    const up = delta >= 0;
+    const rounded = Math.abs(Math.round(delta));
+    return (
+        <span
+            className="portal-hero-delta"
+            style={{
+                background: up
+                    ? "color-mix(in srgb, var(--chart-pos) 11%, transparent)"
+                    : "color-mix(in srgb, var(--chart-neg) 11%, transparent)",
+                color: up ? "var(--chart-pos)" : "var(--chart-neg)",
+            }}
+        >
+            {up ? "▲" : "▼"} {rounded}%
+            <span className="sr-only"> {up ? "up" : "down"} on the previous period</span>
+        </span>
+    );
+}
+
+/**
+ * The demoted numbers: one hairline-divided strip instead of three equal cards.
+ *
+ * These were full `StatTile`s, which is what made the page read flat — "Calls on record, all
+ * time" carried exactly as much weight as the lead count. They are still here because they
+ * are still useful; they are just no longer competing.
+ */
+export function StatStrip({ children }: { children: React.ReactNode }) {
+    return <div className="portal-strip">{children}</div>;
+}
+
+function StatStripCell({
+    label,
+    value,
+    unit,
+    hint,
+    href,
+    tone,
+}: {
+    label: string;
+    value: string;
+    unit?: string;
+    hint?: string;
+    href?: string;
+    tone?: "default" | "positive" | "negative" | "warn";
+}) {
+    const toneColor =
+        tone === "negative"
+            ? "var(--chart-neg)"
+            : tone === "warn"
+              ? "var(--chart-warn)"
+              : tone === "positive"
+                ? "var(--chart-pos)"
+                : undefined;
+
+    const body = (
+        <>
+            <div className="portal-strip-k">{label}</div>
+            <div className="portal-strip-v portal-numeral" style={{ color: toneColor }}>
+                {value}
+                {unit && <small>{unit}</small>}
+            </div>
+            {hint && <div className="portal-strip-hint">{hint}</div>}
+        </>
+    );
+
+    return href ? (
+        <Link href={href} className="portal-strip-cell portal-row">
+            {body}
+        </Link>
+    ) : (
+        <div className="portal-strip-cell">{body}</div>
     );
 }
 

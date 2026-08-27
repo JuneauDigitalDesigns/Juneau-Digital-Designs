@@ -2263,6 +2263,119 @@ select option {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
 }
+
+/* ── Mobile chrome: slim topbar + fixed bottom tab bar ───────
+   What this replaced: the rail stacked on top of the content, a full-width block carrying
+   the 68px brand band, the "Client Portal" label, the site name, the host, the plan chip,
+   a horizontally scrolling six-item nav strip and the account row. Roughly 280px of an
+   812px phone — 34% of the viewport — before the first number, and none of it sticky, so
+   scrolling a call log put navigation out of reach entirely.
+
+   Splitting it recovers about 230px and makes the nav permanently reachable. The topbar
+   keeps only what identifies *which* account and site you are looking at; everything else
+   moved to the bar at the bottom, where a thumb is. */
+.portal-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 14px;
+  /* Translucent so content scrolling under it reads as depth rather than a seam. The solid
+     fallback matters: `backdrop-filter` is unsupported in Firefox on Android by default and
+     the bar would otherwise be transparent there. */
+  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* The agency mark on mobile, cropped out of the full lockup rather than shipped as a second
+   asset. `jdd-lockup-portal.png` is 640×192 and the "JDD" glyph occupies its left ~41%, so
+   an image sized to 93×28 inside a 39px window shows the mark and clips the wordmark. This
+   deliberately reuses the one verified cutout: `JDs_nobg.png` is white-on-transparent and
+   would be invisible here, and `JDD_mark.png` carries a baked cream ground (see
+   PORTAL-DESIGN.md). Cream chip behind it, because it is still the only warm surface. */
+.portal-mark {
+  flex: none;
+  width: 39px;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--brand-band);
+  display: flex;
+  align-items: center;
+}
+.portal-mark img {
+  display: block;
+  width: 93px;
+  height: 28px;
+  max-width: none;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.portal-topbar-site { min-width: 0; flex: 1; }
+.portal-topbar-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.portal-topbar-host {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portal-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--elev-1);
+  background: color-mix(in srgb, var(--elev-1) 94%, transparent);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--rule);
+  /* Clears the iPhone home indicator. Dead without `viewportFit: "cover"` in app/layout.tsx
+     — env() returns 0 and the last row of a list sits under the bar, untappable. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.portal-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  /* 52px, comfortably over the 44px floor, without needing `.portal-hit`. */
+  min-height: 52px;
+  font-size: 10px;
+  color: var(--fg-3);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.portal-tab svg { width: 21px; height: 21px; }
+.portal-tab.is-active { color: var(--accent); font-weight: 600; }
+.portal-tab .portal-tab-lock {
+  position: absolute;
+  top: 7px;
+  right: 50%;
+  margin-right: -16px;
+  color: var(--fg-3);
+}
 /* The rail sits on the page colour, not an elevated one, so the white active-tab pill has
    something to lift off. Inverting that — rail elevated, pill flat — gives the selected tab
    nowhere to go.
@@ -2270,13 +2383,15 @@ select option {
    NOTE: `.portal-brand` below cancels this padding with negative margins to reach the rail
    edges. The two must change together. */
 .portal-rail {
+  /* Desktop only. Below 1024px its job is split between `.portal-topbar` and
+     `.portal-tabbar` above, so it is not rendered rather than merely restyled. */
+  display: none;
   min-width: 0;
-  display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 18px;
+  padding: 22px 14px;
   background: var(--bg);
-  border-bottom: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
 }
 .portal-rail-head { min-width: 0; }
 
@@ -2299,9 +2414,9 @@ select option {
 .portal-brand {
   display: flex;
   align-items: center;
-  margin: -14px -16px 0;
-  padding-inline: 16px;
-  height: 68px;
+  margin: -22px -14px 0;
+  padding-inline: 14px;
+  height: 80px;
   background: var(--brand-band);
   transition: opacity 140ms ease;
 }
@@ -2311,8 +2426,8 @@ select option {
 .portal-brand:hover { opacity: 0.82; }
 .portal-brand img {
   display: block;
-  width: 160px;
-  height: 48px;
+  width: 180px;
+  height: 54px;
 }
 
 /* Sits on the rail surface below the band, not inside it — the band is agency identity,
@@ -2330,27 +2445,33 @@ select option {
   color: var(--fg-3);
 }
 
+/* Always a column now. It used to scroll sideways below 1024px, which was the least bad
+   option while six items had to fit a full-width strip; the bottom tab bar replaced that
+   job, so the sideways-scroll affordance — which nobody reliably discovers — is gone. */
 .portal-rail-nav {
-  /* Required for the horizontal scroll to actually engage rather than expand the rail. */
   min-width: 0;
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 2px;
+  flex: 1;
 }
-.portal-rail-nav::-webkit-scrollbar { display: none; }
 .portal-rail-foot {
   display: flex;
   align-items: center;
   gap: 10px;
+  border-top: 1px solid var(--rule-weak);
+  padding-top: 14px;
 }
 .portal-rail-link {
   display: flex;
   align-items: center;
   gap: 8px;
   white-space: nowrap;
-  padding: 7px 11px;
+  /* Was `7px 11px`, which on 12.5px type is a ~31px tall target. The rail is desktop-only
+     so a mouse was always hitting it, but a laptop trackpad is not a mouse and the row was
+     tight enough to mis-click between neighbours. 11px lands it at 39px without changing
+     the pill's visual weight. */
+  padding: 11px;
   border-radius: 6px;
   font-size: var(--text-sm);
   color: var(--fg-2);
@@ -2383,7 +2504,9 @@ select option {
 }
 .portal-stage {
   min-width: 0;
-  padding: 24px 16px 56px;
+  /* Bottom padding clears the fixed tab bar (52px) plus the home indicator, or the last
+     row of a call log is unreachable behind it. */
+  padding: 20px 14px calc(52px + 28px + env(safe-area-inset-bottom, 0px));
 }
 
 /* The global form reset sets background/border on every `select` with `!important`, which
@@ -2405,42 +2528,141 @@ select option {
     grid-template-columns: 232px minmax(0, 1fr);
     grid-template-rows: 1fr;
   }
+  /* Collapsed rail: icons only. The state arrives as a cookie read in
+     `(dash)/layout.tsx` and lands on the shell as a data attribute, so the correct width is
+     in the server HTML. Holding it in localStorage would paint 232px and snap to 64px after
+     hydration, every load. */
+  .portal-shell[data-rail="collapsed"] {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
   .portal-rail {
-    gap: 18px;
-    padding: 22px 14px;
-    border-bottom: none;
-    border-right: 1px solid var(--rule);
+    display: flex;
     position: sticky;
     top: 0;
     height: 100vh;
     height: 100dvh;
   }
-  /* Mirrors the padding above — see the geometry contract on `.portal-brand`. */
-  .portal-brand {
-    margin: -22px -14px 0;
-    padding-inline: 14px;
-    height: 80px;
-  }
-  .portal-brand img {
-    width: 180px;
-    height: 54px;
-  }
-  .portal-rail-nav {
-    flex-direction: column;
-    overflow-x: visible;
-    flex: 1;
-  }
-  .portal-rail-foot {
-    border-top: 1px solid var(--rule-weak);
-    padding-top: 14px;
-  }
+  .portal-topbar,
+  .portal-tabbar { display: none; }
+
   .portal-stage {
     padding: 32px 32px 72px;
   }
+
+  /* ── Collapsed variant ───────────────────────────────────
+     Labels go, icons centre, and the head and footer address drop out entirely — there is
+     no honest way to show a domain in 64px. The tab's `title` carries the name on hover and
+     the `<span>` stays in the DOM for screen readers, hidden with `sr-only` semantics
+     rather than `display: none`. */
+  .portal-shell[data-rail="collapsed"] .portal-rail { padding: 22px 8px; }
+  .portal-shell[data-rail="collapsed"] .portal-brand {
+    margin: -22px -8px 0;
+    padding-inline: 0;
+    justify-content: center;
+  }
+  .portal-shell[data-rail="collapsed"] .portal-brand img { width: 96px; height: 29px; }
+  .portal-shell[data-rail="collapsed"] .portal-brand-label,
+  .portal-shell[data-rail="collapsed"] .portal-rail-head { display: none; }
+  .portal-shell[data-rail="collapsed"] .portal-rail-link { justify-content: center; padding: 11px 0; }
+  .portal-shell[data-rail="collapsed"] .portal-rail-link > span:not(.sr-only),
+  .portal-shell[data-rail="collapsed"] .portal-rail-link .portal-rail-marker { display: none; }
+  .portal-shell[data-rail="collapsed"] .portal-rail-foot { justify-content: center; }
+  .portal-shell[data-rail="collapsed"] .portal-rail-foot > span { display: none; }
 }
-@media (min-width: 1600px) {
-  /* Cap the reading measure on very wide displays without letting the rail drift. */
-  .portal-stage > * { max-width: 1320px; }
+
+/* The collapse control straddles the rail's own border, so it reads as attached to the
+   edge rather than floating inside the rail. Hidden below 1024px with the rail itself. */
+.portal-rail-toggle {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .portal-rail-toggle {
+    position: absolute;
+    top: 92px;
+    right: -11px;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    border: 1px solid var(--rule);
+    background: var(--elev-1);
+    color: var(--fg-3);
+    box-shadow: var(--shadow-1);
+    cursor: pointer;
+  }
+  .portal-rail-toggle:hover { color: var(--fg); border-color: var(--rule-strong); }
+}
+
+/* ── Reading measure ────────────────────────────────────────
+   Was a single cap of 1320px that engaged only above 1600px, so everything from 1024 to
+   1600 ran full-bleed and a 1440px laptop — the commonest desktop here — stretched a
+   two-column band across the whole width. Three tiers instead, and a genuine third column
+   on displays wide enough to earn one. */
+@media (min-width: 1440px) {
+  .portal-stage > * { max-width: 1280px; }
+}
+@media (min-width: 1800px) {
+  .portal-stage > * { max-width: 1560px; }
+  /* The band has two children, so a third track here would render an empty column. The
+     extra width goes to the aside instead, whose own cards unstack into a row — three
+     panels across without restructuring the JSX. */
+  .portal-band { grid-template-columns: 1.9fr 1.35fr; }
+  .portal-aside {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+/* ── Portal: bottom sheet ───────────────────────────────────
+   `Drawer` becomes this below 768px. The desktop drawer's close button sits in the top
+   right, which on a phone is the one corner a thumb cannot reach, so the sheet adds a
+   grip and a drag-to-dismiss gesture and stops the button being the only exit.
+
+   `max-height` is 86dvh rather than 86vh because on iOS Safari `vh` is the *expanded*
+   viewport — a sheet sized in vh sits partly behind the address bar until you scroll. */
+.portal-sheet {
+  max-height: 86vh;
+  max-height: 86dvh;
+  border-radius: 16px 16px 0 0;
+  /* Clears the home indicator. Requires `viewportFit: "cover"` in app/layout.tsx, without
+     which env() resolves to 0 and this silently does nothing. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.portal-sheet-grip {
+  width: 38px;
+  height: 4px;
+  margin: 9px auto 4px;
+  border-radius: 9999px;
+  background: var(--rule-strong);
+  /* The grip is the drag surface; letting the browser claim the gesture for scrolling
+     means the sheet never moves. */
+  touch-action: none;
+}
+
+/* ── Portal: minimum hit area ───────────────────────────────
+   Pointer-precision devices are excluded on purpose. Expanding every control to 44px on a
+   desktop would inflate the whole product's rhythm to solve a problem a mouse does not
+   have — and the editorial density is the point.
+
+   A pseudo-element rather than padding, so the target grows without the control's visual
+   size, border radius or line-height changing. Requires a positioning context; every
+   current caller already has one or gets it here. */
+@media (pointer: coarse) {
+  .portal-hit { position: relative; }
+  .portal-hit::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    min-width: 44px;
+    min-height: 44px;
+    transform: translate(-50%, -50%);
+  }
 }
 
 /* ── Portal: elevation surfaces ─────────────────────────────
@@ -2774,6 +2996,14 @@ select option {
   --text-5xl:  30px;   /* the @layer base h1 reads this — must not fall back to clamp(72px…) */
   --text-6xl:  36px;
 
+  /* The Overview's hero figure, and the only type in the portal allowed to be this large.
+     It is deliberately NOT clamp(): the rule above still holds, product type should not
+     resize while a window is dragged. One fixed value per breakpoint, stepped at 1024px
+     alongside the rail — see the media query further down this file. There is no `:root`
+     counterpart, so nothing on the marketing side can pick these up by accident. */
+  --text-hero:     44px;
+  --text-hero-sub: 13px;
+
   /* ── Tracking: Inter needs far less than Big Shoulders ─────────────────── */
   --tracking-tightest: -0.022em;
   --tracking-tight:    -0.011em;
@@ -2819,6 +3049,16 @@ select option {
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--fg);
+}
+
+/* The hero's one step up, at the same 1024px the rail becomes a sidebar. Inside the scope
+   and after it, so it wins on source order like everything else here. Two fixed values, not
+   a clamp — see the note on the tokens above. */
+@media (min-width: 1024px) {
+  .portal-scope {
+    --text-hero:     68px;
+    --text-hero-sub: 15px;
+  }
 }
 
 /* Scoped heading reset. Unlayered on purpose: rules in `@layer base` lose to unlayered

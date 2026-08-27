@@ -43,22 +43,46 @@ export interface PortalClientProps {
     accountProfile: { contactName?: string; contactPhone?: string } | null;
 }
 
-/** The dashboard's tabs, in nav order. */
+/**
+ * The dashboard's tabs, in nav order.
+ *
+ * `shortLabel` exists for the mobile tab bar, where a fifth of a 375px screen is about 70px
+ * and "Performance" does not fit. It is the same word wherever it can be.
+ */
 export const PORTAL_TABS = [
-    { id: "overview", label: "Overview", href: "", feature: null },
-    { id: "calls", label: "Call Log", href: "calls", feature: "calls" },
-    { id: "traffic", label: "Traffic", href: "traffic", feature: "traffic" },
-    { id: "performance", label: "Performance", href: "performance", feature: "performance" },
-    { id: "billing", label: "Billing", href: "billing", feature: null },
-    { id: "settings", label: "Settings", href: "settings", feature: null },
+    { id: "overview", label: "Overview", shortLabel: "Overview", href: "", feature: null },
+    { id: "calls", label: "Call Log", shortLabel: "Calls", href: "calls", feature: "calls" },
+    { id: "traffic", label: "Traffic", shortLabel: "Traffic", href: "traffic", feature: "traffic" },
+    { id: "performance", label: "Performance", shortLabel: "Speed", href: "performance", feature: "performance" },
+    { id: "billing", label: "Billing", shortLabel: "Billing", href: "billing", feature: null },
+    { id: "settings", label: "Settings", shortLabel: "Settings", href: "settings", feature: null },
 ] as const satisfies ReadonlyArray<{
     id: string;
     label: string;
+    shortLabel: string;
     href: string;
     feature: PortalFeature | null;
 }>;
 
 export type PortalTabId = (typeof PORTAL_TABS)[number]["id"];
+
+/**
+ * How the six tabs split across the mobile bottom bar.
+ *
+ * Five slots is the most a 375px screen holds at a comfortable touch size, so four tabs sit
+ * in the bar and the rest go behind More. The four were picked by what a client opens the
+ * portal to do: check leads, check the site is working, check what they are paying.
+ * Performance and Settings are things you visit deliberately, not things you monitor.
+ *
+ * Locked tabs keep their slot rather than being filtered out. A Starter client seeing Call
+ * Log with a padlock is the upsell; hiding it means they never learn the feature exists.
+ * See the note in `PortalChrome` about tabs always navigating.
+ */
+export const MOBILE_BAR_TABS = ["overview", "calls", "traffic", "billing"] as const satisfies
+    ReadonlyArray<PortalTabId>;
+
+export const MOBILE_MORE_TABS = ["performance", "settings"] as const satisfies
+    ReadonlyArray<PortalTabId>;
 
 /**
  * Pick the site a request is scoped to.

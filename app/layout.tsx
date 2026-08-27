@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, DM_Mono, Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -62,6 +62,22 @@ const cabinet = localFont({
 export const metadata: Metadata = {
   title: "Juneau Digital Designs LLC",
   description: "Innovative Web Design and UI/UX Solutions",
+};
+
+/**
+ * `viewportFit: "cover"` is the switch that makes `env(safe-area-inset-*)` return real
+ * numbers. Without it those values are 0 on every device and the CSS that reads them looks
+ * correct while doing nothing — the portal's bottom tab bar would sit under the iPhone home
+ * indicator and its last row would be untappable.
+ *
+ * Next injects `width=device-width, initial-scale=1` by default, so this replaces that
+ * default and must restate both. It also means the page now extends under the notch, which
+ * is why the tab bar and the bottom sheet pad themselves rather than relying on the browser.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

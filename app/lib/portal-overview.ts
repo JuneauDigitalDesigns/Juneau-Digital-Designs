@@ -80,21 +80,27 @@ function dailyBuckets(calls: CallRecord[], days = 30): number[] {
 }
 
 /**
- * Wrapped in React `cache()` so the Overview's metric row and its call feed — two separate
- * Suspense boundaries — share a single Airtable read per request. Without it, splitting the
- * page into independently-streaming modules would have doubled the upstream cost.
+ * The site's call rows, read once per request.
+ *
+ * Wrapped in React `cache()` so every consumer in one render shares a single Airtable read.
+ * That is currently the Overview's metric row, its call feed, and the since-last-visit
+ * panel — three separate Suspense boundaries which would otherwise each pay the upstream.
+ *
+ * Extracted from `getOverviewData` when the last-visit panel needed the raw rows rather than
+ * the derived summary. Anything else that wants calls on a server render should come through
+ * here rather than calling `fetchCalls` directly, or it will not share the dedupe.
  */
-export const getOverviewData = cache(async function getOverviewData(
+export const getSiteCalls = cache(async function getSiteCalls(
     account: PortalAccount,
     site: PortalSite,
-): Promise<OverviewData> {
+) {
     const calls = siteFeature(site, "calls");
-    if (calls.state !== "ready") return { state: calls.state };
+    if (calls.state !== "ready") return { ok: false as const, state: calls.state };
 
     const apiKey = process.env.AIRTABLE_API_KEY;
     if (!apiKey) {
         console.error("[portal/overview] AIRTABLE_API_KEY is not set");
-        return { state: "error", error: "We couldn't load your summary just now." };
+        return { ok: false as const, state: "error" as const };
     }
 
     const baseId = site.airtableBaseId as string;
@@ -111,7 +117,30 @@ export const getOverviewData = cache(async function getOverviewData(
     });
     if (!result.ok) {
         console.error(`[portal/overview] ${site.slug} ${result.failure}: ${result.detail}`);
-        return { state: "error", error: "We couldn't load your summary just now." };
+        return { ok: false as const, state: "error" as const };
+    }
+
+    return {
+        ok: true as const,
+        calls: result.calls,
+        truncated: result.truncated,
+        // Only claim a qualified count when the base actually has the column to support it.
+        hasOutcome: result.fields.includes("Outcome"),
+    };
+});
+
+/**
+ * The Overview's headline numbers, derived from the shared read above.
+ */
+export const getOverviewData = cache(async function getOverviewData(
+    account: PortalAccount,
+    site: PortalSite,
+): Promise<OverviewData> {
+    const result = await getSiteCalls(account, site);
+    if (!result.ok) {
+        return result.state === "error"
+            ? { state: "error", error: "We couldn't load your summary just now." }
+            : { state: result.state };
     }
 
     // Both windows come from Stripe so these counts describe the same period the usage tile
@@ -130,8 +159,7 @@ export const getOverviewData = cache(async function getOverviewData(
         ? result.calls.filter((c) => inWindow(c, lastPeriod.startMs, lastPeriod.endMs))
         : [];
 
-    // Only claim a qualified count when the base actually has the column to support it.
-    const hasOutcome = result.fields.includes("Outcome");
+    const hasOutcome = result.hasOutcome;
     const qualifiedOf = (rows: CallRecord[]) =>
         rows.filter((c) => c.outcome?.trim().toLowerCase() === "qualified").length;
 
