@@ -12,7 +12,8 @@ import { Card, CardLabel } from "./ui/Card";
 import { StatTile } from "./ui/StatTile";
 import { Sparkline } from "./ui/Sparkline";
 import { FeatureState, FeatureError } from "./ui/FeatureState";
-import { Stagger, StaggerItem } from "./ui/Motion";
+import { Stagger, StaggerItem, useCountUp } from "./ui/Motion";
+import { InfoTip } from "./ui/InfoTip";
 import { outcomeColor } from "./ui/chartTheme";
 import { usageHint, usageLevel, usageStatTone } from "./ui/usage";
 import { duration, money, relativeTime, shortDate, shortDateTime } from "./ui/format";
@@ -179,7 +180,7 @@ export function HeroMetric({
                     className="portal-numeral portal-hero-num"
                     style={tone === "positive" ? { color: "var(--chart-pos)" } : undefined}
                 >
-                    {shown.toLocaleString()}
+                    {(shown ?? value).toLocaleString()}
                 </span>
                 {delta !== null && delta !== undefined && <DeltaBadge delta={delta} />}
             </div>
