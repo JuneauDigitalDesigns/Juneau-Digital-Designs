@@ -116,7 +116,7 @@ export function OverviewMetrics({
             )}
 
             <StatStrip>
-                <StatStripCell label="Avg. call length" value={duration(data.avgDurationSeconds)} />
+                <StatStripCell label="Avg. call length" value={duration(data.avgDurationSeconds) ?? "—"} />
                 <StatStripCell
                     label="Calls on record"
                     value={data.totalCalls?.toLocaleString() ?? "—"}
