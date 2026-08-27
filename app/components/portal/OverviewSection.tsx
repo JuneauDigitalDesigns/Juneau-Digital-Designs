@@ -128,7 +128,7 @@ export function OverviewMetrics({
                 {usage.state === "ready" && usage.secondsUsed !== null && (
                     <StatStripCell
                         label="Minutes used"
-                        value={duration(usage.secondsUsed)}
+                        value={duration(usage.secondsUsed) ?? "—"}
                         unit={`of ${usage.minutesCap?.toLocaleString()}m`}
                         tone={usageStatTone(usageLevel(usage.pct))}
                         hint={usageGlance(usage)}
