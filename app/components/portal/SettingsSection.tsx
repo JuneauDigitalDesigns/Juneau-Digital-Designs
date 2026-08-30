@@ -118,8 +118,10 @@ function FeaturedSection({
 }) {
     const [optedIn, setOptedIn] = useState(site.featured !== null);
     const [quote, setQuote] = useState(site.featured?.quote ?? "");
-    const [showName, setShowName] = useState(site.featured?.showName ?? true);
-    const [showLink, setShowLink] = useState(site.featured?.showLink ?? true);
+    // One choice, not two toggles: a listing is either credited (name shown + site linked)
+    // or anonymous (quote only, never linked). `showName` and `showLink` therefore move
+    // together — an anonymous listing that still linked the site would defeat the point.
+    const [anonymous, setAnonymous] = useState(site.featured?.showName === false);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -136,8 +138,8 @@ function FeaturedSection({
                 body: JSON.stringify({
                     optIn: newOptIn,
                     quote: newOptIn ? quote : undefined,
-                    showName,
-                    showLink,
+                    showName: !anonymous,
+                    showLink: !anonymous,
                 }),
             });
             if (!res.ok) {
@@ -210,26 +212,40 @@ function FeaturedSection({
                         />
                     </FieldRow>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--fg-2)", cursor: "pointer" }}>
-                            <input
-                                type="checkbox"
-                                checked={showName}
-                                onChange={(e) => { setShowName(e.target.checked); setSaved(false); }}
-                                style={{ accentColor: "var(--accent)" }}
-                            />
-                            Show my business name
-                        </label>
-                        <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "var(--fg-2)", cursor: "pointer" }}>
-                            <input
-                                type="checkbox"
-                                checked={showLink}
-                                onChange={(e) => { setShowLink(e.target.checked); setSaved(false); }}
-                                style={{ accentColor: "var(--accent)" }}
-                            />
-                            Link to my site from the listing
-                        </label>
-                    </div>
+                    <FieldRow label="How should we credit you?">
+                        <div style={{ display: "flex", gap: 8 }}>
+                            {([
+                                { anon: false, label: "Credit me", hint: "Show my name and link my site" },
+                                { anon: true, label: "Anonymous", hint: "Show my quote only, not linked" },
+                            ] as const).map((opt) => {
+                                const active = anonymous === opt.anon;
+                                return (
+                                    <button
+                                        key={opt.label}
+                                        type="button"
+                                        onClick={() => { setAnonymous(opt.anon); setSaved(false); }}
+                                        aria-pressed={active}
+                                        style={{
+                                            flex: 1,
+                                            textAlign: "left",
+                                            padding: "10px 14px",
+                                            borderRadius: 8,
+                                            border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+                                            background: active ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "transparent",
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        <div style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--accent)" : "var(--fg-2)" }}>
+                                            {opt.label}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>
+                                            {opt.hint}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </FieldRow>
 
                     {error && (
                         <p style={{ color: "var(--accent-2)", fontSize: 13, margin: "0 0 12px" }}>{error}</p>

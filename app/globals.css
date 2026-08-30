@@ -623,6 +623,23 @@ select option {
   color: var(--fg-3);
 }
 
+/* Featured "In the wild." cards. Everything else is inline in FeaturedSites.tsx; only the
+   hover lives here, since :hover can't be expressed inline. Each card sets `--card-accent`
+   from the teal/coral/ink cycle, so the border it lifts to matches its own quote mark. An
+   anonymous card is a <div>, not an <a> — the lift still reads as "this is one unit". */
+.featured-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.featured-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px rgba(20, 18, 12, 0.13);
+  border-color: var(--card-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .featured-card { transition: border-color 0.18s ease; }
+  .featured-card:hover { transform: none; }
+}
+
 /* ── Calculator faders ──────────────────────────────────────────
    A measured rail, not a console channel. This replaced a 7px slot carrying a
    radio-dial tick scale, an --accent fill with a radial bloom tracking the

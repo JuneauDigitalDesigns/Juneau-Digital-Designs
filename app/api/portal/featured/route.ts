@@ -39,7 +39,9 @@ export async function POST(request: Request) {
 
     const quoteStr = typeof quote === "string" ? quote.trim().slice(0, 300) : undefined;
     const showNameBool = showName !== false;
-    const showLinkBool = showLink !== false;
+    // Anonymous listings are never linked, whatever the payload says — name and link move
+    // together. This is the server-side half of the portal's single Credit/Anonymous choice.
+    const showLinkBool = showNameBool && showLink !== false;
 
     const featuredData = {
         optedInAt: ctx.site.featured?.optedInAt ?? now,

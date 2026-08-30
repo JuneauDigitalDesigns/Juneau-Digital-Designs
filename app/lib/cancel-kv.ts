@@ -105,12 +105,19 @@ export async function getSlugBySubscription(subscriptionId: string): Promise<str
 const FEATURED_PUB_INDEX = "jdd:featured:published";
 const FEATURED_PUB_KEY = (slug: string) => `jdd:featured:published:${slug}`;
 
+/**
+ * What the homepage actually renders. Consent is baked in here rather than honored at
+ * render time: a name or link the client opted out of is simply absent from the record, so
+ * it can never reach the browser's HTML. `businessName` and `url` are therefore either both
+ * present (a credited listing) or both absent (an anonymous one) — see the featured route
+ * and the console publish step, which are the two writers.
+ */
 export interface PublishedFeaturedSite {
     slug: string;
-    businessName: string;
-    trade: string;
-    url: string;
-    image: string; // path under /public or CDN URL
+    image: string; // path under /public (e.g. /featured/{slug}.webp)
+    businessName?: string; // present iff credited
+    url?: string; // present iff credited — name and link move together
+    quote?: string; // testimonial, if the client gave one
 }
 
 /** Read by app/page.tsx (server component). Returns [] gracefully when KV is absent. */
@@ -124,6 +131,23 @@ export async function getPublishedFeaturedSites(): Promise<PublishedFeaturedSite
     } catch {
         return [];
     }
+}
+
+/**
+ * Publish a site to the homepage. Mirror of `removePublishedFeaturedSite`. `optedInAt` is
+ * the sort score — newest featured sites lead the row (`getPublishedFeaturedSites` reads
+ * the index `rev`). Kept off the record itself so nothing but display data ships to the
+ * client.
+ */
+export async function writePublishedFeaturedSite(
+    site: PublishedFeaturedSite,
+    optedInAt: number,
+): Promise<void> {
+    const redis = getRedis();
+    await Promise.all([
+        redis.set(FEATURED_PUB_KEY(site.slug), site),
+        redis.zadd(FEATURED_PUB_INDEX, { score: optedInAt, member: site.slug }),
+    ]);
 }
 
 /** Remove a site from the published set — called by the Stripe subscription.deleted webhook. */
