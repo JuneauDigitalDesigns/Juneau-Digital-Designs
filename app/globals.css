@@ -2349,6 +2349,29 @@ select option {
   text-overflow: ellipsis;
 }
 
+/* Compact site switcher in the topbar. Replaces the 224px native <select> that used to
+   overlap the name/host — a fixed square control that never competes with the name block
+   for width. Opens the "Switch site" sheet. */
+.portal-topbar-switch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--elev-2);
+  border: 1px solid var(--rule);
+  color: var(--fg-2);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 130ms ease, border-color 130ms ease;
+}
+.portal-topbar-switch:hover {
+  color: var(--fg);
+  border-color: var(--rule-strong);
+}
+
 .portal-tabbar {
   position: fixed;
   left: 0;

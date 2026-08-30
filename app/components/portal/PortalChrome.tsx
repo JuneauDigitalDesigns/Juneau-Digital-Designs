@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import {
     ChartPieSlice,
@@ -15,7 +15,9 @@ import {
     DotsThree,
     CaretLeft,
     CaretRight,
+    CaretUpDown,
     ArrowSquareOut,
+    Check,
     Lock,
 } from "@phosphor-icons/react";
 import PortalBrand from "./PortalBrand";
@@ -88,8 +90,10 @@ export default function PortalChrome({
 }) {
     const pathname = usePathname();
     const params = useSearchParams();
+    const router = useRouter();
     const [collapsed, setCollapsed] = useState(railCollapsed);
     const [moreOpen, setMoreOpen] = useState(false);
+    const [switchOpen, setSwitchOpen] = useState(false);
 
     // Same selection rule the pages use, so the chrome and the panel can never disagree
     // about which site is being shown.
@@ -146,26 +150,31 @@ export default function PortalChrome({
                     />
                 </a>
 
+                {/* Name only on mobile — the host moved to the More drawer's "Open {host}"
+                    link. A single centred line keeps the row readable, which the old
+                    stacked name+host+wide-select layout did not: the 224px select overlapped
+                    both and neither could be read. */}
                 <div className="portal-topbar-site">
                     <div className="portal-topbar-name" title={selected.name}>
                         {selected.name}
                     </div>
-                    {host ? (
-                        <a
-                            href={selected.canonical ?? undefined}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="portal-topbar-host hover:underline underline-offset-2"
-                        >
-                            {host}
-                        </a>
-                    ) : (
-                        <div className="portal-topbar-host">{selected.slug}</div>
-                    )}
                 </div>
 
+                {/* Compact switcher, multi-site only. Replaces the native <select> that ate
+                    the row; opens a bottom sheet of sites instead. The rail keeps the native
+                    select, where it has room. */}
                 {sites.length > 1 && (
-                    <SiteSelector sites={sites} selected={selected.slug} activeTab={segment} />
+                    <button
+                        type="button"
+                        onClick={() => setSwitchOpen(true)}
+                        className="portal-topbar-switch"
+                        aria-haspopup="dialog"
+                        aria-expanded={switchOpen}
+                        aria-label={`Switch site — currently ${selected.name}`}
+                        title="Switch site"
+                    >
+                        <CaretUpDown size={16} weight="bold" />
+                    </button>
                 )}
                 <UserButton />
             </header>
@@ -380,6 +389,47 @@ export default function PortalChrome({
                     <span>More</span>
                 </button>
             </nav>
+
+            {/* Mobile site switcher. Only reachable from the topbar button, which is itself
+                only rendered below 1024px, so this never opens on desktop. Navigates the same
+                way the rail's <select> does — `?site=` in the URL, staying on the current
+                tab — so the two switchers can't disagree. */}
+            <Drawer open={switchOpen} onClose={() => setSwitchOpen(false)} title="Switch site">
+                <nav className="flex flex-col gap-1" aria-label="Your sites">
+                    {sites.map((site) => {
+                        const isCurrent = site.slug === selected.slug;
+                        const siteHost = hostOf(site.canonical);
+                        return (
+                            <button
+                                key={site.slug}
+                                type="button"
+                                onClick={() => {
+                                    if (!isCurrent) router.push(tabHref(segment, site.slug));
+                                    setSwitchOpen(false);
+                                }}
+                                aria-current={isCurrent ? "true" : undefined}
+                                className={`portal-rail-link${isCurrent ? " is-active" : ""}`}
+                                style={{ minHeight: 44, textAlign: "left" }}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <span className="block truncate">{site.name}</span>
+                                    {siteHost && (
+                                        <span
+                                            className="block truncate text-xs"
+                                            style={{ color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}
+                                        >
+                                            {siteHost}
+                                        </span>
+                                    )}
+                                </div>
+                                {isCurrent && (
+                                    <Check size={16} weight="bold" className="shrink-0 ml-auto" style={{ color: "var(--accent)" }} />
+                                )}
+                            </button>
+                        );
+                    })}
+                </nav>
+            </Drawer>
 
             <Drawer open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
                 <nav className="flex flex-col gap-1" aria-label="More sections">
