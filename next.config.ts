@@ -10,7 +10,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images.unsplash.com",
-      }
+      },
+      {
+        // Featured-site screenshots, published to Vercel Blob by the console's
+        // /manage → Featured tooling. Same host the onboarding upload route validates
+        // against (app/api/portal/onboarding/route.ts).
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
     ],
   },
 
