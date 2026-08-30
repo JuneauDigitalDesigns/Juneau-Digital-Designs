@@ -313,6 +313,18 @@ body {
 .btn.ghost:hover { background: var(--surface); border-color: var(--accent-2); color: var(--accent-2); }
 .btn.lg { padding: 16px 32px; font-size: 20px; }
 
+/* For CTAs whose label is client-supplied text (a business's legal name) rather than a
+   fixed word — length is unbounded, so `.btn`'s `nowrap` would force the button, and with
+   it the page, wider than the viewport. Wraps onto a second line and goes full width below
+   the tab bar breakpoint, where there's no room beside it to grow into. */
+.btn-wrap {
+  white-space: normal;
+  text-align: center;
+}
+@media (max-width: 767px) {
+  .btn-wrap { width: 100%; }
+}
+
 /* ── Theme toggle — compact sun/moon icon button ────────────── */
 .theme-toggle {
   display: inline-flex;

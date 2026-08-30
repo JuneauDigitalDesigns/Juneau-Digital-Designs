@@ -35,6 +35,7 @@ export function StatTile({
     series,
     href,
     info,
+    size = "lg",
 }: {
     label: string;
     value: ReactNode | null;
@@ -51,6 +52,13 @@ export function StatTile({
     href?: string;
     /** Short explanation of what the number counts, shown via an InfoTip beside the label. */
     info?: string;
+    /**
+     * `"lg"` (default) is the big numeral, sized for a short count like "42" and clipped by
+     * the card's `overflow-hidden` if it doesn't fit. `"sm"` is for values that are prose
+     * rather than a headline number — a date, a plan name — so it wraps at a readable size
+     * instead of being cut off.
+     */
+    size?: "lg" | "sm";
 }) {
     const toneColor = {
         default: "var(--fg)",
@@ -84,11 +92,12 @@ export function StatTile({
 
             <div className="flex items-baseline gap-2 flex-wrap relative z-10">
                 <span
-                    className="portal-numeral"
+                    className={size === "lg" ? "portal-numeral" : undefined}
                     style={{
                         color: value === null ? "var(--fg-3)" : toneColor,
-                        fontSize: "clamp(34px, 3.6vw, 46px)",
+                        fontSize: size === "lg" ? "clamp(34px, 3.6vw, 46px)" : "clamp(16px, 4.2vw, 20px)",
                         fontWeight: 700,
+                        whiteSpace: size === "lg" ? "nowrap" : "normal",
                     }}
                 >
                     {shown}

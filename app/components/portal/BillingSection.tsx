@@ -133,16 +133,18 @@ export default function BillingSection({
             <SectionHeader title="Billing" meta={freshness(undefined, fetchedAt)} />
 
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatTile label="Plan" value={planLabel[site.plan] ?? site.plan} />
+                <StatTile label="Plan" value={planLabel[site.plan] ?? site.plan} size="sm" />
                 <StatTile
                     label="Amount"
                     value={amount}
                     hint={data.interval ? `per ${data.interval}` : undefined}
+                    size="sm"
                 />
                 <StatTile
                     label={data.cancelAt ? "Access ends" : "Next charge"}
                     value={date(data.cancelAt ?? data.currentPeriodEnd)}
                     tone={data.cancelAt ? "warn" : "default"}
+                    size="sm"
                 />
             </div>
 

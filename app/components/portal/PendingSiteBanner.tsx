@@ -61,7 +61,7 @@ export function PendingSiteBanner({
                     <Link
                         key={site.slug}
                         href={`/portal/onboarding?site=${encodeURIComponent(site.slug)}`}
-                        className="btn primary"
+                        className="btn primary btn-wrap"
                         style={{ display: "inline-flex" }}
                     >
                         {/*
