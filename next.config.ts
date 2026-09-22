@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
+    // Default is 60 seconds, which meant every optimized image variant was re-processed by
+    // the image function roughly once a minute regardless of traffic. Featured site images
+    // only change when a client opts out and back in, so 30 days is safe and cuts optimizer
+    // invocations to near zero.
+    minimumCacheTTL: 2592000, // 30 days
     remotePatterns: [
       {
         protocol: "https",

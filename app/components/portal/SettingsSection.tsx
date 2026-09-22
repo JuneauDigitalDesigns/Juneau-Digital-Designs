@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import type { PortalSiteProps } from "@/app/portal/types";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
@@ -111,6 +111,11 @@ function ProfileSection({
 
 // ── Featured ──────────────────────────────────────────────────────────────────
 
+interface FeaturedImageState {
+    image: string | null;
+    imageMode: "upload" | "auto" | null;
+}
+
 function FeaturedSection({
     site,
 }: {
@@ -126,12 +131,65 @@ function FeaturedSection({
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Chosen before opt-in, then locked — see the server route's re-submission guard. Once
+    // opted in, `locked` is the only source of truth for what image is on file; a repeat
+    // save (editing the quote, say) can never change it.
+    const [pendingMode, setPendingMode] = useState<"auto" | "upload">("auto");
+    const [pendingUpload, setPendingUpload] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [locked, setLocked] = useState<FeaturedImageState>({ image: null, imageMode: null });
+
     const siteParam = `?site=${encodeURIComponent(site.slug)}`;
+
+    // Rehydrate the locked image after a reload — `site.featured` (the account record) never
+    // carried image data, only the request record in KV does.
+    useEffect(() => {
+        if (!optedIn) return;
+        let cancelled = false;
+        fetch(`/api/portal/featured${siteParam}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data: { featured?: FeaturedImageState } | null) => {
+                if (cancelled || !data?.featured) return;
+                setLocked({ image: data.featured.image ?? null, imageMode: data.featured.imageMode ?? null });
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+        // Only ever needs to run once per mount for the currently opted-in site.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    async function handleImageFile(e: ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = "";
+        setUploading(true);
+        setError(null);
+        try {
+            const form = new FormData();
+            form.append("file", file);
+            const res = await fetch("/api/portal/featured/upload", {
+                method: "POST",
+                body: form,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error((data as { error?: string }).error ?? "Upload failed");
+            }
+            setPendingUpload((data as { url: string }).url);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Upload failed");
+        } finally {
+            setUploading(false);
+        }
+    }
 
     async function submit(newOptIn: boolean) {
         setSaving(true);
         setError(null);
         try {
+            const isFreshOptIn = newOptIn && !optedIn;
             const res = await fetch(`/api/portal/featured${siteParam}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -140,11 +198,23 @@ function FeaturedSection({
                     quote: newOptIn ? quote : undefined,
                     showName: !anonymous,
                     showLink: !anonymous,
+                    ...(isFreshOptIn
+                        ? { imageMode: pendingMode, image: pendingMode === "upload" ? pendingUpload : undefined }
+                        : {}),
                 }),
             });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error((data as { error?: string }).error ?? "Save failed");
+            }
+            if (isFreshOptIn) {
+                const data = (await res.json().catch(() => ({}))) as FeaturedImageState;
+                setLocked({ image: data.image ?? null, imageMode: data.imageMode ?? null });
+            }
+            if (!newOptIn) {
+                setLocked({ image: null, imageMode: null });
+                setPendingUpload(null);
+                setPendingMode("auto");
             }
             setOptedIn(newOptIn);
             setSaved(true);
@@ -156,6 +226,16 @@ function FeaturedSection({
         }
     }
 
+    const imageChoiceStyle = (active: boolean) => ({
+        flex: 1,
+        textAlign: "left" as const,
+        padding: "10px 14px",
+        borderRadius: 8,
+        border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+        background: active ? "color-mix(in srgb, var(--accent) 8%, transparent)" : "transparent",
+        cursor: "pointer",
+    });
+
     return (
         <SectionCard title="Homepage showcase">
             <p style={{ fontSize: 14, color: "var(--fg-2)", margin: "0 0 18px", lineHeight: "var(--leading-relaxed, 1.6)" }}>
@@ -165,23 +245,74 @@ function FeaturedSection({
             </p>
 
             {!optedIn ? (
-                <button
-                    onClick={() => submit(true)}
-                    disabled={saving}
-                    style={{
-                        padding: "8px 20px",
-                        borderRadius: 6,
-                        border: "1px solid var(--accent)",
-                        background: "transparent",
-                        color: "var(--accent)",
-                        fontSize: 14,
-                        fontWeight: 600,
-                        cursor: saving ? "not-allowed" : "pointer",
-                        opacity: saving ? 0.6 : 1,
-                    }}
-                >
-                    {saving ? "Saving…" : "Feature my site"}
-                </button>
+                <>
+                    <FieldRow label="Showcase image">
+                        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                            {(
+                                [
+                                    { mode: "auto" as const, label: "Screenshot my site", hint: "We'll capture one automatically" },
+                                    { mode: "upload" as const, label: "Upload my own", hint: "PNG, JPG or WebP" },
+                                ]
+                            ).map((opt) => (
+                                <button
+                                    key={opt.mode}
+                                    type="button"
+                                    onClick={() => setPendingMode(opt.mode)}
+                                    aria-pressed={pendingMode === opt.mode}
+                                    style={imageChoiceStyle(pendingMode === opt.mode)}
+                                >
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: pendingMode === opt.mode ? "var(--accent)" : "var(--fg-2)" }}>
+                                        {opt.label}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: "var(--fg-3)", marginTop: 2 }}>{opt.hint}</div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {pendingMode === "upload" && (
+                            <div>
+                                <input
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    onChange={handleImageFile}
+                                    disabled={uploading}
+                                />
+                                {uploading && (
+                                    <p style={{ fontSize: 12, color: "var(--fg-3)", margin: "6px 0 0" }}>Uploading…</p>
+                                )}
+                                {pendingUpload && (
+                                    <img
+                                        src={pendingUpload}
+                                        alt="Showcase preview"
+                                        style={{ height: 90, borderRadius: 8, border: "1px solid var(--rule)", marginTop: 8 }}
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </FieldRow>
+
+                    {error && (
+                        <p style={{ color: "var(--accent-2)", fontSize: 13, margin: "0 0 12px" }}>{error}</p>
+                    )}
+
+                    <button
+                        onClick={() => submit(true)}
+                        disabled={saving || uploading || (pendingMode === "upload" && !pendingUpload)}
+                        style={{
+                            padding: "8px 20px",
+                            borderRadius: 6,
+                            border: "1px solid var(--accent)",
+                            background: "transparent",
+                            color: "var(--accent)",
+                            fontSize: 14,
+                            fontWeight: 600,
+                            cursor: saving || uploading ? "not-allowed" : "pointer",
+                            opacity: saving || uploading ? 0.6 : 1,
+                        }}
+                    >
+                        {saving ? "Saving…" : "Feature my site"}
+                    </button>
+                </>
             ) : (
                 <>
                     <div
@@ -200,6 +331,27 @@ function FeaturedSection({
                     >
                         {saved ? "Preferences saved." : "Your site is opted in. We'll be in touch once it's live."}
                     </div>
+
+                    <FieldRow label="Showcase image">
+                        {locked.image ? (
+                            <>
+                                <img
+                                    src={locked.image}
+                                    alt="Showcase preview"
+                                    style={{ height: 100, borderRadius: 8, border: "1px solid var(--rule)" }}
+                                />
+                                <p style={{ fontSize: 12, color: "var(--fg-3)", margin: "6px 0 0" }}>
+                                    This is your showcase image. To change it, opt out and opt back in.
+                                </p>
+                            </>
+                        ) : (
+                            <p style={{ fontSize: 13, color: "var(--fg-3)", margin: 0 }}>
+                                {locked.imageMode === "auto"
+                                    ? "We couldn't capture a screenshot of your site yet — we'll add one before this goes live. To upload your own instead, opt out and opt back in."
+                                    : "No image on file yet."}
+                            </p>
+                        )}
+                    </FieldRow>
 
                     <FieldRow label="Optional quote (shown with your listing)">
                         <textarea
@@ -310,28 +462,14 @@ function SmsAlertsSection({
     plan: PortalSiteProps["plan"];
 }) {
     // Same boundary as the agreement page: starter has no receptionist, so there are no
-    // calls to summarize and nothing here would ever fire. Shown rather than hidden, so a
-    // client who read about call texts on the marketing site learns why they can't find them.
+    // calls to summarize and nothing here would ever fire. Hidden outright rather than
+    // explained — Starter never receives texts as part of the service, so the section has
+    // nothing to show a Starter client either way.
     //
     // The branch lives here, in a component with no state of its own, so the controls below
     // can keep their hooks at the top of an unconditional body.
     if (plan === "starter") {
-        return (
-            <SectionCard title="Call alert texts">
-                <p
-                    style={{
-                        fontSize: 14,
-                        color: "var(--fg-2)",
-                        margin: 0,
-                        lineHeight: "var(--leading-relaxed, 1.6)",
-                    }}
-                >
-                    Call summary texts are part of the Growth and Enterprise plans. Starter does not
-                    include the AI receptionist, so there are no calls for us to text you about, and
-                    we will not send you text messages on this plan.
-                </p>
-            </SectionCard>
-        );
+        return null;
     }
     return <SmsAlertsControls consent={consent} />;
 }

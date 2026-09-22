@@ -5,7 +5,7 @@ import type { PublishedFeaturedSite } from "@/app/page";
 /**
  * Client work, shown only once a client has said we can.
  *
- * Renders nothing while the list is empty. An empty "Client work" heading over a blank
+ * Renders nothing while the list is empty. An empty "Live client sites" heading over a blank
  * row is worse than no section at all, and padding it with stock screenshots would
  * undercut the one thing this section exists to prove.
  *
@@ -15,72 +15,106 @@ import type { PublishedFeaturedSite } from "@/app/page";
  * shows the business name only when it carries `businessName`. An anonymous listing has
  * neither, so there is nothing here to leak — the "Anonymous" label is drawn from the
  * absence of a name, not from a flag we could forget to check.
+ *
+ * Each card is an overlay: the live screenshot is the background, a bottom-anchored scrim
+ * carries the quote, the name sits up top with a link arrow, and the whole card opens the
+ * client's site. On hover (credited cards only) the screenshot zooms and the quote
+ * crossfades into a "Visit site" cue — the motion lives in globals.css, since :hover can't
+ * be expressed inline.
  */
 
-/* Each card takes the next accent in the cycle so neighbours read as distinct. All three
-   are agency tokens — teal, coral, then ink — applied to the quote mark, the top edge and
-   (via `--card-accent`) the hover border. */
-const ACCENTS = ["var(--accent)", "var(--accent-2)", "var(--fg)"] as const;
+/* Each card takes the next accent in the cycle so neighbours read as distinct. Teal and
+   coral are agency tokens; the third is a warm amber literal rather than the ink token,
+   because ink is invisible against the dark scrim these accents now sit on. Applied to the
+   top edge, the ↗ arrow and the quote mark, and (via `--card-accent`) the hover border. */
+const ACCENTS = ["var(--accent)", "var(--accent-2)", "#e0a63a"] as const;
 
 export default function FeaturedSites({ sites }: { sites: PublishedFeaturedSite[] }) {
   if (sites.length === 0) return null;
 
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
-      <div className="kicker" style={{ marginBottom: 14 }}>Client work</div>
-      {/* "In the wild", not "Sites we run": in its new slot this section is evidence for
-          the argument above it, and what makes it evidence is that these are live and
-          someone else's, not that we operate them. */}
+      <div className="kicker" style={{ marginBottom: 14 }}>Live client sites</div>
+      {/* "Real sites, real clients": in its new slot this section is evidence for the
+          argument above it, and what makes it evidence is that these are live and someone
+          else's, not that we operate them. */}
       <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-        In the wild.
+        Real sites, real clients.
       </h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 380px))", gap: 20 }}>
         {sites.map((site, i) => {
           const accent = ACCENTS[i % ACCENTS.length];
           const credited = Boolean(site.url);
+          const hasQuote = Boolean(site.quote);
+
+          /* Dual scrim: a light wash under the top-placed name, and a heavier bottom rise
+             carrying the quote. A card with no quote leans lighter so more screenshot shows. */
+          const scrim = hasQuote
+            ? "linear-gradient(to top, rgba(0,0,0,.86) 0%, rgba(0,0,0,.5) 32%, rgba(0,0,0,0) 64%), linear-gradient(to bottom, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 22%)"
+            : "linear-gradient(to top, rgba(0,0,0,.6) 0%, rgba(0,0,0,.24) 34%, rgba(0,0,0,0) 66%), linear-gradient(to bottom, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 22%)";
 
           const inner = (
             <>
-              <div style={{ position: "relative", aspectRatio: "16 / 10", background: "var(--surface)", borderTop: `3px solid ${accent}` }}>
+              <div className="featured-media" style={{ position: "absolute", inset: 0, zIndex: 0 }}>
                 <Image
                   src={site.image}
                   alt={site.businessName ? `${site.businessName} website` : "Featured client site"}
                   fill
                   style={{ objectFit: "cover", objectPosition: "top" }}
-                  sizes="(max-width: 700px) 100vw, 33vw"
+                  sizes="(max-width: 700px) 100vw, 380px"
                 />
               </div>
-              <div style={{ padding: "18px 20px 22px", display: "flex", flexDirection: "column", gap: 8 }}>
+
+              {/* top accent edge */}
+              <span aria-hidden style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: accent, zIndex: 3 }} />
+
+              {/* scrim */}
+              <div aria-hidden style={{ position: "absolute", inset: 0, zIndex: 1, background: scrim }} />
+
+              {/* content */}
+              <div style={{ position: "absolute", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "16px 18px 18px", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontWeight: 700, fontSize: 19, color: site.businessName ? "var(--fg)" : "var(--fg-3)" }}>
+                  <span style={{ fontWeight: site.businessName ? 700 : 600, fontSize: site.businessName ? 17 : 15, letterSpacing: ".01em", color: site.businessName ? "rgba(255,255,255,.97)" : "rgba(255,255,255,.62)", textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>
                     {site.businessName ?? "Anonymous"}
                   </span>
                   {credited && (
-                    <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontSize: 12, color: accent, whiteSpace: "nowrap" }}>
-                      Visit ↗
+                    <span aria-hidden style={{ marginLeft: "auto", fontWeight: 700, fontSize: 15, color: accent, lineHeight: 1 }}>
+                      ↗
                     </span>
                   )}
                 </div>
-                {site.quote && (
-                  <p style={{ margin: "2px 0 0", paddingTop: 12, borderTop: "1px solid var(--rule-weak, rgba(20,18,12,.09))", color: "var(--fg-2)", fontSize: 14, lineHeight: 1.5 }}>
-                    <span aria-hidden style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: accent, fontSize: 20, lineHeight: 0, position: "relative", top: 5, marginRight: 2 }}>
-                      &ldquo;
+
+                <div className="featured-foot" style={{ position: "relative" }}>
+                  {hasQuote && (
+                    <p className="featured-quote" style={{ margin: 0, color: "rgba(255,255,255,.93)", fontSize: 14.5, lineHeight: 1.5, textShadow: "0 1px 3px rgba(0,0,0,.55)" }}>
+                      <span aria-hidden style={{ fontFamily: "var(--font-display)", fontWeight: 800, color: accent, fontSize: 22, lineHeight: 0, position: "relative", top: 6, marginRight: 3 }}>
+                        &ldquo;
+                      </span>
+                      {site.quote}
+                    </p>
+                  )}
+                  {credited && (
+                    <span
+                      className={hasQuote ? "featured-visit" : "featured-visit-static"}
+                      style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, letterSpacing: ".05em", color: "rgba(255,255,255,.96)", textShadow: "0 1px 3px rgba(0,0,0,.55)", whiteSpace: "nowrap" }}
+                    >
+                      Visit site →
                     </span>
-                    {site.quote}
-                  </p>
-                )}
+                  )}
+                </div>
               </div>
             </>
           );
 
           const cardStyle = {
+            position: "relative",
+            display: "block",
+            aspectRatio: "4 / 5",
             border: "1px solid var(--rule)",
             borderRadius: 8,
             overflow: "hidden",
-            background: "var(--panel)",
-            display: "flex",
-            flexDirection: "column",
+            background: "var(--surface)",
             textDecoration: "none",
             color: "inherit",
             ["--card-accent"]: accent,
@@ -92,7 +126,8 @@ export default function FeaturedSites({ sites }: { sites: PublishedFeaturedSite[
               href={site.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="featured-card"
+              aria-label={`Visit ${site.businessName ?? "this client site"} (opens in a new tab)`}
+              className="featured-card featured-card--link"
               style={cardStyle}
             >
               {inner}

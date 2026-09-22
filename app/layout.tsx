@@ -4,7 +4,6 @@ import localFont from "next/font/local";
 import "./globals.css";
 import MarketingChrome from "./components/MarketingChrome";
 import ThemeProvider from "./components/theme/ThemeProvider";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const bigShoulders = Big_Shoulders({
   variable: "--font-big-shoulders",
@@ -107,7 +106,6 @@ export default function RootLayout({
               over the portal too — MarketingChrome now owns it and keeps it off the
               product routes while leaving it on /portal/onboarding. */}
           <MarketingChrome>{children}</MarketingChrome>
-          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>

@@ -98,6 +98,7 @@ export default function DemoSiteFrame() {
             width={VIEW_W}
             height={imgH}
             draggable={false}
+            loading="eager"
             onLoad={(e) => {
               const el = e.currentTarget;
               if (el.naturalHeight > 0) setImgH(el.naturalHeight);

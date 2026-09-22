@@ -10,7 +10,7 @@ import Image from "next/image";
  * The asset is the lockup cut out of its original cream ground to transparency, so the
  * band colour is `--brand-band` in CSS rather than baked pixels. That is what stops a
  * seam appearing where the image ends and the band fill begins — the original
- * `JDD_mark.png` has a grainy cream ground baked in and must not be used here.
+ * `JDD_mark.webp` has a grainy cream ground baked in and must not be used here.
  *
  * Sizing lives in `.portal-brand img` in globals.css, not on the element, because the
  * band height and the lockup height are separate decisions that change at the 1024px

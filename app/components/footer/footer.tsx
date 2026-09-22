@@ -23,8 +23,8 @@ export default function Footer() {
                     <div>
                         <Link href="/" aria-label="Go to home page" className="inline-flex items-center mb-5">
                             {/* light mode → JD_dark wordmark · dark mode → JD_light wordmark */}
-                            <Image src="/JDD_mark.png" alt="Juneau Digital Designs home" width={886} height={347} className="logo-light h-18 w-auto" />
-                            <Image src="/JDD_mark_1.png" alt="Juneau Digital Designs home" width={886} height={347} className="logo-dark h-18 w-auto" />
+                            <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} className="logo-light h-18 w-auto" />
+                            <Image src="/JDD_mark_1.webp" alt="Juneau Digital Designs home" width={1774} height={887} className="logo-dark h-18 w-auto" />
                         </Link>
                         <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
                             Websites built to get you found and called — with a 24/7 AI receptionist for when you can&apos;t pick up.

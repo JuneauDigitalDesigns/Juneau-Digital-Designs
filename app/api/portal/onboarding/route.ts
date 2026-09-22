@@ -15,6 +15,7 @@ import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
+import { isValidBlobUrl } from "@/app/lib/blob-url";
 
 /** Deep-clone replacing every empty string with null. */
 function normalizeEmpties(value: unknown): unknown {
@@ -44,15 +45,6 @@ function sanitizeStringArray(value: unknown, maxItems: number, itemLimit: number
 
 function isValidEmail(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidBlobUrl(url: string): boolean {
-    try {
-        const parsed = new URL(url);
-        return parsed.protocol === "https:" && parsed.hostname.endsWith(".public.blob.vercel-storage.com");
-    } catch {
-        return false;
-    }
 }
 
 function sanitizeFilename(value: unknown): string {

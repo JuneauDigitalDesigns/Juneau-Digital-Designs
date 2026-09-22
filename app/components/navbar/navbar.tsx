@@ -33,8 +33,8 @@ export default function Navbar() {
             <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
                 <Link href="/" aria-label="Go to home page" className="flex items-center gap-3 hover:cursor-pointer">
                     {/* light mode → JD_dark wordmark · dark mode → JD_light wordmark */}
-                    <Image src="/JDD_mark.png" alt="Juneau Digital Designs home" width={886} height={347} priority className="logo-light h-12 w-auto sm:h-16" />
-                    <Image src="/JDD_mark_1.png" alt="Juneau Digital Designs home" width={886} height={347} priority className="logo-dark h-12 w-auto sm:h-16" />
+                    <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="logo-light h-12 w-auto sm:h-16" />
+                    <Image src="/JDD_mark_1.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="logo-dark h-12 w-auto sm:h-16" />
                 </Link>
 
                 {/* Desktop nav — toggle pinned far right */}

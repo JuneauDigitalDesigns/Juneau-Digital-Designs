@@ -142,13 +142,13 @@ Geometry is a three-way contract — change one, change all three:
 padding, so the two must stay in lockstep. The lockup is sized explicitly rather than
 `height: auto`, because band height and lockup height are separate decisions.
 
-**Use `jdd-lockup-portal.png`, never `JDD_mark.png`.** The original has a grainy cream ground
+**Use `jdd-lockup-portal.png`, never `JDD_mark.webp`.** The original has a grainy cream ground
 baked into the pixels — dropping it on the band produces a visible texture seam, and it is
-1,094 KB against 56 KB. The portal asset is the lockup cut out to transparency by per-pixel
-ink fitting (`P = a·I + (1−a)·G`, lowest residual wins), verified to composite with no cream
-halo on cream, grey, white, saturated blue and near-black. It is also cropped to the *type*
-extent rather than the ink bbox, because the divider hairline alone ran 100px taller than the
-type and would have spent a quarter of the band on it.
+much larger than the portal asset. The portal asset is the lockup cut out to transparency by
+per-pixel ink fitting (`P = a·I + (1−a)·G`, lowest residual wins), verified to composite with
+no cream halo on cream, grey, white, saturated blue and near-black. It is also cropped to the
+*type* extent rather than the ink bbox, because the divider hairline alone ran 100px taller
+than the type and would have spent a quarter of the band on it.
 
 The art is near-black. **Light backgrounds only** — there is no light-on-dark variant of this
-asset. (`public/JDD_mark_1.png` is a dark-ground variant of the original, not a cutout.)
+asset. (`public/JDD_mark_1.webp` is a dark-ground variant of the original, not a cutout.)

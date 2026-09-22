@@ -623,21 +623,61 @@ select option {
   color: var(--fg-3);
 }
 
-/* Featured "In the wild." cards. Everything else is inline in FeaturedSites.tsx; only the
-   hover lives here, since :hover can't be expressed inline. Each card sets `--card-accent`
-   from the teal/coral/ink cycle, so the border it lifts to matches its own quote mark. An
-   anonymous card is a <div>, not an <a> — the lift still reads as "this is one unit". */
+/* Featured "Real sites, real clients." cards. Each is an overlay: the screenshot is the
+   background, a scrim carries the quote, and the whole thing links out. The rest of the card
+   is inline in FeaturedSites.tsx; the hover motion lives here, since :hover can't be inline.
+   Only credited cards carry `.featured-card--link`, so anonymous <div> cards stay static.
+
+   On hover a link card zooms its screenshot and crossfades the quote out / the "Visit site"
+   cue in — both share the same slot at the card's foot. A card with no quote shows its visit
+   cue statically (`.featured-visit-static`), untouched by the crossfade. */
 .featured-card {
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
-.featured-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 34px rgba(20, 18, 12, 0.13);
+.featured-media {
+  transition: transform 0.5s ease;
+  will-change: transform;
+}
+.featured-quote {
+  transition: opacity 0.2s ease;
+}
+.featured-visit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.featured-card--link:hover {
   border-color: var(--card-accent);
+  box-shadow: 0 14px 34px rgba(20, 18, 12, 0.18);
+}
+.featured-card--link:hover .featured-media {
+  transform: scale(1.05);
+}
+.featured-card--link:hover .featured-quote {
+  opacity: 0;
+}
+.featured-card--link:hover .featured-visit {
+  opacity: 1;
 }
 @media (prefers-reduced-motion: reduce) {
-  .featured-card { transition: border-color 0.18s ease; }
-  .featured-card:hover { transform: none; }
+  .featured-media,
+  .featured-quote,
+  .featured-visit {
+    transition: none;
+  }
+  /* Nothing should depend on motion to be usable: keep the quote up and skip the crossfade. */
+  .featured-card--link:hover .featured-media {
+    transform: none;
+  }
+  .featured-card--link:hover .featured-quote {
+    opacity: 1;
+  }
+  .featured-card--link:hover .featured-visit {
+    opacity: 0;
+  }
 }
 
 /* ── Calculator faders ──────────────────────────────────────────
@@ -2325,7 +2365,7 @@ select option {
    asset. `jdd-lockup-portal.png` is 640×192 and the "JDD" glyph occupies its left ~41%, so
    an image sized to 93×28 inside a 39px window shows the mark and clips the wordmark. This
    deliberately reuses the one verified cutout: `JDs_nobg.png` is white-on-transparent and
-   would be invisible here, and `JDD_mark.png` carries a baked cream ground (see
+   would be invisible here, and `JDD_mark.webp` carries a baked cream ground (see
    PORTAL-DESIGN.md). Cream chip behind it, because it is still the only warm surface. */
 .portal-mark {
   flex: none;
@@ -2462,7 +2502,7 @@ select option {
 
    The asset is `public/jdd-lockup-portal.png`: the lockup cut out of its cream ground to
    transparency, so the band colour is CSS and there is no seam where the image ends. Do
-   not swap in `JDD_mark.png` — that one has the cream ground and film grain baked in. */
+   not swap in `JDD_mark.webp` — that one has the cream ground and film grain baked in. */
 .portal-brand {
   display: flex;
   align-items: center;
