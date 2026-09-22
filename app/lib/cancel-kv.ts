@@ -42,7 +42,13 @@ function getRedis(): Redis {
 let _redisCached: Redis | null = null;
 
 function getRedisCached(): Redis {
-    if (!_redisCached) _redisCached = Redis.fromEnv({ cache: "force-cache" });
+    // `retry: false` as well as the cache mode: this client backs the homepage's featured
+    // list, which is now generated statically (at build) and refreshed on the ISR window.
+    // The SDK otherwise retries a failed command with exponential backoff up to five times,
+    // which on an unreachable Redis turns a caught, return-[] failure into a render that
+    // exceeds the build/render time limit. Failing fast lets `getPublishedFeaturedSites`'
+    // try/catch fall back to an empty list, and ISR keeps serving the last good page.
+    if (!_redisCached) _redisCached = Redis.fromEnv({ cache: "force-cache", retry: false });
     return _redisCached;
 }
 
@@ -171,21 +177,47 @@ export interface PublishedFeaturedSite {
 }
 
 /**
- * Read by app/page.tsx (server component). Returns [] gracefully when KV is absent.
+ * How long the homepage's featured read may take before it gives up and renders with no
+ * featured sites. This page is generated statically at build and on the ISR window, so a
+ * Redis that is unreachable — or, as when this file is imported with no KV credentials at
+ * all, a client that never settles its command — must not be able to hang the render past
+ * the platform's build/render limit. On a healthy Vercel build the read returns in single
+ * digit milliseconds, so this ceiling is only ever hit on a genuine fault.
+ */
+const FEATURED_READ_TIMEOUT_MS = 5_000;
+
+/**
+ * Read by app/page.tsx (server component). Returns [] gracefully when KV is absent, slow,
+ * or failing — the homepage always renders, with the last-known set until the next
+ * successful revalidation.
  *
  * Uses `getRedisCached()`, not `getRedis()` — see that function's comment. This is what
  * lets the homepage's `export const revalidate` actually apply instead of being silently
  * overridden by the SDK's default `no-store` fetch mode.
  */
 export async function getPublishedFeaturedSites(): Promise<PublishedFeaturedSite[]> {
-    try {
+    const read = (async (): Promise<PublishedFeaturedSite[]> => {
         const redis = getRedisCached();
         const slugs = await redis.zrange<string[]>(FEATURED_PUB_INDEX, 0, -1, { rev: true });
         if (!slugs.length) return [];
         const items = await Promise.all(slugs.map((s) => redis.get<PublishedFeaturedSite>(FEATURED_PUB_KEY(s))));
         return items.filter((x): x is PublishedFeaturedSite => x !== null);
+    })();
+
+    // A timeout the read races against, so a Redis command that rejects, hangs, or never
+    // settles all resolve to the same safe answer: an empty list. `let`+timer so the timer
+    // is always cleared, whichever side wins, and never keeps the process alive.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<PublishedFeaturedSite[]>((resolve) => {
+        timer = setTimeout(() => resolve([]), FEATURED_READ_TIMEOUT_MS);
+    });
+
+    try {
+        return await Promise.race([read, timeout]);
     } catch {
         return [];
+    } finally {
+        clearTimeout(timer);
     }
 }
 
