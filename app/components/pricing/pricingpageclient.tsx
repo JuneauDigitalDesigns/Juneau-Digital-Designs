@@ -30,10 +30,10 @@ const TIERS: PricingTier[] = [
         slug: "starter",
         name: "Starter",
         price: SCHEDULES.starter.monthlyPrice,
-        tagline: "Everything starts here — the site itself. Built, hosted, and pointed at getting you called. Add the receptionist whenever you're ready.",
+        tagline: "Everything starts here: the site itself. Built, hosted, and pointed at getting you called. Add the receptionist whenever you're ready.",
         features: [
-            "A complete website, built and launched for you",
-            "Contact form — leads go straight to your inbox",
+            "A complete four-page website (Home, Services, About, Contact), built and launched for you",
+            "Contact form: leads go straight to your inbox",
             "Hosting, backups, and security included",
             "2 content edits per month",
             "Client portal to check your site anytime",
@@ -51,7 +51,7 @@ const TIERS: PricingTier[] = [
             `${minutes("growth")} call minutes per month`,
             "2 content edits per month",
             "Ongoing SEO so you show up on Google",
-            "Portal with every call logged — transcript and summary",
+            "Portal with every call logged: transcript and summary",
         ],
         highlighted: true,
     },
@@ -62,7 +62,7 @@ const TIERS: PricingTier[] = [
         tagline: "For people running more than one shop. Three sites, one bill, minutes shared across all of them.",
         features: [
             "Everything in Growth",
-            "Up to 3 websites, each with its own receptionist and number",
+            "Up to 3 four-page websites, each with its own receptionist and number",
             `${minutes("enterprise")} call minutes per month, pooled across your sites`,
             "Priority support with 1 business day response time",
         ],
@@ -78,7 +78,7 @@ const FAQS: { q: string; a: string }[] = [
         // page should answer "why so cheap" before anything else. The figures are
         // evidence for the tooling argument, not a discount brag.
         q: "What's the catch?",
-        a: "There isn't one. Piecing this together from an agency plus an answering service usually runs $600 or more a month — Growth is $297. The difference isn't corner-cutting, it's that we built the software that does the setup. Provisioning a site, standing up a number, configuring the agent, wiring your reporting — most agencies do all of that by hand and bill you for the hours. We only had to build it once.",
+        a: "There isn't one. Piecing this together from an agency plus an answering service usually runs $600 or more a month. Growth is $297. The difference isn't corner-cutting, it's that we built the software that does the setup. Provisioning a site, standing up a number, configuring the agent, wiring your reporting. Most agencies do all of that by hand and bill you for the hours. We only had to build it once.",
     },
     {
         q: "What happens if I go over my minutes?",
@@ -86,7 +86,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: "Am I locked into a contract?",
-        a: "No. Starter and Growth are month to month — cancel whenever. Enterprise runs on 60 days notice, because there's more to unwind.", // MSA §14.1–14.2
+        a: "No. Starter and Growth are month to month, cancel whenever. Enterprise runs on 60 days notice, because there's more to unwind.", // MSA §14.1–14.2
     },
     {
         q: "How fast can I be live?",
@@ -98,11 +98,11 @@ const FAQS: { q: string; a: string }[] = [
         // default is release, not transfer. Porting is real, but it's opt-in, time-boxed
         // and paid, so all three conditions are stated rather than discovered later.
         q: "Do I get to keep my phone number?",
-        a: "You get exclusive use of it for as long as you're a client — put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA §11
+        a: "You get exclusive use of it for as long as you're a client: put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA §11
     },
     {
         q: "Do I own my website?",
-        a: "Your content is yours — name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA §14
+        a: "Your content is yours: name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA §14
     },
     {
         q: "What if I already have a website?",
@@ -110,7 +110,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: "Is this replacing a receptionist?",
-        a: "No — most of our clients never had one. When it's you and a truck, the phone rings while your hands are full. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
+        a: "No, most of our clients never had one. When it's you and a truck, the phone rings while your hands are full. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
     },
 ];
 
@@ -340,7 +340,7 @@ export default function PricingPageClient() {
                                             24/7 AI Voice Receptionist
                                         </p>
                                         <p style={{ margin: 0, marginTop: 2, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", letterSpacing: "0.04em" }}>
-                                            Never miss a call — even after hours
+                                            Never miss a call, even after hours
                                         </p>
                                     </div>
                                 </div>

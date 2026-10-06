@@ -995,7 +995,7 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
           <div className="home-pricing-card">
             <div className="kicker">Starter</div>
             <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-            <p>Website only. Live in about a week, built to get you found and called.</p>
+            <p>Website only. Four pages, live in about a week, built to get you found and called.</p>
           </div>
 
           <div className="home-pricing-card home-pricing-card--featured">
@@ -1008,7 +1008,7 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
             <div className="kicker">Enterprise</div>
             <div className="home-pricing-price">${ENTERPRISE_PRICE}<span>/mo</span></div>
             <p>
-              Up to three sites, more call minutes.{" "}
+              Up to three four-page sites, more call minutes.{" "}
               <a href="/pricing">See what&apos;s included &rarr;</a>
             </p>
           </div>

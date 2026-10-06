@@ -12,6 +12,7 @@ import {
     Gauge,
     CreditCard,
     Gear,
+    Lifebuoy,
     DotsThree,
     CaretLeft,
     CaretRight,
@@ -48,6 +49,7 @@ const TAB_ICON = {
     performance: Gauge,
     billing: CreditCard,
     settings: Gear,
+    support: Lifebuoy,
 } as const;
 
 /**

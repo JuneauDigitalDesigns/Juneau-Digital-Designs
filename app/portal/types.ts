@@ -56,6 +56,7 @@ export const PORTAL_TABS = [
     { id: "performance", label: "Performance", shortLabel: "Speed", href: "performance", feature: "performance" },
     { id: "billing", label: "Billing", shortLabel: "Billing", href: "billing", feature: null },
     { id: "settings", label: "Settings", shortLabel: "Settings", href: "settings", feature: null },
+    { id: "support", label: "Support", shortLabel: "Support", href: "support", feature: null },
 ] as const satisfies ReadonlyArray<{
     id: string;
     label: string;
@@ -81,7 +82,7 @@ export type PortalTabId = (typeof PORTAL_TABS)[number]["id"];
 export const MOBILE_BAR_TABS = ["overview", "calls", "traffic", "billing"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
-export const MOBILE_MORE_TABS = ["performance", "settings"] as const satisfies
+export const MOBILE_MORE_TABS = ["performance", "settings", "support"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
 /**

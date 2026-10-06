@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
  */
 
 const PLANS: { slug: "starter" | "growth" | "enterprise"; label: string; hint: string }[] = [
-  { slug: "starter", label: "Starter", hint: "Site + email leads" },
+  { slug: "starter", label: "Starter", hint: "4-page site + email leads" },
   { slug: "growth", label: "Growth", hint: "+ AI receptionist" },
   { slug: "enterprise", label: "Enterprise", hint: "Multiple locations" },
 ];
