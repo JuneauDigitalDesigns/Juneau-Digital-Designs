@@ -1,6 +1,6 @@
 import { ref, type PlanSchedule, type SectionDef } from "./types";
 
-export const TERMS_VERSION = "v4.1";
+export const TERMS_VERSION = "v4.2";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -198,11 +198,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: 'For purposes of this Agreement, a "site" is a single-page website at a single domain. The standard build delivered under every plan is a one-page site.',
+              text: 'For purposes of this Agreement, a "site" is a website at a single domain consisting of up to five pages. The standard build delivered under every plan is a four-page site (Home, Services, About, and Contact), with an optional fifth page.',
             },
             {
               kind: "para",
-              text: "Additional pages are not included in any plan and are quoted separately as paid add-on work. Seasonal landing pages, marketing microsites, and sub-pages do not count as separate sites and are not included in the base build.",
+              text: "Additional pages beyond five are not included in any plan and are quoted separately as paid add-on work. Seasonal landing pages, marketing microsites, and sub-pages beyond the included pages do not count as separate sites and are not included in the base build.",
             },
             ...(s.slug === "enterprise"
               ? [
@@ -262,7 +262,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             {
               kind: "bullets",
               items: [
-                "Additional pages beyond the one-page site",
+                "Additional pages beyond five",
                 "Layout, structural, or design changes (quoted separately)",
                 "Custom design beyond the initial template configuration",
                 "E-commerce functionality, payment processing, or shopping carts",
