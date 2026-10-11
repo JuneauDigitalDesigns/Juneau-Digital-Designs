@@ -93,6 +93,15 @@ type WizardData = {
     email: string;
     phone: string;
     address: string;
+    // decision 29: the specifics that stop a site reading like every other contractor's. All
+    // optional and asked here (not scanned), because specificity is the documented antidote to
+    // looking AI-made; a blank one is flagged in the console and NEVER invented by the copywriter.
+    ownerName: string;
+    license: string;
+    established: string;
+    serviceArea: string;   // comma/newline list of towns
+    brandsCarried: string; // comma/newline list of brands installed/serviced
+    responseTime: string;  // the client's own words, e.g. "under 60 minutes"
     // Picked. Drives the service, differentiator, audience and palette options downstream.
     industry: string;
     serviceList: ServiceEntry[];
@@ -221,6 +230,12 @@ function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
         email: prefillEmail,
         phone: "",
         address: "",
+        ownerName: "",
+        license: "",
+        established: "",
+        serviceArea: "",
+        brandsCarried: "",
+        responseTime: "",
         industry: "",
         // No blank starter row: services are chosen from chips now, and an empty row sitting
         // under them reads as "you still have to type one".
@@ -899,6 +914,13 @@ export default function OnboardingPageClient({
             email: formData.email,
             phone: formData.phone,
             address: formData.address,
+            // decision 29 specifics — sent as typed; empty ones are flagged, never invented.
+            ownerName: formData.ownerName,
+            license: formData.license,
+            established: formData.established,
+            serviceArea: formData.serviceArea,
+            brandsCarried: formData.brandsCarried,
+            responseTime: formData.responseTime,
             industry: formData.industry,
             serviceList: formData.serviceList.filter((s) => s.name.trim()),
             // Chips and free text are joined here, not in form state, so unticking a chip
@@ -1176,6 +1198,25 @@ export default function OnboardingPageClient({
                                     <Field label="Email"><input type="email" className={inputCls} value={formData.email} onChange={(e) => set("email", e.target.value)} placeholder="owner@business.com" /></Field>
                                     <Field label="Phone"><input className={inputCls} value={formData.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(907) 555-0142" /></Field>
                                     <Field label="Business address"><input className={inputCls} value={formData.address} onChange={(e) => set("address", e.target.value)} placeholder="318 Glacier Ave, Juneau, AK" /></Field>
+                                </div>
+
+                                {/* The specifics (decision 29). Optional, but they are the single
+                                    biggest thing that stops a site reading like every other
+                                    contractor's. Used verbatim; a blank is flagged in the console
+                                    and never invented. */}
+                                <div className="space-y-5 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-5">
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-semibold text-[var(--fg)]">The specifics that make it yours</p>
+                                        <p style={helpText}>Optional, but these are what stop your site reading like everyone else&apos;s. We use them exactly as you write them, and never invent the ones you leave blank.</p>
+                                    </div>
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <Field label="Owner's name" hint="The person behind the business. Appears on your About page."><input className={inputCls} value={formData.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder="Dana Reyes" /></Field>
+                                        <Field label="Year established" hint="Used exactly as given. We never guess a founding year."><input className={inputCls} value={formData.established} onChange={(e) => set("established", e.target.value)} placeholder="2009" /></Field>
+                                        <Field label="License number" hint="Shown as a credential. Leave blank if you are not licensed."><input className={inputCls} value={formData.license} onChange={(e) => set("license", e.target.value)} placeholder="AK-HVAC-00123" /></Field>
+                                        <Field label="Response-time commitment" hint="Your own words. Appears on the sticky call bar."><input className={inputCls} value={formData.responseTime} onChange={(e) => set("responseTime", e.target.value)} placeholder="Under 60 minutes" /></Field>
+                                        <Field label="Towns you serve" hint="Separate with commas. Named towns read better than 'the surrounding area'."><input className={inputCls} value={formData.serviceArea} onChange={(e) => set("serviceArea", e.target.value)} placeholder="Juneau, Douglas, Auke Bay" /></Field>
+                                        <Field label="Brands you carry" hint="Separate with commas. The brands you install or service."><input className={inputCls} value={formData.brandsCarried} onChange={(e) => set("brandsCarried", e.target.value)} placeholder="Carrier, Trane, Mitsubishi" /></Field>
+                                    </div>
                                 </div>
                             </div>
                         )}
