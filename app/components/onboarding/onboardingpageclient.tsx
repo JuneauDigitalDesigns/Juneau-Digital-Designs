@@ -259,7 +259,7 @@ function paletteSummary(pick: PalettePick): string {
     if (pick.mode === "preset") return preset ? `Theme: ${preset.label}` : "Custom colors";
     const tweaks = Object.keys(pick.overrides ?? {}).length;
     const base = preset ? `Based on ${preset.label}, customized` : "Custom colors";
-    return tweaks ? `${base} — ${tweaks} color${tweaks === 1 ? "" : "s"} pinned by hand` : base;
+    return tweaks ? `${base}, ${tweaks} color${tweaks === 1 ? "" : "s"} pinned by hand` : base;
 }
 
 /** Dark moods derive their own ink, so the wizard hides the ink picker for them. */
@@ -483,7 +483,7 @@ function ContrastWarnings({ palette, onChange }: { palette: PalettePick; onChang
                 >
                     <span style={{ width: 14, height: 14, borderRadius: 4, background: issue.suggestion, border: "1px solid var(--rule)", flexShrink: 0 }} />
                     <span>
-                        <strong style={{ color: "var(--fg)" }}>{issue.label}</strong> may be hard to read —{" "}
+                        <strong style={{ color: "var(--fg)" }}>{issue.label}</strong> may be hard to read:{" "}
                         {issue.ratio}:1, needs {issue.required}:1.
                     </span>
                     <button
@@ -514,7 +514,7 @@ function AdvancedColors({ palette, onChange }: { palette: PalettePick; onChange:
     return (
         <details className="rounded-xl" style={{ border: "1px solid var(--rule)" }}>
             <summary className="cursor-pointer px-3 py-2 text-sm font-semibold" style={{ color: "var(--fg-2)" }}>
-                Advanced — fine-tune individual colors
+                Advanced: fine-tune individual colors
             </summary>
             <div className="grid gap-2 px-3 pb-3 sm:grid-cols-2">
                 {PALETTE_SLOT_META.map(({ slot, label }) => (
@@ -1138,8 +1138,8 @@ export default function OnboardingPageClient({
                     </div>
                     <h1 style={{ fontSize: "var(--text-2xl)", marginBottom: 12 }}>You&apos;re all set!</h1>
                     <p style={{ color: "var(--fg-2)", lineHeight: 1.6 }}>
-                        Your onboarding details have been submitted — our team will write your site copy and design from what you gave us, and follow up on anything we still need. Next, create your{" "}
-                        <span style={{ color: "var(--fg)", fontWeight: 600 }}>client portal login</span> — where you&apos;ll track your website&apos;s performance
+                        Your onboarding details have been submitted. Our team will write your site copy and design from what you gave us, and follow up on anything we still need. Next, create your{" "}
+                        <span style={{ color: "var(--fg)", fontWeight: 600 }}>client portal login</span>, where you&apos;ll track your website&apos;s performance
                         {plan === "starter" ? "" : " and review your AI call logs"}.
                     </p>
                     <div style={{ marginTop: 32, display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
@@ -1170,7 +1170,7 @@ export default function OnboardingPageClient({
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <span className="kicker">Selected Plan</span>
                             <span style={{ fontWeight: 600, color: "var(--fg)" }}>{planMeta.label}</span>
-                            <span style={{ color: "var(--fg-3)" }}>—</span>
+                            <span style={{ color: "var(--fg-3)" }}>Not set</span>
                             <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-2)" }}>{planMeta.price}</span>
                         </div>
                         <Link href="/pricing" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "underline" }}>Change plan</Link>
@@ -1215,7 +1215,7 @@ export default function OnboardingPageClient({
                     <div className="mb-6 flex items-start gap-3 rounded-lg px-4 py-3 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
                         <span className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>✓</span>
                         <p className="flex-1">
-                            Welcome back — your progress has been restored.{" "}
+                            Welcome back. Your progress has been restored.{" "}
                             <button type="button" className="underline hover:no-underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => {
                                 const key = safeStorageKey(sessionId);
                                 if (key) localStorage.removeItem(key);
@@ -1487,7 +1487,7 @@ export default function OnboardingPageClient({
                                 {/* Screen 2 — confirm */}
                                 {colorStep === 2 && (
                                     <div className="space-y-5">
-                                        <StepTitle title="Confirm your colors" sub="This is the palette we'll build your site with. You can always change it later — just tell us." />
+                                        <StepTitle title="Confirm your colors" sub="This is the palette we'll build your site with. You can always change it later, just tell us." />
                                         <div style={{ maxWidth: 520 }}><PalettePreview palette={formData.palette} /></div>
                                         <p className="text-sm" style={{ color: "var(--fg-2)" }}>{paletteSummary(formData.palette)}</p>
                                         <button type="button" className="text-sm font-semibold underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => { setColorAdjusting(true); goToColorStep(1); }}>
@@ -1522,7 +1522,7 @@ export default function OnboardingPageClient({
                                             </label>
                                             <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: "var(--fg-2)" }}>
                                                 <input type="checkbox" checked={!formData.hasLogo} onChange={(e) => set("hasLogo", !e.target.checked)} className="h-4 w-4 cursor-pointer" />
-                                                No logo yet — design one for me
+                                                No logo yet, design one for me
                                             </label>
                                         </div>
                                     )}
@@ -1531,7 +1531,7 @@ export default function OnboardingPageClient({
 
                                 {/* Photos */}
                                 <div className="space-y-3">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Photos <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>(optional — real photos of your work/team beat stock)</span></span>
+                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Photos <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>(optional: real photos of your work/team beat stock)</span></span>
                                     <label className={uploadBtnCls}>
                                         {uploadingSlots.has("hero") ? "Uploading…" : "Add photos"}
                                         <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleHeroSlideUpload} />
@@ -1556,7 +1556,7 @@ export default function OnboardingPageClient({
                         {/* ── Step: Enterprise additional sites ── */}
                         {steps[step].key === "sites" && (
                             <div className="space-y-5">
-                                <StepTitle title="Additional sites" sub={`Your ${planMeta.label} plan includes up to ${planMeta.maxSites} sites. Add facts for each extra location or brand — we write their copy too.`} />
+                                <StepTitle title="Additional sites" sub={`Your ${planMeta.label} plan includes up to ${planMeta.maxSites} sites. Add facts for each extra location or brand, and we write their copy too.`} />
                                 {formData.additionalSites.map((s, i) => (
                                     <div key={i} className={cardCls}>
                                         <button type="button" className="absolute right-3 top-3 text-sm" style={{ color: "var(--accent-2)", cursor: "pointer" }} onClick={() => removeAdditionalSite(i)}>Remove</button>
@@ -1698,7 +1698,7 @@ export default function OnboardingPageClient({
                         {/* ── Step: Review & submit ── */}
                         {steps[step].key === "review" && (
                             <div className="space-y-5">
-                                <StepTitle title="Review & submit" sub="A quick recap. Blanks are fine — we'll follow up on anything we need." />
+                                <StepTitle title="Review & submit" sub="A quick recap. Blanks are fine, we'll follow up on anything we need." />
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     <ReviewItem label="Business" value={formData.brandName} />
                                     <ReviewItem label="Industry" value={INDUSTRY_OPTIONS.find((o) => o.id === formData.industry)?.label ?? ""} />
@@ -1711,7 +1711,7 @@ export default function OnboardingPageClient({
                                     <ReviewItem label="You serve" value={joinChoices(formData.customerChips, formData.customerText)} />
                                     <ReviewItem label="Voice" value={formData.voice.join(", ")} />
                                     <ReviewItem label="Color theme" value={presetById(formData.palette.presetId)?.label ?? "Custom"} />
-                                    <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "—" : "Design one for me"} />
+                                    <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "Not uploaded" : "Design one for me"} />
                                     <ReviewItem label="Photos" value={formData.images.heroSlides.length ? `${formData.images.heroSlides.length} uploaded` : "None"} />
                                     <ReviewItem label="Existing site" value={formData.existingWebsiteUrl} />
                                     {/* Shown back before submit because it is the one answer here
@@ -1725,7 +1725,7 @@ export default function OnboardingPageClient({
                                 </div>
                                 {blanks > 0 && (
                                     <p className="rounded-lg px-4 py-3 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
-                                        You left about <strong style={{ color: "var(--fg)" }}>{blanks}</strong> {blanks === 1 ? "detail" : "details"} blank. That&apos;s okay — we&apos;ll reach out to fill any gaps before we build.
+                                        You left about <strong style={{ color: "var(--fg)" }}>{blanks}</strong> {blanks === 1 ? "detail" : "details"} blank. That&apos;s okay, we&apos;ll reach out to fill any gaps before we build.
                                     </p>
                                 )}
                                 {!portalMode && (
@@ -1795,7 +1795,7 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] px-4 py-3">
             <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-3)" }}>{label}</p>
-            <p style={{ marginTop: 2, color: value ? "var(--fg)" : "var(--fg-3)", fontSize: 14 }}>{value || "—"}</p>
+            <p style={{ marginTop: 2, color: value ? "var(--fg)" : "var(--fg-3)", fontSize: 14 }}>{value || "Not set"}</p>
         </div>
     );
 }

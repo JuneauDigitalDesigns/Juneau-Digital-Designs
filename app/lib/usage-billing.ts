@@ -210,7 +210,7 @@ async function processGroup(
           customer: customerId,
           amount,
           currency: "usd",
-          description: `Voice AI overage — ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`,
+          description: `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`,
           subscription: subscriptionId,
         });
         console.log(`[usage-billing] created invoice item for ${email}/${groupRef}: ${duration(overageSeconds)} overage, ${amount}c`);
@@ -300,7 +300,7 @@ async function sendUsageWarning(
       from,
       to: [email],
       subject: is100
-        ? "Call-minute limit reached — overages now apply"
+        ? "Call-minute limit reached, overages now apply"
         : "You've used 80% of your monthly call minutes",
       html,
     });

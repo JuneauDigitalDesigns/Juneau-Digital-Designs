@@ -45,9 +45,9 @@ export function GrowthProvisioning({
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}
                 >
                     {justUpgraded
-                        ? `Thanks — your agreement is signed and your billing is updated. `
+                        ? `Thanks. Your agreement is signed and your billing is updated. `
                         : `You're on ${planLabel} and your billing is updated. `}
-                    We&rsquo;re putting your AI receptionist together now — that&rsquo;s a
+                    We&rsquo;re putting your AI receptionist together now, and that&rsquo;s a
                     dedicated business number, an agent trained on your services, and the call log
                     below. It usually takes a day or two, and there&rsquo;s nothing you need to do.
                     We&rsquo;ll email you the number as soon as it&rsquo;s live.
@@ -62,7 +62,7 @@ export function GrowthProvisioning({
                 />
                 <Step
                     label="Building your receptionist"
-                    detail="Business number and AI agent — we'll email you the number"
+                    detail="Business number and AI agent, we'll email you the number"
                     state="active"
                 />
                 <Step

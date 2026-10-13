@@ -209,7 +209,7 @@ export default function AgreementClient({
                 // seconds after they signed.
                 if (!conRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved — please sign in and start the move again.",
+                        "Your session expired while signing. Your agreement is saved. Please sign in and start the move again.",
                     );
                 }
                 const conData = (await conRes.json()) as { url?: string; error?: string };
@@ -238,7 +238,7 @@ export default function AgreementClient({
                 // moments after they signed, so check what came back before trusting it.
                 if (!upRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved — please sign in and try the upgrade again.",
+                        "Your session expired while signing. Your agreement is saved. Please sign in and try the upgrade again.",
                     );
                 }
                 const upData = (await upRes.json()) as { ok?: boolean; error?: string };
@@ -283,7 +283,7 @@ export default function AgreementClient({
 
                 <form onSubmit={handleSubmit}>
                     {/* Agreement — must be read to the end before signing unlocks */}
-                    <Section title={`Agreement — ${version}`}>
+                    <Section title={`Agreement, ${version}`}>
                         <TermsReader sections={sections} onComplete={handleTermsComplete} />
                     </Section>
 
@@ -356,7 +356,7 @@ export default function AgreementClient({
                                     }}
                                 >
                                     <div className="kicker" style={{ marginBottom: 12 }}>
-                                        ━ ENTERPRISE — SITE NAMES (UP TO 3)
+                                        ━ ENTERPRISE SITE NAMES (UP TO 3)
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                                         <Field

@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     // The confirm field must match the site's business name (case-insensitive).
     if (typeof confirm !== "string" || confirm.trim().toLowerCase() !== siteName.toLowerCase()) {
-        return NextResponse.json({ error: "Business name does not match — cancellation blocked" }, { status: 422 });
+        return NextResponse.json({ error: "Business name does not match, so cancellation is blocked" }, { status: 422 });
     }
 
     // ── Resolve the Stripe subscription ──────────────────────────────────────
@@ -205,7 +205,7 @@ export async function POST(request: Request) {
 
         const opsHtml = brandedEmailHtml({
             title: "Cancellation Request",
-            subtitle: `${siteName} — ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
+            subtitle: `${siteName}, ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
             body: `
                 <p style="margin:0 0 16px;color:${EMAIL.ink};">
                     <strong>${siteName}</strong> (${ctx.account.email}) has requested cancellation via the portal.
@@ -239,7 +239,7 @@ export async function POST(request: Request) {
         await resend.emails.send({
             from: fromEmail,
             to: [toEmail],
-            subject: `[JDD] Cancellation request — ${siteName}`,
+            subject: `[JDD] Cancellation request: ${siteName}`,
             html: opsHtml,
         }).catch((e: unknown) => {
             console.error("[portal/cancel] ops notification failed", e);
@@ -277,7 +277,7 @@ export async function POST(request: Request) {
         await resend.emails.send({
             from: fromEmail,
             to: [ctx.account.email],
-            subject: `Your cancellation request — ${siteName}`,
+            subject: `Your cancellation request: ${siteName}`,
             html: clientHtml,
         }).catch((e: unknown) => {
             console.error("[portal/cancel] client receipt failed", e);
