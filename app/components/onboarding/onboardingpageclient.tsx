@@ -120,6 +120,17 @@ type WizardData = {
     existingWebsiteUrl: string;
     // Enterprise
     additionalSites: AdditionalSiteForm[];
+    /**
+     * How the client's business line reaches the AI receptionist, or that they refused it.
+     *
+     * Empty string means "not chosen yet" and blocks the step: it is deliberately not
+     * defaulted to one of the three, because the receptionist only works once the line is
+     * actually pointed at us and guessing costs real money in both directions. Picking
+     * "declined" for someone who wanted a receptionist delivers a website to a client who paid
+     * for a phone service; picking "forwarded" for someone who refused buys a Twilio number and
+     * stands up an agent nobody asked for.
+     */
+    receptionistMode: "forwarded" | "published" | "declined" | "";
     // Meta
     consent: boolean;
     turnstileToken: string;
@@ -165,6 +176,39 @@ const INDUSTRY_OPTIONS: { id: string; label: string }[] = [
 // Vibe, tone and free-text adjectives were three questions describing one thing, and all
 // three collapsed into the same paragraph of the copywriter prompt. VOICE_OPTIONS from
 // @jdd/schema replaces them with a single picker.
+
+/**
+ * The three activation choices, in the order they should be considered.
+ *
+ * Forwarding leads because it is the one that keeps the client's existing number on their
+ * trucks and their Google listing, which is what most of them actually want. Declining is
+ * last and worded neutrally: it is a real option, not a mistake, and a client who feels
+ * talked out of it will simply never forward the line and then blame the product.
+ */
+const RECEPTIONIST_OPTIONS: {
+    id: "forwarded" | "published" | "declined";
+    label: string;
+    detail: string;
+}[] = [
+    {
+        id: "forwarded",
+        label: "Forward my existing number",
+        detail:
+            "You keep the number you already advertise. We give you a number to forward to, and calls you do not pick up roll to your receptionist instead of voicemail.",
+    },
+    {
+        id: "published",
+        label: "Use the new number as my business number",
+        detail:
+            "We give you a number and you start using it: cards, truck, Google listing. Calls come straight in, ring your phone first, and reach the receptionist if you miss them.",
+    },
+    {
+        id: "declined",
+        label: "No receptionist for now, website only",
+        detail:
+            "We build the site and skip the phone side entirely. Same price, and you can switch it on later with no extra onboarding fee.",
+    },
+];
 
 const emptyPalette = (): PalettePick => ({ mode: "preset", presetId: DEFAULT_PALETTE_PRESET_ID });
 const COLOR_SUB_LABELS = ["Theme", "Preview", "Confirm"];
@@ -251,6 +295,7 @@ function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
         images: { heroSlides: [] },
         existingWebsiteUrl: "",
         additionalSites: [],
+        receptionistMode: "",
         consent: false,
         turnstileToken: "",
         website: "",
@@ -824,6 +869,19 @@ export default function OnboardingPageClient({
         { key: "apart", label: "What sets you apart" },
         { key: "sound", label: "How it should sound" },
         { key: "look", label: "Look" },
+        /**
+         * Activation sits after the creative questions and before review.
+         *
+         * Placed here rather than earlier because it is the one operational question in an
+         * otherwise creative form, and asking a client to think about call forwarding between
+         * "what sets you apart" and "pick your colours" breaks the run. Placed before review
+         * because the choice has to appear on the summary they confirm.
+         *
+         * Note the step list is plan-conditional and several things index into it by key
+         * (`lookIndex`, `onLook`, the colour sub-wizard arithmetic). Inserting here is safe
+         * because every one of those uses `findIndex` on a key rather than a fixed position.
+         */
+        { key: "activation", label: "Your phone" },
         ...(plan === "enterprise" ? [{ key: "sites", label: "Extra sites" }] : []),
         { key: "review", label: "Review & submit" },
     ];
@@ -885,8 +943,24 @@ export default function OnboardingPageClient({
         scrollTop();
     }
 
+    /**
+     * Activation is the one step that blocks.
+     *
+     * Everything else in this wizard is advisory: a blank field is a follow-up email, which is
+     * why `blankCount` only hints. This is different because it is not content, it is an
+     * instruction about whether to buy a phone number, and there is no sensible default to
+     * infer. An unanswered activation choice would reach provisioning, which refuses to guess,
+     * and stall the build after the client believed they were finished.
+     */
+    const onActivation = steps[step].key === "activation";
+    const activationBlocked = onActivation && formData.receptionistMode === "";
+
     // On the "look" step the footer buttons drive the nested color wizard first.
-    const next = () => (onLook && colorStep < COLOR_STEPS - 1 ? goToColorStep(colorStep + 1) : goTo(step + 1));
+    const next = () => {
+        if (activationBlocked) return;
+        if (onLook && colorStep < COLOR_STEPS - 1) return goToColorStep(colorStep + 1);
+        goTo(step + 1);
+    };
     const back = () => (onLook && colorStep > 0 ? goToColorStep(colorStep - 1) : goTo(step - 1));
 
     /**
@@ -910,6 +984,17 @@ export default function OnboardingPageClient({
     function buildPayload(): BrandIntakeSubmission {
         return {
             selectedPlan: plan,
+            /**
+             * Spread conditionally so an unanswered choice is genuinely absent rather than an
+             * explicit `undefined`.
+             *
+             * The step blocks on an empty value, so in practice this is always set. It is
+             * written defensively anyway because `zBrandIntakeSubmission` treats the field as
+             * optional (a client mid-form when this step deployed submits the old shape), and
+             * "absent" has to keep meaning "not yet asked" all the way through to provisioning,
+             * which refuses to guess rather than buying a phone number on a default.
+             */
+            ...(formData.receptionistMode ? { receptionistMode: formData.receptionistMode } : {}),
             brandName: formData.brandName,
             email: formData.email,
             phone: formData.phone,
@@ -1506,6 +1591,110 @@ export default function OnboardingPageClient({
                             </div>
                         )}
 
+                        {/* ── Step: Activation ──
+                            The one step that decides whether we spend money. Nothing is
+                            pre-selected, and declining is presented as a legitimate choice
+                            rather than an error, because a client who genuinely does not want
+                            AI on their line is a real customer we would rather keep on a
+                            website-only arrangement than argue with. */}
+                        {steps[step].key === "activation" && (
+                            <div className="space-y-5">
+                                <StepTitle
+                                    title="Your phone"
+                                    sub="Your receptionist needs to be able to reach your calls. Pick whichever of these suits how you run things."
+                                />
+
+                                {/* The objection, answered before the question is asked. Same
+                                    wording as the pricing page, deliberately: this is the point
+                                    where a client who half-remembers "something about AI
+                                    answering my phone" needs it restated. */}
+                                <div
+                                    className="rounded-2xl p-4"
+                                    style={{
+                                        background: "var(--surface)",
+                                        border: "1px solid var(--rule)",
+                                        borderTop: "2px solid var(--accent)",
+                                    }}
+                                >
+                                    <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                        The AI never answers before you do.
+                                    </p>
+                                    <p className="mt-1" style={{ ...helpText }}>
+                                        A caller rings your real phone first. Only if nobody picks up
+                                        does the AI step in, so it is replacing your voicemail, not
+                                        replacing you.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-col gap-3">
+                                    {RECEPTIONIST_OPTIONS.map((opt) => {
+                                        const on = formData.receptionistMode === opt.id;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => set("receptionistMode", opt.id)}
+                                                aria-pressed={on}
+                                                className="rounded-2xl p-4 text-left transition"
+                                                style={{
+                                                    border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`,
+                                                    background: on ? "var(--surface-2, var(--surface))" : "var(--surface)",
+                                                    boxShadow: on ? "0 0 0 1px var(--accent) inset" : "none",
+                                                    cursor: "pointer",
+                                                }}
+                                            >
+                                                <span
+                                                    className="text-sm font-semibold"
+                                                    style={{ color: on ? "var(--accent)" : "var(--fg)" }}
+                                                >
+                                                    {opt.label}
+                                                </span>
+                                                <span className="mt-1 block" style={{ ...helpText }}>
+                                                    {opt.detail}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {formData.receptionistMode === "declined" && (
+                                    <div
+                                        className="rounded-2xl p-4"
+                                        style={{ background: "var(--surface)", border: "1px solid var(--rule)" }}
+                                    >
+                                        <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                            Just so there are no surprises
+                                        </p>
+                                        <p className="mt-1" style={{ ...helpText }}>
+                                            Your price does not change: the website-only option costs the
+                                            same as your plan. You keep the site, the hosting and the
+                                            contact form, and we will not set up a phone number. You can
+                                            turn the receptionist on later at no extra onboarding charge,
+                                            so this is not a door closing.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {formData.receptionistMode !== "" && formData.receptionistMode !== "declined" && (
+                                    <p style={{ ...helpText }}>
+                                        We will send your number and step-by-step instructions once your
+                                        site is ready. Your carrier has to make the change, so we cannot
+                                        do that part for you, but we will walk you through it. The steps
+                                        live at{" "}
+                                        <a
+                                            href="/activation"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                        >
+                                            /activation
+                                        </a>{" "}
+                                        whenever you want them, which is usually not today.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         {/* ── Step: Review & submit ── */}
                         {steps[step].key === "review" && (
                             <div className="space-y-5">
@@ -1525,6 +1714,14 @@ export default function OnboardingPageClient({
                                     <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "—" : "Design one for me"} />
                                     <ReviewItem label="Photos" value={formData.images.heroSlides.length ? `${formData.images.heroSlides.length} uploaded` : "None"} />
                                     <ReviewItem label="Existing site" value={formData.existingWebsiteUrl} />
+                                    {/* Shown back before submit because it is the one answer here
+                                        that changes what gets built rather than how it looks. */}
+                                    <ReviewItem
+                                        label="Receptionist"
+                                        value={
+                                            RECEPTIONIST_OPTIONS.find((o) => o.id === formData.receptionistMode)?.label ?? ""
+                                        }
+                                    />
                                 </div>
                                 {blanks > 0 && (
                                     <p className="rounded-lg px-4 py-3 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
@@ -1552,7 +1749,19 @@ export default function OnboardingPageClient({
                     <div className="mt-6 flex items-center justify-between">
                         <button type="button" onClick={back} disabled={step === 0} className="btn ghost" style={{ opacity: step === 0 ? 0.4 : 1, cursor: step === 0 ? "not-allowed" : "pointer" }}>← Back</button>
                         {step < lastStep ? (
-                            <button type="button" onClick={next} className="btn primary">Next →</button>
+                            <button
+                                type="button"
+                                onClick={next}
+                                disabled={activationBlocked}
+                                className="btn primary"
+                                style={{
+                                    opacity: activationBlocked ? 0.5 : 1,
+                                    cursor: activationBlocked ? "not-allowed" : "pointer",
+                                }}
+                                title={activationBlocked ? "Pick one of the three options to continue" : undefined}
+                            >
+                                Next →
+                            </button>
                         ) : (
                             <button
                                 type="submit"
