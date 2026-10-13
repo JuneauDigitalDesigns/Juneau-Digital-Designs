@@ -1,15 +1,26 @@
 import "server-only";
 import { Resend } from "resend";
-import type { AgreementRecord } from "./agreement-types";
+import { SCHEDULES } from "./legal/schedules";
+import type { AgreementRecord, PlanSlug } from "./agreement-types";
 import { stripLastPage } from "./pdf-signer";
 import { brandedEmailHtml } from "./email-template";
 import { EMAIL } from "./email-tokens";
 
-const PLAN_LABEL: Record<string, string> = {
-  starter: "Starter ($117/mo + $100 setup)",
-  growth: "Growth ($297/mo)",
-  enterprise: "Enterprise ($697/mo)",
-};
+/**
+ * Derived from Schedule A rather than written out, because the literals this replaced had
+ * already drifted: they quoted $117/$297/$697 and the retired word "setup" after the
+ * agreement itself had moved on. An email that contradicts the contract attached to it is
+ * worse than one with no price in it at all.
+ */
+function planLabel(plan: string): string {
+  const schedule = SCHEDULES[plan as PlanSlug];
+  if (!schedule) return plan;
+  const { name, monthlyPrice, onboardingFee } = schedule;
+  const monthly = `$${monthlyPrice.toLocaleString("en-US")}/mo`;
+  return onboardingFee > 0
+    ? `${name} (${monthly} + $${onboardingFee.toLocaleString("en-US")} onboarding)`
+    : `${name} (${monthly})`;
+}
 
 /**
  * Send a stored agreement to its signer, fetching the PDF back from blob storage.
@@ -50,13 +61,14 @@ export async function sendClientAgreementEmail(
 
   const resend = new Resend(apiKey);
 
-  const planLabel = PLAN_LABEL[record.plan] ?? record.plan;
-  const subject = `Signed MSA — ${record.clientLegalName}`;
+  const label = planLabel(record.plan);
+  // No em-dash: this is a subject line a client reads.
+  const subject = `Signed MSA: ${record.clientLegalName}`;
   const innerHtml = `
     <p style="margin:0 0 18px;">Thanks for signing your agreement with Juneau Digital Designs. A copy of your signed PDF is attached to this email.</p>
     <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:0 0 18px;">
       <div style="font-size:13px;line-height:1.7;">
-        <strong>Plan:</strong> ${planLabel}<br/>
+        <strong>Plan:</strong> ${label}<br/>
         <strong>Signer:</strong> ${record.signerName} (${record.signerTitle})<br/>
         <strong>Business:</strong> ${record.clientLegalName}<br/>
         <strong>Signed at:</strong> ${record.audit.signedAt}

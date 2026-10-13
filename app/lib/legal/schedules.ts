@@ -28,6 +28,15 @@ const OVERAGE_PER_MINUTE = 0.2;
 const GUARANTEE_MIN_LEADS = 3;
 const GUARANTEE_WINDOW_DAYS = 30;
 
+/**
+ * Months charged on an annual prepay: twelve months of service for ten months of money.
+ *
+ * Every annual figure derives from this, so "two months free" and the actual discount cannot
+ * disagree. Changing a monthly price automatically keeps the annual one honest.
+ */
+const ANNUAL_MONTHS_CHARGED = 10;
+const annual = (monthly: number) => monthly * ANNUAL_MONTHS_CHARGED;
+
 const mins = (n: number) => n.toLocaleString("en-US");
 const rate = (n: number) => `$${n.toFixed(2)}`;
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
@@ -62,6 +71,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     slug: "starter",
     name: "Starter",
     monthlyPrice: 197,
+    annualPrice: annual(197),
     onboardingFee: 297,
     siteLabel: "one (1) website",
     maxSites: 1,
@@ -103,6 +113,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     slug: "growth",
     name: "Growth",
     monthlyPrice: 497,
+    annualPrice: annual(497),
     onboardingFee: 297,
     siteLabel: "one (1) website",
     maxSites: 1,
@@ -141,6 +152,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     slug: "enterprise",
     name: "Enterprise",
     monthlyPrice: 1097,
+    annualPrice: annual(1097),
     onboardingFee: 697,
     siteLabel: "two (2) to three (3) websites",
     maxSites: 3,
@@ -197,6 +209,7 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
   slug: "starter",
   name: "Starter (Website Only)",
   monthlyPrice: 197,
+  annualPrice: annual(197),
   onboardingFee: 297,
   siteLabel: "one (1) website",
   maxSites: 1,
@@ -238,6 +251,12 @@ export function getSchedule(plan: PlanSlug): PlanSchedule {
 export const GUARANTEE = {
   minQualifiedLeads: GUARANTEE_MIN_LEADS,
   windowDays: GUARANTEE_WINDOW_DAYS,
+} as const;
+
+/** Annual prepay terms, shared by the pricing page's toggle and the billing layer. */
+export const ANNUAL = {
+  monthsCharged: ANNUAL_MONTHS_CHARGED,
+  monthsFree: 12 - ANNUAL_MONTHS_CHARGED,
 } as const;
 
 /** Included minutes per tier, for the one place that injects metering caps. */

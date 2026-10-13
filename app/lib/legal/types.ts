@@ -63,6 +63,14 @@ export interface PlanSchedule {
   slug: PlanSlug;
   name: string;
   monthlyPrice: number;
+  /**
+   * Annual prepay price. Always `monthlyPrice * ANNUAL_MONTHS_CHARGED`, never written by hand.
+   *
+   * Derived so the "two months free" promise cannot drift from the monthly price it discounts.
+   * A literal here would let someone change `monthlyPrice` and quietly turn the annual deal
+   * into something other than two months free.
+   */
+  annualPrice: number;
   onboardingFee: number;
   /** Prose form used inside the terms, e.g. "up to three (3) websites". */
   siteLabel: string;

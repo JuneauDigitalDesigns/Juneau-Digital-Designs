@@ -25,7 +25,7 @@ const SIGNING_METADATA: Metadata = {
 export async function generateMetadata({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string }>;
 }): Promise<Metadata> {
     const { upgrade } = await searchParams;
     const slug = upgrade?.trim();
@@ -40,12 +40,15 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string }>;
 }) {
-    const { plan, upgrade, kind, consolidate } = await searchParams;
+    const { plan, upgrade, kind, consolidate, period } = await searchParams;
     const selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
+    // Anything but an exact "annual" is monthly. Same reasoning as `/start`: a tampered or
+    // stale link must not be able to escalate a monthly intent into a yearly charge.
+    const billingPeriod: "monthly" | "annual" = period === "annual" ? "annual" : "monthly";
 
     /**
      * Nobody signs anonymously any more.
@@ -61,7 +64,7 @@ export default async function AgreementPage({
      * meet the upsell, not the signature form.
      */
     const { userId } = await auth();
-    if (!userId) redirect(`/start?plan=${selectedPlan}`);
+    if (!userId) redirect(`/start?plan=${selectedPlan}&period=${billingPeriod}`);
 
     /**
      * Master or addendum.
@@ -111,6 +114,7 @@ export default async function AgreementPage({
     return (
         <AgreementClient
             plan={selectedPlan}
+            billingPeriod={billingPeriod}
             sections={sections}
             version={version}
             upgradeSlug={upgradeSlug}

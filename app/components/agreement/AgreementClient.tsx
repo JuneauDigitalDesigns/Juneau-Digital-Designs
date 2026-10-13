@@ -12,6 +12,14 @@ import TermsReader from "./TermsReader";
 
 interface Props {
     plan: PlanSlug;
+    /**
+     * Monthly or annual prepay, resolved server side from the query string.
+     *
+     * Carried through to checkout so the Session opens on the right recurring price. The
+     * agreement text itself does not vary: Schedule A quotes the monthly fee either way, and
+     * annual prepay is a billing arrangement rather than a different set of terms.
+     */
+    billingPeriod: "monthly" | "annual";
     sections: Section[];
     version: string;
     /**
@@ -52,6 +60,7 @@ const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "O
 
 export default function AgreementClient({
     plan,
+    billingPeriod,
     sections,
     version,
     upgradeSlug = null,
@@ -243,7 +252,7 @@ export default function AgreementClient({
             const ckRes = await fetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan, agreement_id: sigData.agreement_id }),
+                body: JSON.stringify({ plan, agreement_id: sigData.agreement_id, period: billingPeriod }),
             });
             const ckData = (await ckRes.json()) as { url?: string; error?: string };
             if (!ckRes.ok || !ckData.url) {

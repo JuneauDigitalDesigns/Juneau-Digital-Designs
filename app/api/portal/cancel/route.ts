@@ -114,7 +114,19 @@ export async function POST(request: Request) {
     // ── Compute the cancel_at boundary ───────────────────────────────────────
 
     const plan = ctx.site.plan as PortalPlan;
-    const noticeDays = SCHEDULES[plan]?.cancellationNoticeDays ?? 30;
+    /**
+     * Zero on every plan since 2026-10-12: month to month, no minimum term.
+     *
+     * The arithmetic below degenerates correctly rather than needing to change. At 0 the
+     * target is now, so `firstBoundaryAtOrAfter` returns the end of the period the client has
+     * already paid for, which is exactly the contracted behaviour.
+     *
+     * The fallback is 0, not 30. A `?? 30` would reintroduce a 30-day notice period for any
+     * plan slug this lookup failed to resolve, which is the one direction the mistake is
+     * expensive: it would bill a cancelling client for a month the agreement does not entitle
+     * us to.
+     */
+    const noticeDays = SCHEDULES[plan]?.cancellationNoticeDays ?? 0;
 
     let sub: Awaited<ReturnType<typeof stripe.subscriptions.retrieve>>;
     try {

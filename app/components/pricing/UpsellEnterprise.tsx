@@ -57,11 +57,11 @@ export default function UpsellEnterprise({
                 >
                     You already run {existing.length} sites on {growth.name}
                     {existing.length > 0 && (
-                        <> — {existing.map((s) => s.name ?? s.slug).join(" and ")}</>
+                        <>: {existing.map((s) => s.name ?? s.slug).join(" and ")}</>
                     )}
                     . Adding a third {requestedPlan === "growth" ? growth.name : requestedPlan} plan
-                    would work, but it would cost you more than it should and give you less than
-                    Enterprise does.
+                    would work, but it leaves you managing three separate allowances and three
+                    separate call logs for one business.
                 </p>
 
                 <div
@@ -193,7 +193,7 @@ function AlreadyEnterprise() {
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)", fontSize: 16 }}
                 >
                     You&rsquo;re already on Enterprise, which covers {enterprise.siteLabel}. Going
-                    beyond that isn&rsquo;t something to buy from a page — tell us what you need
+                    beyond that isn&rsquo;t something to buy from a page. Tell us what you need
                     and we&rsquo;ll price it properly.
                 </p>
 

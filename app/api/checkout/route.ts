@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { auth } from "@clerk/nextjs/server";
 import { stripe } from "@/app/lib/stripe";
-import { getPlan } from "@/app/lib/plans";
+import { getPlan, priceIdFor, type BillingPeriod } from "@/app/lib/plans";
 import { getAgreement } from "@/app/lib/kv";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { getOrCreateCustomerId } from "@/app/lib/plan-billing";
@@ -25,10 +25,12 @@ export async function POST(req: Request) {
 
   let plan: string | undefined;
   let agreement_id: string | undefined;
+  let period: string | undefined;
   try {
-    ({ plan, agreement_id } = (await req.json()) as {
+    ({ plan, agreement_id, period } = (await req.json()) as {
       plan?: string;
       agreement_id?: string;
+      period?: string;
     });
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
@@ -38,6 +40,10 @@ export async function POST(req: Request) {
   if (!cfg) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
+
+  // Anything but an exact "annual" is monthly, matching `/start` and `/agreement`. Narrowed
+  // here too rather than trusted, because this handler takes a JSON body from the browser.
+  const billingPeriod: BillingPeriod = period === "annual" ? "annual" : "monthly";
   if (!agreement_id) {
     return NextResponse.json({ error: "Missing signed agreement" }, { status: 400 });
   }
@@ -86,11 +92,42 @@ export async function POST(req: Request) {
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
 
+  /**
+   * One Session carrying both charges: the recurring subscription and the one-time onboarding
+   * fee. That is a contractual requirement, not a convenience, since the agreement states the
+   * onboarding fee is charged at signing together with the first period.
+   */
+  const recurringPriceId = priceIdFor(cfg, billingPeriod);
+  if (!recurringPriceId) {
+    // Refused rather than quietly billed monthly. A client who selected annual and was charged
+    // a month would have been charged something they did not agree to.
+    console.error(
+      "[/api/checkout] no price configured",
+      cfg.slug,
+      billingPeriod,
+      billingPeriod === "annual" ? "STRIPE_PRICE_*_ANNUAL missing" : "STRIPE_PRICE_*_MONTHLY missing",
+    );
+    return NextResponse.json(
+      {
+        error:
+          billingPeriod === "annual"
+            ? "Annual billing isn't available for that plan yet. Please choose monthly or contact us."
+            : "That plan isn't configured for billing.",
+      },
+      { status: 400 },
+    );
+  }
+
   const line_items: { price: string; quantity: number }[] = [
-    { price: cfg.monthlyPriceId, quantity: 1 },
+    { price: recurringPriceId, quantity: 1 },
   ];
   if (cfg.onboardingPriceId) {
     line_items.push({ price: cfg.onboardingPriceId, quantity: 1 });
+  } else {
+    // Every tier carries an onboarding fee now, so an absent price id is a misconfiguration
+    // that silently gives the service away. Logged loudly; not fatal, because refusing the
+    // sale over it would be worse than collecting the subscription and invoicing the fee.
+    console.error("[/api/checkout] no onboarding price configured for", cfg.slug);
   }
 
   let customerId: string;
@@ -129,9 +166,11 @@ export async function POST(req: Request) {
       customer: customerId,
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/pricing`,
-      metadata: { plan: cfg.slug, agreement_id, purchase_id: purchaseId },
+      // `period` recorded on both so the webhook and any later audit can tell an annual
+      // subscription from a monthly one without re-deriving it from the price id.
+      metadata: { plan: cfg.slug, agreement_id, purchase_id: purchaseId, period: billingPeriod },
       subscription_data: {
-        metadata: { plan: cfg.slug, agreement_id, purchase_id: purchaseId },
+        metadata: { plan: cfg.slug, agreement_id, purchase_id: purchaseId, period: billingPeriod },
       },
       allow_promotion_codes: true,
     });

@@ -1,5 +1,27 @@
 @import "tailwindcss";
 
+/* Markdown is not a source of class names, and scanning it breaks the build.
+
+   Tailwind v4 scans every non-ignored file in the project for class candidates, Markdown
+   included, and unescapes CSS identifier escapes as it goes. A doc containing a backslash
+   followed by hex-ish characters (any grep recipe with an escaped dollar sign will do) makes
+   that unescaper call String.fromCodePoint with a nonsense value, and the whole build dies
+   with "RangeError: Invalid code point" reported against globals.css:1:1. That is nowhere
+   near the offending file, and nothing is wrong with this stylesheet at all.
+
+   Adding one planning document to the repo root was enough to trigger it. Excluded here
+   rather than by moving that document, because the next README with a regex in it would do
+   the same thing and the error gives no hint where to look.
+
+   The leading parent-directory hop is load-bearing: @source globs resolve relative to THIS
+   file, not to the project root, and this stylesheet lives in app/. A glob without it matches
+   nothing outside app/ and the build keeps failing with the same unrelated-looking error.
+
+   Do not write a glob containing a star-slash inside this comment while explaining that: the
+   slash-star comment form has no nesting and no escape, so the first star-slash in the prose
+   ends the comment and drops the rest of this paragraph into the stylesheet as CSS. */
+@source not "../**/*.md";
+
 /* ── Switchboard design tokens — LIGHT is the default theme ─── */
 :root {
   --bg: #f4ecd8;

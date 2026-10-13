@@ -320,8 +320,10 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
             };
         }
 
-        // Swap the recurring item only. Starter's one-time onboarding fee is not a recurring
-        // price, and replacing it would re-bill setup.
+        // Swap the recurring item only. An onboarding fee is a one-time price, not a recurring
+        // one, and replacing it would charge the client for onboarding a second time. This
+        // matters more than it used to: every tier carries an onboarding fee since 2026-10-12,
+        // where previously only Starter did, so every plan change now has one to protect.
         const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
         if (recurring.length !== 1) {
             console.error(

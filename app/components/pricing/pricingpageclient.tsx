@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Microphone } from "@phosphor-icons/react";
-import { SCHEDULES } from "@/app/lib/legal/schedules";
+import { Check, Microphone, PhoneCall } from "@phosphor-icons/react";
+import { SCHEDULES, GUARANTEE, ANNUAL } from "@/app/lib/legal/schedules";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
+type BillingPeriod = "monthly" | "annual";
 
 /* Every number on this page comes from Schedule A (app/lib/legal/schedules.ts) —
    the same source the signed agreement renders from. The prose is hand-written;
@@ -15,82 +16,113 @@ const minutes = (slug: PlanSlug) =>
     SCHEDULES[slug].callMinutes?.toLocaleString("en-US") ?? "0";
 const overageRate = (slug: PlanSlug) =>
     `$${(SCHEDULES[slug].overagePerMinute ?? 0.2).toFixed(2)}`;
+const dollars = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 type PricingTier = {
     slug: PlanSlug;
     name: string;
-    price: number;
     tagline: string;
+    /** Capability, in the order a buyer should read it. Minutes are appended separately. */
     features: string[];
     highlighted: boolean;
 };
 
+/**
+ * Tier content.
+ *
+ * Two rules the 2026-10 reprice imposes on this list, both deliberate:
+ *
+ *  - **Minutes are never a headline.** They are appended last, as a footnote, because tiers
+ *    are differentiated by capability now. Leading with minutes invites a buyer to pick the
+ *    cheapest number that clears their call volume, which is the wrong question.
+ *  - **Growth leads with the 60-second callback**, not with its larger allowance. That
+ *    callback is the entire reason Growth costs $300 more than Starter: Starter tells you a
+ *    lead came in, Growth acts on it.
+ */
 const TIERS: PricingTier[] = [
     {
         slug: "starter",
         name: "Starter",
-        price: SCHEDULES.starter.monthlyPrice,
-        tagline: "Everything starts here: the site itself. Built, hosted, and pointed at getting you called. Add the receptionist whenever you're ready.",
+        tagline: "Starter tells you. A real website, and a receptionist that catches the calls you would have missed and reports every one of them.",
         features: [
-            "A complete four-page website (Home, Services, About, Contact), built and launched for you",
-            "Contact form: leads go straight to your inbox",
-            "Hosting, backups, and security included",
+            "A four-page website: Home, Services, About, Contact",
+            "Hosting, SSL, and maintenance included",
+            "AI receptionist answers the calls you miss",
+            "Post-call text brief sent to your phone after every call",
+            "Lead email with the caller's name, number, and reason",
             "2 content edits per month",
-            "Client portal to check your site anytime",
+            "Client portal to check your site and your calls",
         ],
         highlighted: false,
     },
     {
         slug: "growth",
         name: "Growth",
-        price: SCHEDULES.growth.monthlyPrice,
-        tagline: "Everything in Starter, plus the part that actually answers the phone.",
+        tagline: "Growth acts for you. Everything in Starter, plus it works the lead instead of just handing it to you.",
         features: [
-            "Everything in Starter",
-            "AI receptionist on a dedicated business number",
-            `${minutes("growth")} call minutes per month`,
-            "2 content edits per month",
-            "Ongoing SEO so you show up on Google",
-            "Portal with every call logged: transcript and summary",
+            "Everything in Starter, plus:",
+            "60-second callback: a web form lead gets called back automatically within about a minute",
+            "AI qualifies the lead and answers common questions",
+            "Searchable call log with full transcripts",
+            "Urgency and caller-name extraction on every call",
         ],
         highlighted: true,
     },
     {
         slug: "enterprise",
         name: "Enterprise",
-        price: SCHEDULES.enterprise.monthlyPrice,
-        tagline: "For people running more than one shop. Three sites, one bill, minutes shared across all of them.",
+        tagline: "For people running more than one shop. Separate sites and receptionists, one call log, one bill.",
         features: [
-            "Everything in Growth",
-            "Up to 3 four-page websites, each with its own receptionist and number",
-            `${minutes("enterprise")} call minutes per month, pooled across your sites`,
-            "Priority support with 1 business day response time",
+            "Everything in Growth, plus:",
+            "2 to 3 websites, for example a service site and an e-commerce site",
+            "A dedicated AI receptionist and phone number per site",
+            "One shared call log across all sites",
         ],
         highlighted: false,
     },
 ];
 
+/** The minutes footnote, appended last so it reads as a line item rather than a selling point. */
+function minutesLine(slug: PlanSlug): string {
+    return slug === "enterprise"
+        ? `${minutes(slug)} AI minutes per month, pooled across all your sites`
+        : `${minutes(slug)} AI minutes per month included`;
+}
+
 /* Answers are sourced from the Master Services Agreement so the marketing copy and
    the contract can't drift apart. Section refs noted per answer. */
 const FAQS: { q: string; a: string }[] = [
     {
-        // Leads the section on purpose: a low price is itself an objection, so the
-        // page should answer "why so cheap" before anything else. The figures are
-        // evidence for the tooling argument, not a discount brag.
-        q: "What's the catch?",
-        a: "There isn't one. Piecing this together from an agency plus an answering service usually runs $600 or more a month. Growth is $297. The difference isn't corner-cutting, it's that we built the software that does the setup. Provisioning a site, standing up a number, configuring the agent, wiring your reporting. Most agencies do all of that by hand and bill you for the hours. We only had to build it once.",
+        /**
+         * Leads the section on purpose, and replaced "What's the catch?".
+         *
+         * The old lead argued from price ("Growth is $297, agencies charge $600"), which no
+         * longer holds at $497 and was the wrong objection anyway. Consumer resistance to AI
+         * answering a phone is real and rising, so that is the first thing this page should
+         * answer. It is also the argument the whole product rests on: human-first routing.
+         */
+        q: "Will my customers get an AI instead of me?",
+        a: "No. The AI never answers before you do. A caller rings your real phone first, and only if nobody picks up does the AI step in. It is replacing your voicemail, not replacing you. Most people who call a business and reach a recording just hang up and call the next name on the list, so the comparison that matters isn't AI versus you, it's AI versus nobody.",
     },
     {
         q: "What happens if I go over my minutes?",
-        a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close.`, // MSA §5.2
+        a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close. On Starter especially, keep an eye on it: ${minutes("starter")} minutes is roughly twenty short calls, so a busy month can run past it.`, // MSA call volume section
     },
     {
         q: "Am I locked into a contract?",
-        a: "No. Starter and Growth are month to month, cancel whenever. Enterprise runs on 60 days notice, because there's more to unwind.", // MSA §14.1–14.2
+        a: "No. There is no minimum term, no commitment period, and no cancellation fee on any plan. It's month to month. If you cancel, you keep everything through the end of the month you've already paid for, and then it stops.", // MSA term and termination
+    },
+    {
+        q: "What if it doesn't work for me?",
+        a: `If the receptionist captures fewer than ${GUARANTEE.minQualifiedLeads} qualified leads in your first ${GUARANTEE.windowDays} days, we refund the onboarding fee. A qualified lead means a call it answered that got us a name, a number, and what they wanted. The clock starts when your receptionist goes live, not when you sign, so taking a week to forward your line doesn't cost you the window. The one condition: you have to actually forward it. A line that never pointed at us was never going to catch anything.`, // MSA first-month guarantee
     },
     {
         q: "How fast can I be live?",
-        a: "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week.", // MSA §2.2
+        a: "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week.", // MSA delivery targets
+    },
+    {
+        q: "Do I have to forward my phone?",
+        a: "You pick one of two ways: forward your existing business line to the number we give you, so the AI only ever hears the calls you didn't pick up, or publish our number as your business number. Either works. We walk you through it, though your phone carrier has to make the change, so we can't do that part for you.", // MSA activation
     },
     {
         // Was "It's yours. If you ever leave, it goes with you." — which the MSA does not
@@ -98,11 +130,11 @@ const FAQS: { q: string; a: string }[] = [
         // default is release, not transfer. Porting is real, but it's opt-in, time-boxed
         // and paid, so all three conditions are stated rather than discovered later.
         q: "Do I get to keep my phone number?",
-        a: "You get exclusive use of it for as long as you're a client: put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA §11
+        a: "You get exclusive use of it for as long as you're a client: put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA phone number ownership
     },
     {
         q: "Do I own my website?",
-        a: "Your content is yours: name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA §14
+        a: "Your content is yours: name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA intellectual property
     },
     {
         q: "What if I already have a website?",
@@ -117,6 +149,7 @@ const FAQS: { q: string; a: string }[] = [
 export default function PricingPageClient() {
     const [loadingPlan, setLoadingPlan] = useState<PlanSlug | null>(null);
     const [checkoutError] = useState<string | null>(null);
+    const [period, setPeriod] = useState<BillingPeriod>("monthly");
 
     function subscribe(slug: PlanSlug) {
         setLoadingPlan(slug);
@@ -130,10 +163,14 @@ export default function PricingPageClient() {
          * purchase, an addendum, or an upsell.
          *
          * This page stays static and anonymous: it renders identically for everyone and holds
-         * no entitlement logic, so there is nothing here to disagree with the server.
+         * no entitlement logic, so there is nothing here to disagree with the server. The
+         * chosen billing period rides along as a query param and is re-validated server side;
+         * nothing here is trusted.
          */
-        window.location.href = `/start?plan=${slug}`;
+        window.location.href = `/start?plan=${slug}&period=${period}`;
     }
+
+    const annual = period === "annual";
 
     return (
         <main
@@ -154,10 +191,8 @@ export default function PricingPageClient() {
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, ease: "easeOut" }}
-                    style={{ marginBottom: 60, textAlign: "center" }}
+                    style={{ marginBottom: 40, textAlign: "center" }}
                 >
-                    
-                    
                     <h1
                         style={{
                             fontSize: "clamp(24px, 8vw, 88px)",
@@ -183,8 +218,109 @@ export default function PricingPageClient() {
                             lineHeight: 1.6,
                         }}
                     >
-                        Every plan is a real website. Growth adds the receptionist. Month to month, cancel when you want.
+                        Every plan is a real website and a receptionist that answers the calls you
+                        miss. Month to month, no contract, cancel when you want.
                     </p>
+                </motion.div>
+
+                {/* ── The objection that blocks the sale, answered once and loudly ──
+                    Placed above the cards rather than repeated on each of them: all three tiers
+                    now carry the receptionist, so three copies of this would be three chances to
+                    drift and no single prominent home for the one message that matters most. */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
+                    className="glass"
+                    style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 16,
+                        maxWidth: 820,
+                        margin: "0 auto 40px",
+                        padding: "20px 24px",
+                        borderRadius: 18,
+                        borderTop: "2px solid var(--accent)",
+                    }}
+                >
+                    <PhoneCall
+                        weight="duotone"
+                        size={26}
+                        style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }}
+                    />
+                    <div>
+                        <p
+                            style={{
+                                margin: 0,
+                                fontFamily: "var(--font-display)",
+                                fontSize: 18,
+                                fontWeight: 600,
+                                color: "var(--fg)",
+                                letterSpacing: "-0.01em",
+                            }}
+                        >
+                            The AI never answers before you do.
+                        </p>
+                        <p style={{ margin: "6px 0 0", fontSize: 14.5, color: "var(--fg-2)", lineHeight: 1.6 }}>
+                            A caller rings your real phone first. Only if nobody picks up does the AI
+                            step in, so it is replacing voicemail, not replacing you.
+                        </p>
+                    </div>
+                </motion.div>
+
+                {/* ── Billing period ──
+                    Annual is ten months of money for twelve months of service. Both figures come
+                    from Schedule A's `annualPrice`, which is derived from the monthly price, so
+                    "2 months free" cannot drift away from the discount actually offered. */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.15 }}
+                    style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}
+                >
+                    <div
+                        role="group"
+                        aria-label="Billing period"
+                        style={{
+                            display: "inline-flex",
+                            gap: 4,
+                            padding: 4,
+                            borderRadius: 999,
+                            border: "1px solid var(--rule)",
+                            background: "var(--surface)",
+                        }}
+                    >
+                        {([
+                            ["monthly", "Monthly"],
+                            ["annual", `Annual (${ANNUAL.monthsFree} months free)`],
+                        ] as const).map(([value, label]) => {
+                            const active = period === value;
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setPeriod(value)}
+                                    aria-pressed={active}
+                                    style={{
+                                        appearance: "none",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        borderRadius: 999,
+                                        padding: "8px 18px",
+                                        fontFamily: "var(--font-mono)",
+                                        fontSize: 11.5,
+                                        letterSpacing: "0.06em",
+                                        textTransform: "uppercase",
+                                        background: active ? "var(--accent-2)" : "transparent",
+                                        color: active ? "#fff" : "var(--fg-2)",
+                                        transition: "background 160ms ease, color 160ms ease",
+                                    }}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </motion.div>
 
                 {/* Pricing Cards */}
@@ -196,7 +332,9 @@ export default function PricingPageClient() {
                         alignItems: "stretch",
                     }}
                 >
-                    {TIERS.map((tier, index) => (
+                    {TIERS.map((tier, index) => {
+                        const schedule = SCHEDULES[tier.slug];
+                        return (
                         <motion.div
                             key={tier.slug}
                             initial={{ opacity: 0, y: 24 }}
@@ -297,18 +435,20 @@ export default function PricingPageClient() {
                                             lineHeight: 1,
                                         }}
                                     >
-                                        ${tier.price}
+                                        {dollars(annual ? schedule.annualPrice : schedule.monthlyPrice)}
                                     </span>
-                                    <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>/month</span>
+                                    <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>
+                                        {annual ? "/year" : "/month"}
+                                    </span>
                                 </div>
-                                {tier.slug === "starter" && (
-                                    <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
-                                        + $100 one-time onboarding fee
-                                    </p>
-                                )}
-                                {tier.slug === "growth" && (
-                                    <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
-                                        Onboarding fee waived for new clients!
+                                <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
+                                    {annual
+                                        ? `${dollars(schedule.monthlyPrice)}/mo billed yearly, ${ANNUAL.monthsFree} months free`
+                                        : `+ ${dollars(schedule.onboardingFee)} one-time onboarding fee`}
+                                </p>
+                                {annual && (
+                                    <p style={{ margin: "2px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
+                                        + {dollars(schedule.onboardingFee)} one-time onboarding fee
                                     </p>
                                 )}
                                 <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
@@ -316,7 +456,9 @@ export default function PricingPageClient() {
                                 </p>
                             </div>
 
-                            {/* AI Voice Receptionist callout – Growth only */}
+                            {/* Growth's actual differentiator, called out.
+                                Was a generic "24/7 AI Voice Receptionist" badge, which is true of
+                                every tier now and so said nothing about why Growth costs more. */}
                             {tier.slug === "growth" && (
                                 <div
                                     style={{
@@ -337,10 +479,10 @@ export default function PricingPageClient() {
                                     />
                                     <div>
                                         <p style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--accent)", letterSpacing: "-0.01em" }}>
-                                            24/7 AI Voice Receptionist
+                                            The 60-second callback
                                         </p>
                                         <p style={{ margin: 0, marginTop: 2, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", letterSpacing: "0.04em" }}>
-                                            Never miss a call, even after hours
+                                            Web leads get called back while they're still looking
                                         </p>
                                     </div>
                                 </div>
@@ -363,8 +505,26 @@ export default function PricingPageClient() {
                                 ))}
                             </ul>
 
+                            {/* Minutes, as a line item under a rule rather than a bullet among the
+                                capabilities. Deliberately the least prominent thing on the card. */}
+                            <p
+                                style={{
+                                    margin: "16px 0 0",
+                                    paddingTop: 12,
+                                    borderTop: "1px solid var(--rule)",
+                                    fontFamily: "var(--font-mono)",
+                                    fontSize: 11,
+                                    color: "var(--fg-3)",
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                {minutesLine(tier.slug)}
+                                <br />
+                                Extra minutes {overageRate(tier.slug)} each
+                            </p>
+
                             {/* CTA */}
-                            <div style={{ marginTop: 28 }}>
+                            <div style={{ marginTop: 20 }}>
                                 <button
                                     type="button"
                                     onClick={() => subscribe(tier.slug)}
@@ -385,8 +545,49 @@ export default function PricingPageClient() {
                                 )}
                             </div>
                         </motion.div>
-                    ))}
+                        );
+                    })}
                 </div>
+
+                {/* ── The guarantee ──
+                    Stated with its conditions on the same screen as the promise. A bare "it pays
+                    for itself or your money back" with the three qualifying conditions buried in
+                    the contract is the mismatch this whole change exists to remove. */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, ease: "easeOut", delay: 0.3 }}
+                    className="glass"
+                    style={{
+                        maxWidth: 820,
+                        margin: "40px auto 0",
+                        padding: "24px 28px",
+                        borderRadius: 18,
+                        borderTop: "2px solid var(--online)",
+                    }}
+                >
+                    <p
+                        style={{
+                            margin: 0,
+                            fontFamily: "var(--font-display)",
+                            fontSize: 19,
+                            fontWeight: 600,
+                            color: "var(--fg)",
+                            letterSpacing: "-0.01em",
+                        }}
+                    >
+                        If it doesn&apos;t pay for itself in month one, the onboarding fee is refunded.
+                    </p>
+                    <p style={{ margin: "8px 0 0", fontSize: 14.5, color: "var(--fg-2)", lineHeight: 1.65 }}>
+                        Specifically: if your receptionist captures fewer than {GUARANTEE.minQualifiedLeads}{" "}
+                        qualified leads in its first {GUARANTEE.windowDays} days, we refund the
+                        onboarding fee. A qualified lead is a call it answered that got us a name, a
+                        number, and what the caller wanted. The {GUARANTEE.windowDays} days start when
+                        your receptionist goes live, not when you sign. The one condition is that you
+                        forwarded your line, because a line that never pointed at us was never going
+                        to catch anything.
+                    </p>
+                </motion.div>
 
                 {/* FAQ — the objections that actually block a purchase */}
                 <motion.div

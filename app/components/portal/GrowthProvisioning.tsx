@@ -7,7 +7,7 @@ import { StatusDot } from "./ui/StatusDot";
  * What a client sees between paying for Growth and their receptionist actually existing.
  *
  * The upgrade charges immediately; the number, the AI agent and the call log are created
- * out of band by `onboard.js`. That gap used to be invisible — a client paid $297 and the
+ * out of band by `onboard.js`. That gap used to be invisible: a client paid and the
  * portal looked identical, which is the complaint this answers. The `?upgraded=1` banner
  * covered the first pageview only and vanished on the next navigation; this persists until
  * the work is genuinely finished.
