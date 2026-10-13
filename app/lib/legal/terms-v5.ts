@@ -1,6 +1,19 @@
+import { GUARANTEE } from "./schedules";
 import { ref, type PlanSchedule, type SectionDef } from "./types";
 
-export const TERMS_VERSION = "v4.2";
+/**
+ * Bumped from v4.2 on 2026-10-12. The changes are material, not editorial: all three prices
+ * rose, every tier gained the AI receptionist, the onboarding fee became payable at signing on
+ * every plan and is now covered by a first-month guarantee rather than being non-refundable,
+ * cancellation notice periods were removed entirely, and technical SEO left the scope of
+ * service.
+ *
+ * A signature against "v4.2" therefore means something materially different from one against
+ * "v5.0", which is the whole reason the string moves: `hash.ts` folds it into the content hash,
+ * so stored agreements stay identifiable. Nothing had been signed when this shipped, so there
+ * is no migration and no re-papering.
+ */
+export const TERMS_VERSION = "v5.0";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -15,20 +28,52 @@ const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 /**
  * Per-minute rates always carry two decimals — `money()` would render 0.2 as
  * "$0.2". Falls back to the Schedule A default only if a voice plan somehow
- * reaches §5 without a rate; the section is plan-filtered to growth/enterprise,
- * both of which define one.
+ * reaches the call-volume section without a rate; every sold plan defines one,
+ * and the section is skipped entirely for the web-only schedule.
  */
 const perMinute = (n: number | null) => `$${(n ?? 0.2).toFixed(2)}`;
 
 /**
+ * Legal-style number: "three (3)", "thirty (30)".
+ *
+ * Returns the whole "word (digit)" pair rather than just the word, because callers that wrote
+ * `${spell(n)} (${n})` produced "30 (30)" the moment a value fell outside the lookup. Having
+ * one function own both halves means an unmapped number degrades to a bare digit instead of
+ * printing a wrong word or a duplicated numeral.
+ */
+const WORDS: Record<number, string> = {
+  1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven",
+  8: "eight", 9: "nine", 10: "ten", 15: "fifteen", 20: "twenty", 30: "thirty",
+  60: "sixty", 72: "seventy-two", 90: "ninety",
+};
+const spell = (n: number) => (WORDS[n] ? `${WORDS[n]} (${n})` : String(n));
+
+/**
+ * Section filter for content that only applies where a receptionist exists.
+ *
+ * `undefined` means "applies to every plan"; an empty list means "applies to none" (see
+ * `applies()` in index.ts). Expressed as a capability rather than a slug list because
+ * `WEB_ONLY_SCHEDULE` renders under the slug `"starter"`, so a slug-based filter cannot tell
+ * it apart from a real Starter agreement and would hand a client who refused AI a contract
+ * full of call-handling terms.
+ *
+ * Replaces the old `plans: ["growth", "enterprise"]` tags, which encoded "has a voice agent"
+ * as a list of tiers back when those happened to be the same thing.
+ */
+const voiceOnly = (schedule: PlanSchedule) => (schedule.hasVoiceAgent ? undefined : []);
+
+/**
  * The shared body of the Service Agreement. Sections that do not apply
  * to a plan are tagged with `plans` and filtered out before numbering; plan
- * facts (prices, allowances, notice periods) interpolate from the schedule so
- * no number is written twice.
+ * facts (prices, allowances) interpolate from the schedule so no number is
+ * written twice.
+ *
+ * Note there is no `notice` constant any more. Cancellation notice periods were removed on
+ * 2026-10-12: the agreement is month to month with no minimum term, so termination simply
+ * takes effect at the end of the paid month. `cancellationNoticeDays` survives on the schedule
+ * at `0` for the cancel route's arithmetic, but no prose should quote it.
  */
 export function buildSections(s: PlanSchedule): SectionDef[] {
-  const notice = `${s.cancellationNoticeDays} days`;
-
   return [
     /* ────────────────────────────────────────── 1 */
     {
@@ -62,7 +107,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               text: s.slug === "enterprise"
                 ? "Client agrees to complete Provider's onboarding intake form for each site within five (5) business days of executing this Agreement. The intake forms collect the brand, content, business information, and voice-agent configuration data required for each site."
                 : "Client agrees to complete Provider's onboarding intake form within five (5) business days of executing this Agreement. The intake form collects the brand, content, and business information required to build the site" +
-                  (s.hasVoiceAgent ? " and configure the voice agent." : "."),
+                  (s.hasVoiceAgent ? " and configure the AI receptionist." : "."),
             },
           ],
         },
@@ -79,16 +124,64 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             },
           ],
         },
-        {
-          heading: "Voice Agent Setup",
-          plans: ["growth", "enterprise"],
-          blocks: [
-            {
-              kind: "para",
-              text: "Provider will configure and test each AI voice agent following Client's approval of the corresponding preview site. Client agrees to participate in at least one test call per voice agent before it goes live.",
-            },
-          ],
-        },
+        /**
+         * No longer plan-filtered: every tier includes the receptionist as of 2026-10-12, so
+         * restricting this to growth/enterprise would have left a Starter client's agreement
+         * silent about the setup of the thing they are paying for.
+         */
+        ...(s.hasVoiceAgent
+          ? [
+              {
+                heading: "Voice Agent Setup",
+                blocks: [
+                  {
+                    kind: "para" as const,
+                    text: "Provider will configure and test each AI receptionist following Client's approval of the corresponding preview site. Client agrees to participate in at least one test call per receptionist before it goes live.",
+                  },
+                ],
+              },
+              /**
+               * The activation step. This is a behavioural term, not boilerplate: until the
+               * client's line points at the Provider-supplied number, the receptionist
+               * receives nothing, and both the service and the first-month guarantee depend
+               * on it having happened. Stating the decline path here is what makes the
+               * web-only outcome a contemplated choice rather than a support ticket.
+               */
+              {
+                heading: "Activation of the AI Receptionist",
+                blocks: [
+                  {
+                    kind: "para" as const,
+                    text: "The AI receptionist can only answer calls once Client's business line reaches the Provider-supplied number. At onboarding Client must choose one of the following, and Provider will record the choice:",
+                  },
+                  {
+                    kind: "bullets" as const,
+                    items: [
+                      "Forward the existing business line to the Provider-supplied number, so calls Client does not answer reach the receptionist",
+                      "Publish the Provider-supplied number as the business number, so calls arrive on it directly",
+                      // Not "described below": in a Starter/Growth/Enterprise agreement there
+                      // is nothing below to describe it, since the website-only paragraph in
+                      // the scope section only renders for the web-only schedule. The
+                      // arrangement is stated in full two paragraphs down instead.
+                      "Decline the AI receptionist, which moves Client to a website-only arrangement",
+                    ],
+                  },
+                  {
+                    kind: "para" as const,
+                    text: "Calls ring Client's own line first. The AI receptionist answers only when that line is not picked up, so it replaces voicemail rather than answering ahead of Client.",
+                  },
+                  {
+                    kind: "para" as const,
+                    text: `If Client declines the AI receptionist, Provider will not purchase a phone number and will not configure a receptionist for Client, and the call-handling provisions of this Agreement do not apply. The monthly fee is unchanged: the website-only arrangement is priced the same as the ${s.name} plan. Client may activate the receptionist later at no additional onboarding charge.`,
+                  },
+                  {
+                    kind: "para" as const,
+                    text: `Client is responsible for completing the forwarding or publication step. Provider will supply instructions and assist on request, but cannot make the change on Client's behalf with Client's telephone carrier. The first-month guarantee in Section ${ref("fees")} does not apply where this step was never completed.`,
+                  },
+                ],
+              },
+            ]
+          : []),
         {
           heading: "Domain Connection",
           blocks: [
@@ -117,7 +210,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               ? [
                   {
                     kind: "para" as const,
-                    text: `A one-time onboarding fee of ${money(s.onboardingFee)} applies to the ${s.name} plan and is charged at signing. The onboarding fee is non-refundable once onboarding has begun.`,
+                    text: `A one-time onboarding fee of ${money(s.onboardingFee)} applies to the ${s.name} plan and is charged at signing, together with the first month's subscription. The onboarding fee is non-recurring.`,
                   },
                 ]
               : []),
@@ -127,6 +220,55 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             },
           ],
         },
+        /**
+         * The first-month guarantee. Replaced "the onboarding fee is non-refundable once
+         * onboarding has begun", which directly contradicted the promise the pricing page
+         * makes, and a contract that contradicts the page that sold it is worse than no
+         * promise at all.
+         *
+         * Every element here is load-bearing. The window runs from **go-live, not signing**,
+         * so a client who takes three weeks to forward their line does not burn it waiting.
+         * The metric is a count of qualified leads rather than revenue, because that is a
+         * fact our own call log records and the client's close rate is not something we
+         * control. The activation condition exists because a line that was never forwarded
+         * guarantees zero captured calls through no fault of ours, which would otherwise make
+         * the guarantee pay out on a client's own inaction.
+         *
+         * Voice-only: a web-only client has no receptionist to capture anything, so the
+         * clause would be incoherent for them and is filtered out with the rest of the voice
+         * terms.
+         */
+        ...(s.hasVoiceAgent
+          ? [
+              {
+                heading: "First-Month Onboarding Fee Guarantee",
+                blocks: [
+                  {
+                    kind: "callout" as const,
+                    text: `If the AI receptionist does not pay for itself in Client's first month, the onboarding fee of ${money(s.onboardingFee)} is refunded in full.`,
+                  },
+                  {
+                    kind: "para" as const,
+                    text: `For the purposes of this guarantee, "does not pay for itself" means that during the first ${spell(GUARANTEE.windowDays)} days after the AI receptionist goes live on Client's business line, the receptionist captured fewer than ${spell(GUARANTEE.minQualifiedLeads)} qualified leads.`,
+                  },
+                  {
+                    kind: "para" as const,
+                    text: "A qualified lead means a call the AI receptionist answered which produced all three of the following, as recorded in Client's call log: the caller's name, a callback number, and a stated reason for the call.",
+                  },
+                  {
+                    kind: "bullets" as const,
+                    items: [
+                      `The ${GUARANTEE.windowDays}-day window runs from the date the receptionist goes live on Client's business line, not from the Effective Date of this Agreement`,
+                      `Client must request the refund in writing within thirty (30) days after the end of that window`,
+                      `This guarantee does not apply if Client did not complete the activation step described in Section ${ref("onboarding")}, because a business line that was never forwarded to the Provider-supplied number cannot receive calls`,
+                      "This guarantee covers the one-time onboarding fee only. Monthly subscription fees for service already rendered are not refunded",
+                      "The guarantee may be claimed once per account",
+                    ],
+                  },
+                ],
+              },
+            ]
+          : []),
         {
           heading: "Payment Method",
           blocks: [
@@ -159,7 +301,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: `Monthly fees are non-refundable for partial months. Cancellation takes effect at the end of the current paid month, subject to the notice period in Section ${ref("term")}.`,
+              text: `Monthly fees are non-refundable for partial months. Cancellation takes effect at the end of the current paid month, as described in Section ${ref("term")}. Client retains access to the Services through the end of that month.`,
             },
           ],
         },
@@ -231,27 +373,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             },
           ],
         },
-        ...(s.includesSeo
-          ? [
-              {
-                heading: "Technical SEO",
-                blocks: [
-                  {
-                    kind: "para" as const,
-                    text: "Provider will perform ongoing technical on-page search engine optimization, limited to: meta titles and descriptions, structured data markup, sitemap and robots configuration, crawlability and indexability, canonical tags, and page performance tuning.",
-                  },
-                  {
-                    kind: "para" as const,
-                    text: "Technical SEO under this Agreement expressly excludes content marketing, blog or article writing, keyword research engagements, link building, local citation management, paid search, and paid social advertising.",
-                  },
-                  {
-                    kind: "allcaps" as const,
-                    text: "PROVIDER MAKES NO WARRANTY, REPRESENTATION, OR GUARANTEE AS TO ANY SEARCH ENGINE RANKING, SEARCH RESULT PLACEMENT, IMPRESSION VOLUME, TRAFFIC VOLUME, OR LEAD VOLUME. SEARCH ENGINE ALGORITHMS ARE CONTROLLED BY THIRD PARTIES AND CHANGE WITHOUT NOTICE.",
-                  },
-                ],
-              },
-            ]
-          : []),
+        /**
+         * The Technical SEO subsection was removed on 2026-10-12 along with the `includesSeo`
+         * flag. Ongoing SEO left the scope of every tier, so there is no longer a plan for
+         * which this would render. SEO now appears only in the "Not Included" list below.
+         */
         {
           heading: "Not Included",
           blocks: [
@@ -266,26 +392,35 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                 "Layout, structural, or design changes (quoted separately)",
                 "Custom design beyond the initial template configuration",
                 "E-commerce functionality, payment processing, or shopping carts",
-                ...(s.includesSeo
-                  ? ["Content marketing, link building, paid ads, or social media management"]
-                  : ["Search engine optimization of any kind", "Content marketing, paid ads, or social media management"]),
+                // SEO left the scope of every tier on 2026-10-12, so this is unconditional now.
+                "Search engine optimization of any kind",
+                "Content marketing, link building, paid ads, or social media management",
                 "Email marketing platforms or campaign creation",
                 "CRM integration beyond Provider's standard automation",
                 ...(s.hasVoiceAgent
-                  ? ["Custom voice agent flows beyond standard qualification logic"]
-                  : ["Any AI voice agent, dedicated phone number, or call handling of any kind"]),
+                  ? ["Custom AI receptionist flows beyond standard qualification logic"]
+                  : ["Any AI receptionist, dedicated phone number, or call handling of any kind"]),
                 ...(s.slug === "enterprise"
                   ? ["Coverage for more than three (3) websites under a single Enterprise subscription"]
                   : []),
                 `Website accessibility (ADA/WCAG) remediation as part of the base service (see Section ${ref("accessibility")})`,
               ],
             },
+            /**
+             * Live text again as of 2026-10-12, for exactly one schedule.
+             *
+             * Every *sold* tier now has a receptionist, so this reads as dead code. It is
+             * not: `WEB_ONLY_SCHEDULE` is the agreement a client who refuses AI on their
+             * phone line signs, and this paragraph is the whole point of that document.
+             * Deleting it, or flattening `hasVoiceAgent`, removes the ability to paper that
+             * arrangement at all.
+             */
             ...(s.hasVoiceAgent
               ? []
               : [
                   {
                     kind: "para" as const,
-                    text: `The ${s.name} plan is a website-only plan. It does not include an AI voice agent, a dedicated business phone number, call recording, call transcription, or any call handling. Lead capture on the ${s.name} plan is by website form submission delivered to Client by email. Client may upgrade to a plan that includes a voice agent under Section ${ref("planchanges")}.`,
+                    text: `The ${s.name} plan is a website-only plan. It does not include an AI receptionist, a dedicated business phone number, call recording, call transcription, or any call handling. Lead capture on the ${s.name} plan is by website form submission delivered to Client by email. Client may add the AI receptionist at any time at no additional onboarding charge.`,
                   },
                 ]),
           ],
@@ -303,37 +438,48 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
     },
 
     /* ────────────────────────────────────────── 5 */
-    {
-      id: "callvolume",
-      heading: "CALL VOLUME AND OVERAGES",
-      plans: ["growth", "enterprise"],
-      subsections: [
-        {
-          heading: "Monthly Allotment",
-          blocks: [
-            {
-              kind: "para",
-              text: s.slug === "enterprise"
-                ? `The ${s.name} plan includes up to ${s.callMinutes?.toLocaleString("en-US")} call-minutes per month, pooled across all sites under this Agreement. The pool covers both inbound calls answered by any AI voice agent and outbound callbacks placed by any AI voice agent.`
-                : `The ${s.name} plan includes up to ${s.callMinutes?.toLocaleString("en-US")} call-minutes per month. The allotment covers both inbound calls answered by the AI voice agent and outbound callbacks placed by the AI voice agent.`,
-            },
-            {
-              kind: "para",
-              text: "Unused call-minutes do not roll over from one month to the next.",
-            },
-          ],
-        },
-        {
-          heading: "Overage Billing",
-          blocks: [
-            {
-              kind: "para",
-              text: `Call-minutes exceeding the monthly allotment are billed at ${perMinute(s.overagePerMinute)} per minute on the next monthly invoice. Provider may, as a courtesy, notify Client when usage reaches approximately 80% of the monthly allotment, but is under no contractual obligation to do so.`,
-            },
-          ],
-        },
-      ],
-    },
+    /**
+     * Gated on `hasVoiceAgent`, not on a `plans` list.
+     *
+     * This section used to be tagged `plans: ["growth", "enterprise"]`, which stopped working
+     * twice over: Starter now has minutes, and `WEB_ONLY_SCHEDULE` renders under the slug
+     * `"starter"`, so a slug-based filter would have *included* call-volume terms in the one
+     * agreement that has no receptionist at all. The capability flag is the honest predicate.
+     */
+    ...(s.hasVoiceAgent
+      ? [
+          {
+            id: "callvolume",
+            heading: "CALL VOLUME AND OVERAGES",
+            subsections: [
+              {
+                heading: "Monthly Allotment",
+                blocks: [
+                  {
+                    kind: "para" as const,
+                    text: s.slug === "enterprise"
+                      ? `The ${s.name} plan includes up to ${s.callMinutes?.toLocaleString("en-US")} call-minutes per month, pooled across all sites under this Agreement. The pool covers both inbound calls answered by any AI receptionist and outbound callbacks placed by any AI receptionist.`
+                      : `The ${s.name} plan includes up to ${s.callMinutes?.toLocaleString("en-US")} call-minutes per month. The allotment covers both inbound calls answered by the AI receptionist and any outbound callbacks placed by the AI receptionist.`,
+                  },
+                  {
+                    kind: "para" as const,
+                    text: "Unused call-minutes do not roll over from one month to the next.",
+                  },
+                ],
+              },
+              {
+                heading: "Overage Billing",
+                blocks: [
+                  {
+                    kind: "para" as const,
+                    text: `Call-minutes exceeding the monthly allotment are billed at ${perMinute(s.overagePerMinute)} per minute on the next monthly invoice. Provider may, as a courtesy, notify Client when usage reaches approximately 80% of the monthly allotment, but is under no contractual obligation to do so.`,
+                  },
+                ],
+              },
+            ],
+          },
+        ]
+      : []),
 
     /* ────────────────────────────────────────── 6 */
     {
@@ -358,11 +504,15 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               text: "Client may request to swap one of the listed sites for a different site during the term, subject to the following:",
             },
             {
+              // The $200 swap fee was removed on 2026-10-12: a penalty for changing sites reads
+              // as commitment language sitting next to a no-minimum-term promise. The swap
+              // mechanism and its volume limit stay, since both are operational rather than
+              // financial, and the limit is what stops a client cycling sites indefinitely now
+              // that doing so is free.
               kind: "bullets",
               items: [
-                "Client must provide thirty (30) days written notice of the swap",
-                "A site swap fee of $200 per swap applies, due upon Provider's acceptance of the swap request",
-                "The fee covers decommissioning the outgoing site and provisioning the incoming site, including repository, hosting project, phone number, voice agent, and call log base",
+                "Client must provide thirty (30) days written notice of the swap, so Provider can decommission the outgoing site and provision the incoming one in order",
+                "The swap covers decommissioning the outgoing site and provisioning the incoming site, including repository, hosting project, phone number, AI receptionist, and call log base, at no additional charge",
                 `The outgoing site's phone number will be released or, at Client's option, ported under Section ${ref("phone")}`,
                 "Schedule A will be amended in writing to reflect the new site list",
                 "No more than two (2) site swaps per twelve-month period are permitted",
@@ -623,8 +773,8 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
     /* ────────────────────────────────────────── 10 */
     {
       id: "agents",
-      heading: "AI VOICE AGENTS",
-      plans: ["growth", "enterprise"],
+      heading: "AI RECEPTIONIST",
+      plans: voiceOnly(s),
       subsections: [
         {
           heading: "Nature of the Service",
@@ -667,7 +817,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: '"Hallucination" in the context of AI systems means the model may confidently provide false, inaccurate, or invented information that was not part of the configuration provided. While Provider takes reasonable measures to limit hallucination — including restricting each agent to Client-provided information and configuring agents to defer to Client when uncertain — AI systems may occasionally produce inaccurate or unexpected outputs. Client acknowledges this risk. Provider\'s responsibility is limited to using commercially reasonable efforts to monitor and correct identified issues.',
+              text: '"Hallucination" in the context of AI systems means the model may confidently provide false, inaccurate, or invented information that was not part of the configuration provided. While Provider takes reasonable measures to limit hallucination, including restricting each agent to Client-provided information and configuring agents to defer to Client when uncertain, AI systems may occasionally produce inaccurate or unexpected outputs. Client acknowledges this risk. Provider\'s responsibility is limited to using commercially reasonable efforts to monitor and correct identified issues.',
             },
           ],
         },
@@ -709,7 +859,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: `Call summaries and call metadata — the date and time of the call, the caller's name where provided, the caller's telephone number, a written summary of the call, call duration, call type, and outcome — are retained by Provider and are viewable by Client in the client portal for the life of Client's account. Provider deletes this data following termination in accordance with Section ${ref("term")}.`,
+              text: `Call summaries and call metadata, meaning the date and time of the call, the caller's name where provided, the caller's telephone number, a written summary of the call, call duration, call type, and outcome, are retained by Provider and are viewable by Client in the client portal for the life of Client's account. Provider deletes this data following termination in accordance with Section ${ref("term")}.`,
             },
             {
               kind: "para",
@@ -737,7 +887,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
     {
       id: "phone",
       heading: "PHONE NUMBER OWNERSHIP",
-      plans: ["growth", "enterprise"],
+      plans: voiceOnly(s),
       subsections: [
         {
           heading: "Provider Ownership",
@@ -1003,6 +1153,20 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               kind: "para",
               text: "This Agreement begins on the Effective Date and continues month-to-month until terminated by either party.",
             },
+            /**
+             * Stated affirmatively, not merely left unsaid.
+             *
+             * The previous version carried 30-day (Starter, Growth) and 60-day (Enterprise)
+             * notice periods, which removed the ability to simply stop paying. Those were
+             * dropped on 2026-10-12 as a deliberate commercial decision: a client who wants
+             * to leave is going to leave, and a notice period mostly buys one month of
+             * resentment. Saying "no minimum term" out loud is also the point, since a client
+             * who cannot find the catch assumes there is one.
+             */
+            {
+              kind: "callout",
+              text: "There is no minimum term, no commitment period, and no early-termination fee. Client may cancel at any time.",
+            },
           ],
         },
         {
@@ -1010,11 +1174,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: `Either party may terminate this Agreement at the end of any monthly billing cycle with ${notice} written notice to the other party.` +
-                (s.slug === "enterprise"
-                  ? " The longer notice period on the Enterprise plan accounts for the additional operational work of decommissioning multiple sites, phone numbers, voice agents, and integrations."
-                  : "") +
-                " Notice may be delivered by email to the addresses on file.",
+              text: "Either party may terminate this Agreement at any time, effective at the end of the then-current monthly billing cycle. No notice period applies and no penalty, early-termination charge, or clawback of any kind is payable on termination. Notice of termination may be delivered by email to the addresses on file.",
+            },
+            {
+              kind: "para",
+              text: "Provider will continue to deliver the Services through the end of the month Client has already paid for.",
             },
           ],
         },
@@ -1035,7 +1199,9 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                   ? [`Material misrepresentation of jurisdictional disclosure or recording consent requirements (Section ${ref("agents")}) resulting in legal exposure to Provider`]
                   : []),
                 ...(s.slug === "enterprise"
-                  ? [`Exceeding the site swap limit in Section ${ref("sitelist")} in bad faith, such as repeated attempts to cycle through sites to obtain free onboarding`]
+                  // Still a real breach, and arguably a more important one now that swaps carry
+                  // no fee: the fee was previously what made abuse self-limiting.
+                  ? [`Exceeding the site swap limit in Section ${ref("sitelist")} in bad faith, such as repeated attempts to cycle through sites to obtain provisioning for more businesses than the plan covers`]
                   : []),
                 `Use of the Services outside the license granted in Section ${ref("ip")}`,
               ],
@@ -1052,8 +1218,8 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             {
               kind: "bullets",
               items: [
-                `All monthly fees through the end of the applicable ${notice} notice period remain payable`,
-                "Provider will continue the Services through the end of the paid period",
+                "Fees already paid for the current month remain payable and are not refunded in part",
+                "Provider will continue the Services through the end of that paid month",
                 `Client's portal access is deactivated as described in Section ${ref("portal")}`,
                 ...(s.hasVoiceAgent ? [`Phone number disposition follows Section ${ref("phone")}`] : []),
                 `Data export follows the exit data package terms in Section ${ref("ip")}`,
@@ -1093,11 +1259,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             {
               kind: "bullets",
               items: [
-                `Client will provide ${notice} written notice, consistent with the termination for convenience terms above`,
-                "This Agreement terminates at the end of the notice period",
+                "Client notifies Provider in writing of the plan they wish to move to. No notice period applies",
+                "This Agreement terminates at the end of the current monthly billing cycle",
                 "Client will sign a new Service Agreement for the selected plan",
                 "The new Agreement will amend and restate this Agreement as of the change effective date",
-                "Any sites, phone numbers, or voice agents not covered under the new plan will be decommissioned",
+                "Any sites, phone numbers, or AI receptionists not covered under the new plan will be decommissioned",
               ],
             },
           ],
@@ -1113,7 +1279,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               kind: "bullets",
               items: [
                 `All indemnification obligations under Sections ${ref("accessibility")}, ${ref("copyright")}, and ${ref("disputes")}`,
-                "All unpaid fees, late fees, site swap fees, chargeback reimbursements, and other monetary obligations accrued through the change effective date",
+                "All unpaid fees, late fees, chargeback reimbursements, and other monetary obligations accrued through the change effective date",
                 "All confidentiality obligations",
                 `The aggregate liability cap and exclusion of indirect damages under Section ${ref("warranties")}`,
                 `The arbitration and class-action waiver provisions under Section ${ref("disputes")}`,
@@ -1129,12 +1295,17 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           heading: "Fees on a Plan Change",
           blocks: [
             {
+              // Never a literal. The old text hardcoded "$100" and asserted that Growth and
+              // Enterprise carried no onboarding fee, both of which stopped being true on
+              // 2026-10-12. The rule is now stated structurally so it cannot go stale again:
+              // the fee follows whatever the target plan's Schedule A says.
               kind: "bullets",
               items: [
-                "The $100 onboarding fee applies on any change into the Starter plan, as the Starter plan carries an onboarding fee in all cases",
-                "No onboarding fee applies on a change into the Growth or Enterprise plan",
+                "A change into a different plan carries that plan's one-time onboarding fee, as stated in that plan's Schedule A, because moving a client to a different plan means provisioning it",
+                "No onboarding fee applies where Client is already on the target plan's fee tier and no new provisioning is required. Provider will confirm in writing before charging one",
                 "Client's billing cycle resets to the new plan's pricing on the first day of the next monthly billing period after the change effective date",
                 "Any unused portion of the current month's fee is forfeited and is not credited or refunded toward the new plan",
+                `Adding the AI receptionist to a website-only arrangement carries no onboarding fee, as described in Section ${ref("onboarding")}`,
               ],
             },
           ],

@@ -11,14 +11,23 @@ import type { Block, Section } from "./types";
  * details — so the hash identifies *the document*, not the signing. Two clients
  * on the same plan and version produce the same hash; changing a single word of
  * the terms changes it. That's what makes it evidence of which words were
- * agreed to, years after v4.1 has shipped.
+ * agreed to, years after v5.0 has shipped.
  *
  * Kept in its own module so the node:crypto import never reaches a client
  * bundle via the barrel in ./index.
  */
-export function hashTermsForPlan(plan: PlanSlug): string {
-  const { version, sections } = getTermsForPlan(plan);
-  return hashSections(version, plan, sections);
+export function hashTermsForPlan(plan: PlanSlug, opts: { webOnly?: boolean } = {}): string {
+  const { version, sections } = getTermsForPlan(plan, opts);
+  /**
+   * The variant is folded into the canonical form as well as changing the sections.
+   *
+   * Strictly it is redundant: a web-only document drops whole sections (call volume, phone
+   * ownership, the receptionist terms, the guarantee), so its flattened text already differs
+   * and the hashes could not collide. It is included anyway because "web-only" and "Starter"
+   * share a slug and a version, and relying on a content difference to distinguish two
+   * documents is relying on nobody ever making their content converge.
+   */
+  return hashSections(version, opts.webOnly ? `${plan}:web-only` : plan, sections);
 }
 
 /**
@@ -35,7 +44,7 @@ export function hashAddendumForPlan(plan: PlanSlug): string {
 }
 
 /** Shared canonical form, so the two documents can never be hashed by different rules. */
-function hashSections(version: string, plan: PlanSlug, sections: Section[]): string {
+function hashSections(version: string, plan: string, sections: Section[]): string {
   const canon = [version, plan, ...sections.flatMap(flattenSection)].join("\n");
   return createHash("sha256").update(canon, "utf8").digest("hex");
 }

@@ -1,10 +1,10 @@
 import type { PlanSlug } from "../agreement-types";
-import { getSchedule } from "./schedules";
-import { buildSections, TERMS_VERSION } from "./terms-v4";
+import { getSchedule, WEB_ONLY_SCHEDULE } from "./schedules";
+import { buildSections, TERMS_VERSION } from "./terms-v5";
 import type { Block, PlanSchedule, ResolvedTerms, Section, SectionDef } from "./types";
 
-export { TERMS_VERSION, PROVIDER } from "./terms-v4";
-export { getSchedule, SCHEDULES } from "./schedules";
+export { TERMS_VERSION, PROVIDER } from "./terms-v5";
+export { getSchedule, SCHEDULES, WEB_ONLY_SCHEDULE, GUARANTEE, MINUTES } from "./schedules";
 // The short instrument a returning client signs for their second site and every one after.
 // Built from the same Section/Block vocabulary as the master, so `TermsReader` and
 // `pdf-renderer` consume it without knowing which document they were handed.
@@ -16,6 +16,16 @@ const TOKEN = /\{§([a-z]+)\}/g;
 interface Options {
   /** Enterprise site names captured at signing. Omit for the canonical text. */
   siteNames?: string[];
+  /**
+   * Render the off-menu website-only variant instead of the plan's standard schedule.
+   *
+   * Only meaningful with `plan: "starter"`, since web-only is priced and slugged as Starter.
+   * Off by default so every existing caller is unaffected, and so the public funnel cannot
+   * reach it by accident: a prospect who declines the receptionist during onboarding has
+   * already signed the standard agreement, which contemplates that choice. This exists for
+   * the sales-assisted case where someone refuses AI up front and the document should say so.
+   */
+  webOnly?: boolean;
 }
 
 /**
@@ -24,7 +34,7 @@ interface Options {
  * {§id} cross-reference with its final number, and appends Schedule A.
  */
 export function getTermsForPlan(plan: PlanSlug, opts: Options = {}): ResolvedTerms {
-  const schedule = getSchedule(plan);
+  const schedule = opts.webOnly ? WEB_ONLY_SCHEDULE : getSchedule(plan);
   const defs = buildSections(schedule).filter((d) => applies(d.plans, plan));
 
   const numById = new Map<string, number>();
@@ -102,7 +112,7 @@ function buildScheduleA(s: PlanSchedule, siteNames?: string[]): Section {
       blocks: [
         {
           kind: "para",
-          text: "The Enterprise plan covers up to three (3) sites. Sites may be multiple locations of the same business, multiple separate businesses owned by Client, or multiple brands of a single parent business owned by Client. If signing with fewer than three sites, an additional site may be added later under the site list terms of this Agreement.",
+          text: "The Enterprise plan covers two (2) to three (3) sites. Sites may be multiple locations of the same business, multiple separate businesses owned by Client, or multiple brands of a single parent business owned by Client. If signing with two sites, a third may be added later under the site list terms of this Agreement.",
         },
         names.length > 0
           ? { kind: "bullets", items: names.map((n, i) => `Site ${i + 1}: ${n}`) }
@@ -116,11 +126,13 @@ function buildScheduleA(s: PlanSchedule, siteNames?: string[]): Section {
 
   return {
     num: 0,
-    heading: `SCHEDULE A — ${s.name.toUpperCase()} PLAN DETAILS`,
+    // No em-dashes in rendered text. These two strings print into the signed PDF, so they are
+    // user-facing copy and the house style applies to them exactly as it does to a web page.
+    heading: `SCHEDULE A: ${s.name.toUpperCase()} PLAN DETAILS`,
     intro: [
       {
         kind: "para",
-        text: `Plan: ${s.name} — $${s.monthlyPrice.toLocaleString("en-US")} per month.`,
+        text: `Plan: ${s.name}. $${s.monthlyPrice.toLocaleString("en-US")} per month, plus a one-time onboarding fee of $${s.onboardingFee.toLocaleString("en-US")} charged at signing.`,
       },
     ],
     subsections,

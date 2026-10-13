@@ -83,15 +83,20 @@ export async function fetchAgentSeconds(
 }
 
 /**
- * Included minutes per voice plan, read from the Schedule A the client actually signed.
+ * Included minutes per plan, read from the Schedule A the client actually signed.
  *
  * The grouping logic lives in `@jdd/schema` so it can be unit tested without Retell or
  * Stripe, and takes its caps as an argument for exactly this reason: the numbers belong to
  * the agreement, and a second copy of "350" in a shared package would be free to drift from
  * the contract.
+ *
+ * All three tiers appear here since the 2026-10-12 reprice gave Starter a receptionist. This
+ * is the only place caps are injected, so adding Starter here is what makes the portal usage
+ * tile and the billing cron agree about a Starter client's allowance.
  */
 function minuteCaps(): MinuteCaps {
   return {
+    starter: getSchedule("starter").callMinutes ?? 0,
     growth: getSchedule("growth").callMinutes ?? 0,
     enterprise: getSchedule("enterprise").callMinutes ?? 0,
   };

@@ -67,15 +67,33 @@ export interface PlanSchedule {
   /** Prose form used inside the terms, e.g. "up to three (3) websites". */
   siteLabel: string;
   maxSites: number;
+  /**
+   * **Do not inline this, even though every sold plan sets it to `true`.**
+   *
+   * Since the 2026-10-12 reprice all three tiers include the AI receptionist, which makes the
+   * roughly fifteen `s.hasVoiceAgent` branches in the terms look like dead code. They are not:
+   * `WEB_ONLY_SCHEDULE` sets this `false`, and it is the only schedule where those branches
+   * render. Flattening them to the has-agent text would quietly destroy the ability to issue a
+   * receptionist-free agreement, which is the one document a client who refuses AI can sign.
+   */
   hasVoiceAgent: boolean;
-  /** Null when the plan includes no voice agent. */
+  /** Null when the plan includes no voice agent, i.e. web-only only. */
   callMinutes: number | null;
   overagePerMinute: number | null;
   /** How the monthly edit allowance reads for this plan. */
   editAllowance: string;
   supportResponse: string;
+  /**
+   * Days of written notice required to cancel. **`0` on every plan since 2026-10-12**, which
+   * is month-to-month with no minimum term and no early-termination fee.
+   *
+   * Kept as a field rather than deleted because `app/api/portal/cancel/route.ts` reads it and
+   * the arithmetic degenerates correctly: at `0` the cancel target is now, and
+   * `firstBoundaryAtOrAfter` returns the end of the period the client already paid for. That
+   * is exactly the intended behaviour, so there was nothing to restructure. It also leaves one
+   * obvious place to express a future change.
+   */
   cancellationNoticeDays: number;
-  includesSeo: boolean;
   included: string[];
   feeTable: [string, string][];
 }
