@@ -18,8 +18,19 @@ let _stripe: Stripe | null = null;
 
 function getStripe(): Stripe {
   if (!_stripe) {
-    const key = process.env.STRIPE_SECRET_KEY;
-    if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+    /**
+     * `STRIPE_LIVE_SECRET_KEY` is the name the Vercel Preview and Production environments
+     * actually carry; `STRIPE_SECRET_KEY` is what local `.env.local` uses (a test key). The
+     * app read only the latter, so production threw "STRIPE_SECRET_KEY is not set" on the
+     * first checkout and no live charge could complete. Accepting either name fixes that
+     * without duplicating a live secret under a second var, which would be a rotation hazard.
+     *
+     * Local dev keeps its test key via `STRIPE_SECRET_KEY`; production falls through to the
+     * live one. The selected key's own mode is the single source of truth for live-vs-test,
+     * so nothing here needs to know which environment it is in.
+     */
+    const key = process.env.STRIPE_SECRET_KEY ?? process.env.STRIPE_LIVE_SECRET_KEY;
+    if (!key) throw new Error("Neither STRIPE_SECRET_KEY nor STRIPE_LIVE_SECRET_KEY is set");
     _stripe = new Stripe(key, { typescript: true });
   }
   return _stripe;
