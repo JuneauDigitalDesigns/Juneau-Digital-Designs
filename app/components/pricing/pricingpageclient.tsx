@@ -434,14 +434,9 @@ export default function PricingPageClient() {
                                             letterSpacing: "0.05em",
                                         }}
                                     >
-                                        Save {dollars(schedule.monthlyPrice * ANNUAL.monthsFree)} · {ANNUAL.monthsFree} months free
+                                        {ANNUAL.monthsFree} months free
                                     </motion.p>
                                 )}
-                                <p style={{ margin: "4px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
-                                    {annual
-                                        ? `${dollars(schedule.monthlyPrice)}/mo · Setup fee: ${dollars(schedule.onboardingFee)}`
-                                        : `Setup fee: ${dollars(schedule.onboardingFee)}`}
-                                </p>
                                 <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
                                     {tier.tagline}
                                 </p>
@@ -529,6 +524,9 @@ export default function PricingPageClient() {
                                             ? "Start with Growth"
                                             : <><span className="show-desktop">Start with {tier.name}</span><span className="show-mobile">Start</span></>}
                                 </button>
+                                <p style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", textAlign: "center" }}>
+                                    Setup fee: {dollars(schedule.onboardingFee)}
+                                </p>
                                 {checkoutError && loadingPlan === null && (
                                     <p style={{ marginTop: 10, fontSize: 12, color: "var(--accent-2)" }}>
                                         {checkoutError}
