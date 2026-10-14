@@ -434,19 +434,14 @@ export default function PricingPageClient() {
                                             letterSpacing: "0.05em",
                                         }}
                                     >
-                                        Save {dollars(schedule.monthlyPrice * ANNUAL.monthsFree)}
+                                        Save {dollars(schedule.monthlyPrice * ANNUAL.monthsFree)} · {ANNUAL.monthsFree} months free
                                     </motion.p>
                                 )}
-                                <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
+                                <p style={{ margin: "4px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
                                     {annual
-                                        ? `${dollars(schedule.monthlyPrice)}/mo billed yearly, ${ANNUAL.monthsFree} months free`
+                                        ? `${dollars(schedule.monthlyPrice)}/mo · Setup fee: ${dollars(schedule.onboardingFee)}`
                                         : `Setup fee: ${dollars(schedule.onboardingFee)}`}
                                 </p>
-                                {annual && (
-                                    <p style={{ margin: "2px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
-                                        Setup fee: {dollars(schedule.onboardingFee)}
-                                    </p>
-                                )}
                                 <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
                                     {tier.tagline}
                                 </p>
