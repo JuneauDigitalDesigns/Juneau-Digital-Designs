@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Microphone, PhoneCall } from "@phosphor-icons/react";
-import { SCHEDULES, GUARANTEE, ANNUAL } from "@/app/lib/legal/schedules";
+import { Check, Microphone } from "@phosphor-icons/react";
+import { SCHEDULES, ANNUAL } from "@/app/lib/legal/schedules";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
 type BillingPeriod = "monthly" | "annual";
@@ -43,7 +43,7 @@ const TIERS: PricingTier[] = [
     {
         slug: "starter",
         name: "Starter",
-        tagline: "Starter tells you. A real website, and a receptionist that catches the calls you would have missed and reports every one of them.",
+        tagline: "Starter tells you who called. A real website and a receptionist that catches missed calls and sends you the name, number, and reason.",
         features: [
             "A four-page website: Home, Services, About, Contact",
             "Hosting, SSL, and maintenance included",
@@ -113,8 +113,8 @@ const FAQS: { q: string; a: string }[] = [
         a: "No. There is no minimum term, no commitment period, and no cancellation fee on any plan. It's month to month. If you cancel, you keep everything through the end of the month you've already paid for, and then it stops.", // MSA term and termination
     },
     {
-        q: "What if it doesn't work for me?",
-        a: `If the receptionist captures fewer than ${GUARANTEE.minQualifiedLeads} qualified leads in your first ${GUARANTEE.windowDays} days, we refund the onboarding fee. A qualified lead means a call it answered that got us a name, a number, and what they wanted. The clock starts when your receptionist goes live, not when you sign, so taking a week to forward your line doesn't cost you the window. The one condition: you have to actually forward it. A line that never pointed at us was never going to catch anything.`, // MSA first-month guarantee
+        q: "What if I'm not happy with the site?",
+        a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If it's still not working after a fair run, there is no commitment holding you here. Month to month means you can leave at the end of any month.",
     },
     {
         q: "How fast can I be live?",
@@ -218,54 +218,9 @@ export default function PricingPageClient() {
                             lineHeight: 1.6,
                         }}
                     >
-                        Every plan is a real website and a receptionist that answers the calls you
-                        miss. Month to month, no contract, cancel when you want.
+                        Every plan is a real website with an AI receptionist that only answers the
+                        phone when you cannot. Month to month, cancel anytime.
                     </p>
-                </motion.div>
-
-                {/* ── The objection that blocks the sale, answered once and loudly ──
-                    Placed above the cards rather than repeated on each of them: all three tiers
-                    now carry the receptionist, so three copies of this would be three chances to
-                    drift and no single prominent home for the one message that matters most. */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, ease: "easeOut", delay: 0.1 }}
-                    className="glass"
-                    style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: 16,
-                        maxWidth: 820,
-                        margin: "0 auto 40px",
-                        padding: "20px 24px",
-                        borderRadius: 18,
-                        borderTop: "2px solid var(--accent)",
-                    }}
-                >
-                    <PhoneCall
-                        weight="duotone"
-                        size={26}
-                        style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }}
-                    />
-                    <div>
-                        <p
-                            style={{
-                                margin: 0,
-                                fontFamily: "var(--font-display)",
-                                fontSize: 18,
-                                fontWeight: 600,
-                                color: "var(--fg)",
-                                letterSpacing: "-0.01em",
-                            }}
-                        >
-                            The AI never answers before you do.
-                        </p>
-                        <p style={{ margin: "6px 0 0", fontSize: 14.5, color: "var(--fg-2)", lineHeight: 1.6 }}>
-                            A caller rings your real phone first. Only if nobody picks up does the AI
-                            step in, so it is replacing voicemail, not replacing you.
-                        </p>
-                    </div>
                 </motion.div>
 
                 {/* ── Billing period ──
@@ -424,7 +379,31 @@ export default function PricingPageClient() {
                                 >
                                     {tier.name}
                                 </span>
-                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 8 }}>
+                                {annual && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.3, ease: "easeOut" }}
+                                        style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 8, marginBottom: 2 }}
+                                    >
+                                        <span
+                                            style={{
+                                                fontFamily: "var(--font-display)",
+                                                fontSize: 30,
+                                                fontWeight: 600,
+                                                color: "var(--fg-3)",
+                                                letterSpacing: "var(--tracking-tightest)",
+                                                lineHeight: 1,
+                                                textDecoration: "line-through",
+                                                textDecorationColor: "var(--fg-3)",
+                                            }}
+                                        >
+                                            {dollars(schedule.monthlyPrice * 12)}
+                                        </span>
+                                        <span style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 4 }}>/year</span>
+                                    </motion.div>
+                                )}
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: annual ? 0 : 8 }}>
                                     <span
                                         style={{
                                             fontFamily: "var(--font-display)",
@@ -441,14 +420,31 @@ export default function PricingPageClient() {
                                         {annual ? "/year" : "/month"}
                                     </span>
                                 </div>
+                                {annual && (
+                                    <motion.p
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
+                                        style={{
+                                            margin: "4px 0 0",
+                                            fontFamily: "var(--font-mono)",
+                                            fontSize: 11,
+                                            fontWeight: 600,
+                                            color: "var(--online)",
+                                            letterSpacing: "0.05em",
+                                        }}
+                                    >
+                                        Save {dollars(schedule.monthlyPrice * ANNUAL.monthsFree)}
+                                    </motion.p>
+                                )}
                                 <p style={{ margin: "6px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
                                     {annual
                                         ? `${dollars(schedule.monthlyPrice)}/mo billed yearly, ${ANNUAL.monthsFree} months free`
-                                        : `+ ${dollars(schedule.onboardingFee)} one-time onboarding fee`}
+                                        : `Setup fee: ${dollars(schedule.onboardingFee)}`}
                                 </p>
                                 {annual && (
                                     <p style={{ margin: "2px 0 0", fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)" }}>
-                                        + {dollars(schedule.onboardingFee)} one-time onboarding fee
+                                        Setup fee: {dollars(schedule.onboardingFee)}
                                     </p>
                                 )}
                                 <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
@@ -549,47 +545,7 @@ export default function PricingPageClient() {
                     })}
                 </div>
 
-                {/* ── The guarantee ──
-                    Stated with its conditions on the same screen as the promise. A bare "it pays
-                    for itself or your money back" with the three qualifying conditions buried in
-                    the contract is the mismatch this whole change exists to remove. */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: "easeOut", delay: 0.3 }}
-                    className="glass"
-                    style={{
-                        maxWidth: 820,
-                        margin: "40px auto 0",
-                        padding: "24px 28px",
-                        borderRadius: 18,
-                        borderTop: "2px solid var(--online)",
-                    }}
-                >
-                    <p
-                        style={{
-                            margin: 0,
-                            fontFamily: "var(--font-display)",
-                            fontSize: 19,
-                            fontWeight: 600,
-                            color: "var(--fg)",
-                            letterSpacing: "-0.01em",
-                        }}
-                    >
-                        If it doesn&apos;t pay for itself in month one, the onboarding fee is refunded.
-                    </p>
-                    <p style={{ margin: "8px 0 0", fontSize: 14.5, color: "var(--fg-2)", lineHeight: 1.65 }}>
-                        Specifically: if your receptionist captures fewer than {GUARANTEE.minQualifiedLeads}{" "}
-                        qualified leads in its first {GUARANTEE.windowDays} days, we refund the
-                        onboarding fee. A qualified lead is a call it answered that got us a name, a
-                        number, and what the caller wanted. The {GUARANTEE.windowDays} days start when
-                        your receptionist goes live, not when you sign. The one condition is that you
-                        forwarded your line, because a line that never pointed at us was never going
-                        to catch anything.
-                    </p>
-                </motion.div>
-
-                {/* FAQ — the objections that actually block a purchase */}
+                {/* FAQ */}
                 <motion.div
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -597,7 +553,7 @@ export default function PricingPageClient() {
                     style={{ marginTop: "clamp(64px,8vw,120px)" }}
                 >
                     <h2 style={{ textAlign: "center", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-                        Before you buy.
+                        How it works.
                     </h2>
                     {/* Reference-document layout, not cards: ruled entries in two columns.
                         `min(100%, 400px)` is load-bearing — a bare minmax(400px, 1fr)

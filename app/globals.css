@@ -1841,7 +1841,7 @@ select option {
   gap: 16px;
   max-width: 980px;
   margin: 0 auto;
-  align-items: start;
+  align-items: stretch;
 }
 
 @media (min-width: 860px) {
@@ -1872,7 +1872,7 @@ select option {
 .home-pricing-card--featured {
   border-color: var(--accent-2);
   box-shadow: 0 0 28px var(--accent-glow);
-  padding: clamp(26px, 3vw, 38px);
+  padding: clamp(22px, 2.5vw, 32px);
 }
 
 /* Muted, not hidden. Transparent ground and a weaker rule drop it behind the two cards

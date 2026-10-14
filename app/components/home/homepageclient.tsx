@@ -1007,10 +1007,7 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
           <div className="home-pricing-card home-pricing-card--muted">
             <div className="kicker">Enterprise</div>
             <div className="home-pricing-price">${ENTERPRISE_PRICE}<span>/mo</span></div>
-            <p>
-              Up to three four-page sites, more call minutes.{" "}
-              <a href="/pricing">See what&apos;s included &rarr;</a>
-            </p>
+            <p>Up to three sites, each with its own receptionist and phone number. One call log, one monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
           </div>
         </div>
 
