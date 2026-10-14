@@ -1,4 +1,3 @@
-import { GUARANTEE } from "./schedules";
 import { ref, type PlanSchedule, type SectionDef } from "./types";
 
 /**
@@ -13,7 +12,7 @@ import { ref, type PlanSchedule, type SectionDef } from "./types";
  * so stored agreements stay identifiable. Nothing had been signed when this shipped, so there
  * is no migration and no re-papering.
  */
-export const TERMS_VERSION = "v5.0";
+export const TERMS_VERSION = "v5.1";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -176,7 +175,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                   },
                   {
                     kind: "para" as const,
-                    text: `Client is responsible for completing the forwarding or publication step. Provider will supply instructions and assist on request, but cannot make the change on Client's behalf with Client's telephone carrier. The first-month guarantee in Section ${ref("fees")} does not apply where this step was never completed.`,
+                    text: "Client is responsible for completing the forwarding or publication step. Provider will supply instructions and assist on request, but cannot make the change on Client's behalf with Client's telephone carrier.",
                   },
                 ],
               },
@@ -220,55 +219,6 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             },
           ],
         },
-        /**
-         * The first-month guarantee. Replaced "the onboarding fee is non-refundable once
-         * onboarding has begun", which directly contradicted the promise the pricing page
-         * makes, and a contract that contradicts the page that sold it is worse than no
-         * promise at all.
-         *
-         * Every element here is load-bearing. The window runs from **go-live, not signing**,
-         * so a client who takes three weeks to forward their line does not burn it waiting.
-         * The metric is a count of qualified leads rather than revenue, because that is a
-         * fact our own call log records and the client's close rate is not something we
-         * control. The activation condition exists because a line that was never forwarded
-         * guarantees zero captured calls through no fault of ours, which would otherwise make
-         * the guarantee pay out on a client's own inaction.
-         *
-         * Voice-only: a web-only client has no receptionist to capture anything, so the
-         * clause would be incoherent for them and is filtered out with the rest of the voice
-         * terms.
-         */
-        ...(s.hasVoiceAgent
-          ? [
-              {
-                heading: "First-Month Onboarding Fee Guarantee",
-                blocks: [
-                  {
-                    kind: "callout" as const,
-                    text: `If the AI receptionist does not pay for itself in Client's first month, the onboarding fee of ${money(s.onboardingFee)} is refunded in full.`,
-                  },
-                  {
-                    kind: "para" as const,
-                    text: `For the purposes of this guarantee, "does not pay for itself" means that during the first ${spell(GUARANTEE.windowDays)} days after the AI receptionist goes live on Client's business line, the receptionist captured fewer than ${spell(GUARANTEE.minQualifiedLeads)} qualified leads.`,
-                  },
-                  {
-                    kind: "para" as const,
-                    text: "A qualified lead means a call the AI receptionist answered which produced all three of the following, as recorded in Client's call log: the caller's name, a callback number, and a stated reason for the call.",
-                  },
-                  {
-                    kind: "bullets" as const,
-                    items: [
-                      `The ${GUARANTEE.windowDays}-day window runs from the date the receptionist goes live on Client's business line, not from the Effective Date of this Agreement`,
-                      `Client must request the refund in writing within thirty (30) days after the end of that window`,
-                      `This guarantee does not apply if Client did not complete the activation step described in Section ${ref("onboarding")}, because a business line that was never forwarded to the Provider-supplied number cannot receive calls`,
-                      "This guarantee covers the one-time onboarding fee only. Monthly subscription fees for service already rendered are not refunded",
-                      "The guarantee may be claimed once per account",
-                    ],
-                  },
-                ],
-              },
-            ]
-          : []),
         {
           heading: "Payment Method",
           blocks: [

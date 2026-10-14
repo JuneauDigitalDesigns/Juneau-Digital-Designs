@@ -54,7 +54,7 @@ const overageRow = (): [string, string] => [
  */
 const onboardingRow = (fee: number): [string, string] => [
   "One-time onboarding fee (charged at signing)",
-  `${money(fee)}, refundable under the first-month guarantee`,
+  money(fee),
 ];
 
 /** Shared by every tier: the receptionist bullets, which no longer vary by plan. */
