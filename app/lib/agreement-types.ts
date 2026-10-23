@@ -10,6 +10,17 @@ export type PlanSlug = "starter" | "growth" | "enterprise";
  */
 export type AgreementKind = "master" | "addendum";
 
+/**
+ * How the client wants their phone handled, captured at signing.
+ *
+ * The same three values the portal onboarding form and `@jdd/schema`'s `PortalSite` already
+ * use, so the choice made here flows straight through to the site record without translation:
+ *   - `forwarded`  — keep their existing advertised number and forward it to the JDD number.
+ *   - `published`  — use the JDD-provisioned number as their business number.
+ *   - `declined`   — website only, no receptionist. Starter plan only.
+ */
+export type ReceptionistMode = "forwarded" | "published" | "declined";
+
 export interface AgreementSubmission {
   plan: PlanSlug;
   /**
@@ -50,6 +61,20 @@ export interface AgreementSubmission {
   smsConsent?: boolean;
   /** E.164 destination for call alerts. Only meaningful when smsConsent is true. */
   alertPhone?: string;
+  /**
+   * How the client wants their phone handled, chosen on the signing page.
+   *
+   * Required for a new Starter/Growth purchase (not upgrades, and not Enterprise, which defers
+   * the per-site choice to the onboarding form). `declined` is only valid on Starter: Growth
+   * and Enterprise are receptionist plans with no website-only variant.
+   */
+  receptionistMode?: ReceptionistMode;
+  /**
+   * The existing business line to forward, in whatever the client typed. Only collected when
+   * `receptionistMode` is `forwarded`. Stored on the record so the welcome email and the
+   * console know which number the client intends to forward from.
+   */
+  forwardingNumber?: string;
 }
 
 export interface AgreementAudit {
@@ -83,6 +108,10 @@ export interface AgreementRecord {
   signerEmail: string;
   launchDate?: string;
   additionalSites: string[];
+  /** The phone-handling choice captured at signing. See `AgreementSubmission.receptionistMode`. */
+  receptionistMode?: ReceptionistMode;
+  /** The existing line to forward, when `receptionistMode` is `forwarded`. */
+  forwardingNumber?: string;
   pdfUrl: string;
   audit: AgreementAudit;
   agreementVersion: string;

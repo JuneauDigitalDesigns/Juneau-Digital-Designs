@@ -42,3 +42,30 @@ export async function getAgreement(id: string): Promise<AgreementRecord | null> 
 export async function persistAgreement(id: string): Promise<void> {
   await getRedis().persist(key(id));
 }
+
+const welcomeKey = (sessionId: string) => `welcome-sent:${sessionId}`;
+const WELCOME_MARK_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days — long past any Stripe retry window
+
+/**
+ * Claim the right to send the welcome email for a checkout session, exactly once.
+ *
+ * The welcome email fires from the Stripe webhook, and Stripe redelivers
+ * `checkout.session.completed` on any non-2xx or timeout. An unconditional send would mail a
+ * client twice. This sets a marker with `NX`, so only the first caller wins: it returns true
+ * for the call that should send, false for every retry after it.
+ *
+ * Paired with `clearWelcomeEmailMark` — a send that throws releases the claim so the next
+ * retry can try again rather than the email being lost to a marker set before a failure.
+ */
+export async function claimWelcomeEmailSend(sessionId: string): Promise<boolean> {
+  const res = await getRedis().set(welcomeKey(sessionId), Date.now(), {
+    nx: true,
+    ex: WELCOME_MARK_TTL_SECONDS,
+  });
+  return res === "OK";
+}
+
+/** Release a welcome-email claim after a failed send, so a Stripe retry can re-attempt it. */
+export async function clearWelcomeEmailMark(sessionId: string): Promise<void> {
+  await getRedis().del(welcomeKey(sessionId));
+}

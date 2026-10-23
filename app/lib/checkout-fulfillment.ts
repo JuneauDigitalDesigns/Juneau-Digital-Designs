@@ -7,6 +7,7 @@ import { createPendingSite } from "./account-store";
 import { doubleOptInEnabled, promotePendingConsent } from "./sms-consent";
 import { sendSms } from "./twilio";
 import type { PortalPlan } from "@jdd/schema";
+import type { ReceptionistMode } from "./agreement-types";
 
 /**
  * Turn a paid Stripe Checkout Session into a pending site on the buyer's account.
@@ -35,6 +36,17 @@ export interface FulfilledSession {
   slug: string;
   email: string;
   plan: PortalPlan;
+  /**
+   * The phone-handling choice from the signed agreement, and the welcome-email inputs that go
+   * with it. Carried out so the webhook can send a tailored welcome email without re-reading
+   * the agreement. `receptionistMode`/`forwardingNumber` are absent on Enterprise (deferred to
+   * onboarding), upgrades, and agreements signed before this shipped.
+   */
+  receptionistMode?: ReceptionistMode;
+  forwardingNumber?: string;
+  clientLegalName: string;
+  signerName: string;
+  signerEmail: string;
 }
 
 const VALID_PLANS: PortalPlan[] = ["starter", "growth", "enterprise"];
@@ -115,6 +127,11 @@ export async function provisionPaidSession(
     signerName: agreement.signerName,
     onboardingCompletedAt: null,
     addedAt: Date.now(),
+    // The phone choice made at signing, so the onboarding form opens prefilled and the portal
+    // knows a website-only site has no call log. Schema-supported, unlike `forwardingNumber`
+    // (which lives on the agreement record only — see FulfilledSession). Absent on Enterprise,
+    // upgrades, and pre-ship agreements, where the onboarding form collects it fresh.
+    ...(agreement.receptionistMode ? { receptionistMode: agreement.receptionistMode } : {}),
     // The agreement record is written with a 30-day TTL, so copying its identity here is what
     // keeps "which terms authorised this site" answerable afterwards.
     agreementId,
@@ -169,7 +186,16 @@ export async function provisionPaidSession(
     console.error("[fulfillment] sms consent promotion failed", agreementId, e);
   }
 
-  return { slug, email, plan };
+  return {
+    slug,
+    email,
+    plan,
+    ...(agreement.receptionistMode ? { receptionistMode: agreement.receptionistMode } : {}),
+    ...(agreement.forwardingNumber ? { forwardingNumber: agreement.forwardingNumber } : {}),
+    clientLegalName: agreement.clientLegalName,
+    signerName: agreement.signerName,
+    signerEmail: agreement.signerEmail,
+  };
 }
 
 /**

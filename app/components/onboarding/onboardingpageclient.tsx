@@ -267,7 +267,11 @@ const isDarkMood = (mood: PalettePick["bgMood"]) =>
     BACKGROUND_MOODS.some((m) => m.id === (mood ?? "white") && m.dark);
 const emptyService = (): ServiceEntry => ({ name: "", tag: "" });
 
-function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
+function makeInitialData(
+    plan: PlanSlug,
+    prefillEmail: string,
+    signedReceptionistMode?: "forwarded" | "published" | "declined",
+): WizardData {
     return {
         selectedPlan: plan,
         brandName: "",
@@ -295,7 +299,7 @@ function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
         images: { heroSlides: [] },
         existingWebsiteUrl: "",
         additionalSites: [],
-        receptionistMode: "",
+        receptionistMode: signedReceptionistMode ?? "",
         consent: false,
         turnstileToken: "",
         website: "",
@@ -542,6 +546,7 @@ function AdvancedColors({ palette, onChange }: { palette: PalettePick; onChange:
 export default function OnboardingPageClient({
     plan,
     prefillEmail = "",
+    signedReceptionistMode,
     sessionId = "",
     portalMode = false,
     clerkUserId = "",
@@ -549,6 +554,14 @@ export default function OnboardingPageClient({
 }: {
     plan: PlanSlug;
     prefillEmail?: string;
+    /**
+     * The phone choice the client made at signing. Pre-selects the activation step and locks the
+     * website-only boundary: a client who signed a receptionist plan can switch between forward
+     * and a new number here, but cannot drop to website-only (or vice versa) without re-signing
+     * the matching schedule. Absent for Enterprise and pre-ship agreements, where all three
+     * options stay open.
+     */
+    signedReceptionistMode?: "forwarded" | "published" | "declined";
     sessionId?: string;
     /** When true: no Turnstile, no consent, submit goes to /api/portal/onboarding. */
     portalMode?: boolean;
@@ -566,7 +579,9 @@ export default function OnboardingPageClient({
     // draft is deliberately NOT read here — reading localStorage during render made
     // the step rail hydrate as "✓" where the server sent "1". The draft is restored
     // in a mount-only effect below.
-    const [formData, setFormData] = useState<WizardData>(() => makeInitialData(plan, prefillEmail));
+    const [formData, setFormData] = useState<WizardData>(() =>
+        makeInitialData(plan, prefillEmail, signedReceptionistMode),
+    );
     const [restored, setRestored] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
@@ -1626,21 +1641,53 @@ export default function OnboardingPageClient({
                                     </p>
                                 </div>
 
+                                {/*
+                                    The website-only boundary is set at signing: a client who
+                                    signed a receptionist plan can switch between forwarding and a
+                                    new number here, but not drop to website-only (that is a
+                                    different schedule), and vice versa. With no signed choice
+                                    (Enterprise, pre-ship), all three stay open.
+                                */}
+                                {signedReceptionistMode && (
+                                    <p style={{ ...helpText }}>
+                                        You chose{" "}
+                                        <strong style={{ color: "var(--fg)" }}>
+                                            {RECEPTIONIST_OPTIONS.find((o) => o.id === signedReceptionistMode)?.label}
+                                        </strong>{" "}
+                                        when you signed.{" "}
+                                        {signedReceptionistMode === "declined"
+                                            ? "To add the receptionist, just reply to your welcome email and we'll sort out the paperwork."
+                                            : "You can switch between forwarding and a new number below. To move to website-only, reply to your welcome email and we'll handle the change."}
+                                    </p>
+                                )}
+
                                 <div className="flex flex-col gap-3">
                                     {RECEPTIONIST_OPTIONS.map((opt) => {
                                         const on = formData.receptionistMode === opt.id;
+                                        // Locked by the signed choice: declined locks to declined,
+                                        // a receptionist choice locks out declined. No signed
+                                        // choice leaves everything selectable.
+                                        const locked =
+                                            signedReceptionistMode === "declined"
+                                                ? opt.id !== "declined"
+                                                : signedReceptionistMode === "forwarded" || signedReceptionistMode === "published"
+                                                  ? opt.id === "declined"
+                                                  : false;
                                         return (
                                             <button
                                                 key={opt.id}
                                                 type="button"
-                                                onClick={() => set("receptionistMode", opt.id)}
+                                                onClick={() => !locked && set("receptionistMode", opt.id)}
                                                 aria-pressed={on}
+                                                aria-disabled={locked}
+                                                disabled={locked}
                                                 className="rounded-2xl p-4 text-left transition"
                                                 style={{
                                                     border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`,
                                                     background: on ? "var(--surface-2, var(--surface))" : "var(--surface)",
                                                     boxShadow: on ? "0 0 0 1px var(--accent) inset" : "none",
-                                                    cursor: "pointer",
+                                                    cursor: locked ? "not-allowed" : "pointer",
+                                                    opacity: locked ? 0.45 : 1,
                                                 }}
                                             >
                                                 <span
@@ -1648,6 +1695,11 @@ export default function OnboardingPageClient({
                                                     style={{ color: on ? "var(--accent)" : "var(--fg)" }}
                                                 >
                                                     {opt.label}
+                                                    {locked && (
+                                                        <span style={{ ...helpText, fontWeight: 400, marginLeft: 6 }}>
+                                                            · set at signing
+                                                        </span>
+                                                    )}
                                                 </span>
                                                 <span className="mt-1 block" style={{ ...helpText }}>
                                                     {opt.detail}

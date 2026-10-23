@@ -93,6 +93,18 @@ export default async function AgreementPage({
         ? getAddendumForPlan(getSchedule(selectedPlan))
         : getTermsForPlan(selectedPlan);
 
+    /**
+     * The Website-Only variant, resolved alongside the standard terms for a Starter master.
+     *
+     * A Starter client can choose "website only, no receptionist" on the signing page, which is
+     * a different contract — it drops the receptionist clauses and call-volume terms. Rather
+     * than round-trip to the server when they pick it, both documents are sent down and the
+     * client swaps which one the reader shows. Only Starter has this variant, and only a master
+     * can be signed web-only, so every other path sends `undefined`.
+     */
+    const webOnly =
+        selectedPlan === "starter" && !isAddendum ? getTermsForPlan("starter", { webOnly: true }) : null;
+
     const upgradeSlug = upgrade?.trim() || null;
 
     // `?upgrade=<slug>` marks this as an existing client moving up a tier rather than a first
@@ -117,6 +129,8 @@ export default async function AgreementPage({
             billingPeriod={billingPeriod}
             sections={sections}
             version={version}
+            webOnlySections={webOnly?.sections}
+            webOnlyVersion={webOnly?.version}
             upgradeSlug={upgradeSlug}
             kind={isAddendum ? "addendum" : "master"}
             consolidate={consolidate === "1"}
