@@ -118,6 +118,22 @@ type WizardData = {
     images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
     /** Fed to the copywriter's website scan — the single input that saves the most typing. */
     existingWebsiteUrl: string;
+    /**
+     * Proof & details — what the chosen industry's bespoke template needs beyond the generic
+     * fields above (console VERTICAL_TEMPLATES, see @jdd/schema's TemplateSlots). Asked only
+     * when `menuFor(industry).templateSlots` declares a slot; a vertical with no bespoke
+     * template (health, "Other") never shows this step at all. Every one of these is a fact we
+     * are forbidden from inventing (CLAUDE.md; PLAN D4/D10/D14/D15) — blank is always a valid,
+     * non-blocking answer, never filled with a guess.
+     */
+    statValues: Record<string, string>; // keyed by TemplateSlots stats[].key
+    reviewScore: string;
+    reviewCount: string;
+    reviewUrl: string;
+    servicePrices: Record<string, string>; // keyed by ServiceEntry.name
+    seasonBodies: Record<string, string>; // keyed by TemplateSlots seasons[].key
+    serviceRadiusMiles: string;
+    offerBadge: string;
     // Enterprise
     additionalSites: AdditionalSiteForm[];
     /**
@@ -172,6 +188,32 @@ const INDUSTRY_OPTIONS: { id: string; label: string }[] = [
     ...INDUSTRY_MENUS.map((m) => ({ id: m.id as string, label: m.label })),
     { id: OTHER_INDUSTRY, label: "Other / Not listed" },
 ];
+
+/**
+ * Short captions for each TemplateSlots stat key, used only as the submitted `label` paired
+ * with whatever number the client types (see @jdd/schema's `statsFrom`). The wizard's own
+ * input shows `prompt` as the question and `example` as the placeholder — this map never
+ * reaches the client; it is presentational chrome for the built site's stat tile, not a fact
+ * about the business, so it is safe to hardcode rather than ask for a second time. Keys come
+ * from every industry's `templateSlots.stats` in @jdd/schema's industry-menu.ts.
+ */
+const STAT_LABELS: Record<string, string> = {
+    emergencyAvailability: "Emergency line",
+    yearsTrading: "Years in business",
+    rating: "Average rating",
+    coverageTowns: "Towns covered",
+    roofsReplaced: "Roofs replaced",
+    warrantyYears: "Workmanship warranty",
+    typicalJobDays: "Typical job time",
+    availability: "Availability",
+    avgArrivalTime: "Avg. arrival time",
+    yearsLicensed: "Years licensed",
+    lawnsServicedWeekly: "Lawns serviced weekly",
+    neighbourhoods: "Routes covered",
+    vehiclesDetailed: "Vehicles detailed",
+    coatingDurability: "Coating durability",
+    mobileCoverage: "Mobile coverage",
+};
 
 // Vibe, tone and free-text adjectives were three questions describing one thing, and all
 // three collapsed into the same paragraph of the copywriter prompt. VOICE_OPTIONS from
@@ -298,6 +340,14 @@ function makeInitialData(
         hasLogo: false,
         images: { heroSlides: [] },
         existingWebsiteUrl: "",
+        statValues: {},
+        reviewScore: "",
+        reviewCount: "",
+        reviewUrl: "",
+        servicePrices: {},
+        seasonBodies: {},
+        serviceRadiusMiles: "",
+        offerBadge: "",
         additionalSites: [],
         receptionistMode: signedReceptionistMode ?? "",
         consent: false,
@@ -733,6 +783,11 @@ export default function OnboardingPageClient({
             return { ...prev, [field]: has ? prev[field].filter((v) => v !== value) : [...prev[field], value] };
         });
     }
+    /** Set one entry of a Record-shaped field (stat value, service price, season body) without
+     *  disturbing the others — the "Proof & details" step's inputs are all keyed dictionaries. */
+    function setKeyed(field: "statValues" | "servicePrices" | "seasonBodies", key: string, value: string) {
+        setFormData((prev) => ({ ...prev, [field]: { ...prev[field], [key]: value } }));
+    }
 
     /**
      * Tick or untick a service chip.
@@ -878,10 +933,28 @@ export default function OnboardingPageClient({
      * Welcome and the separate media/existing-site steps are gone: a screen that only sets
      * expectations is a click, and photos belong with the rest of the look.
      */
+    /** The chip menu for the chosen trade, or null for "Other" — the free-text fallback. Hoisted
+     *  above `steps` so the conditional "Proof & details" step below can read it. */
+    const menu = menuFor(formData.industry);
+    /** What this vertical's bespoke template needs beyond the generic fields — absent for any
+     *  vertical with no bespoke template (health, "Other"), which is exactly when the step
+     *  itself is omitted below rather than rendered empty. */
+    const slots = menu?.templateSlots;
+
     const steps: { key: string; label: string }[] = [
         { key: "business", label: "Your business" },
         { key: "services", label: "What you do" },
         { key: "apart", label: "What sets you apart" },
+        /**
+         * "Proof & details" (EXEC Phase 7, PLAN §4) asks only what the chosen industry's
+         * bespoke whole-site template actually renders — a stat band, a review aggregate,
+         * starting prices, a seasonal rail, a service radius, a promo ribbon. Placed after
+         * "apart" (industry + services are both already answered, so every slot below has
+         * what it needs to render its question) and before "sound" (still among the creative
+         * questions, same register as what comes next). Omitted entirely — not shown blank —
+         * for a vertical with no bespoke template, since `slots` is undefined there.
+         */
+        ...(slots ? [{ key: "proof", label: "Proof & details" }] : []),
         { key: "sound", label: "How it should sound" },
         { key: "look", label: "Look" },
         /**
@@ -905,9 +978,6 @@ export default function OnboardingPageClient({
 
     const lookIndex = steps.findIndex((s) => s.key === "look");
     const onLook = steps[step].key === "look";
-
-    /** The chip menu for the chosen trade, or null for "Other" — the free-text fallback. */
-    const menu = menuFor(formData.industry);
 
     /**
      * Services the client typed rather than ticked.
@@ -993,6 +1063,16 @@ export default function OnboardingPageClient({
         if (!formData.hasLogo) n += 1;
         if (formData.images.heroSlides.length === 0) n += 1;
         if (!formData.diffChips.length && !formData.diffText.trim()) n += 1;
+        // Proof & details — advisory only, same as everything else here; the step itself
+        // never blocks (EXEC Phase 7). Only counts slots this industry's template actually
+        // declares, so a vertical that doesn't ask about seasons isn't penalized for one.
+        if (slots) {
+            n += slots.stats.filter((s) => !(formData.statValues[s.key] ?? "").trim()).length;
+            if (slots.reviewAggregate && !formData.reviewScore.trim() && !formData.reviewCount.trim()) n += 1;
+            if (slots.seasons && !slots.seasons.some((s) => (formData.seasonBodies[s.key] ?? "").trim())) n += 1;
+            if (slots.serviceRadius && !formData.serviceRadiusMiles.trim()) n += 1;
+            if (slots.offerBadge && !formData.offerBadge.trim()) n += 1;
+        }
         return n;
     }
 
@@ -1042,6 +1122,24 @@ export default function OnboardingPageClient({
             hasLogo: formData.hasLogo,
             images: formData.images,
             existingWebsiteUrl: formData.existingWebsiteUrl,
+            // Proof & details — only ever sent for an industry whose template declared the slot
+            // (the step is skipped otherwise, and formData's dictionaries just stay empty).
+            // Blank entries are dropped rather than sent as "", the same "absent means not yet
+            // asked" rule buildPayload already follows for receptionistMode above — the console's
+            // copywriter must never read an empty string as a client-confirmed answer.
+            stats: Object.entries(formData.statValues)
+                .filter(([, v]) => v.trim())
+                .map(([key, value]) => ({ key, value: value.trim(), label: STAT_LABELS[key] ?? key })),
+            reviewAggregate:
+                formData.reviewScore.trim() || formData.reviewCount.trim()
+                    ? { score: formData.reviewScore.trim(), count: formData.reviewCount.trim(), url: formData.reviewUrl.trim() || undefined }
+                    : null,
+            servicePrices: Object.fromEntries(Object.entries(formData.servicePrices).filter(([, v]) => v.trim())),
+            seasons: Object.entries(formData.seasonBodies)
+                .filter(([, v]) => v.trim())
+                .map(([key, body]) => ({ key, label: slots?.seasons?.find((s) => s.key === key)?.label ?? key, body: body.trim() })),
+            serviceRadiusMiles: formData.serviceRadiusMiles.trim() || undefined,
+            offerBadge: formData.offerBadge.trim() || undefined,
             additionalSites:
                 plan === "enterprise"
                     ? formData.additionalSites
@@ -1384,6 +1482,86 @@ export default function OnboardingPageClient({
                                     <Chips options={customersFor(formData.industry)} selected={formData.customerChips} onToggle={(v) => toggleIn("customerChips", v)} />
                                     <input className={inputCls} value={formData.customerText} onChange={(e) => set("customerText", e.target.value)} placeholder="Anyone else you would add (optional)" />
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Step: Proof & details — only rendered when `slots` exists, i.e. this
+                            industry's bespoke template actually has a slot for it (EXEC Phase 7). ── */}
+                        {steps[step].key === "proof" && slots && (
+                            <div className="space-y-6">
+                                <StepTitle
+                                    title="Proof & details"
+                                    sub="We'll write your site copy for you. We won't make up numbers about your business — these come from you."
+                                />
+
+                                {slots.stats.length > 0 && (
+                                    <div className="space-y-4">
+                                        {slots.stats.map((s) => (
+                                            <Field key={s.key} label={s.prompt}>
+                                                <input
+                                                    className={inputCls}
+                                                    value={formData.statValues[s.key] ?? ""}
+                                                    onChange={(e) => setKeyed("statValues", s.key, e.target.value)}
+                                                    placeholder={s.example}
+                                                />
+                                            </Field>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {slots.reviewAggregate && (
+                                    <div className="space-y-2">
+                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Review aggregate</span>
+                                        <p style={helpText}>Shown as a star rating badge. Leave blank if you&apos;d rather not show one.</p>
+                                        <div className="grid gap-3 sm:grid-cols-3">
+                                            <Field label="Average star rating"><input className={inputCls} value={formData.reviewScore} onChange={(e) => set("reviewScore", e.target.value)} placeholder="4.9" /></Field>
+                                            <Field label="Number of reviews"><input className={inputCls} value={formData.reviewCount} onChange={(e) => set("reviewCount", e.target.value)} placeholder="180" /></Field>
+                                            <Field label="Review link (optional)"><input className={inputCls} value={formData.reviewUrl} onChange={(e) => set("reviewUrl", e.target.value)} placeholder="https://g.page/..." /></Field>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {slots.priceFrom && formData.serviceList.some((s) => s.name.trim()) && (
+                                    <div className="space-y-2">
+                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Starting prices</span>
+                                        <p style={helpText}>Shown as &quot;Starting at $X&quot; on that service. Leave any blank to show no price.</p>
+                                        <div className="space-y-3">
+                                            {formData.serviceList.filter((s) => s.name.trim()).map((s) => (
+                                                <Field key={s.name} label={s.name}>
+                                                    <input className={inputCls} value={formData.servicePrices[s.name] ?? ""} onChange={(e) => setKeyed("servicePrices", s.name, e.target.value)} placeholder="e.g. $150" />
+                                                </Field>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {slots.seasons && (
+                                    <div className="space-y-3">
+                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Seasonal programs</span>
+                                        {slots.seasons.map((season) => (
+                                            <Field key={season.key} label={season.label} hint={season.prompt}>
+                                                <input
+                                                    className={inputCls}
+                                                    value={formData.seasonBodies[season.key] ?? ""}
+                                                    onChange={(e) => setKeyed("seasonBodies", season.key, e.target.value)}
+                                                    placeholder="Leave blank if you don't offer this season"
+                                                />
+                                            </Field>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {slots.serviceRadius && (
+                                    <Field label="How far do you travel for mobile service?" hint="In miles. Leave blank if you don't offer mobile service.">
+                                        <input className={inputCls} value={formData.serviceRadiusMiles} onChange={(e) => set("serviceRadiusMiles", e.target.value)} placeholder="e.g. 25" />
+                                    </Field>
+                                )}
+
+                                {slots.offerBadge && (
+                                    <Field label="Any current promotional offer?" hint="Optional — shown as a small ribbon on the site. Leave blank if none.">
+                                        <input className={inputCls} value={formData.offerBadge} onChange={(e) => set("offerBadge", e.target.value)} placeholder="e.g. First mow free" />
+                                    </Field>
+                                )}
                             </div>
                         )}
 
@@ -1766,6 +1944,24 @@ export default function OnboardingPageClient({
                                     <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "Not uploaded" : "Design one for me"} />
                                     <ReviewItem label="Photos" value={formData.images.heroSlides.length ? `${formData.images.heroSlides.length} uploaded` : "None"} />
                                     <ReviewItem label="Existing site" value={formData.existingWebsiteUrl} />
+                                    {/* Only shown for an industry whose template actually asked for these —
+                                        absent (not a "Not set" row) for every other vertical. */}
+                                    {slots && (
+                                        <ReviewItem
+                                            label="Proof & details"
+                                            value={[
+                                                slots.stats.length > 0
+                                                    ? `${slots.stats.filter((s) => (formData.statValues[s.key] ?? "").trim()).length} of ${slots.stats.length} stats`
+                                                    : null,
+                                                slots.reviewAggregate && (formData.reviewScore.trim() || formData.reviewCount.trim()) ? "review aggregate added" : null,
+                                                slots.seasons && slots.seasons.some((s) => (formData.seasonBodies[s.key] ?? "").trim()) ? "seasons added" : null,
+                                                slots.serviceRadius && formData.serviceRadiusMiles.trim() ? "service radius added" : null,
+                                                slots.offerBadge && formData.offerBadge.trim() ? "offer added" : null,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(", ")}
+                                        />
+                                    )}
                                     {/* Shown back before submit because it is the one answer here
                                         that changes what gets built rather than how it looks. */}
                                     <ReviewItem
