@@ -29,6 +29,15 @@ import {
     type ServiceEntry,
     type ImageMeta,
 } from "@jdd/schema";
+import {
+    A2P_BUSINESS_INDUSTRIES,
+    A2P_BUSINESS_TYPES,
+    DEFAULT_INDUSTRY_BY_VERTICAL,
+    findTaxIdPaths,
+    isEinShaped,
+    type A2pIdentityInput,
+    type A2pRegistrationPath,
+} from "@/app/lib/a2p-identity.mjs";
 
 declare global {
     interface Window {
@@ -157,6 +166,95 @@ type WizardData = {
     /** Reveal all ten palettes rather than the four suited to their trade. */
     showAllPalettes: boolean;
 };
+
+/**
+ * The A2P identity step's fields — **deliberately not part of `WizardData`.**
+ *
+ * `WizardData` is autosaved in full: to Redis via `/api/portal/onboarding/draft` with a
+ * 30-day TTL, and to `localStorage`, where it is only expired if the client ever reopens the
+ * wizard. An EIN added to `WizardData` would therefore sit in our Redis for 30 days and on
+ * the client's own machine indefinitely — and a leak like that cannot be undone later by
+ * auditing every draft, backup and browser that ever held one.
+ *
+ * So these fields live in their own `useState` that the autosave effect does not read. That
+ * is a structural guarantee rather than a rule somebody has to remember: the autosave
+ * projects from `formData`, and these values are not in it. A denylist in the autosave path
+ * would have been the alternative and is one careless rename away from leaking.
+ *
+ * Nothing here is ever persisted anywhere. It is posted once to
+ * `/api/onboarding/a2p-identity`, which sends it to Twilio and keeps only the returned SIDs.
+ *
+ * If you are tempted to move any of this into `WizardData` so it survives a reload: that is
+ * the bug. The client re-typing their EIN is the intended cost.
+ */
+type A2pFormState = {
+    registrationPath: A2pRegistrationPath;
+    legalBusinessName: string;
+    businessType: string;
+    businessIndustry: string;
+    websiteUrl: string;
+    ein: string;
+    street: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    repFirstName: string;
+    repLastName: string;
+    repJobPosition: string;
+    repBusinessTitle: string;
+    repEmail: string;
+    repPhone: string;
+};
+
+const emptyA2pForm = (industry: string): A2pFormState => ({
+    registrationPath: "ein",
+    // Not prefilled from `brandName`. The legal name has to match the IRS record
+    // character-for-character, and a prefilled trade name is a wrong answer the client is
+    // invited to accept: "Arthur's Plumbing LLC" vs "Arthurs Plumbing, LLC" is a rejection
+    // and a restart.
+    legalBusinessName: "",
+    businessType: "",
+    businessIndustry: DEFAULT_INDUSTRY_BY_VERTICAL[industry] ?? "",
+    websiteUrl: "",
+    ein: "",
+    street: "",
+    city: "",
+    region: "",
+    postalCode: "",
+    country: "US",
+    repFirstName: "",
+    repLastName: "",
+    repJobPosition: "Owner",
+    repBusinessTitle: "Owner",
+    repEmail: "",
+    repPhone: "",
+});
+
+/** Shape the route expects. Assembled at submit; never held assembled in state. */
+const toIdentityInput = (a2p: A2pFormState): A2pIdentityInput => ({
+    registrationPath: a2p.registrationPath,
+    legalBusinessName: a2p.legalBusinessName,
+    businessType: a2p.businessType,
+    businessIndustry: a2p.businessIndustry,
+    websiteUrl: a2p.websiteUrl,
+    ...(a2p.registrationPath === "ein" ? { ein: a2p.ein } : {}),
+    address: {
+        street: a2p.street,
+        city: a2p.city,
+        region: a2p.region,
+        postalCode: a2p.postalCode,
+        country: a2p.country,
+    },
+    rep: {
+        firstName: a2p.repFirstName,
+        lastName: a2p.repLastName,
+        jobPosition: a2p.repJobPosition,
+        businessTitle: a2p.repBusinessTitle,
+        email: a2p.repEmail,
+        phone: a2p.repPhone,
+    },
+});
 
 /** Number of screens in the color sub-wizard nested inside the "look" step. */
 const COLOR_STEPS = 3;
@@ -647,12 +745,45 @@ export default function OnboardingPageClient({
     // these?" gate with their adjustments intact, rather than mid-edit.
     const [colorAdjusting, setColorAdjusting] = useState(false);
 
+    /**
+     * A2P identity state — see `A2pFormState`. Held apart from `formData` so the autosave
+     * effect below cannot reach it. Not persisted, by design: a reload clears it.
+     */
+    const [a2p, setA2p] = useState<A2pFormState>(() => emptyA2pForm(""));
+    const [a2pOnFile, setA2pOnFile] = useState(false);
+    /**
+     * Whether the on-file probe has finished. Starts `true` outside portal mode, where there
+     * is no authenticated context to probe with — otherwise the step would sit on "Checking…"
+     * forever.
+     */
+    const [a2pProbed, setA2pProbed] = useState(!portalMode);
+    const [a2pSubmitting, setA2pSubmitting] = useState(false);
+    const [a2pError, setA2pError] = useState<{ message: string; fields: string[] }|null>(null);
+
     const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
     const turnstileWidgetIdRef = useRef<string | null>(null);
     /** Set once the draft-restore attempt has finished, so autosave can't clobber it. */
     const didRestoreRef = useRef(false);
 
     const planMeta = PLAN_META[plan];
+
+    /**
+     * Whether this client registers an A2P brand + campaign of their own, and therefore sees
+     * the business-registration step. Growth and Enterprise text their own customers; Starter
+     * and web-only do not, so they are never asked for a legal identity they have no use for.
+     */
+    const a2pApplies = plan === "growth" || plan === "enterprise";
+
+    /**
+     * The industry and website actually submitted.
+     *
+     * Derived rather than seeded into state by an effect, so the default tracks the trade the
+     * client picks (and keeps tracking it if they change their mind) while an explicit choice
+     * always wins. A seeded default would silently go stale the moment they changed trade.
+     */
+    const a2pEffectiveIndustry =
+        a2p.businessIndustry || DEFAULT_INDUSTRY_BY_VERTICAL[formData.industry] || "";
+    const a2pEffectiveWebsite = a2p.websiteUrl.trim() || formData.existingWebsiteUrl.trim();
 
     // ── Turnstile widget (rendered on the final step) ──
     useEffect(() => {
@@ -746,6 +877,26 @@ export default function OnboardingPageClient({
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { turnstileToken, consent, website, ...persistable } = formData;
             const record = { ...persistable, savedAt: new Date().toISOString() };
+
+            /**
+             * Second line of defence behind "A2P fields are not in `formData`".
+             *
+             * A value-shape tripwire, not a key denylist: it does not care what the field is
+             * called, so it survives the rename that would defeat a denylist. If a future
+             * change ever routes an EIN through form state, the draft is dropped instead of
+             * being written to Redis for 30 days and to this machine indefinitely.
+             *
+             * Loud, not silent — losing one autosave is the right trade against an
+             * unrecoverable leak, and the path (never the value) says where to fix it.
+             */
+            const leaked = findTaxIdPaths(record);
+            if (leaked.length) {
+                console.error(
+                    `[onboarding] draft autosave refused: tax-ID-shaped value at ${leaked.join(", ")}`,
+                );
+                return;
+            }
+
             if (key) {
                 localStorage.setItem(key, JSON.stringify(record));
             }
@@ -765,6 +916,39 @@ export default function OnboardingPageClient({
         return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData]);
+
+    // ── A2P: is a business identity already on file? ──
+    /**
+     * Asked once on mount rather than assumed, because nothing on our side records that the
+     * client answered this step — that is the point of the design. If they created the
+     * EndUser before quitting, the SID is on file and the EIN is not needed again; re-asking
+     * would make them expose it a second time for no benefit.
+     *
+     * The response is a boolean. The SIDs stay server-side: the browser has no use for them.
+     */
+    useEffect(() => {
+        if (!a2pApplies || !portalMode) return;
+        const url = `/api/onboarding/a2p-identity${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(url, { cache: "no-store" });
+                if (!res.ok) throw new Error("probe failed");
+                const body = (await res.json()) as { onFile?: boolean };
+                if (!cancelled) setA2pOnFile(Boolean(body.onFile));
+            } catch {
+                // The step then asks. That is safe rather than merely acceptable: the route
+                // short-circuits a submit for a site that already has a SID on file, so a
+                // failed probe cannot cause a second identity to be created on Twilio.
+            } finally {
+                if (!cancelled) setA2pProbed(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // After success (non-portal mode), auto-advance to portal signup after 5s.
     useEffect(() => {
@@ -955,6 +1139,20 @@ export default function OnboardingPageClient({
          * for a vertical with no bespoke template, since `slots` is undefined there.
          */
         ...(slots ? [{ key: "proof", label: "Proof & details" }] : []),
+        /**
+         * Business registration (A2P 10DLC identity) — growth and enterprise only.
+         *
+         * Starter and web-only never register: they send no customer-facing messages, so there
+         * is no brand or campaign to register and no reason to ask a client for an EIN.
+         * Gated on plan rather than on `receptionistMode`, because what needs a registered
+         * campaign is texting the client's own customers, which only these two tiers do.
+         *
+         * Placed here, immediately after "Proof & details", per the handoff. Late enough that
+         * the client is already committed — an EIN prompt in the opening screens of a signup
+         * flow reads as a scam — and the submit-and-consume design puts no constraint on what
+         * follows, because collection and use are the same request rather than two steps.
+         */
+        ...(a2pApplies ? [{ key: "a2p", label: "Business registration" }] : []),
         { key: "sound", label: "How it should sound" },
         { key: "look", label: "Look" },
         /**
@@ -1166,6 +1364,63 @@ export default function OnboardingPageClient({
                     : undefined,
         };
     }
+
+    /**
+     * The business-registration step's own submit — and the only thing that ever sees these
+     * values.
+     *
+     * One request: this handler posts the identity, the route sends it to Twilio, and the
+     * route keeps only the SIDs. On success the local state is cleared immediately, so the
+     * plaintext is not still sitting in a React state object while the client finishes the
+     * rest of the wizard.
+     *
+     * Note this is *not* part of `handleSubmit`. The wizard's final submit sends `formData`,
+     * which these fields are deliberately absent from.
+     */
+    const submitA2pIdentity = async () => {
+        const industry = a2pEffectiveIndustry;
+        if (a2p.registrationPath === "ein" && !isEinShaped(a2p.ein)) {
+            setA2pError({
+                message: "That EIN doesn't look right. It should be nine digits, like 12-3456789.",
+                fields: ["ein"],
+            });
+            return;
+        }
+
+        setA2pSubmitting(true);
+        setA2pError(null);
+        try {
+            const res = await fetch(
+                `/api/onboarding/a2p-identity${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                        toIdentityInput({
+                            ...a2p,
+                            businessIndustry: industry,
+                            websiteUrl: a2pEffectiveWebsite,
+                        }),
+                    ),
+                },
+            );
+            const body = (await res.json()) as { error?: string; fields?: string[] };
+            if (!res.ok) {
+                setA2pError({
+                    message: body.error ?? "Could not submit these details.",
+                    fields: body.fields ?? [],
+                });
+                return;
+            }
+            setA2pOnFile(true);
+            // Discard the plaintext the moment it is no longer needed.
+            setA2p(emptyA2pForm(formData.industry));
+        } catch {
+            setA2pError({ message: "Could not reach us just now. Please try again.", fields: [] });
+        } finally {
+            setA2pSubmitting(false);
+        }
+    };
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -1561,6 +1816,262 @@ export default function OnboardingPageClient({
                                     <Field label="Any current promotional offer?" hint="Optional — shown as a small ribbon on the site. Leave blank if none.">
                                         <input className={inputCls} value={formData.offerBadge} onChange={(e) => set("offerBadge", e.target.value)} placeholder="e.g. First mow free" />
                                     </Field>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Step: Business registration (A2P 10DLC identity) ─────────────
+                            Growth and Enterprise only. Everything typed on this screen lives in
+                            `a2p` local state, never in `formData`, so neither draft store ever
+                            holds it — see `A2pFormState`. The submit button here is its own
+                            request to `/api/onboarding/a2p-identity`; the wizard's final submit
+                            does not carry these fields. ── */}
+                        {steps[step].key === "a2p" && (
+                            <div className="space-y-6">
+                                <StepTitle
+                                    title="Registering your number to text your customers"
+                                    sub="Carriers require every business that texts its customers to be registered under its own legal identity. These are the details that registration needs."
+                                />
+
+                                {!a2pProbed ? (
+                                    <p style={helpText}>Checking what we already have…</p>
+                                ) : a2pOnFile ? (
+                                    /* Resume: the EndUser already exists, so the EIN is not needed
+                                       again. Re-asking would make the client expose it twice for
+                                       nothing. */
+                                    <div className="rounded-xl p-4" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)" }}>
+                                        <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15 }}>
+                                            <strong style={{ color: "var(--fg)" }}>Your business identity is on file with our messaging provider.</strong>{" "}
+                                            Nothing more is needed from you here. We never stored these
+                                            details ourselves, so there is nothing for you to re-enter and
+                                            nothing to check.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="rounded-xl p-4" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)" }}>
+                                            <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15 }}>
+                                                <strong style={{ color: "var(--fg)" }}>Why we need this.</strong> Your number
+                                                has to send as <em>your</em> business, not ours. That means
+                                                registering your legal business details with the carriers through
+                                                Twilio, our messaging provider.
+                                            </p>
+                                            <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15, marginTop: 10 }}>
+                                                <strong style={{ color: "var(--fg)" }}>What happens to your tax ID.</strong>{" "}
+                                                We operate zero-retention on it: when you press submit it goes
+                                                straight to Twilio in one request and we never write it down —
+                                                not in your draft, not in our database, not in your site&apos;s
+                                                files. Twilio keeps it permanently, as the registrar; they have
+                                                to, it is what they register you against. Your browser held it
+                                                while you typed it. We want you to know exactly who ends up with
+                                                it before you type it.
+                                            </p>
+                                            <p style={{ color: "var(--fg-3)", lineHeight: 1.6, fontSize: 13, marginTop: 10 }}>
+                                                Texting your customers &mdash; replies from your portal and Google
+                                                review requests &mdash; switches on once the carriers approve this
+                                                registration. Everything else on your site and your receptionist
+                                                works from launch and does not wait on it.
+                                            </p>
+                                        </div>
+
+                                        {/* Sole proprietor is offered to Growth only. A Sole Proprietor
+                                            campaign allows one number per campaign, and Enterprise runs two
+                                            or three sites — so Enterprise requires an EIN, and the choice
+                                            simply isn't shown. */}
+                                        {plan === "growth" ? (
+                                            <div className="space-y-2">
+                                                <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Does your business have an EIN?</span>
+                                                <p style={helpText}>
+                                                    The nine-digit federal tax ID on your EIN confirmation letter.
+                                                    Sole traders often don&apos;t have one, which is fine &mdash; there
+                                                    is a separate registration for that.
+                                                </p>
+                                                <div className="grid gap-2 sm:grid-cols-2">
+                                                    {([
+                                                        { id: "ein", label: "Yes, we have an EIN" },
+                                                        { id: "sole-proprietor", label: "No — register me as a sole proprietor" },
+                                                    ] as { id: A2pRegistrationPath; label: string }[]).map((o) => {
+                                                        const on = a2p.registrationPath === o.id;
+                                                        return (
+                                                            <button
+                                                                key={o.id}
+                                                                type="button"
+                                                                onClick={() => setA2p((p) => ({ ...p, registrationPath: o.id, ein: "" }))}
+                                                                className="cursor-pointer rounded-xl border px-4 py-3 text-left text-sm font-semibold transition"
+                                                                style={{
+                                                                    borderColor: on ? "var(--accent)" : "var(--rule)",
+                                                                    background: "var(--surface)",
+                                                                    color: on ? "var(--accent)" : "var(--fg-2)",
+                                                                }}
+                                                            >
+                                                                {o.label}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {a2p.registrationPath === "sole-proprietor" && (
+                                                    <p style={helpText}>
+                                                        Sole-proprietor registration covers one number, and the
+                                                        authorized person below gets a verification code by text, so
+                                                        use a mobile they have to hand.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : null}
+
+                                        <div className="space-y-4">
+                                            <Field
+                                                label="Legal business name"
+                                                hint="Exactly as it appears on your IRS paperwork, character for character — including punctuation, “LLC”, and any comma. A near-miss is rejected and has to start over."
+                                            >
+                                                <input
+                                                    className={inputCls}
+                                                    value={a2p.legalBusinessName}
+                                                    onChange={(e) => setA2p((p) => ({ ...p, legalBusinessName: e.target.value }))}
+                                                    placeholder="e.g. Arthur's Plumbing LLC"
+                                                    autoComplete="off"
+                                                />
+                                            </Field>
+
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <Field label="Business type">
+                                                    <select
+                                                        className={`${inputCls} cursor-pointer`}
+                                                        value={a2p.businessType}
+                                                        onChange={(e) => setA2p((p) => ({ ...p, businessType: e.target.value }))}
+                                                    >
+                                                        <option value="">Choose…</option>
+                                                        {A2P_BUSINESS_TYPES.map((t) => (
+                                                            <option key={t.value} value={t.value}>{t.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </Field>
+                                                {/* A select, not a text field: the carriers take a fixed list, and
+                                                    a freeform answer fails the compliance check days later. The
+                                                    default comes from the trade picked earlier; none of the trades
+                                                    we sell has its own entry on Twilio's list, so it is a starting
+                                                    point the client can correct, not an answer. */}
+                                                <Field label="Industry" hint="Pre-filled from your trade. Change it if something fits better.">
+                                                    <select
+                                                        className={`${inputCls} cursor-pointer`}
+                                                        value={a2pEffectiveIndustry}
+                                                        onChange={(e) => setA2p((p) => ({ ...p, businessIndustry: e.target.value }))}
+                                                    >
+                                                        <option value="">Choose…</option>
+                                                        {A2P_BUSINESS_INDUSTRIES.map((i) => (
+                                                            <option key={i.value} value={i.value}>{i.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </Field>
+                                            </div>
+
+                                            {a2p.registrationPath === "ein" && (
+                                                <Field label="EIN" hint="Nine digits, as written on your EIN letter.">
+                                                    <input
+                                                        className={inputCls}
+                                                        value={a2p.ein}
+                                                        onChange={(e) => setA2p((p) => ({ ...p, ein: e.target.value }))}
+                                                        placeholder="12-3456789"
+                                                        inputMode="numeric"
+                                                        /* Never offer to remember it, and never let a password
+                                                           manager or the browser's autofill store store it. */
+                                                        autoComplete="off"
+                                                        spellCheck={false}
+                                                        data-1p-ignore
+                                                        data-lpignore="true"
+                                                    />
+                                                </Field>
+                                            )}
+
+                                            <Field label="Website" hint="Your current site, or the address your new one will live at.">
+                                                <input
+                                                    className={inputCls}
+                                                    value={a2pEffectiveWebsite}
+                                                    onChange={(e) => setA2p((p) => ({ ...p, websiteUrl: e.target.value }))}
+                                                    placeholder="https://…"
+                                                />
+                                            </Field>
+                                        </div>
+
+                                        {/* Five fields, not one. The intake already holds a freeform address,
+                                            and parsing it is how a mis-read state reaches the carriers — which
+                                            fails the compliance evaluation days later with no useful error. */}
+                                        <div className="space-y-3">
+                                            <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Registered business address</span>
+                                            <p style={helpText}>The address on your registration paperwork. It can differ from where you work from.</p>
+                                            <Field label="Street">
+                                                <input className={inputCls} value={a2p.street} onChange={(e) => setA2p((p) => ({ ...p, street: e.target.value }))} placeholder="1200 Main St, Suite 4" />
+                                            </Field>
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <Field label="City">
+                                                    <input className={inputCls} value={a2p.city} onChange={(e) => setA2p((p) => ({ ...p, city: e.target.value }))} placeholder="Orlando" />
+                                                </Field>
+                                                <Field label="State" hint="Two letters.">
+                                                    <input className={inputCls} value={a2p.region} onChange={(e) => setA2p((p) => ({ ...p, region: e.target.value }))} placeholder="FL" />
+                                                </Field>
+                                                <Field label="ZIP">
+                                                    <input className={inputCls} value={a2p.postalCode} onChange={(e) => setA2p((p) => ({ ...p, postalCode: e.target.value }))} placeholder="32801" />
+                                                </Field>
+                                                <Field label="Country">
+                                                    <input className={inputCls} value={a2p.country} onChange={(e) => setA2p((p) => ({ ...p, country: e.target.value }))} placeholder="US" />
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {/* The rep's own name, direct email and mobile get the same treatment
+                                            as the EIN: one request, nothing kept. */}
+                                        <div className="space-y-3">
+                                            <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Authorized person</span>
+                                            <p style={helpText}>
+                                                Someone who can speak for the business &mdash; usually you. Their own
+                                                email and mobile, not the business line, because the carriers
+                                                verify the person. We don&apos;t keep these either.
+                                            </p>
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <Field label="First name">
+                                                    <input className={inputCls} value={a2p.repFirstName} onChange={(e) => setA2p((p) => ({ ...p, repFirstName: e.target.value }))} autoComplete="off" />
+                                                </Field>
+                                                <Field label="Last name">
+                                                    <input className={inputCls} value={a2p.repLastName} onChange={(e) => setA2p((p) => ({ ...p, repLastName: e.target.value }))} autoComplete="off" />
+                                                </Field>
+                                                <Field label="Job title">
+                                                    <input className={inputCls} value={a2p.repBusinessTitle} onChange={(e) => setA2p((p) => ({ ...p, repBusinessTitle: e.target.value, repJobPosition: e.target.value }))} placeholder="Owner" />
+                                                </Field>
+                                                <Field label="Direct email">
+                                                    <input className={inputCls} value={a2p.repEmail} onChange={(e) => setA2p((p) => ({ ...p, repEmail: e.target.value }))} placeholder="you@example.com" autoComplete="off" />
+                                                </Field>
+                                                <Field label="Mobile" hint={a2p.registrationPath === "sole-proprietor" ? "A verification code is texted here." : undefined}>
+                                                    <input className={inputCls} value={a2p.repPhone} onChange={(e) => setA2p((p) => ({ ...p, repPhone: e.target.value }))} placeholder="+1 407 555 0123" autoComplete="off" />
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {a2pError && (
+                                            <div className="rounded-xl p-4 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
+                                                <p>{a2pError.message}</p>
+                                                {a2pError.fields.length > 0 && (
+                                                    /* Field names only — the server never sends a value back,
+                                                       and neither does this. */
+                                                    <p style={{ ...helpText, marginTop: 6 }}>Check: {a2pError.fields.join(", ")}</p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button type="button" className="btn primary" onClick={submitA2pIdentity} disabled={a2pSubmitting}>
+                                                {a2pSubmitting ? "Submitting…" : "Submit for registration"}
+                                            </button>
+                                            <span style={helpText}>
+                                                Sent once, to Twilio. Nothing on this screen is saved with the rest
+                                                of your answers, so leaving and coming back clears it.
+                                            </span>
+                                        </div>
+
+                                        <p style={helpText}>
+                                            You can carry on without this and send it to us later &mdash; the rest of
+                                            your build doesn&apos;t wait. Only texting your own customers does.
+                                        </p>
+                                    </>
                                 )}
                             </div>
                         )}
