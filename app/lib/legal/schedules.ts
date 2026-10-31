@@ -193,8 +193,10 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
 /**
  * The off-menu website-only plan, for a prospect who refuses to have AI on their phone line.
  *
- * **Never shown on public pricing.** It is a sales concession, and it is priced identically to
- * Starter on purpose so it is never the economically attractive choice.
+ * **Never priced or listed as a public tier.** It is a sales concession, priced identically to
+ * Starter on purpose so it is never the economically attractive choice. The pricing page
+ * acknowledges it only as an FAQ answer — "can I get the website without the receptionist?" —
+ * and never as a fourth card carrying a price.
  *
  * Deliberately not a member of `SCHEDULES`, and `slug` stays `"starter"`: `PlanSlug` is a
  * union consumed by the portal account record, the entitlement gate, metering and the console,

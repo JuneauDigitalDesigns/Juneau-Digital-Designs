@@ -105,6 +105,21 @@ const FAQS: { q: string; a: string }[] = [
         a: "No. The AI never answers before you do. A caller rings your real phone first, and only if nobody picks up does the AI step in. It is replacing your voicemail, not replacing you. Most people who call a business and reach a recording just hang up and call the next name on the list, so the comparison that matters isn't AI versus you, it's AI versus nobody.",
     },
     {
+        /**
+         * The web-only concession, acknowledged publicly for the first time.
+         *
+         * Deliberately an FAQ answer rather than a fourth card. Web-only is `plan: "starter"` with
+         * `receptionistMode: "declined"`, priced identically to Starter precisely so it is never
+         * the economically attractive choice (see `WEB_ONLY_SCHEDULE`). Putting it on the cards
+         * with a price would invite people to choose it to save money, which is backwards — there
+         * is no money to save, and the receptionist is where the value is. Answering it here means
+         * the prospect who asks gets a straight answer without the option being advertised to
+         * everyone who does not.
+         */
+        q: "Can I get the website without the AI receptionist?",
+        a: "Yes, though we'll try to talk you out of it. The receptionist is where most of the value is — it's what turns a missed call into a lead. If you'd rather not have AI on your line, we'll build and host the same site at the same price and leave your phone alone. It's not a cheaper plan; it's the same plan with a piece switched off.",
+    },
+    {
         q: "What happens if I go over my minutes?",
         a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close. On Starter especially, keep an eye on it: ${minutes("starter")} minutes is roughly twenty short calls, so a busy month can run past it.`, // MSA call volume section
     },
@@ -419,6 +434,9 @@ export default function PricingPageClient() {
                                     <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>
                                         {annual ? "/year" : "/month"}
                                     </span>
+                                    <span style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 6, marginLeft: 6 }}>
+                                        + {dollars(schedule.onboardingFee)} one-time setup
+                                    </span>
                                 </div>
                                 {annual && (
                                     <motion.p
@@ -524,9 +542,6 @@ export default function PricingPageClient() {
                                             ? "Start with Growth"
                                             : <><span className="show-desktop">Start with {tier.name}</span><span className="show-mobile">Start</span></>}
                                 </button>
-                                <p style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-3)", textAlign: "center" }}>
-                                    Setup fee: {dollars(schedule.onboardingFee)}
-                                </p>
                                 {checkoutError && loadingPlan === null && (
                                     <p style={{ marginTop: 10, fontSize: 12, color: "var(--accent-2)" }}>
                                         {checkoutError}

@@ -995,13 +995,13 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
           <div className="home-pricing-card">
             <div className="kicker">Starter</div>
             <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-            <p>A four-page site and a receptionist that answers the calls you miss, then texts you who called and why. Starter tells you.</p>
+            <p>A four-page site, plus a receptionist that answers the calls you miss and texts you who rang and what they wanted. You hear about every lead.</p>
           </div>
 
           <div className="home-pricing-card home-pricing-card--featured">
             <div className="kicker">Growth</div>
             <div className="home-pricing-price">${GROWTH_PRICE}<span>/mo</span></div>
-            <p>Everything in Starter, and it calls new web leads back in about a minute. Growth acts for you.</p>
+            <p>Everything in Starter &mdash; and it rings new web leads back inside a minute, before they try the next name on the list. It chases them for you.</p>
           </div>
 
           <div className="home-pricing-card home-pricing-card--muted">

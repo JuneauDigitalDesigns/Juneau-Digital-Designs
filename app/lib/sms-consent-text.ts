@@ -14,13 +14,27 @@
  * not against whatever the text says today.
  */
 
-export const SMS_CONSENT_TEXT_VERSION = "sms-consent-v1";
+/**
+ * v2 (2026-10-31) — scoped to the **account lane**.
+ *
+ * "about my own Juneau Digital Designs account" is doing real work, not padding. Once a client's
+ * portal can text that client's *own customers* (lead replies, review requests), there are two
+ * messaging programs with two registrants: JDD → the owner, under JDD's `ACCOUNT_NOTIFICATION`
+ * campaign, and the business → its customers, under the client's own `CUSTOMER_CARE`. This
+ * sentence must never be readable as consent for the second one — the client cannot grant consent
+ * on their customers' behalf, and JDD is not the registrant there. See `/sms-terms`, which this
+ * links to, for the full split.
+ *
+ * "new-lead alerts" is listed before anything sends them, deliberately. Consent has to predate the
+ * first message, so naming it now avoids a second bump and a re-consent run later.
+ */
+export const SMS_CONSENT_TEXT_VERSION = "sms-consent-v2";
 
 export const SMS_CONSENT_TEXT =
-  "Yes, text me call summaries and service alerts from Juneau Digital Designs at the mobile " +
-  "number above. Consent is not a condition of purchase. Message and data rates may apply. " +
-  "Message frequency varies based on call volume. Reply STOP to opt out, HELP for help. " +
-  "See SMS Terms and Privacy Policy.";
+  "Yes, text me call summaries, new-lead alerts, and service alerts about my own Juneau " +
+  "Digital Designs account at the mobile number above. Consent is not a condition of " +
+  "purchase. Message and data rates may apply. Message frequency varies based on call and " +
+  "lead volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.";
 
 /** Phrases inside SMS_CONSENT_TEXT that render as links. */
 export const SMS_CONSENT_LINKS = [
