@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import type { AgreementKind, PlanSlug } from "@/app/lib/agreement-types";
+import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
@@ -12,8 +12,24 @@ import TermsReader from "./TermsReader";
 
 interface Props {
     plan: PlanSlug;
+    /**
+     * Monthly or annual prepay, resolved server side from the query string.
+     *
+     * Carried through to checkout so the Session opens on the right recurring price. The
+     * agreement text itself does not vary: Schedule A quotes the monthly fee either way, and
+     * annual prepay is a billing arrangement rather than a different set of terms.
+     */
+    billingPeriod: "monthly" | "annual";
     sections: Section[];
     version: string;
+    /**
+     * The Website-Only terms, sent only for a Starter master. When the client picks "website
+     * only" the reader swaps to these instead of the standard Starter terms, so the document
+     * they scroll through matches the one the server hashes and the PDF renders. Absent on every
+     * other plan and on addenda.
+     */
+    webOnlySections?: Section[];
+    webOnlyVersion?: string;
     /**
      * Set when an existing client is moving up a tier. Signing is identical; only the step
      * after it differs — an upgrade modifies the subscription they already have rather than
@@ -50,10 +66,47 @@ interface Props {
 
 const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "Other"];
 
+/**
+ * The phone-handling options, worded to match the portal onboarding form so a client who sees
+ * both never meets two different explanations of the same choice. `declined` is Starter-only and
+ * filtered out below for Growth — those tiers have no website-only variant.
+ */
+const RECEPTIONIST_OPTIONS: {
+    id: ReceptionistMode;
+    pill: string;
+    heading: string;
+    detail: string;
+}[] = [
+    {
+        id: "forwarded",
+        pill: "Forward my number",
+        heading: "Forward my existing number",
+        detail:
+            "You keep the number you already advertise. We give you a number to forward to, and calls you do not pick up roll to your AI receptionist instead of voicemail. The number you enter below is the line that gets forwarded.",
+    },
+    {
+        id: "published",
+        pill: "Use a new number",
+        heading: "Use the new number we provide",
+        detail:
+            "We give you a number and you start using it: cards, truck, Google listing. Calls ring your phone first, and reach the receptionist only if you miss them.",
+    },
+    {
+        id: "declined",
+        pill: "Website only",
+        heading: "Website only, no receptionist",
+        detail:
+            "We build the site and skip the phone side entirely. Same price as Starter, and you can switch the receptionist on later with no extra onboarding fee.",
+    },
+];
+
 export default function AgreementClient({
     plan,
+    billingPeriod,
     sections,
     version,
+    webOnlySections,
+    webOnlyVersion,
     upgradeSlug = null,
     kind = "master",
     parentAgreementId,
@@ -75,11 +128,54 @@ export default function AgreementClient({
     const isStarter = plan === "starter";
     const sigRef = useRef<SignatureCanvasHandle>(null);
 
+    /**
+     * The phone-handling choice.
+     *
+     * Shown for a new Starter/Growth purchase. Hidden for Enterprise (per-site choice deferred
+     * to onboarding) and for upgrades (the client already has a phone setup). Starter offers all
+     * three options; Growth drops "website only", which is a Starter-only concession.
+     */
+    const showPhoneSection = !isEnterprise && !isUpgrade;
+    const phoneOptions = RECEPTIONIST_OPTIONS.filter((o) => plan === "starter" || o.id !== "declined");
+    const [receptionistMode, setReceptionistMode] = useState<ReceptionistMode | "">("");
+    const [forwardingNumber, setForwardingNumber] = useState("");
+
     // Signing is gated on reaching the end of the terms. Both timestamps go to
     // the server, which derives dwell time from them for the audit record.
     const [pageOpenedAt] = useState(() => new Date().toISOString());
     const [scrollCompletedAt, setScrollCompletedAt] = useState<string | null>(null);
     const hasReadTerms = scrollCompletedAt !== null;
+
+    /**
+     * Website-only swaps the whole document. The reader shows the Web-Only terms, the submit
+     * sends `declined`, and the server hashes and renders that variant — so the three can never
+     * describe different things. Guarded on `webOnlySections` being present (Starter master only).
+     */
+    const isWebOnly = plan === "starter" && receptionistMode === "declined" && !!webOnlySections;
+    const activeSections = isWebOnly && webOnlySections ? webOnlySections : sections;
+    const activeVersion = isWebOnly && webOnlyVersion ? webOnlyVersion : version;
+
+    /**
+     * A receptionist exists to text about when the client did not decline it. Enterprise and
+     * upgrades skip the phone section entirely but still carry a receptionist, so they fall
+     * through to `true`. This gates the optional call-alert SMS opt-in, replacing the stale
+     * pre-reprice check that hid it on all of Starter.
+     */
+    const hasReceptionist = showPhoneSection
+        ? receptionistMode === "forwarded" || receptionistMode === "published"
+        : true;
+
+    /**
+     * Switching into or out of website-only changes the terms on screen, so the client must read
+     * the document that now applies. Resetting the scroll gate re-locks the signature until they
+     * reach the end of it.
+     */
+    function chooseReceptionistMode(id: ReceptionistMode) {
+        const wasWebOnly = isWebOnly;
+        const willBeWebOnly = plan === "starter" && id === "declined" && !!webOnlySections;
+        if (wasWebOnly !== willBeWebOnly) setScrollCompletedAt(null);
+        setReceptionistMode(id);
+    }
 
     const handleTermsComplete = useCallback(() => {
         setScrollCompletedAt((prev) => prev ?? new Date().toISOString());
@@ -132,11 +228,26 @@ export default function AgreementClient({
             setError("Enterprise plan requires at least 2 site names.");
             return;
         }
+        // The phone choice is required wherever the section is shown, and a "forward" choice
+        // needs a number to forward. Mirrors the server's validation, which does not trust this.
+        if (showPhoneSection && !receptionistMode) {
+            setError("Please choose how your phone should be handled.");
+            return;
+        }
+        const normalizedForwarding =
+            receptionistMode === "forwarded" ? normalizeE164(forwardingNumber) : null;
+        if (receptionistMode === "forwarded" && !normalizedForwarding) {
+            setError("Enter the number you want forwarded to your receptionist.");
+            return;
+        }
+        // Consent only counts when a receptionist exists to text about: the opt-in is hidden once
+        // website-only is chosen, so a box ticked before that switch is discarded here.
+        const effectiveSmsConsent = hasReceptionist && smsConsent;
         // A checked box with no usable number is the one combination that must not pass:
         // it would record a consent pointing at nothing. An unchecked box discards whatever
         // was typed, so no number we have no permission to text is ever transmitted.
-        const alertPhone = smsConsent ? normalizeE164(form.alertPhone) : null;
-        if (smsConsent && !alertPhone) {
+        const alertPhone = effectiveSmsConsent ? normalizeE164(form.alertPhone) : null;
+        if (effectiveSmsConsent && !alertPhone) {
             setError(
                 "Enter a valid mobile number for call alerts, or uncheck the text alerts box.",
             );
@@ -166,6 +277,11 @@ export default function AgreementClient({
                     signatureDataUrl,
                     pageOpenedAt,
                     scrollCompletedAt,
+                    // The phone-handling choice and, for forwarding, the line to forward. Omitted
+                    // when the section wasn't shown (Enterprise, upgrades) so the record stays
+                    // absent rather than carrying an empty string.
+                    ...(receptionistMode ? { receptionistMode } : {}),
+                    ...(normalizedForwarding ? { forwardingNumber: normalizedForwarding } : {}),
                     // Omitted entirely when the box is unchecked, rather than sent as false
                     // with a number attached. Nothing to discard server-side if it never
                     // leaves the browser.
@@ -200,7 +316,7 @@ export default function AgreementClient({
                 // seconds after they signed.
                 if (!conRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved — please sign in and start the move again.",
+                        "Your session expired while signing. Your agreement is saved. Please sign in and start the move again.",
                     );
                 }
                 const conData = (await conRes.json()) as { url?: string; error?: string };
@@ -229,7 +345,7 @@ export default function AgreementClient({
                 // moments after they signed, so check what came back before trusting it.
                 if (!upRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved — please sign in and try the upgrade again.",
+                        "Your session expired while signing. Your agreement is saved. Please sign in and try the upgrade again.",
                     );
                 }
                 const upData = (await upRes.json()) as { ok?: boolean; error?: string };
@@ -243,7 +359,7 @@ export default function AgreementClient({
             const ckRes = await fetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan, agreement_id: sigData.agreement_id }),
+                body: JSON.stringify({ plan, agreement_id: sigData.agreement_id, period: billingPeriod }),
             });
             const ckData = (await ckRes.json()) as { url?: string; error?: string };
             if (!ckRes.ok || !ckData.url) {
@@ -274,8 +390,14 @@ export default function AgreementClient({
 
                 <form onSubmit={handleSubmit}>
                     {/* Agreement — must be read to the end before signing unlocks */}
-                    <Section title={`Agreement — ${version}`}>
-                        <TermsReader sections={sections} onComplete={handleTermsComplete} />
+                    <Section title={`Agreement, ${activeVersion}`}>
+                        {/* Keyed on the variant so switching to/from website-only remounts the
+                            reader, resetting its internal scroll tracking along with the gate. */}
+                        <TermsReader
+                            key={isWebOnly ? "web-only" : "standard"}
+                            sections={activeSections}
+                            onComplete={handleTermsComplete}
+                        />
                     </Section>
 
                     {/* Form */}
@@ -327,17 +449,6 @@ export default function AgreementClient({
                                 onChange={(v) => update("signerEmail", v)}
                                 required
                             />
-                            {!isStarter && (
-                                <Field
-                                    label="Mobile number for call alerts"
-                                    type="tel"
-                                    placeholder="(907) 555-0142"
-                                    value={form.alertPhone}
-                                    onChange={(v) => update("alertPhone", v)}
-                                    hint="Optional. Used only if you turn on call summary texts below."
-                                />
-                            )}
-
                             {isEnterprise && (
                                 <div
                                     style={{
@@ -347,7 +458,7 @@ export default function AgreementClient({
                                     }}
                                 >
                                     <div className="kicker" style={{ marginBottom: 12 }}>
-                                        ━ ENTERPRISE — SITE NAMES (UP TO 3)
+                                        ━ ENTERPRISE SITE NAMES (UP TO 3)
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                                         <Field
@@ -375,6 +486,92 @@ export default function AgreementClient({
                             )}
                         </div>
                     </Section>
+
+                    {/*
+                        Your phone — the required choice. Three pills on Starter (forward / new
+                        number / website only), two on Growth (no website-only). The shared box
+                        below restates the selected option, and picking "forward" reveals the
+                        line to forward. Hidden for Enterprise (deferred to onboarding) and
+                        upgrades (phone already set up).
+                    */}
+                    {showPhoneSection && (
+                        <Section title="Your phone">
+                            <p style={{ color: "var(--fg-2)", fontSize: 13.5, lineHeight: 1.6, marginBottom: 14 }}>
+                                Your AI receptionist needs a way to reach your calls. Choose how you want your
+                                phone handled{isStarter ? "" : " — this is required to continue"}.
+                            </p>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                                {phoneOptions.map((opt) => {
+                                    const on = receptionistMode === opt.id;
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => chooseReceptionistMode(opt.id)}
+                                            aria-pressed={on}
+                                            style={{
+                                                flex: "1 1 150px",
+                                                padding: "12px 16px",
+                                                borderRadius: 999,
+                                                border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`,
+                                                background: on ? "var(--accent)" : "var(--surface)",
+                                                color: on ? "var(--on-accent)" : "var(--fg)",
+                                                fontSize: 13.5,
+                                                fontWeight: 600,
+                                                cursor: "pointer",
+                                                transition: "background 150ms ease, color 150ms ease, border-color 150ms ease",
+                                            }}
+                                        >
+                                            {opt.pill}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Shared explanation box — copy follows the selected pill. */}
+                            <div
+                                style={{
+                                    background: "var(--surface)",
+                                    border: "1px solid var(--rule)",
+                                    borderLeft: "3px solid var(--accent)",
+                                    borderRadius: 10,
+                                    padding: "14px 16px",
+                                }}
+                            >
+                                {(() => {
+                                    const sel = phoneOptions.find((o) => o.id === receptionistMode);
+                                    return sel ? (
+                                        <>
+                                            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fg)", marginBottom: 4 }}>
+                                                {sel.heading}
+                                            </div>
+                                            <p style={{ margin: 0, fontSize: 13, color: "var(--fg-2)", lineHeight: 1.6 }}>
+                                                {sel.detail}
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <p style={{ margin: 0, fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
+                                            Pick an option above and we&apos;ll explain exactly what it means.
+                                        </p>
+                                    );
+                                })()}
+                            </div>
+
+                            {receptionistMode === "forwarded" && (
+                                <div style={{ marginTop: 16 }}>
+                                    <Field
+                                        label="Number to forward"
+                                        type="tel"
+                                        placeholder="(907) 555-0142"
+                                        value={forwardingNumber}
+                                        onChange={setForwardingNumber}
+                                        required
+                                        hint="This is the existing business line we'll forward to your receptionist."
+                                    />
+                                </div>
+                            )}
+                        </Section>
+                    )}
 
                     {/* Signature — locked until the terms have been read */}
                     <Section title="Signature">
@@ -435,29 +632,27 @@ export default function AgreementClient({
                         reads as bundled into it, which is exactly what "not a condition of
                         purchase" rules out. Nothing here touches the submit button.
                     */}
-                    <div style={{ marginTop: 16 }}>
-                        <div className="kicker" style={{ marginBottom: 10 }}>
-                            {/* No "OPTIONAL" on starter: there is nothing here to opt into. */}
-                            ━ {isStarter ? "CALL ALERT TEXTS" : "OPTIONAL · CALL ALERT TEXTS"}
-                        </div>
-                        {isStarter ? (
-                            // A statement, not a control. No checkbox, no border, nothing that
-                            // invites a click — the same treatment LockNote uses for copy whose
-                            // whole job is explaining why there is nothing to do here.
-                            <p
-                                style={{
-                                    margin: 0,
-                                    fontSize: 13.5,
-                                    color: "var(--fg-3)",
-                                    lineHeight: 1.55,
-                                }}
-                            >
-                                Call summary texts are part of the Growth and Enterprise plans.
-                                Starter does not include the AI receptionist, so there are no calls
-                                for us to text you about, and we will not send you text messages on
-                                this plan.
-                            </p>
-                        ) : (
+                    {/*
+                        Shown only when a receptionist exists to text about — i.e. not when
+                        website-only is chosen, and not before a phone choice is made on
+                        Starter/Growth. Replaces the old plan-based gate: every tier now includes
+                        the receptionist, so the one case with no calls is the website-only choice.
+                    */}
+                    {hasReceptionist && (
+                        <div style={{ marginTop: 16 }}>
+                            <div className="kicker" style={{ marginBottom: 10 }}>
+                                ━ OPTIONAL · CALL ALERT TEXTS
+                            </div>
+                            <div style={{ marginBottom: 12 }}>
+                                <Field
+                                    label="Mobile number for call alerts"
+                                    type="tel"
+                                    placeholder="(907) 555-0142"
+                                    value={form.alertPhone}
+                                    onChange={(v) => update("alertPhone", v)}
+                                    hint="Optional. Used only if you turn on call summary texts below."
+                                />
+                            </div>
                             <label
                                 style={{
                                     display: "flex",
@@ -508,8 +703,8 @@ export default function AgreementClient({
                                     )}
                                 </span>
                             </label>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                     {error && (
                         <div

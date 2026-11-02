@@ -20,21 +20,57 @@ import { useIsMobile } from "./useMediaQuery";
  * scroll lock, one focus-restore. Forking those per viewport is how a keyboard user ends up
  * trapped in a variant nobody tested.
  */
+/**
+ * Desktop widths. The mobile branch is always a full-width sheet, so this is desktop-only.
+ *
+ * `md` is the original 26rem and stays the default, so every existing caller is unaffected.
+ * The CRM needs more: `lg` for the inbox detail and `xl` for the two-column customer record,
+ * which has a details panel beside a full activity timeline.
+ */
+const WIDTH = {
+    md: "sm:w-[26rem]",   // 416px — the original
+    lg: "sm:w-[32.5rem]", // 520px — inbox detail
+    xl: "sm:w-[47.5rem]", // 760px — customer record, two columns
+} as const;
+
+export type DrawerWidth = keyof typeof WIDTH;
+
 export default function Drawer({
     open,
     onClose,
     title,
+    width = "md",
+    padded = true,
+    surface = "page",
     children,
 }: {
     open: boolean;
     onClose: () => void;
     title: string;
+    /** Desktop width. Mobile is always a full-width sheet. */
+    width?: DrawerWidth;
+    /**
+     * Whether to wrap children in the standard padding. Pass `false` for layouts that need to
+     * reach the panel edges — the customer record's two columns have their own padding and a
+     * full-height divider between them, which an outer gutter would break.
+     */
+    padded?: boolean;
+    /**
+     * Which surface the panel paints.
+     *
+     * `"page"` (default) is `--bg`, the page grey, so white `Card`s inside it lift — that is
+     * what every existing caller is built against. `"raised"` is `--elev-1` white, for the CRM
+     * panels whose own inner blocks are grey. Opt-in rather than a global flip: changing the
+     * default would make the existing drawers' white content cards invisible against it.
+     */
+    surface?: "page" | "raised";
     children: React.ReactNode;
 }) {
     const panelRef = useRef<HTMLDivElement>(null);
     const restoreFocusTo = useRef<HTMLElement | null>(null);
     const reduceMotion = useReducedMotion();
     const isMobile = useIsMobile();
+    const panelBg = surface === "raised" ? "var(--elev-1)" : "var(--bg)";
 
     // Esc to close, and trap Tab inside the panel while it's open.
     useEffect(() => {
@@ -129,17 +165,17 @@ export default function Drawer({
                         className={
                             isMobile
                                 ? "portal-sheet fixed inset-x-0 bottom-0 z-50 overflow-y-auto outline-none"
-                                : "fixed right-0 top-0 bottom-0 z-50 w-full sm:w-[26rem] overflow-y-auto outline-none"
+                                : `fixed right-0 top-0 bottom-0 z-50 w-full ${WIDTH[width]} max-w-full overflow-y-auto outline-none`
                         }
                         style={
                             isMobile
                                 ? {
-                                      background: "var(--bg)",
+                                      background: panelBg,
                                       borderTop: "1px solid var(--rule)",
                                       boxShadow: "var(--glass-shadow)",
                                   }
                                 : {
-                                      background: "var(--bg)",
+                                      background: panelBg,
                                       borderLeft: "1px solid var(--rule)",
                                       boxShadow: "var(--glass-shadow)",
                                   }
@@ -158,7 +194,7 @@ export default function Drawer({
                             className={`flex items-center justify-between gap-4 px-5 border-b sticky top-0 ${
                                 isMobile ? "pb-3 pt-1" : "py-4"
                             }`}
-                            style={{ borderColor: "var(--rule)", background: "var(--bg)" }}
+                            style={{ borderColor: "var(--rule)", background: panelBg }}
                         >
                             <h2
                                 className="text-base font-semibold truncate"
@@ -176,7 +212,7 @@ export default function Drawer({
                                 ✕
                             </button>
                         </div>
-                        <div className="px-5 py-5">{children}</div>
+                        {padded ? <div className="px-5 py-5">{children}</div> : children}
                     </motion.div>
                 </>
             )}

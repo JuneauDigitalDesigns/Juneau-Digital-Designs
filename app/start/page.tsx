@@ -26,6 +26,18 @@ export const dynamic = "force-dynamic";
 const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 
 /**
+ * Billing period, re-derived here rather than trusted from the query string.
+ *
+ * `/pricing` is static and anonymous, so anything it sends is a user-supplied string. Anything
+ * other than an exact "annual" falls back to monthly, which is the safe direction: the worst
+ * case is a client who wanted to prepay being billed monthly and telling us, rather than a
+ * tampered URL buying a year of service at a month's authorisation.
+ */
+function readPeriod(raw: string | undefined): "monthly" | "annual" {
+    return raw === "annual" ? "annual" : "monthly";
+}
+
+/**
  * The purchase gate. Everything on /pricing routes here, and nothing gets past it unsigned-in.
  *
  * This page exists because identity used to be established *after* payment, by whatever email
@@ -48,19 +60,22 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function StartPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string }>;
+    searchParams: Promise<{ plan?: string; period?: string }>;
 }) {
-    const { plan: rawPlan } = await searchParams;
+    const { plan: rawPlan, period: rawPeriod } = await searchParams;
     const plan: PlanSlug = VALID_PLANS.includes(rawPlan as PlanSlug)
         ? (rawPlan as PlanSlug)
         : "starter";
+    const period = readPeriod(rawPeriod);
 
     const { userId } = await auth();
     if (!userId) {
         // Sign-UP, not sign-in: most people arriving from /pricing do not have a login yet,
         // and the page offers a "already have an account?" link for the ones who do. The
         // return trip is validated on the way back out — see `safeRedirectPath`.
-        const back = encodeURIComponent(`/start?plan=${plan}`);
+        // The period rides along so a client who chose annual before signing up does not
+        // silently land back on monthly after authenticating.
+        const back = encodeURIComponent(`/start?plan=${plan}&period=${period}`);
         redirect(`/portal/sign-up?redirect_url=${back}`);
     }
 
@@ -102,7 +117,7 @@ export default async function StartPage({
     const master = account.masterAgreement ?? legacyMasterFrom(account.sites);
     const kind = masterNeedsResign(master, TERMS_VERSION, plan) ? "master" : "addendum";
 
-    redirect(`/agreement?plan=${plan}&kind=${kind}`);
+    redirect(`/agreement?plan=${plan}&kind=${kind}&period=${period}`);
 }
 
 /**

@@ -3,7 +3,7 @@ import { PDFDocument } from "pdf-lib";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
-import { getAddendumForPlan, getSchedule, getTermsForPlan, PROVIDER } from "./legal";
+import { getAddendumForPlan, getSchedule, getTermsForPlan, PROVIDER, WEB_ONLY_SCHEDULE } from "./legal";
 import { PdfDoc, renderSections } from "./legal/pdf-renderer";
 import type { AgreementSubmission, AgreementAudit } from "./agreement-types";
 
@@ -31,10 +31,18 @@ export async function generateSignedPdf(
    * instrument costs one branch instead of a second renderer.
    */
   const isAddendum = submission.kind === "addendum";
-  const schedule = getSchedule(submission.plan);
+  /**
+   * Website-only is a Starter-plan master choice. When the client declined the receptionist at
+   * signing, the executed PDF must describe the Website-Only schedule — the cover, Schedule A
+   * and the terms all have to say what they actually signed, not the standard Starter package.
+   * Scoped to the master: the addendum has no web-only variant.
+   */
+  const webOnly =
+    submission.receptionistMode === "declined" && submission.plan === "starter" && !isAddendum;
+  const schedule = webOnly ? WEB_ONLY_SCHEDULE : getSchedule(submission.plan);
   const { version, sections } = isAddendum
     ? getAddendumForPlan(schedule, { siteNames: submission.additionalSites })
-    : getTermsForPlan(submission.plan, { siteNames: submission.additionalSites });
+    : getTermsForPlan(submission.plan, { siteNames: submission.additionalSites, webOnly });
 
   const doc = await PdfDoc.create();
   const today = new Date().toLocaleDateString("en-US", {

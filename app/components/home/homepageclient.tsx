@@ -995,22 +995,19 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
           <div className="home-pricing-card">
             <div className="kicker">Starter</div>
             <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-            <p>Website only. Live in about a week, built to get you found and called.</p>
+            <p>A four-page site, plus a receptionist that answers the calls you miss and texts you who rang and what they wanted. You hear about every lead.</p>
           </div>
 
           <div className="home-pricing-card home-pricing-card--featured">
             <div className="kicker">Growth</div>
             <div className="home-pricing-price">${GROWTH_PRICE}<span>/mo</span></div>
-            <p>Website and the 24/7 receptionist. The whole system, month to month.</p>
+            <p>Everything in Starter &mdash; and it rings new web leads back inside a minute, before they try the next name on the list. It chases them for you.</p>
           </div>
 
           <div className="home-pricing-card home-pricing-card--muted">
             <div className="kicker">Enterprise</div>
             <div className="home-pricing-price">${ENTERPRISE_PRICE}<span>/mo</span></div>
-            <p>
-              Up to three sites, more call minutes.{" "}
-              <a href="/pricing">See what&apos;s included &rarr;</a>
-            </p>
+            <p>Up to three sites, each with its own receptionist and phone number. One call log, one monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
           </div>
         </div>
 

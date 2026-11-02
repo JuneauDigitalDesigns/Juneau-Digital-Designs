@@ -1,4 +1,4 @@
-import { PROVIDER, TERMS_VERSION } from "./terms-v4";
+import { PROVIDER, TERMS_VERSION } from "./terms-v5";
 import type { PlanSchedule, Section } from "./types";
 
 export const ADDENDUM_VERSION = "addendum-v1";
@@ -78,7 +78,7 @@ export function buildAddendumSections(
               text:
                 "The legal entity named in the signature block below contracts for this " +
                 "site. It need not be the same entity that signed the Master Services " +
-                "Agreement — a Client operating several businesses may hold sites under " +
+                "Agreement: a Client operating several businesses may hold sites under " +
                 "different entities. Each entity is responsible for the site it signs for.",
             },
           ],
@@ -95,8 +95,9 @@ export function buildAddendumSections(
           text:
             `This site is provided on the ${s.name} plan at ${money(s.monthlyPrice)} per ` +
             `month, covering ${s.siteLabel}.` +
+            // True for every tier since 2026-10-12, where previously only Starter reached it.
             (s.onboardingFee > 0
-              ? ` A one-time onboarding fee of ${money(s.onboardingFee)} applies to this site.`
+              ? ` A one-time onboarding fee of ${money(s.onboardingFee)} applies to this site and is charged when this Addendum is signed.`
               : ""),
         },
       ],
@@ -144,7 +145,7 @@ export function buildAddendumSections(
           kind: "para",
           text:
             `Except as stated in this Addendum, the Master Services Agreement (version ` +
-            `${TERMS_VERSION}) previously executed by Client governs this site in full — ` +
+            `${TERMS_VERSION}) previously executed by Client governs this site in full, ` +
             `including its terms on intellectual property, warranties, limitation of ` +
             `liability, dispute resolution and cancellation.`,
         },
@@ -168,11 +169,14 @@ export function buildAddendumSections(
           blocks: [
             {
               kind: "para",
+              // No notice period since 2026-10-12. This used to interpolate
+              // `cancellationNoticeDays`, which now renders as "0 days" and reads as nonsense.
               text:
-                `Either party may cancel this site on the notice period set out in the ` +
-                `Master Services Agreement (${s.cancellationNoticeDays} days for the ` +
-                `${s.name} plan). Cancelling this site does not cancel any other site on ` +
-                `the Client's account, and does not terminate the Master Services Agreement.`,
+                `Either party may cancel this site at any time, effective at the end of the ` +
+                `then-current monthly billing cycle. No notice period applies and no ` +
+                `early-termination charge is payable. Cancelling this site does not cancel ` +
+                `any other site on the Client's account, and does not terminate the Master ` +
+                `Services Agreement.`,
             },
           ],
         },

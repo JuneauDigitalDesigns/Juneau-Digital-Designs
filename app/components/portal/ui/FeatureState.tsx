@@ -1,9 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
 import type { FeatureAvailability, PortalFeature } from "@jdd/schema";
-import { SCHEDULES } from "@/app/lib/legal/schedules";
 
 /**
  * Explains why a panel has nothing to show.
@@ -21,13 +19,6 @@ type FeatureCopy = {
     whenLive: string;
     emptyTitle: string;
     emptyBody: string;
-    /**
-     * Only for features a plan can actually exclude. `calls` is the only one today — traffic
-     * and performance ship on every tier, so if their `not-on-plan` branch is ever reached it
-     * is a bug, and the generic panel is the honest thing to render rather than an invented
-     * pitch for a plan that would not fix it.
-     */
-    upsell?: { title: string; body: string; cta: string };
 };
 
 const COPY: Record<PortalFeature, FeatureCopy> = {
@@ -39,13 +30,6 @@ const COPY: Record<PortalFeature, FeatureCopy> = {
         emptyTitle: "No calls yet",
         emptyBody:
             "Your receptionist is live and listening. The first call it answers will appear here within a few minutes.",
-        upsell: {
-            title: "Call tracking comes with Growth",
-            // Price and allowance come from Schedule A so this upsell can never quote
-            // a client a number the agreement they'd sign contradicts.
-            body: `Growth adds an AI receptionist on its own business number — it answers the phone when you can't, and every call lands here with who rang, what they wanted, and how it was handled. $${SCHEDULES.growth.monthlyPrice} a month, including ${SCHEDULES.growth.callMinutes?.toLocaleString("en-US")} call minutes.`,
-            cta: "Upgrade to Growth",
-        },
     },
     traffic: {
         noun: "Traffic analytics",
@@ -61,50 +45,64 @@ const COPY: Record<PortalFeature, FeatureCopy> = {
         emptyTitle: "No score yet",
         emptyBody: "We run the first check within a day of your site going live.",
     },
+    leads: {
+        noun: "Your inbox",
+        whatItDoes:
+            "Every call your receptionist answers and every enquiry from your website, in one place.",
+        whenLive: "Calls and website enquiries will land here as they come in.",
+        emptyTitle: "Nothing yet",
+        emptyBody:
+            "When someone calls or fills in your website form, they'll show up here straight away.",
+    },
+    crm: {
+        noun: "Customers",
+        whatItDoes:
+            "Keep track of each customer from first enquiry to finished job, with notes, follow-ups and their full history.",
+        whenLive: "Customers you add from your inbox will appear here.",
+        emptyTitle: "No customers yet",
+        emptyBody:
+            "Open your inbox and tap “Promote to customer” on anyone you want to keep track of.",
+    },
+    messaging: {
+        noun: "Texting your customers",
+        whatItDoes:
+            "Text your customers from your business number, and ask happy ones for a Google review.",
+        whenLive: "You'll be able to message your customers from here.",
+        emptyTitle: "No messages yet",
+        emptyBody: "Your conversations with customers will appear here.",
+    },
 };
 
 export function FeatureState({
     feature,
     availability,
     ghost,
-    upgradeHref,
-    billingLinked = true,
 }: {
     feature: PortalFeature;
     availability: FeatureAvailability;
     /** Ghost preview to show under the message, when one fits the panel. */
     ghost?: ReactNode;
-    /**
-     * Where the upsell's primary action goes. Optional so the panel degrades to a plain
-     * "compare plans" link anywhere the caller has no site slug to upgrade.
-     */
-    upgradeHref?: string;
-    /**
-     * False when the site has no subscription on file, which makes a self-serve upgrade
-     * impossible. Defaults true so a caller that doesn't know (and therefore isn't offering
-     * an upgrade) is unaffected.
-     */
-    billingLinked?: boolean;
 }) {
     const copy = COPY[feature];
 
     if (availability.state === "not-on-plan") {
-        const upsell = copy.upsell;
-
-        // A live client should always have a subscription on file. When one doesn't, the
-        // upgrade cannot complete — and it used to fail only after they had signed a Growth
-        // agreement and been emailed a copy. Say something is wrong and point at us, rather
-        // than selling a change we can't deliver. No mention of Stripe or subscriptions:
-        // it's our plumbing, and the client can't act on it.
-        if (upsell && upgradeHref && !billingLinked) {
+        // Only a web-only site reaches this today — a Starter client who declined the
+        // receptionist at signing. Every plan has included the receptionist since the
+        // 2026-10-12 reprice, so this is "switch on a feature you skipped", not a paid tier
+        // upgrade: no plan name, no price, and a contact-us rather than the Starter→Growth
+        // flow, which would sell them a pricier plan to get something their own already
+        // includes. There is no self-serve toggle — enabling it is an ops action — so the
+        // one honest action is to reach us. traffic/performance ship on every tier and must
+        // never land here.
+        if (feature === "calls") {
             return (
                 <div className="space-y-6">
                     <Panel
-                        title="We need to sort something out first"
-                        body="There's a problem with your account setup that we need to fix before you can upgrade. Get in touch and we'll take care of it — it won't take long."
+                        title="Add your AI receptionist"
+                        body="Your plan includes an AI receptionist on a dedicated business number — it answers when you can't, and every call is logged here with who rang and what they wanted. You started website-only; just say the word and we'll switch it on."
                         action={
                             <a
-                                href="mailto:hello@juneaudigitaldesigns.com?subject=Upgrade%20to%20Growth"
+                                href="mailto:hello@juneaudigitaldesigns.com?subject=Add%20my%20AI%20receptionist"
                                 className="text-sm font-medium px-4 py-2.5 rounded-md transition-opacity hover:opacity-90"
                                 style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                             >
@@ -116,38 +114,11 @@ export function FeatureState({
                 </div>
             );
         }
+        // Defensive: traffic/performance have no plan that excludes them, so reaching this is
+        // a bug. Render the honest generic panel rather than an invented pitch.
         return (
             <div className="space-y-6">
-                <Panel
-                    title={upsell?.title ?? `${copy.noun} isn't part of your plan`}
-                    body={upsell?.body ?? copy.whatItDoes}
-                    action={
-                        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3">
-                            {upsell && upgradeHref && (
-                                // Not `.portal-interactive`: its hover repaints the surface
-                                // with `--elev-2`, which is written for neutral cards and
-                                // would fight an accent fill.
-                                <Link
-                                    href={upgradeHref}
-                                    className="text-sm font-medium px-4 py-2.5 rounded-md transition-opacity hover:opacity-90"
-                                    style={{
-                                        background: "var(--accent)",
-                                        color: "var(--on-accent)",
-                                    }}
-                                >
-                                    {upsell.cta}
-                                </Link>
-                            )}
-                            <Link
-                                href="/pricing"
-                                className="text-sm underline underline-offset-4"
-                                style={{ color: "var(--fg-2)" }}
-                            >
-                                Compare plans
-                            </Link>
-                        </div>
-                    }
-                />
+                <Panel title={`${copy.noun} isn't part of your plan`} body={copy.whatItDoes} />
                 {ghost}
             </div>
         );
@@ -162,6 +133,19 @@ export function FeatureState({
                 />
                 {ghost}
             </div>
+        );
+    }
+
+    // Messaging's `connecting` is a different wait from everyone else's. It is the client's own
+    // A2P 10DLC registration sitting with the carriers — 13–20 business days, not "a day or two"
+    // — so quoting the generic timescale would turn a normal wait into a support ticket on day
+    // three. Calls, leads and the CRM are all unaffected, and saying so is the point.
+    if (availability.state === "connecting" && feature === "messaging") {
+        return (
+            <Panel
+                title="Texting turns on soon"
+                body="Your business registration is with the phone carriers — it usually takes about two more weeks. Your calls, leads and customers are all unaffected, and we'll switch this on automatically."
+            />
         );
     }
 

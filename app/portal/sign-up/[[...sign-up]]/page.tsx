@@ -53,8 +53,8 @@ export default async function PortalSignUpPage({
                             <li className="flex gap-3">
                                 <span aria-hidden style={{ color: "var(--accent-2)" }}>—</span>
                                 <span style={{ color: "var(--fg-2)" }}>
-                                    <strong style={{ color: "var(--fg)" }}>Growth plan: AI call logs</strong>
-                                    {" "}— review every call your assistant handles.
+                                    <strong style={{ color: "var(--fg)" }}>AI call logs</strong>
+                                    {" "}— review every call your receptionist handles.
                                 </span>
                             </li>
                         </ul>

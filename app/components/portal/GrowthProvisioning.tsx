@@ -7,7 +7,7 @@ import { StatusDot } from "./ui/StatusDot";
  * What a client sees between paying for Growth and their receptionist actually existing.
  *
  * The upgrade charges immediately; the number, the AI agent and the call log are created
- * out of band by `onboard.js`. That gap used to be invisible — a client paid $297 and the
+ * out of band by `onboard.js`. That gap used to be invisible: a client paid and the
  * portal looked identical, which is the complaint this answers. The `?upgraded=1` banner
  * covered the first pageview only and vanished on the next navigation; this persists until
  * the work is genuinely finished.
@@ -45,9 +45,9 @@ export function GrowthProvisioning({
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}
                 >
                     {justUpgraded
-                        ? `Thanks — your agreement is signed and your billing is updated. `
+                        ? `Thanks. Your agreement is signed and your billing is updated. `
                         : `You're on ${planLabel} and your billing is updated. `}
-                    We&rsquo;re putting your AI receptionist together now — that&rsquo;s a
+                    We&rsquo;re putting your AI receptionist together now, and that&rsquo;s a
                     dedicated business number, an agent trained on your services, and the call log
                     below. It usually takes a day or two, and there&rsquo;s nothing you need to do.
                     We&rsquo;ll email you the number as soon as it&rsquo;s live.
@@ -62,7 +62,7 @@ export function GrowthProvisioning({
                 />
                 <Step
                     label="Building your receptionist"
-                    detail="Business number and AI agent — we'll email you the number"
+                    detail="Business number and AI agent, we'll email you the number"
                     state="active"
                 />
                 <Step
@@ -137,16 +137,19 @@ function CheckMark() {
 }
 
 /**
- * Is this site mid-Growth-provisioning?
+ * Is this site's receptionist still being set up?
  *
- * Derived, not stored: a paid tier whose call feature hasn't reached `ready` is by definition
- * still being set up. `siteFeature` resolves calls to `pending-build` while the site is
- * building or `connecting` once it's live without an `airtableBaseId` — either way the work
- * is outstanding.
+ * Derived, not stored, and deliberately **tier-agnostic**: every plan includes a receptionist
+ * since the 2026-10-12 reprice, so "provisioning" is purely whether the calls feature has
+ * reached `ready`. `siteFeature` resolves calls to `pending-build` while the site is building
+ * or `connecting` once it's live without an `airtableBaseId` — either way the work is
+ * outstanding. A web-only site (receptionist declined) resolves to `not-on-plan` and correctly
+ * returns false here.
+ *
+ * This used to gate on `plan === "growth" || "enterprise"`, which hid this tracker from a
+ * Starter client whose receptionist was mid-setup — exactly the client who most needs to see
+ * it. The plan union no longer decides receptionist entitlement; `siteFeature` does.
  */
-export function isProvisioningGrowth(
-    site: PortalSiteProps,
-    calls: FeatureAvailability,
-): boolean {
-    return (site.plan === "growth" || site.plan === "enterprise") && calls.state !== "ready";
+export function isProvisioningReceptionist(calls: FeatureAvailability): boolean {
+    return calls.state === "pending-build" || calls.state === "connecting";
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowRight } from "@phosphor-icons/react";
 import type { PortalSiteProps } from "@/app/portal/types";
-import { tabHref, upgradeHref } from "@/app/portal/types";
+import { tabHref } from "@/app/portal/types";
 import type { OverviewData, RecentCall } from "@/app/lib/portal-overview";
 import type { TrafficData } from "@/app/lib/portal-traffic";
 import type { BillingSummary } from "@/app/lib/portal-billing-summary";
@@ -66,8 +66,6 @@ export function OverviewMetrics({
             <FeatureState
                 feature="calls"
                 availability={{ state: data.state }}
-                upgradeHref={upgradeHref(site.slug)}
-                billingLinked={site.billingLinked}
             />
         );
     }

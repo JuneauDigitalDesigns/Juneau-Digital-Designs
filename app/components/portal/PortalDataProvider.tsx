@@ -44,6 +44,8 @@ export const CLIENT_TTL = {
     traffic: 3_600_000,
     performance: 86_400_000,
     billing: 43_200_000,
+    /** Support threads should feel live right after a client posts or replies. */
+    tickets: 60_000,
 } as const;
 
 interface Entry {

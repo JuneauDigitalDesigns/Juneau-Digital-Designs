@@ -78,7 +78,7 @@ export async function POST(request: Request) {
 
     // The confirm field must match the site's business name (case-insensitive).
     if (typeof confirm !== "string" || confirm.trim().toLowerCase() !== siteName.toLowerCase()) {
-        return NextResponse.json({ error: "Business name does not match — cancellation blocked" }, { status: 422 });
+        return NextResponse.json({ error: "Business name does not match, so cancellation is blocked" }, { status: 422 });
     }
 
     // ── Resolve the Stripe subscription ──────────────────────────────────────
@@ -114,7 +114,19 @@ export async function POST(request: Request) {
     // ── Compute the cancel_at boundary ───────────────────────────────────────
 
     const plan = ctx.site.plan as PortalPlan;
-    const noticeDays = SCHEDULES[plan]?.cancellationNoticeDays ?? 30;
+    /**
+     * Zero on every plan since 2026-10-12: month to month, no minimum term.
+     *
+     * The arithmetic below degenerates correctly rather than needing to change. At 0 the
+     * target is now, so `firstBoundaryAtOrAfter` returns the end of the period the client has
+     * already paid for, which is exactly the contracted behaviour.
+     *
+     * The fallback is 0, not 30. A `?? 30` would reintroduce a 30-day notice period for any
+     * plan slug this lookup failed to resolve, which is the one direction the mistake is
+     * expensive: it would bill a cancelling client for a month the agreement does not entitle
+     * us to.
+     */
+    const noticeDays = SCHEDULES[plan]?.cancellationNoticeDays ?? 0;
 
     let sub: Awaited<ReturnType<typeof stripe.subscriptions.retrieve>>;
     try {
@@ -193,7 +205,7 @@ export async function POST(request: Request) {
 
         const opsHtml = brandedEmailHtml({
             title: "Cancellation Request",
-            subtitle: `${siteName} — ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
+            subtitle: `${siteName}, ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
             body: `
                 <p style="margin:0 0 16px;color:${EMAIL.ink};">
                     <strong>${siteName}</strong> (${ctx.account.email}) has requested cancellation via the portal.
@@ -227,7 +239,7 @@ export async function POST(request: Request) {
         await resend.emails.send({
             from: fromEmail,
             to: [toEmail],
-            subject: `[JDD] Cancellation request — ${siteName}`,
+            subject: `[JDD] Cancellation request: ${siteName}`,
             html: opsHtml,
         }).catch((e: unknown) => {
             console.error("[portal/cancel] ops notification failed", e);
@@ -265,7 +277,7 @@ export async function POST(request: Request) {
         await resend.emails.send({
             from: fromEmail,
             to: [ctx.account.email],
-            subject: `Your cancellation request — ${siteName}`,
+            subject: `Your cancellation request: ${siteName}`,
             html: clientHtml,
         }).catch((e: unknown) => {
             console.error("[portal/cancel] client receipt failed", e);

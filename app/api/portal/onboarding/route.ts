@@ -120,6 +120,21 @@ export async function POST(request: Request) {
             ? (rawPlan as PlanSlug)
             : site.plan;
 
+        /**
+         * The activation choice, narrowed against the three valid values.
+         *
+         * Anything unrecognised becomes `undefined`, meaning "not asked", rather than being
+         * coerced to one of the options. That is the safe direction: provisioning refuses to
+         * run without a stated choice, so a bad value stalls a build and gets noticed, whereas
+         * a coerced one silently either buys a phone number nobody wanted or withholds one the
+         * client paid for.
+         */
+        const rawReceptionist = sanitize(body.receptionistMode, 20);
+        const receptionistMode =
+            rawReceptionist === "forwarded" || rawReceptionist === "published" || rawReceptionist === "declined"
+                ? rawReceptionist
+                : undefined;
+
         const brandName = sanitize(body.brandName, 160);
         const brandShort = sanitize(body.brandShort, 80);
         const email = sanitize(body.email, 160) || site.signerEmail || "";
@@ -189,6 +204,9 @@ export async function POST(request: Request) {
 
         const submission: BrandIntakeSubmission = {
             selectedPlan,
+            // Carried onto the Intake envelope by the mapper, which is what onboard.js reads to
+            // decide whether this client gets a phone number and an agent at all.
+            ...(receptionistMode ? { receptionistMode } : {}),
             brandName,
             brandShort,
             email,
@@ -266,6 +284,23 @@ export async function POST(request: Request) {
                 plan: selectedPlan,
                 status: "building",
                 onboardingCompletedAt: Date.now(),
+                /**
+                 * The activation choice, recorded on the site the moment it is made.
+                 *
+                 * Written here rather than left to provisioning because this is the only point
+                 * the client's own answer is in hand, and three separate things read it later:
+                 * the portal (a declined site has no call log and must say so rather than
+                 * showing a tab that can never load), metering (a declined site must never be
+                 * billed for minutes), and onboard.js (which decides whether to buy a phone
+                 * number at all).
+                 *
+                 * Spread conditionally, so a submission from a pre-activation-step draft leaves
+                 * the field absent rather than writing `undefined` over it. Absent means "not
+                 * yet asked" everywhere downstream, and must never be read as "declined".
+                 */
+                ...(receptionistMode
+                    ? { receptionistMode, receptionistChoiceAt: Date.now() }
+                    : {}),
             });
         } catch (e) {
             console.error("[portal/onboarding] completeSiteOnboarding failed", account.email, e);

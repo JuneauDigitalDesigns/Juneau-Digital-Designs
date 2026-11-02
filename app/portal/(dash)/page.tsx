@@ -5,7 +5,7 @@ import { HealthStrip } from "@/app/components/portal/HealthStrip";
 import { BuildProgress } from "@/app/components/portal/BuildProgress";
 import {
     GrowthProvisioning,
-    isProvisioningGrowth,
+    isProvisioningReceptionist,
 } from "@/app/components/portal/GrowthProvisioning";
 import {
     OverviewMetrics,
@@ -73,10 +73,11 @@ export default async function OverviewPage({
     // on for another day or two.
     const justUpgraded = upgraded === "1";
 
-    // A paid tier whose call feature isn't ready yet is mid-provisioning. Derived rather than
-    // stored — see `isProvisioningGrowth`. Renders alongside the build tracker when a site is
-    // both building and upgraded: two independent tracks, not one merged timeline.
-    const provisioningGrowth = isProvisioningGrowth(site, site.features.calls);
+    // A site whose receptionist isn't ready yet is mid-provisioning, on any tier. Derived
+    // rather than stored — see `isProvisioningReceptionist`. Renders alongside the build
+    // tracker when a site is both building and setting up: two independent tracks, not one
+    // merged timeline.
+    const provisioningGrowth = isProvisioningReceptionist(site.features.calls);
 
     return (
         <div className="space-y-6" key={site.slug}>
@@ -148,7 +149,6 @@ async function HealthBlock({
             score={score}
             slug={site.slug}
             calls={site.features.calls}
-            billingLinked={site.billingLinked}
         />
     );
 }

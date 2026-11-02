@@ -17,11 +17,22 @@ import type {
   AgreementRecord,
   AgreementSubmission,
   PlanSlug,
+  ReceptionistMode,
 } from "@/app/lib/agreement-types";
 
 export const runtime = "nodejs";
 
 const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
+const VALID_RECEPTIONIST_MODES: ReceptionistMode[] = ["forwarded", "published", "declined"];
+
+/**
+ * A master Starter agreement where the client declined the receptionist — the one case that
+ * is signed against the Website-Only schedule rather than the standard plan terms. Centralised
+ * so the hash, the PDF, and any future reader cannot disagree about what "web-only" means.
+ */
+function isWebOnlyMaster(body: AgreementSubmission): boolean {
+  return body.kind !== "addendum" && body.plan === "starter" && body.receptionistMode === "declined";
+}
 
 export async function POST(req: Request) {
   let body: AgreementSubmission;
@@ -49,8 +60,11 @@ export async function POST(req: Request) {
     // the client computed for itself.
     dwellMs: Math.max(0, signedAt.getTime() - openedAt.getTime()),
     // Hash the document that was actually shown. Signing an addendum and recording the
-    // master's hash would attest to words the client never saw.
-    termsHash: isAddendum ? hashAddendumForPlan(body.plan) : hashTermsForPlan(body.plan),
+    // master's hash would attest to words the client never saw — and a Starter client who
+    // chose website-only saw the Web-Only schedule, so the hash has to cover that variant too.
+    termsHash: isAddendum
+      ? hashAddendumForPlan(body.plan)
+      : hashTermsForPlan(body.plan, { webOnly: isWebOnlyMaster(body) }),
   };
 
   let pdfBytes: Uint8Array;
@@ -84,6 +98,11 @@ export async function POST(req: Request) {
     signerTitle: body.signerTitle,
     signerEmail: body.signerEmail,
     additionalSites: body.additionalSites,
+    // The phone-handling choice, carried onto the record so the Stripe webhook can tailor the
+    // welcome email and the pending site can prefill the onboarding form from it. Omitted
+    // rather than written as undefined when absent (Enterprise, upgrades, legacy links).
+    ...(body.receptionistMode ? { receptionistMode: body.receptionistMode } : {}),
+    ...(body.forwardingNumber ? { forwardingNumber: body.forwardingNumber.trim() } : {}),
     pdfUrl,
     audit,
     // The addendum carries its own version. Stamping TERMS_VERSION on it would make a
@@ -230,13 +249,34 @@ function validate(body: AgreementSubmission): string | null {
     const sites = (body.additionalSites || []).filter(nonEmpty);
     if (sites.length < 2) return "Enterprise requires at least 2 site names";
   }
-  // Starter has no AI receptionist and no Twilio number, so nothing on that plan can ever
-  // send a call summary. The form no longer offers the box, which is exactly why this check
-  // belongs here: the server must not rely on the UI to enforce a plan boundary. Ordered
-  // before the phone check so a well-formed number on starter still fails, and fails for
-  // the real reason.
-  if (body.smsConsent && body.plan === "starter") {
-    return "Call alert texts are not available on the Starter plan";
+  // Phone handling. Captured at signing for a new Starter/Growth purchase, so the welcome
+  // email can speak to the client's actual choice and the onboarding form opens prefilled.
+  // Skipped for upgrades (the client already has a phone setup) and for Enterprise (the
+  // per-site choice is deferred to the onboarding form). The UI enforces this too; the server
+  // must not trust it to.
+  const needsPhoneChoice = !body.upgradeSlug && (body.plan === "starter" || body.plan === "growth");
+  if (body.receptionistMode && !VALID_RECEPTIONIST_MODES.includes(body.receptionistMode)) {
+    return "Invalid phone option";
+  }
+  if (needsPhoneChoice && !body.receptionistMode) {
+    return "Please choose how your phone should be handled";
+  }
+  // Website-only is a Starter concession, not a Growth or Enterprise option: those are
+  // receptionist plans with no web-only schedule to sign against.
+  if (body.receptionistMode === "declined" && body.plan !== "starter") {
+    return "Website-only is only available on the Starter plan";
+  }
+  // Forwarding needs a number to forward from. A choice of "forward" with nothing to forward
+  // is not a usable instruction.
+  if (body.receptionistMode === "forwarded" && !normalizeE164(body.forwardingNumber)) {
+    return "A valid number to forward is required";
+  }
+
+  // A website-only site produces no calls, so there is nothing to text a summary about.
+  // Replaces the old Starter-wide block: since the 2026-10-12 reprice every plan includes the
+  // receptionist, and the one case with no calls is the website-only choice, not the tier.
+  if (body.smsConsent && body.receptionistMode === "declined") {
+    return "Call alert texts require a receptionist";
   }
   // Consent without a reachable number is not consent to anything. Checked in the UI too,
   // but a record claiming permission to text an unparseable string is worse than no record.

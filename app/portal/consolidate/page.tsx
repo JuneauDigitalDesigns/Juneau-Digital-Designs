@@ -70,7 +70,7 @@ export default async function ConsolidatePage() {
                             style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)", fontSize: 15 }}
                         >
                             Nothing goes offline. Your sites, phone numbers and receptionists keep
-                            running exactly as they are — only the billing changes, and you keep
+                            running exactly as they are. Only the billing changes, and you keep
                             room for {enterprise.maxSites - absorbing.length} more{" "}
                             {enterprise.maxSites - absorbing.length === 1 ? "site" : "sites"}.
                         </p>

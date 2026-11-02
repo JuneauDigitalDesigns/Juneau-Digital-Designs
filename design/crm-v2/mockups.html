@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM v2 — M1–M3 mockups (rev 2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@500,700,800,900&display=swap" rel="stylesheet">
+<style>
+  /* ── exact .portal-scope tokens ───────────────────────────────────────── */
+  :root{
+    --bg:#f6f7f9; --elev-1:#fff; --fg:#0d1117; --fg-2:#4a5058; --fg-3:#767c85;
+    --accent:#2563eb; --accent-hover:#1d4ed8; --on-accent:#fff;
+    --rule:rgba(13,17,23,.09); --rule-weak:rgba(13,17,23,.05); --rule-strong:rgba(13,17,23,.18);
+    --surface:rgba(13,17,23,.04); --elev-border:rgba(13,17,23,.09);
+    --shadow-1:0 1px 2px rgba(13,17,23,.04);
+    --shadow-2:0 1px 2px rgba(13,17,23,.05),0 8px 24px -8px rgba(13,17,23,.12);
+    --pos:#16a34a; --neg:#dc2626; --warn:#d97706; --neutral:#94a3b8; --purple:#7c3aed;
+    --brand-band:#f8ebd5; --agency-coral:#d2542f;
+    --fd:'Cabinet Grotesk','Inter',system-ui,sans-serif;
+    --fb:'Inter',system-ui,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9ebef;color:var(--fg);font-family:var(--fb);font-size:14px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{font-family:var(--fd);letter-spacing:-.011em;margin:0;font-weight:800;line-height:1.15}
+  .mono{font-family:var(--fm)}
+
+  /* scaffolding */
+  .bar{background:#0d1117;color:#e6e8eb;font-family:var(--fm);font-size:12px;padding:10px 20px}
+  .bar b{color:#9db8ff}
+  .tabs{display:flex;gap:2px;background:#0d1117;padding:0 14px 12px;flex-wrap:wrap}
+  .tabs button{border:0;background:rgba(255,255,255,.08);color:#c6cad1;font-family:var(--fm);font-size:11.5px;
+    padding:8px 14px;border-radius:7px 7px 0 0;cursor:pointer}
+  .tabs button.on{background:#f6f7f9;color:#0d1117;font-weight:500}
+  .pane{display:none}.pane.on{display:block}
+  .note{background:#fffbe6;border-left:3px solid var(--warn);padding:10px 16px;font-size:12.5px;color:#4a5058;margin:0}
+
+  /* ── shell ── */
+  /* min-width matters: the drawers are absolutely positioned at 520/760px, so without a floor
+     the stage squashes and the drawer covers the list entirely. Scroll instead of collapse. */
+  .shell{display:grid;grid-template-columns:248px 1fr;min-height:820px;background:var(--bg);min-width:1280px}
+  .rail{background:#fff;border-right:1px solid var(--rule);display:flex;flex-direction:column}
+  .brand-band{background:var(--brand-band);padding:15px 18px;display:flex;align-items:center;gap:11px}
+  .jdd{font-family:var(--fd);font-weight:900;font-size:27px;letter-spacing:-.03em;line-height:.9}
+  .jdd em{font-style:normal;color:var(--agency-coral)}
+  .jddname{font-family:var(--fd);font-weight:700;font-size:12px;line-height:1.08}
+  .jddname b{color:var(--agency-coral)}
+  .rail-in{padding:18px 14px 0;display:flex;flex-direction:column;gap:16px;flex:1}
+  .rlabel{font-family:var(--fm);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3)}
+  .sname{font-family:var(--fd);font-weight:800;font-size:19px;letter-spacing:-.015em}
+  .shost{font-family:var(--fm);font-size:11px;color:var(--fg-3);margin-top:3px}
+  .plan{display:inline-block;margin-top:10px;font-family:var(--fm);font-size:10.5px;padding:2px 9px;
+    border-radius:999px;border:1px solid var(--rule-strong);color:var(--fg-2)}
+  nav{display:flex;flex-direction:column;gap:2px}
+  nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--fg-2);
+    text-decoration:none;font-size:13.5px;font-weight:500;cursor:pointer}
+  nav a .ic{width:16px;height:16px;flex:0 0 16px;color:var(--fg-3)}
+  nav a.on{background:var(--surface);color:var(--fg);font-weight:600}
+  nav a.on .ic{color:var(--accent)}
+  nav a .ct{margin-left:auto;font-family:var(--fm);font-size:10px;background:var(--accent);color:#fff;
+    border-radius:999px;padding:1px 6px}
+  .rfoot{margin-top:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .help{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;border:1px solid var(--rule-strong);
+    background:#fff;color:var(--fg-2);font-size:13px;cursor:pointer}
+  .urow{display:flex;align-items:center;gap:9px}
+  .av{width:25px;height:25px;border-radius:999px;background:#2a2f37;color:#fff;display:flex;align-items:center;
+    justify-content:center;font-size:11px;font-weight:600}
+  .uem{font-size:12px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ── stage ── */
+  .stage{padding:30px 34px;min-width:0}
+  .phead{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .phead h1{font-size:30px;letter-spacing:-.02em}
+  .pmeta{font-family:var(--fm);font-size:11.5px;color:var(--fg-3);margin-top:6px}
+  .card{background:#fff;border:1px solid var(--elev-border);border-radius:12px;box-shadow:var(--shadow-1)}
+  .seg{display:inline-flex;border:1px solid var(--rule-strong);border-radius:8px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:transparent;padding:7px 14px;font-family:var(--fm);font-size:11px;
+    text-transform:uppercase;letter-spacing:.03em;color:var(--fg-3);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .chip{border:1px solid var(--rule-strong);background:#fff;border-radius:8px;padding:7px 12px;font-size:12.5px;
+    color:var(--fg-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip .n{font-family:var(--fm);font-size:10.5px;opacity:.75}
+  .search{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--rule-strong);
+    border-radius:8px;padding:7px 11px;min-width:250px}
+  .search input{border:0;background:transparent;outline:none;font-family:var(--fb);font-size:13px;width:100%}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;
+    padding:12px 18px;border-radius:9px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+  .btn.ghost{background:#fff;color:var(--fg-2);border-color:var(--rule-strong)}
+  .btn.sm{padding:8px 13px;font-size:12.5px}
+  .btn.block{width:100%}
+  .tag{font-family:var(--fm);font-size:10.5px;padding:2px 8px;border-radius:999px;background:var(--surface);color:var(--fg-2)}
+  .tag.blue{background:rgba(37,99,235,.09);color:var(--accent)}
+  .tag.green{background:rgba(22,163,74,.1);color:var(--pos)}
+
+  /* ══ INBOX LIST — flat single-line rows, read like an email inbox ══ */
+  .ilist{display:flex;flex-direction:column}
+  .irow{display:flex;align-items:center;gap:13px;padding:14px 18px;border-bottom:1px solid var(--rule);cursor:pointer}
+  .irow:last-child{border-bottom:0}
+  .irow:hover{background:var(--surface)}
+  .irow.sel{background:rgba(37,99,235,.045);box-shadow:inset 3px 0 0 var(--accent)}
+  .idot{width:7px;height:7px;border-radius:999px;flex:0 0 7px;background:transparent}
+  .irow.is-unread .idot{background:var(--accent)}
+  .iav{width:30px;height:30px;border-radius:8px;flex:0 0 30px;display:flex;align-items:center;justify-content:center;
+    background:var(--surface);color:var(--fg-3)}
+  .iav.blue{background:rgba(37,99,235,.1);color:var(--accent)}
+  .iname{font-weight:600;font-size:14px;flex:0 0 auto;width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .irow.is-unread .iname{font-weight:700}
+  .isnip{flex:1;min-width:0;font-size:13px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .irow.is-unread .isnip{color:var(--fg-2)}
+  .itags{display:flex;gap:6px;flex:0 0 auto}
+  .itime{font-family:var(--fm);font-size:11px;color:var(--fg-3);white-space:nowrap;flex:0 0 auto;width:72px;text-align:right}
+
+  /* ══ DRAWER (shared by Inbox + Customers) ══ */
+  .scrim{position:relative}
+  .dim{position:absolute;inset:0;background:rgba(13,17,23,.16);border-radius:12px}
+  .drawer{position:absolute;top:0;right:0;bottom:0;background:#fff;border-left:1px solid var(--rule);
+    box-shadow:-12px 0 38px -14px rgba(13,17,23,.24);display:flex;flex-direction:column;border-radius:0 12px 12px 0}
+  .drawer.w520{width:520px}
+  .drawer.w760{width:760px}
+  .dhead{padding:22px 26px 18px;border-bottom:1px solid var(--rule);display:flex;align-items:flex-start;gap:14px}
+  .dhead h3{font-size:22px}
+  .dhsub{font-family:var(--fm);font-size:11px;color:var(--fg-3);margin-top:6px}
+  .dx{color:var(--fg-3);cursor:pointer;font-size:19px;line-height:1}
+  .dbody{padding:26px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:26px}
+  .dfoot{padding:18px 26px;border-top:1px solid var(--rule);background:var(--bg)}
+  .sec{display:flex;flex-direction:column;gap:11px}
+  .slabel{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.11em;color:var(--fg-3)}
+  .quote{background:var(--bg);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;font-size:14px;
+    line-height:1.6;color:var(--fg)}
+  .rec{display:flex;align-items:center;gap:10px;margin-top:12px;padding:9px 12px;background:#fff;
+    border:1px solid var(--rule-strong);border-radius:8px;font-family:var(--fm);font-size:11px;color:var(--fg-3)}
+  .facts{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px}
+  .fact .k{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--fg-3);margin-bottom:4px}
+  .fact .v{font-size:14px;color:var(--fg)}
+  .fact .v.link{color:var(--accent)}
+  /* small event list inside the inbox drawer */
+  .evs{display:flex;flex-direction:column;gap:2px}
+  .evr{display:flex;gap:12px;align-items:flex-start;padding:10px 0}
+  .evic{width:26px;height:26px;border-radius:999px;flex:0 0 26px;display:flex;align-items:center;justify-content:center;
+    background:var(--surface);color:var(--fg-3)}
+  .evic.green{background:rgba(22,163,74,.1);color:var(--pos)}
+  .evt{flex:1;font-size:13.5px}
+  .evt .s{font-size:12.5px;color:var(--fg-3);margin-top:3px;line-height:1.5}
+  .evm{font-family:var(--fm);font-size:10.5px;color:var(--fg-3);white-space:nowrap;padding-top:4px}
+
+  /* ══ BOARD (unchanged — approved) ══ */
+  .board{display:flex;gap:11px;align-items:flex-start;overflow-x:auto;padding-bottom:6px}
+  .col{flex:1 1 0;min-width:168px}
+  .col.collapsed{flex:0 0 58px;min-width:58px}
+  .chead{display:flex;align-items:center;gap:7px;padding:0 3px 10px}
+  .cdot{width:8px;height:8px;border-radius:999px;flex:0 0 8px}
+  .cname{font-family:var(--fd);font-weight:700;font-size:14px}
+  .cct{margin-left:auto;font-family:var(--fm);font-size:10.5px;color:var(--fg-3)}
+  .cbody{display:flex;flex-direction:column;gap:8px;min-height:40px}
+  .cc{background:#fff;border:1px solid var(--elev-border);border-radius:10px;padding:11px 12px;box-shadow:var(--shadow-1);cursor:grab}
+  .cc:hover{box-shadow:var(--shadow-2)}
+  .cc.sel{outline:1.5px solid var(--accent);outline-offset:-1.5px;box-shadow:var(--shadow-2)}
+  .ccn{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px}
+  .stale{width:7px;height:7px;border-radius:999px;background:var(--warn);flex:0 0 7px}
+  .ubadge{margin-left:auto;background:var(--accent);color:#fff;font-family:var(--fm);font-size:9.5px;
+    border-radius:999px;padding:1px 5px}
+  .ccp{font-family:var(--fm);font-size:11.5px;color:var(--fg-2);margin-top:3px}
+  .cctags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+  .ccnote{font-size:12px;color:var(--fg-3);margin-top:8px;padding-left:8px;border-left:2px solid var(--rule);line-height:1.45}
+  .colv{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--fd);font-weight:700;font-size:13px;
+    color:var(--fg-2);padding:10px 0}
+  .ccol{background:#fff;border:1px solid var(--elev-border);border-radius:10px;display:flex;flex-direction:column;
+    align-items:center;gap:7px;padding:10px 0;box-shadow:var(--shadow-1);cursor:pointer}
+  .ccol .n{font-family:var(--fm);font-size:11px;color:var(--fg-3)}
+  .empty{border:1px dashed var(--rule-strong);border-radius:10px;padding:18px 10px;text-align:center;
+    font-size:12px;color:var(--fg-3)}
+
+  /* ══ M3 customer drawer — roomy two-column ══ */
+  .dcols{display:grid;grid-template-columns:320px 1fr;flex:1;min-height:0}
+  .dleft{padding:24px;border-right:1px solid var(--rule);overflow:auto;display:flex;flex-direction:column;gap:0}
+  .blk{padding:20px 0;border-bottom:1px solid var(--rule-weak)}
+  .blk:first-child{padding-top:0}
+  .blk:last-child{border-bottom:0}
+  .stages{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .st{font-family:var(--fm);font-size:10.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--rule-strong);
+    color:var(--fg-2);cursor:pointer;background:#fff;display:inline-flex;align-items:center;gap:5px}
+  .st.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .st .d{width:6px;height:6px;border-radius:999px}
+  .frow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;font-size:13.5px}
+  .frow .k{color:var(--fg-3);font-size:12.5px}
+  .frow .v{text-align:right}
+  .inp{width:100%;background:var(--bg);border:1px solid var(--rule-strong);border-radius:8px;padding:9px 11px;
+    font-family:var(--fb);font-size:13.5px;color:var(--fg);margin-top:10px;resize:vertical}
+  .task{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:8px 0}
+  .task .box{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--rule-strong);flex:0 0 15px}
+  .task .due{margin-left:auto;font-family:var(--fm);font-size:10.5px;color:var(--warn)}
+  .addlink{font-size:12.5px;color:var(--accent);cursor:pointer;padding-top:8px;display:inline-block}
+  .file{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--fg-2);padding:7px 0}
+  .dright{display:flex;flex-direction:column;min-height:0}
+  .dtabs{display:flex;gap:5px;padding:16px 24px 13px;border-bottom:1px solid var(--rule);align-items:center}
+  .dtab{font-family:var(--fm);font-size:11px;padding:5px 11px;border-radius:999px;border:1px solid var(--rule-strong);
+    color:var(--fg-2);cursor:pointer;background:#fff}
+  .dtab.on{background:var(--fg);border-color:var(--fg);color:#fff}
+  .tl{padding:8px 24px 20px;overflow:auto;flex:1}
+  .day{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.11em;color:var(--fg-3);
+    margin:20px 0 10px;display:flex;align-items:center;gap:10px}
+  .day:first-child{margin-top:8px}
+  .day:after{content:"";height:1px;background:var(--rule);flex:1}
+  .ev{display:flex;gap:12px;padding:11px 0;align-items:flex-start}
+  .eic{width:26px;height:26px;border-radius:999px;flex:0 0 26px;display:flex;align-items:center;justify-content:center;
+    background:var(--surface);color:var(--fg-3)}
+  .eic.blue{background:rgba(37,99,235,.1);color:var(--accent)}
+  .eic.green{background:rgba(22,163,74,.1);color:var(--pos)}
+  .etx{flex:1;min-width:0;font-size:13.5px;padding-top:3px;line-height:1.45}
+  .esub{font-size:12.5px;color:var(--fg-3);margin-top:4px;line-height:1.5}
+  .etm{font-family:var(--fm);font-size:10.5px;color:var(--fg-3);white-space:nowrap;padding-top:5px}
+  .expand{margin:4px 0 6px 38px;background:var(--bg);border:1px solid var(--rule);border-radius:10px;padding:15px 16px}
+  .expand p{margin:0;font-size:13.5px;line-height:1.6;color:var(--fg-2)}
+  .more{margin:2px 0 6px 38px;font-size:12.5px;color:var(--accent);cursor:pointer}
+  .pend{background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.28);border-radius:9px;padding:12px 14px;
+    font-size:12.5px;color:var(--fg-2);line-height:1.5}
+
+  /* ══ M6 — Starter upsell ══ */
+  /* exact .portal-ghost treatment from globals.css:2999 */
+  .ghost{position:relative;border:1px dashed var(--rule-strong);border-radius:8px;padding:16px;
+    background-image:repeating-linear-gradient(45deg,transparent,transparent 7px,
+      rgba(13,17,23,.06) 7px,rgba(13,17,23,.06) 8px)}
+  .ghost > *{opacity:.55}
+  .gbanner{display:flex;align-items:flex-start;gap:9px;border-radius:7px;padding:10px 13px;font-size:13px;
+    background:rgba(37,99,235,.11);border:1px solid rgba(37,99,235,.38);color:var(--fg);margin-bottom:12px}
+  .gbanner b{color:var(--accent)}
+  .upsell{background:#fff;border:1px solid var(--elev-border);border-radius:14px;padding:30px 34px;
+    box-shadow:var(--shadow-1);margin-bottom:22px;display:flex;gap:30px;align-items:center;flex-wrap:wrap}
+  .upsell h2{font-size:26px;letter-spacing:-.02em;margin-bottom:9px}
+  .upsell p{margin:0;font-size:14.5px;color:var(--fg-2);line-height:1.6;max-width:56ch}
+  .ubul{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+  .ubul div{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--fg-2)}
+  .ubul .ck{width:18px;height:18px;border-radius:999px;flex:0 0 18px;background:rgba(22,163,74,.12);
+    color:var(--pos);display:flex;align-items:center;justify-content:center}
+  .uact{display:flex;flex-direction:column;gap:10px;min-width:260px}
+  .lockchip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fm);font-size:10.5px;
+    padding:3px 10px;border-radius:999px;background:var(--surface);color:var(--fg-2);margin-left:10px;
+    vertical-align:middle}
+  /* showcase spotlight */
+  .shot{position:relative;border-radius:12px;overflow:hidden}
+  .shotdim{position:absolute;inset:0;background:rgba(13,17,23,.55);border-radius:12px}
+  .cut{position:absolute;border-radius:10px;box-shadow:0 0 0 9999px rgba(13,17,23,.55);
+    border:2px solid var(--accent)}
+  .pop{position:absolute;background:#fff;border-radius:12px;padding:18px 18px 14px;width:310px;
+    box-shadow:0 1px 2px rgba(13,17,23,.05),0 10px 30px -8px rgba(13,17,23,.3)}
+  .pop h4{font-size:17px;margin-bottom:6px}
+  .pop p{margin:0;font-size:13.5px;line-height:1.55;color:var(--fg-2)}
+  .popf{display:flex;align-items:center;gap:8px;margin-top:14px}
+  .popf .pg{font-family:var(--fm);font-size:10.5px;color:var(--fg-3);margin-right:auto}
+  .pbtn{font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:7px;border:1px solid var(--accent);
+    background:var(--accent);color:#fff;cursor:pointer}
+  .pbtn.g{background:#fff;color:var(--fg-2);border-color:var(--rule-strong)}
+</style>
+</head>
+<body>
+
+<div class="bar">CRM v2 mockups · <b>rev 5</b> — fixed a CSS collision where the board's <span class="mono">.unread</span> badge was styling whole inbox rows as blue pills. Row modifier is now <span class="mono">.is-unread</span>; badge is <span class="mono">.ubadge</span>.</div>
+<div class="tabs">
+  <button class="on" onclick="go(0,this)">M1a · Inbox list</button>
+  <button onclick="go(1,this)">M1b · Inbox + drawer</button>
+  <button onclick="go(2,this)">M1c · Inbox (Starter)</button>
+  <button onclick="go(3,this)">M2 · Customers board</button>
+  <button onclick="go(4,this)">M3 · Customer drawer</button>
+  <button onclick="go(5,this)">M6a · Starter — Customers locked</button>
+  <button onclick="go(6,this)">M6b · Growth showcase</button>
+</div>
+
+<!-- ══════════ M1 — INBOX (GROWTH) ══════════ -->
+<div class="pane on">
+<p class="note"><b>M1a — Inbox list (Growth).</b> Nothing but the list. Flat single-line rows that read like an email inbox: unread dot, source icon, name, snippet, source tag, time. No previews, no inline expansion. Janet's row carries both tags because her form submission and the receptionist's callback collapse into one entry.</p>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand-band"><div class="jdd">J<em>D</em>D</div><div class="jddname"><b>Juneau</b><br>Digital<br>Designs</div></div>
+    <div class="rail-in">
+      <div class="rlabel">Client Portal</div>
+      <div><div class="sname">Oakline Plumbing</div><div class="shost">oaklineplumbing.com ↗</div><div class="plan">Growth</div></div>
+      <nav>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 72a32 32 0 1 1-32 32 32 32 0 0 1 32-32Z"/></svg>Overview</a>
+        <a class="on"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg>Inbox<span class="ct">3</span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71ZM40 108a44 44 0 1 1 44 44 44.05 44.05 0 0 1-44-44Z"/></svg>Customers<span class="ct">2</span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M232 208a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8V48a8 8 0 0 1 16 0v94.37L90.73 98a8 8 0 0 1 10.07-.38l58.81 44.11L218.73 90a8 8 0 1 1 10.54 12l-64 56a8 8 0 0 1-10.07.38L96.39 114.29 40 163.63V200h184a8 8 0 0 1 8 8Z"/></svg>Traffic</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M207.06 72.67A111.24 111.24 0 0 0 128 40C66.07 40.21 16 91 16 153.13V176a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16v-24Z"/></svg>Performance</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 48H32V64h192ZM32 192v-64h192v64Z"/></svg>Billing</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Z"/></svg>Settings</a>
+      </nav>
+      <div class="rfoot">
+        <div class="help"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 168a12 12 0 1 1 12-12 12 12 0 0 1-12 12Zm8-48.72V152a8 8 0 0 1-16 0v-8a8 8 0 0 1 8-8c13.23 0 24-9 24-20s-10.77-20-24-20-24 9-24 20v4a8 8 0 0 1-16 0v-4c0-19.85 17.94-36 40-36s40 16.15 40 36c0 17.38-13.76 31.93-32 35.28Z"/></svg>Help &amp; tour</div>
+        <div class="urow"><div class="av">M</div><span class="uem">mike@oaklineplumbing.com</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="phead">
+      <div><h1>Inbox</h1><div class="pmeta">3 new · 48 this period · updated 2 min ago</div></div>
+      <div class="seg"><button class="on">All</button><button>Unread</button><button>Calls</button><button>Forms</button></div>
+    </div>
+
+    <div class="chips" style="margin-bottom:18px">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" style="color:var(--fg-3);flex:0 0 14px"><path d="M229.66 218.34 179.6 168.28a88.21 88.21 0 1 0-11.32 11.32l50.06 50.06a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg>
+        <input placeholder="Search name, number, or message…">
+      </div>
+      <span class="chip">Not yet promoted <span class="n">3</span></span>
+      <span class="chip">Hide promoted</span>
+    </div>
+
+    <div>
+      <div class="card ilist">
+        <div class="irow is-unread">
+          <span class="idot"></span>
+          <span class="iav blue"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+          <span class="iname">Sarah Delgado</span>
+          <span class="isnip">Burst pipe under the kitchen sink — water everywhere. Can someone come today?</span>
+          <span class="itags"><span class="tag">Web form</span></span>
+          <span class="itime">11 min</span>
+        </div>
+
+        <!-- the collapsed form+callback pair -->
+        <div class="irow is-unread">
+          <span class="idot"></span>
+          <span class="iav blue"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+          <span class="iname">Janet Osei</span>
+          <span class="isnip">Water heater is making a loud banging noise, want a quote to replace it</span>
+          <span class="itags"><span class="tag">Web form</span><span class="tag green">☎ 2m 41s</span></span>
+          <span class="itime">42 min</span>
+        </div>
+
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname">Tom Richter</span>
+          <span class="isnip">Asked about drain cleaning pricing for a rental property. Said he'd call back.</span>
+          <span class="itags"><span class="tag">Call · 1m 48s</span></span>
+          <span class="itime">Yesterday</span>
+        </div>
+
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname">Ellen Park</span>
+          <span class="isnip">Water heater install — scheduled for the 24th, confirmed address.</span>
+          <span class="itags"><span class="tag">Call · 4m 02s</span><span class="tag green">✓ Promoted</span></span>
+          <span class="itime">Oct 22</span>
+        </div>
+
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname" style="color:var(--fg-3)">Unknown caller</span>
+          <span class="isnip">Hung up after 8 seconds — no message left.</span>
+          <span class="itags"><span class="tag">Call · 0m 08s</span></span>
+          <span class="itime">Oct 22</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ══════════ M1b — INBOX + DRAWER ══════════ -->
+<div class="pane">
+<p class="note"><b>M1b — Inbox with the detail drawer open.</b> Same list; clicking Janet's row slides in the <b>520px drawer</b>. The list stays visible and in place behind it — that's the reason this is a drawer rather than a modal.</p>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand-band"><div class="jdd">J<em>D</em>D</div><div class="jddname"><b>Juneau</b><br>Digital<br>Designs</div></div>
+    <div class="rail-in">
+      <div class="rlabel">Client Portal</div>
+      <div><div class="sname">Oakline Plumbing</div><div class="shost">oaklineplumbing.com ↗</div><div class="plan">Growth</div></div>
+      <nav>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 72a32 32 0 1 1-32 32 32 32 0 0 1 32-32Z"/></svg>Overview</a>
+        <a class="on"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg>Inbox<span class="ct">3</span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71ZM40 108a44 44 0 1 1 44 44 44.05 44.05 0 0 1-44-44Z"/></svg>Customers<span class="ct">2</span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M232 208a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8V48a8 8 0 0 1 16 0v94.37L90.73 98a8 8 0 0 1 10.07-.38l58.81 44.11L218.73 90a8 8 0 1 1 10.54 12l-64 56a8 8 0 0 1-10.07.38L96.39 114.29 40 163.63V200h184a8 8 0 0 1 8 8Z"/></svg>Traffic</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M207.06 72.67A111.24 111.24 0 0 0 128 40C66.07 40.21 16 91 16 153.13V176a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16v-24Z"/></svg>Performance</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 48H32V64h192ZM32 192v-64h192v64Z"/></svg>Billing</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Z"/></svg>Settings</a>
+      </nav>
+      <div class="rfoot">
+        <div class="help"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 168a12 12 0 1 1 12-12 12 12 0 0 1-12 12Z"/></svg>Help &amp; tour</div>
+        <div class="urow"><div class="av">M</div><span class="uem">mike@oaklineplumbing.com</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="phead">
+      <div><h1>Inbox</h1><div class="pmeta">3 new · 48 this period · updated 2 min ago</div></div>
+      <div class="seg"><button class="on">All</button><button>Unread</button><button>Calls</button><button>Forms</button></div>
+    </div>
+
+    <div class="chips" style="margin-bottom:18px">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" style="color:var(--fg-3);flex:0 0 14px"><path d="M229.66 218.34 179.6 168.28a88.21 88.21 0 1 0-11.32 11.32l50.06 50.06a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg>
+        <input placeholder="Search name, number, or message…">
+      </div>
+      <span class="chip">Not yet promoted <span class="n">3</span></span>
+    </div>
+
+    <div class="scrim" style="min-height:600px">
+      <div class="card ilist">
+        <div class="irow is-unread">
+          <span class="idot"></span>
+          <span class="iav blue"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+          <span class="iname">Sarah Delgado</span>
+          <span class="isnip">Burst pipe under the kitchen sink — water everywhere. Can someone come today?</span>
+          <span class="itags"><span class="tag">Web form</span></span>
+          <span class="itime">11 min</span>
+        </div>
+        <div class="irow is-unread sel">
+          <span class="idot"></span>
+          <span class="iav blue"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+          <span class="iname">Janet Osei</span>
+          <span class="isnip">Water heater is making a loud banging noise, want a quote to replace it</span>
+          <span class="itags"><span class="tag">Web form</span><span class="tag green">☎ 2m 41s</span></span>
+          <span class="itime">42 min</span>
+        </div>
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname">Tom Richter</span>
+          <span class="isnip">Asked about drain cleaning pricing for a rental property. Said he'd call back.</span>
+          <span class="itags"><span class="tag">Call · 1m 48s</span></span>
+          <span class="itime">Yesterday</span>
+        </div>
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname">Ellen Park</span>
+          <span class="isnip">Water heater install — scheduled for the 24th, confirmed address.</span>
+          <span class="itags"><span class="tag">Call · 4m 02s</span><span class="tag green">✓ Promoted</span></span>
+          <span class="itime">Oct 22</span>
+        </div>
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname" style="color:var(--fg-3)">Unknown caller</span>
+          <span class="isnip">Hung up after 8 seconds — no message left.</span>
+          <span class="itags"><span class="tag">Call · 0m 08s</span></span>
+          <span class="itime">Oct 22</span>
+        </div>
+      </div>
+      <div class="dim"></div>
+
+      <aside class="drawer w520">
+        <div class="dhead">
+          <div style="flex:1">
+            <h3>Janet Osei</h3>
+            <div class="dhsub">Today, 2:14 PM · web form</div>
+          </div>
+          <span class="dx">✕</span>
+        </div>
+
+        <div class="dbody">
+          <div class="sec">
+            <div class="slabel">What they asked for</div>
+            <div class="quote">“Water heater is making a loud banging noise, want a quote to replace it. Works days, best to call after 5pm.”</div>
+          </div>
+
+          <div class="sec">
+            <div class="slabel">What happened next</div>
+            <div class="evs">
+              <div class="evr">
+                <span class="evic green"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+                <div class="evt">Your receptionist called her back
+                  <div class="s">Confirmed a 50-gallon gas unit, roughly 11 years old. Wants a written quote before scheduling. Mentioned a small leak at the base.</div>
+                  <div class="rec"><svg width="11" height="11" viewBox="0 0 256 256" fill="currentColor"><path d="M72 39.88v176.24L26.26 128Z"/></svg>0:00 / 2:41 — recording</div>
+                </div>
+                <span class="evm">2:41</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sec">
+            <div class="slabel">Contact details</div>
+            <div class="facts">
+              <div class="fact"><div class="k">Phone</div><div class="v link">(907) 555-0120</div></div>
+              <div class="fact"><div class="k">Email</div><div class="v link">janet.o@email.com</div></div>
+              <div class="fact"><div class="k">Source</div><div class="v">Website form</div></div>
+              <div class="fact"><div class="k">Received</div><div class="v">Today, 2:14 PM</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dfoot">
+          <button class="btn block"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M136 120h80a8 8 0 0 1 0 16h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0Z"/></svg>Promote to customer</button>
+          <p style="font-size:11.5px;color:var(--fg-3);margin:9px 0 0;text-align:center;line-height:1.45">Creates a customer record with this enquiry and the call already attached.</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ══════════ M1c — INBOX (STARTER) ══════════ -->
+<div class="pane">
+<p class="note"><b>M1c — Inbox (Starter).</b> Same list + drawer. The drawer's footer action is <b>Call them back</b> instead of Promote, and Customers is locked in the rail.</p>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand-band"><div class="jdd">J<em>D</em>D</div><div class="jddname"><b>Juneau</b><br>Digital<br>Designs</div></div>
+    <div class="rail-in">
+      <div class="rlabel">Client Portal</div>
+      <div><div class="sname">Birch Lane Lawn</div><div class="shost">birchlanelawn.com ↗</div><div class="plan">Starter</div></div>
+      <nav>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 72a32 32 0 1 1-32 32 32 32 0 0 1 32-32Z"/></svg>Overview</a>
+        <a class="on"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg>Inbox<span class="ct">2</span></a>
+        <a style="color:var(--fg-3)"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71Z"/></svg>Customers
+          <span style="margin-left:auto;color:var(--fg-3)"><svg width="11" height="11" viewBox="0 0 256 256" fill="currentColor"><path d="M208 80h-32V56a48 48 0 0 0-96 0v24H48a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16ZM96 56a32 32 0 0 1 64 0v24H96Z"/></svg></span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M232 208a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8V48a8 8 0 0 1 16 0v94.37L90.73 98a8 8 0 0 1 10.07-.38l58.81 44.11L218.73 90a8 8 0 1 1 10.54 12l-64 56a8 8 0 0 1-10.07.38L96.39 114.29 40 163.63V200h184a8 8 0 0 1 8 8Z"/></svg>Traffic</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M207.06 72.67A111.24 111.24 0 0 0 128 40C66.07 40.21 16 91 16 153.13V176a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16v-24Z"/></svg>Performance</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 48H32V64h192ZM32 192v-64h192v64Z"/></svg>Billing</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Z"/></svg>Settings</a>
+      </nav>
+      <div class="rfoot">
+        <div class="help"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 168a12 12 0 1 1 12-12 12 12 0 0 1-12 12Z"/></svg>Help &amp; tour</div>
+        <div class="urow"><div class="av">D</div><span class="uem">dave@birchlanelawn.com</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="phead">
+      <div><h1>Inbox</h1><div class="pmeta">2 new · 19 this period · updated 5 min ago</div></div>
+      <div class="seg"><button class="on">All</button><button>Unread</button><button>Calls</button><button>Forms</button></div>
+    </div>
+
+    <div class="chips" style="margin-bottom:18px">
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" style="color:var(--fg-3);flex:0 0 14px"><path d="M229.66 218.34 179.6 168.28a88.21 88.21 0 1 0-11.32 11.32l50.06 50.06a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg>
+        <input placeholder="Search name, number, or message…">
+      </div>
+    </div>
+
+    <div class="scrim" style="min-height:560px">
+      <div class="card ilist">
+        <div class="irow is-unread sel">
+          <span class="idot"></span>
+          <span class="iav blue"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+          <span class="iname">Marcus Webb</span>
+          <span class="isnip">Looking for a weekly mow on a corner lot, about a quarter acre. What do you charge?</span>
+          <span class="itags"><span class="tag">Web form</span></span>
+          <span class="itime">24 min</span>
+        </div>
+
+        <div class="irow is-unread">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+          <span class="iname">Priya Nair</span>
+          <span class="isnip">Asked about spring cleanup and mulch delivery. Wants a callback this week.</span>
+          <span class="itags"><span class="tag">Call · 2m 09s</span></span>
+          <span class="itime">3 hours</span>
+        </div>
+
+        <div class="irow">
+          <span class="idot"></span>
+          <span class="iav"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+          <span class="iname">Carl Jensen</span>
+          <span class="isnip">Do you do leaf removal in the fall? Half-acre yard with a lot of oaks.</span>
+          <span class="itags"><span class="tag">Web form</span></span>
+          <span class="itime">Yesterday</span>
+        </div>
+      </div>
+      <div class="dim"></div>
+
+      <aside class="drawer w520">
+        <div class="dhead">
+          <div style="flex:1">
+            <h3>Marcus Webb</h3>
+            <div class="dhsub">Today, 1:52 PM · web form</div>
+          </div>
+          <span class="dx">✕</span>
+        </div>
+
+        <div class="dbody">
+          <div class="sec">
+            <div class="slabel">What they asked for</div>
+            <div class="quote">“Looking for a weekly mow on a corner lot, about a quarter acre. What do you charge? Prefer mornings.”</div>
+          </div>
+
+          <div class="sec">
+            <div class="slabel">Contact details</div>
+            <div class="facts">
+              <div class="fact"><div class="k">Phone</div><div class="v link">(907) 555-0111</div></div>
+              <div class="fact"><div class="k">Email</div><div class="v link">m.webb@email.com</div></div>
+              <div class="fact"><div class="k">Source</div><div class="v">Website form</div></div>
+              <div class="fact"><div class="k">Received</div><div class="v">Today, 1:52 PM</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dfoot">
+          <a href="tel:+19075550111" class="btn block" style="text-decoration:none"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg>Call them back</a>
+          <p style="font-size:11.5px;color:var(--fg-3);margin:9px 0 0;text-align:center;line-height:1.45">Customer records and follow-up texting come with Growth.</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ══════════ M2 — BOARD (unchanged) ══════════ -->
+<div class="pane">
+<p class="note"><b>M2 — Customers board.</b> Unchanged from rev 1 — approved.</p>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand-band"><div class="jdd">J<em>D</em>D</div><div class="jddname"><b>Juneau</b><br>Digital<br>Designs</div></div>
+    <div class="rail-in">
+      <div class="rlabel">Client Portal</div>
+      <div><div class="sname">Oakline Plumbing</div><div class="shost">oaklineplumbing.com ↗</div><div class="plan">Growth</div></div>
+      <nav>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Z"/></svg>Overview</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg>Inbox<span class="ct">3</span></a>
+        <a class="on"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71ZM40 108a44 44 0 1 1 44 44 44.05 44.05 0 0 1-44-44Z"/></svg>Customers<span class="ct">2</span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M232 208a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8V48a8 8 0 0 1 16 0v94.37L90.73 98Z"/></svg>Traffic</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M207.06 72.67A111.24 111.24 0 0 0 128 40C66.07 40.21 16 91 16 153.13V176a16 16 0 0 0 16 16h192Z"/></svg>Performance</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Z"/></svg>Billing</a>
+      </nav>
+      <div class="rfoot">
+        <div class="help"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Z"/></svg>Help &amp; tour</div>
+        <div class="urow"><div class="av">M</div><span class="uem">mike@oaklineplumbing.com</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="phead">
+      <div><h1>Customers</h1><div class="pmeta">34 active · 2 need a reply · 3 going stale</div></div>
+      <div style="display:flex;gap:9px;align-items:center">
+        <button class="btn sm ghost"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M136 120h80a8 8 0 0 1 0 16h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0Z"/></svg>Add customer</button>
+        <div class="seg"><button class="on">Board</button><button>Table</button></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:12px 14px;margin-bottom:16px">
+      <div class="chips">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" style="color:var(--fg-3);flex:0 0 14px"><path d="M229.66 218.34 179.6 168.28a88.21 88.21 0 1 0-11.32 11.32l50.06 50.06a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg>
+          <input placeholder="Search customers…">
+        </div>
+        <span class="chip on">Needs reply <span class="n">2</span></span>
+        <span class="chip">Going stale <span class="n">3</span></span>
+        <span class="chip">★ Review-ready <span class="n">6</span></span>
+        <span class="chip">Tag ▾</span>
+        <span class="chip">Show archived</span>
+      </div>
+    </div>
+
+    <div class="board">
+      <section class="col">
+        <div class="chead"><span class="cdot" style="background:var(--neutral)"></span><span class="cname">Lead</span><span class="cct">4</span></div>
+        <div class="cbody">
+          <div class="cc"><div class="ccn">Sarah Delgado<span class="ubadge">2</span></div><div class="ccp">(907) 555-0142</div><div class="cctags"><span class="tag">Emergency</span></div><div class="ccnote">Burst pipe under kitchen sink, wants someone today.</div></div>
+          <div class="cc"><div class="ccn"><span class="stale"></span>Derek Lau</div><div class="ccp">(907) 555-0163</div><div class="ccnote">No contact in 6 days.</div></div>
+          <div class="cc"><div class="ccn">Tom Richter</div><div class="ccp">(907) 555-0177</div><div class="cctags"><span class="tag">Rental</span></div></div>
+        </div>
+      </section>
+      <section class="col">
+        <div class="chead"><span class="cdot" style="background:var(--accent)"></span><span class="cname">Contacted</span><span class="cct">3</span></div>
+        <div class="cbody">
+          <div class="cc sel"><div class="ccn">Janet Osei<span class="ubadge">1</span></div><div class="ccp">(907) 555-0120</div><div class="cctags"><span class="tag">Water heater</span><span class="tag">VIP</span></div><div class="ccnote">Wants a written quote before scheduling. Call after 5pm.</div></div>
+          <div class="cc"><div class="ccn">Alan Pierce</div><div class="ccp">(907) 555-0184</div><div class="ccnote">Left voicemail Tuesday, waiting to hear back.</div></div>
+        </div>
+      </section>
+      <section class="col">
+        <div class="chead"><span class="cdot" style="background:var(--purple)"></span><span class="cname">Quoted</span><span class="cct">2</span></div>
+        <div class="cbody">
+          <div class="cc"><div class="ccn"><span class="stale"></span>Priya Nair</div><div class="ccp">(907) 555-0138</div><div class="cctags"><span class="tag">Repipe</span><span class="tag">$1,850</span></div><div class="ccnote">Quote sent 9 days ago — no response yet.</div></div>
+          <div class="cc"><div class="ccn">Nina Castellanos</div><div class="ccp">(907) 555-0145</div><div class="cctags"><span class="tag">$640</span></div></div>
+        </div>
+      </section>
+      <section class="col">
+        <div class="chead"><span class="cdot" style="background:var(--warn)"></span><span class="cname">Scheduled</span><span class="cct">1</span></div>
+        <div class="cbody">
+          <div class="cc"><div class="ccn">Ellen Park</div><div class="ccp">(907) 555-0154</div><div class="cctags"><span class="tag">Thu 24th</span><span class="tag">$1,240</span></div><div class="ccnote">Water heater install, confirmed address and arrival window.</div></div>
+          <div class="empty">Drop a customer here when the job is booked</div>
+        </div>
+      </section>
+      <section class="col collapsed">
+        <div class="ccol"><span class="cdot" style="background:var(--pos)"></span><span class="colv">Won</span><span class="n">18</span></div>
+      </section>
+      <section class="col collapsed">
+        <div class="ccol"><span class="cdot" style="background:var(--neg)"></span><span class="colv">Lost</span><span class="n">6</span></div>
+      </section>
+    </div>
+
+    <p style="font-size:12px;color:var(--fg-3);margin:16px 0 0;max-width:72ch;line-height:1.55">
+      <span style="display:inline-block;width:7px;height:7px;border-radius:999px;background:var(--warn);vertical-align:middle;margin-right:4px"></span>
+      amber dot = going stale · <span style="display:inline-block;background:var(--accent);color:#fff;font-family:var(--fm);font-size:9.5px;border-radius:999px;padding:1px 5px;vertical-align:middle">2</span> = unread messages. Won and Lost collapse by default.
+    </p>
+  </main>
+</div>
+</div>
+
+<!-- ══════════ M3 — CUSTOMER DRAWER (roomier) ══════════ -->
+<div class="pane">
+<p class="note"><b>M3 — Customer drawer, rev 2.</b> Widened to <b>760px</b>; left column grouped into clearly separated blocks with real padding and dividers; timeline events given room to breathe. Same drawer pattern as the Inbox, so the two surfaces feel like one system.</p>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand-band"><div class="jdd">J<em>D</em>D</div><div class="jddname"><b>Juneau</b><br>Digital<br>Designs</div></div>
+    <div class="rail-in">
+      <div class="rlabel">Client Portal</div>
+      <div><div class="sname">Oakline Plumbing</div><div class="shost">oaklineplumbing.com ↗</div><div class="plan">Growth</div></div>
+      <nav>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Z"/></svg>Overview</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64Z"/></svg>Inbox<span class="ct">3</span></a>
+        <a class="on"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71Z"/></svg>Customers<span class="ct">2</span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M232 208a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8V48a8 8 0 0 1 16 0v94.37Z"/></svg>Traffic</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M207.06 72.67A111.24 111.24 0 0 0 128 40C66.07 40.21 16 91 16 153.13V176a16 16 0 0 0 16 16h192Z"/></svg>Performance</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V64Z"/></svg>Billing</a>
+      </nav>
+      <div class="rfoot">
+        <div class="help"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Z"/></svg>Help &amp; tour</div>
+        <div class="urow"><div class="av">M</div><span class="uem">mike@oaklineplumbing.com</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="phead"><div><h1>Customers</h1><div class="pmeta">34 active · 2 need a reply</div></div></div>
+
+    <div class="scrim" style="min-height:700px">
+      <div class="board" style="opacity:.96">
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--neutral)"></span><span class="cname">Lead</span><span class="cct">4</span></div>
+          <div class="cbody">
+            <div class="cc"><div class="ccn">Sarah Delgado<span class="ubadge">2</span></div><div class="ccp">(907) 555-0142</div><div class="ccnote">Burst pipe under kitchen sink.</div></div>
+            <div class="cc"><div class="ccn"><span class="stale"></span>Derek Lau</div><div class="ccp">(907) 555-0163</div></div>
+          </div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--accent)"></span><span class="cname">Contacted</span><span class="cct">3</span></div>
+          <div class="cbody"><div class="cc sel"><div class="ccn">Janet Osei<span class="ubadge">1</span></div><div class="ccp">(907) 555-0120</div></div></div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--purple)"></span><span class="cname">Quoted</span><span class="cct">2</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn"><span class="stale"></span>Priya Nair</div><div class="ccp">(907) 555-0138</div></div></div></section>
+      </div>
+      <div class="dim"></div>
+
+      <aside class="drawer w760">
+        <div class="dhead">
+          <div style="flex:1">
+            <h3>Janet Osei</h3>
+            <div class="dhsub">Customer since Oct 18 · 3 calls · 5 messages</div>
+          </div>
+          <span class="tag blue" style="padding:5px 10px">1 unread</span>
+          <span class="dx">✕</span>
+        </div>
+
+        <div class="dcols">
+          <!-- LEFT: blocks with real separation -->
+          <div class="dleft">
+            <div class="blk">
+              <div class="slabel">Stage</div>
+              <div class="stages">
+                <span class="st"><span class="d" style="background:var(--neutral)"></span>Lead</span>
+                <span class="st on">Contacted</span>
+                <span class="st"><span class="d" style="background:var(--purple)"></span>Quoted</span>
+                <span class="st"><span class="d" style="background:var(--warn)"></span>Scheduled</span>
+                <span class="st"><span class="d" style="background:var(--pos)"></span>Won</span>
+                <span class="st"><span class="d" style="background:var(--neg)"></span>Lost</span>
+              </div>
+            </div>
+
+            <div class="blk">
+              <div class="slabel" style="margin-bottom:6px">Contact</div>
+              <div class="frow"><span class="k">Phone</span><span class="v" style="color:var(--accent)">(907) 555-0120</span></div>
+              <div class="frow"><span class="k">Email</span><span class="v" style="color:var(--accent)">janet.o@email.com</span></div>
+              <div class="frow"><span class="k">Address</span><span class="v">412 Birch St</span></div>
+              <div class="frow"><span class="k">Came from</span><span class="v">Website form</span></div>
+            </div>
+
+            <div class="blk">
+              <div class="slabel">Job value</div>
+              <input class="inp" value="$1,850">
+            </div>
+
+            <div class="blk">
+              <div class="slabel">Tags</div>
+              <div class="cctags" style="margin-top:11px">
+                <span class="tag">Water heater</span><span class="tag">VIP</span>
+                <span class="tag" style="border:1px dashed var(--rule-strong);background:transparent">+ Add</span>
+              </div>
+            </div>
+
+            <div class="blk">
+              <div class="slabel" style="margin-bottom:6px">Follow-ups</div>
+              <div class="task"><span class="box"></span><span>Send written quote</span><span class="due">Due Fri</span></div>
+              <div class="task" style="color:var(--fg-3)"><span class="box" style="background:var(--surface)"></span><span style="text-decoration:line-through">Call back after 5pm</span></div>
+              <span class="addlink">+ Add a follow-up</span>
+            </div>
+
+            <div class="blk">
+              <div class="slabel">Notes</div>
+              <textarea class="inp" rows="3">Works days — best reached after 5pm. Mentioned a small leak at the base of the unit.</textarea>
+            </div>
+
+            <div class="blk">
+              <div class="slabel" style="margin-bottom:6px">Files</div>
+              <div class="file"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" style="color:var(--fg-3);flex:0 0 14px"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM160 51.31 188.69 80H160Z"/></svg>quote-412birch.pdf</div>
+              <div class="file"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor" style="color:var(--fg-3);flex:0 0 14px"><path d="M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16Zm-56 32a16 16 0 1 1-16 16 16 16 0 0 1 16-16Z"/></svg>heater-nameplate.jpg</div>
+              <span class="addlink">+ Attach a file</span>
+            </div>
+
+            <div class="blk">
+              <button class="btn block"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="m234.5 114.38-45.1 39.36 13.51 58.6a16 16 0 0 1-23.84 17.34l-51.11-31-51 31a16 16 0 0 1-23.84-17.34l13.49-58.54-45.11-39.42a16 16 0 0 1 9.11-28.06l59.46-5.15 23.21-55.36a15.95 15.95 0 0 1 29.44 0L167.1 81.17l59.44 5.15a16 16 0 0 1 9.11 28.06Z"/></svg>Request a review</button>
+            </div>
+          </div>
+
+          <!-- RIGHT: timeline -->
+          <div class="dright">
+            <div class="dtabs">
+              <span class="dtab on">All</span><span class="dtab">Messages</span><span class="dtab">Calls</span><span class="dtab">Notes</span>
+              <span style="margin-left:auto;font-family:var(--fm);font-size:10px;color:var(--fg-3)">11 events</span>
+            </div>
+
+            <div class="tl">
+              <div class="day">Today</div>
+
+              <div class="ev">
+                <span class="eic blue"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48H40a16 16 0 0 0-16 16v160l35.2-32H216a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Z"/></svg></span>
+                <div class="etx">Janet texted you
+                  <div class="esub">“Can you do Thursday morning instead?”</div>
+                </div>
+                <span class="etm">2:41 PM</span>
+              </div>
+
+              <div class="ev">
+                <span class="eic"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M136 120h80a8 8 0 0 1 0 16h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0Z"/></svg></span>
+                <div class="etx">You moved her to <b>Contacted</b></div>
+                <span class="etm">11:02 AM</span>
+              </div>
+
+              <div class="day">Yesterday</div>
+
+              <div class="ev">
+                <span class="eic green"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M222 158.43 178.2 139.6a16 16 0 0 0-15.65 1.4l-22 14.78a76.1 76.1 0 0 1-34.3-34.3l14.78-22a16 16 0 0 0 1.4-15.65L103.57 34a16 16 0 0 0-16.6-9.52A56.09 56.09 0 0 0 40 80c0 79.4 64.6 144 144 144a56.09 56.09 0 0 0 55.52-47A16 16 0 0 0 222 158.43Z"/></svg></span>
+                <div class="etx">Janet called — 3m 12s</div>
+                <span class="etm">3:42 PM</span>
+              </div>
+              <div class="expand">
+                <p>Asked for a firm quote on a 50-gallon gas unit, roughly 11 years old. Wants it in writing before scheduling. Mentioned a small leak starting at the base.</p>
+                <div class="rec"><svg width="11" height="11" viewBox="0 0 256 256" fill="currentColor"><path d="M72 39.88v176.24L26.26 128Z"/></svg>0:00 / 3:12 — recording</div>
+              </div>
+
+              <div class="ev">
+                <span class="eic blue"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48H40a16 16 0 0 0-16 16v160l35.2-32H216a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Z"/></svg></span>
+                <div class="etx">3 messages between you and Janet</div>
+                <span class="etm">1:20 PM</span>
+              </div>
+              <div class="more">Show all 3 →</div>
+
+              <div class="day">Oct 22</div>
+
+              <div class="ev">
+                <span class="eic"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg></span>
+                <div class="etx">Janet submitted your website form
+                  <div class="esub">“Water heater is making a loud banging noise…”</div>
+                </div>
+                <span class="etm">2:14 PM</span>
+              </div>
+
+              <div class="ev">
+                <span class="eic"><svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 72a32 32 0 1 1-32 32 32 32 0 0 1 32-32Z"/></svg></span>
+                <div class="etx">Added to your customers
+                  <div class="esub">Promoted from the inbox</div>
+                </div>
+                <span class="etm">2:15 PM</span>
+              </div>
+            </div>
+
+            <div style="padding:14px 24px;border-top:1px solid var(--rule)">
+              <div class="pend"><b>Texting turns on soon.</b> Your business registration is with the carriers — usually about two more weeks. Calls and leads are unaffected.</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ══════════ M6a — STARTER, CUSTOMERS LOCKED ══════════ -->
+<div class="pane">
+<p class="note"><b>M6a — what a Starter client sees when they tap Customers.</b> The tab is never hidden (per the existing <span class="mono">PortalChrome</span> rule that locked tabs keep their slot — hiding it means they never learn the feature exists). The panel leads with the offer, then shows a hatched ghost board using the real <span class="mono">.portal-ghost</span> treatment.</p>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand-band"><div class="jdd">J<em>D</em>D</div><div class="jddname"><b>Juneau</b><br>Digital<br>Designs</div></div>
+    <div class="rail-in">
+      <div class="rlabel">Client Portal</div>
+      <div><div class="sname">Birch Lane Lawn</div><div class="shost">birchlanelawn.com ↗</div><div class="plan">Starter</div></div>
+      <nav>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 72a32 32 0 1 1-32 32 32 32 0 0 1 32-32Z"/></svg>Overview</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 56H32a8 8 0 0 0-8 8v128a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V64a8 8 0 0 0-8-8Zm-96 85.15L52.57 72h150.86Z"/></svg>Inbox<span class="ct">2</span></a>
+        <a class="on"><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71ZM40 108a44 44 0 1 1 44 44 44.05 44.05 0 0 1-44-44Z"/></svg>Customers
+          <span style="margin-left:auto;color:var(--fg-3)"><svg width="11" height="11" viewBox="0 0 256 256" fill="currentColor"><path d="M208 80h-32V56a48 48 0 0 0-96 0v24H48a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16ZM96 56a32 32 0 0 1 64 0v24H96Z"/></svg></span></a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M232 208a8 8 0 0 1-8 8H32a8 8 0 0 1-8-8V48a8 8 0 0 1 16 0v94.37L90.73 98a8 8 0 0 1 10.07-.38l58.81 44.11L218.73 90a8 8 0 1 1 10.54 12l-64 56a8 8 0 0 1-10.07.38L96.39 114.29 40 163.63V200h184a8 8 0 0 1 8 8Z"/></svg>Traffic</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M207.06 72.67A111.24 111.24 0 0 0 128 40C66.07 40.21 16 91 16 153.13V176a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16v-24Z"/></svg>Performance</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a16 16 0 0 0-16 16v128a16 16 0 0 0 16 16h192a16 16 0 0 0 16-16V64a16 16 0 0 0-16-16Zm0 48H32V64h192ZM32 192v-64h192v64Z"/></svg>Billing</a>
+        <a><svg class="ic" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48.05 48.05 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Z"/></svg>Settings</a>
+      </nav>
+      <div class="rfoot">
+        <div class="help"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 168a12 12 0 1 1 12-12 12 12 0 0 1-12 12Z"/></svg>Help &amp; tour</div>
+        <div class="urow"><div class="av">D</div><span class="uem">dave@birchlanelawn.com</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="phead">
+      <div><h1>Customers<span class="lockchip"><svg width="10" height="10" viewBox="0 0 256 256" fill="currentColor"><path d="M208 80h-32V56a48 48 0 0 0-96 0v24H48a16 16 0 0 0-16 16v112a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V96a16 16 0 0 0-16-16ZM96 56a32 32 0 0 1 64 0v24H96Z"/></svg>Growth feature</span></h1>
+        <div class="pmeta">Not included on Starter</div></div>
+    </div>
+
+    <div class="upsell">
+      <div style="flex:1;min-width:320px">
+        <h2>Turn the people who call you into repeat customers</h2>
+        <p>You already see every call and web enquiry in your Inbox. Growth adds the next step — a place to track each one until the job is won, text them straight from the portal, and ask happy customers for a Google review.</p>
+        <div class="ubul">
+          <div><span class="ck"><svg width="10" height="10" viewBox="0 0 256 256" fill="currentColor"><path d="m229.66 77.66-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg></span><span><b>A simple pipeline</b> — move each customer from Lead to Won so nothing gets forgotten.</span></div>
+          <div><span class="ck"><svg width="10" height="10" viewBox="0 0 256 256" fill="currentColor"><path d="m229.66 77.66-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg></span><span><b>Text your customers</b> from your own business number, without giving out your mobile.</span></div>
+          <div><span class="ck"><svg width="10" height="10" viewBox="0 0 256 256" fill="currentColor"><path d="m229.66 77.66-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg></span><span><b>Ask for Google reviews</b> in one tap — more reviews means more people calling you.</span></div>
+        </div>
+      </div>
+      <div class="uact">
+        <button class="btn block"><svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M232 128a104 104 0 1 1-104-104 104.11 104.11 0 0 1 104 104Zm-68.42-24.6-40-24A8 8 0 0 0 112 86v52a8 8 0 0 0 12.58 6.56l40-26a8 8 0 0 0 0-13.16Z"/></svg>Show me what Growth does for me</button>
+        <button class="btn ghost block">Compare plans</button>
+        <p style="font-size:11.5px;color:var(--fg-3);margin:2px 0 0;text-align:center;line-height:1.45">A 90-second walkthrough. Nothing changes on your account.</p>
+      </div>
+    </div>
+
+    <div class="gbanner">
+      <span style="color:var(--accent)">▲</span>
+      <span><b>Example only.</b> This is a preview of what the Customers board looks like on Growth. <b>None of it is your data.</b></span>
+    </div>
+
+    <div class="ghost">
+      <div class="board">
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--neutral)"></span><span class="cname">Lead</span><span class="cct">—</span></div>
+          <div class="cbody">
+            <div class="cc"><div class="ccn">————————</div><div class="ccp">——— ——— ————</div><div class="ccnote">————— ———— ——— —————</div></div>
+            <div class="cc"><div class="ccn">——————</div><div class="ccp">——— ——— ————</div></div>
+          </div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--accent)"></span><span class="cname">Contacted</span><span class="cct">—</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">—————————</div><div class="ccp">——— ——— ————</div><div class="cctags"><span class="tag">————</span></div></div></div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--purple)"></span><span class="cname">Quoted</span><span class="cct">—</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">———————</div><div class="ccp">——— ——— ————</div></div></div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--warn)"></span><span class="cname">Scheduled</span><span class="cct">—</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">—————</div><div class="ccp">——— ——— ————</div></div></div></section>
+        <section class="col collapsed"><div class="ccol"><span class="cdot" style="background:var(--pos)"></span><span class="colv">Won</span><span class="n">—</span></div></section>
+        <section class="col collapsed"><div class="ccol"><span class="cdot" style="background:var(--neg)"></span><span class="colv">Lost</span><span class="n">—</span></div></section>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- ══════════ M6b — GROWTH SHOWCASE ══════════ -->
+<div class="pane">
+<p class="note"><b>M6b — the showcase, driven by the same driver.js instance as the tutorial.</b> Left: a mid-flight step spotlighting the pipeline over <i>realistic</i> demo data (not em-dashes — this one is a guided story, so it needs real-looking content). Right: the closing step. Both are the same popover component as the first-run tour.</p>
+<div style="padding:24px 30px;background:var(--bg);min-width:1280px">
+
+  <p style="font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);margin:0 0 12px">Step 3 of 5 — the pipeline</p>
+  <div class="shot" style="margin-bottom:34px">
+    <div style="background:#fff;border:1px solid var(--elev-border);border-radius:12px;padding:18px">
+      <div class="board">
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--neutral)"></span><span class="cname">Lead</span><span class="cct">3</span></div>
+          <div class="cbody">
+            <div class="cc"><div class="ccn">Sarah Delgado</div><div class="ccp">(907) 555-0142</div><div class="ccnote">Burst pipe — wants someone today.</div></div>
+            <div class="cc"><div class="ccn">Tom Richter</div><div class="ccp">(907) 555-0177</div></div>
+          </div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--accent)"></span><span class="cname">Contacted</span><span class="cct">2</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">Janet Osei</div><div class="ccp">(907) 555-0120</div><div class="cctags"><span class="tag">Water heater</span></div></div></div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--purple)"></span><span class="cname">Quoted</span><span class="cct">1</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">Priya Nair</div><div class="ccp">(907) 555-0138</div><div class="cctags"><span class="tag">$1,850</span></div></div></div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--warn)"></span><span class="cname">Scheduled</span><span class="cct">1</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">Ellen Park</div><div class="ccp">(907) 555-0154</div><div class="cctags"><span class="tag">Thu 24th</span></div></div></div></section>
+        <section class="col collapsed"><div class="ccol"><span class="cdot" style="background:var(--pos)"></span><span class="colv">Won</span><span class="n">8</span></div></section>
+        <section class="col collapsed"><div class="ccol"><span class="cdot" style="background:var(--neg)"></span><span class="colv">Lost</span><span class="n">2</span></div></section>
+      </div>
+    </div>
+    <div class="cut" style="left:14px;top:14px;width:250px;height:230px"></div>
+    <div class="pop" style="left:286px;top:40px">
+      <h4>Move them along as you go</h4>
+      <p>Every caller starts as a Lead. Drag them across as you quote and book the job — so you always know who still needs a nudge.</p>
+      <div class="popf"><span class="pg">3 of 5</span><button class="pbtn g">Back</button><button class="pbtn">Next</button></div>
+    </div>
+  </div>
+
+  <p style="font-family:var(--fm);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);margin:0 0 12px">Step 5 of 5 — the close</p>
+  <div class="shot">
+    <div style="background:#fff;border:1px solid var(--elev-border);border-radius:12px;padding:18px;min-height:250px">
+      <div class="board" style="opacity:.5">
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--neutral)"></span><span class="cname">Lead</span><span class="cct">3</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">Sarah Delgado</div><div class="ccp">(907) 555-0142</div></div></div></section>
+        <section class="col"><div class="chead"><span class="cdot" style="background:var(--pos)"></span><span class="cname">Won</span><span class="cct">8</span></div>
+          <div class="cbody"><div class="cc"><div class="ccn">Ellen Park</div><div class="ccp">(907) 555-0154</div><div class="cctags"><span class="tag green">✓ Review sent</span></div></div></div></section>
+      </div>
+    </div>
+    <div class="shotdim"></div>
+    <div class="pop" style="left:50%;top:38px;transform:translateX(-50%);width:390px;text-align:center">
+      <h4 style="font-size:21px">Are you ready to grow?</h4>
+      <p style="margin-top:8px">That's the whole loop: answer the call, work the job, ask for the review. More reviews bring more calls — and it keeps going.</p>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-top:18px">
+        <button class="btn block">Upgrade to Growth</button>
+        <button class="pbtn g" style="padding:9px 13px">Maybe later</button>
+      </div>
+      <p style="font-size:11px;color:var(--fg-3);margin:12px 0 0;font-family:var(--fm)">5 of 5</p>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+function go(i,el){
+  document.querySelectorAll('.pane').forEach((p,n)=>p.classList.toggle('on',n===i));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>

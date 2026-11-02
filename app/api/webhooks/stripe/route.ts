@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { stripe } from "@/app/lib/stripe";
 import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
 import { completeConsolidation, getConsolidation } from "@/app/lib/consolidation";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
+import { claimWelcomeEmailSend, clearWelcomeEmailMark } from "@/app/lib/kv";
+import { sendWelcomeEmail } from "@/app/lib/welcome-email";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -105,7 +107,50 @@ export async function POST(req: Request) {
       }
     } else {
       try {
-        await provisionPaidSession(session);
+        const fulfilled = await provisionPaidSession(session);
+
+        /**
+         * The welcome email. Sent from the webhook only — deliberately not from
+         * `/checkout/success` — so a client who returns in the browser and a Stripe retry can't
+         * both mail them. `provisionPaidSession` is idempotent and returns the same result on a
+         * replay, so the once-only guarantee comes from `claimWelcomeEmailSend` (an NX marker
+         * per session id), not from provisioning running once.
+         *
+         * Held when there is no phone choice on the record and the plan is not Enterprise: that
+         * combination is a pre-ship agreement whose next steps we can't speak to. Enterprise has
+         * no choice by design (deferred to onboarding) and still gets a welcome with neutral
+         * phone copy.
+         *
+         * In `after()` so a slow Resend call never delays the 2xx Stripe needs. A failed send
+         * releases the claim so the next retry re-attempts rather than the email being lost.
+         */
+        if (fulfilled) {
+          const canSend = fulfilled.receptionistMode != null || fulfilled.plan === "enterprise";
+          if (canSend) {
+            after(async () => {
+              if (!(await claimWelcomeEmailSend(session.id))) return;
+              try {
+                await sendWelcomeEmail({
+                  signerEmail: fulfilled.signerEmail,
+                  signerName: fulfilled.signerName,
+                  clientLegalName: fulfilled.clientLegalName,
+                  plan: fulfilled.plan,
+                  receptionistMode: fulfilled.receptionistMode,
+                  forwardingNumber: fulfilled.forwardingNumber,
+                  siteSlug: fulfilled.slug,
+                });
+              } catch (e) {
+                await clearWelcomeEmailMark(session.id).catch(() => {});
+                console.error("[stripe webhook] welcome email failed", session.id, e);
+              }
+            });
+          } else {
+            console.log(
+              "[stripe webhook] welcome email held — no phone choice on record",
+              fulfilled.slug,
+            );
+          }
+        }
       } catch (e) {
         console.error("[stripe webhook] fulfilment failed", session.id, e);
       }

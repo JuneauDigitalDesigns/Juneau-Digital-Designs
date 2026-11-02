@@ -29,6 +29,15 @@ import {
     type ServiceEntry,
     type ImageMeta,
 } from "@jdd/schema";
+import {
+    A2P_BUSINESS_INDUSTRIES,
+    A2P_BUSINESS_TYPES,
+    DEFAULT_INDUSTRY_BY_VERTICAL,
+    findTaxIdPaths,
+    isEinShaped,
+    type A2pIdentityInput,
+    type A2pRegistrationPath,
+} from "@/app/lib/a2p-identity.mjs";
 
 declare global {
     interface Window {
@@ -93,6 +102,15 @@ type WizardData = {
     email: string;
     phone: string;
     address: string;
+    // decision 29: the specifics that stop a site reading like every other contractor's. All
+    // optional and asked here (not scanned), because specificity is the documented antidote to
+    // looking AI-made; a blank one is flagged in the console and NEVER invented by the copywriter.
+    ownerName: string;
+    license: string;
+    established: string;
+    serviceArea: string;   // comma/newline list of towns
+    brandsCarried: string; // comma/newline list of brands installed/serviced
+    responseTime: string;  // the client's own words, e.g. "under 60 minutes"
     // Picked. Drives the service, differentiator, audience and palette options downstream.
     industry: string;
     serviceList: ServiceEntry[];
@@ -109,8 +127,35 @@ type WizardData = {
     images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
     /** Fed to the copywriter's website scan — the single input that saves the most typing. */
     existingWebsiteUrl: string;
+    /**
+     * Proof & details — what the chosen industry's bespoke template needs beyond the generic
+     * fields above (console VERTICAL_TEMPLATES, see @jdd/schema's TemplateSlots). Asked only
+     * when `menuFor(industry).templateSlots` declares a slot; a vertical with no bespoke
+     * template (health, "Other") never shows this step at all. Every one of these is a fact we
+     * are forbidden from inventing (CLAUDE.md; PLAN D4/D10/D14/D15) — blank is always a valid,
+     * non-blocking answer, never filled with a guess.
+     */
+    statValues: Record<string, string>; // keyed by TemplateSlots stats[].key
+    reviewScore: string;
+    reviewCount: string;
+    reviewUrl: string;
+    servicePrices: Record<string, string>; // keyed by ServiceEntry.name
+    seasonBodies: Record<string, string>; // keyed by TemplateSlots seasons[].key
+    serviceRadiusMiles: string;
+    offerBadge: string;
     // Enterprise
     additionalSites: AdditionalSiteForm[];
+    /**
+     * How the client's business line reaches the AI receptionist, or that they refused it.
+     *
+     * Empty string means "not chosen yet" and blocks the step: it is deliberately not
+     * defaulted to one of the three, because the receptionist only works once the line is
+     * actually pointed at us and guessing costs real money in both directions. Picking
+     * "declined" for someone who wanted a receptionist delivers a website to a client who paid
+     * for a phone service; picking "forwarded" for someone who refused buys a Twilio number and
+     * stands up an agent nobody asked for.
+     */
+    receptionistMode: "forwarded" | "published" | "declined" | "";
     // Meta
     consent: boolean;
     turnstileToken: string;
@@ -121,6 +166,95 @@ type WizardData = {
     /** Reveal all ten palettes rather than the four suited to their trade. */
     showAllPalettes: boolean;
 };
+
+/**
+ * The A2P identity step's fields — **deliberately not part of `WizardData`.**
+ *
+ * `WizardData` is autosaved in full: to Redis via `/api/portal/onboarding/draft` with a
+ * 30-day TTL, and to `localStorage`, where it is only expired if the client ever reopens the
+ * wizard. An EIN added to `WizardData` would therefore sit in our Redis for 30 days and on
+ * the client's own machine indefinitely — and a leak like that cannot be undone later by
+ * auditing every draft, backup and browser that ever held one.
+ *
+ * So these fields live in their own `useState` that the autosave effect does not read. That
+ * is a structural guarantee rather than a rule somebody has to remember: the autosave
+ * projects from `formData`, and these values are not in it. A denylist in the autosave path
+ * would have been the alternative and is one careless rename away from leaking.
+ *
+ * Nothing here is ever persisted anywhere. It is posted once to
+ * `/api/onboarding/a2p-identity`, which sends it to Twilio and keeps only the returned SIDs.
+ *
+ * If you are tempted to move any of this into `WizardData` so it survives a reload: that is
+ * the bug. The client re-typing their EIN is the intended cost.
+ */
+type A2pFormState = {
+    registrationPath: A2pRegistrationPath;
+    legalBusinessName: string;
+    businessType: string;
+    businessIndustry: string;
+    websiteUrl: string;
+    ein: string;
+    street: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    repFirstName: string;
+    repLastName: string;
+    repJobPosition: string;
+    repBusinessTitle: string;
+    repEmail: string;
+    repPhone: string;
+};
+
+const emptyA2pForm = (industry: string): A2pFormState => ({
+    registrationPath: "ein",
+    // Not prefilled from `brandName`. The legal name has to match the IRS record
+    // character-for-character, and a prefilled trade name is a wrong answer the client is
+    // invited to accept: "Arthur's Plumbing LLC" vs "Arthurs Plumbing, LLC" is a rejection
+    // and a restart.
+    legalBusinessName: "",
+    businessType: "",
+    businessIndustry: DEFAULT_INDUSTRY_BY_VERTICAL[industry] ?? "",
+    websiteUrl: "",
+    ein: "",
+    street: "",
+    city: "",
+    region: "",
+    postalCode: "",
+    country: "US",
+    repFirstName: "",
+    repLastName: "",
+    repJobPosition: "Owner",
+    repBusinessTitle: "Owner",
+    repEmail: "",
+    repPhone: "",
+});
+
+/** Shape the route expects. Assembled at submit; never held assembled in state. */
+const toIdentityInput = (a2p: A2pFormState): A2pIdentityInput => ({
+    registrationPath: a2p.registrationPath,
+    legalBusinessName: a2p.legalBusinessName,
+    businessType: a2p.businessType,
+    businessIndustry: a2p.businessIndustry,
+    websiteUrl: a2p.websiteUrl,
+    ...(a2p.registrationPath === "ein" ? { ein: a2p.ein } : {}),
+    address: {
+        street: a2p.street,
+        city: a2p.city,
+        region: a2p.region,
+        postalCode: a2p.postalCode,
+        country: a2p.country,
+    },
+    rep: {
+        firstName: a2p.repFirstName,
+        lastName: a2p.repLastName,
+        jobPosition: a2p.repJobPosition,
+        businessTitle: a2p.repBusinessTitle,
+        email: a2p.repEmail,
+        phone: a2p.repPhone,
+    },
+});
 
 /** Number of screens in the color sub-wizard nested inside the "look" step. */
 const COLOR_STEPS = 3;
@@ -153,9 +287,68 @@ const INDUSTRY_OPTIONS: { id: string; label: string }[] = [
     { id: OTHER_INDUSTRY, label: "Other / Not listed" },
 ];
 
+/**
+ * Short captions for each TemplateSlots stat key, used only as the submitted `label` paired
+ * with whatever number the client types (see @jdd/schema's `statsFrom`). The wizard's own
+ * input shows `prompt` as the question and `example` as the placeholder — this map never
+ * reaches the client; it is presentational chrome for the built site's stat tile, not a fact
+ * about the business, so it is safe to hardcode rather than ask for a second time. Keys come
+ * from every industry's `templateSlots.stats` in @jdd/schema's industry-menu.ts.
+ */
+const STAT_LABELS: Record<string, string> = {
+    emergencyAvailability: "Emergency line",
+    yearsTrading: "Years in business",
+    rating: "Average rating",
+    coverageTowns: "Towns covered",
+    roofsReplaced: "Roofs replaced",
+    warrantyYears: "Workmanship warranty",
+    typicalJobDays: "Typical job time",
+    availability: "Availability",
+    avgArrivalTime: "Avg. arrival time",
+    yearsLicensed: "Years licensed",
+    lawnsServicedWeekly: "Lawns serviced weekly",
+    neighbourhoods: "Routes covered",
+    vehiclesDetailed: "Vehicles detailed",
+    coatingDurability: "Coating durability",
+    mobileCoverage: "Mobile coverage",
+};
+
 // Vibe, tone and free-text adjectives were three questions describing one thing, and all
 // three collapsed into the same paragraph of the copywriter prompt. VOICE_OPTIONS from
 // @jdd/schema replaces them with a single picker.
+
+/**
+ * The three activation choices, in the order they should be considered.
+ *
+ * Forwarding leads because it is the one that keeps the client's existing number on their
+ * trucks and their Google listing, which is what most of them actually want. Declining is
+ * last and worded neutrally: it is a real option, not a mistake, and a client who feels
+ * talked out of it will simply never forward the line and then blame the product.
+ */
+const RECEPTIONIST_OPTIONS: {
+    id: "forwarded" | "published" | "declined";
+    label: string;
+    detail: string;
+}[] = [
+    {
+        id: "forwarded",
+        label: "Forward my existing number",
+        detail:
+            "You keep the number you already advertise. We give you a number to forward to, and calls you do not pick up roll to your receptionist instead of voicemail.",
+    },
+    {
+        id: "published",
+        label: "Use the new number as my business number",
+        detail:
+            "We give you a number and you start using it: cards, truck, Google listing. Calls come straight in, ring your phone first, and reach the receptionist if you miss them.",
+    },
+    {
+        id: "declined",
+        label: "No receptionist for now, website only",
+        detail:
+            "We build the site and skip the phone side entirely. Same price, and you can switch it on later with no extra onboarding fee.",
+    },
+];
 
 const emptyPalette = (): PalettePick => ({ mode: "preset", presetId: DEFAULT_PALETTE_PRESET_ID });
 const COLOR_SUB_LABELS = ["Theme", "Preview", "Confirm"];
@@ -206,7 +399,7 @@ function paletteSummary(pick: PalettePick): string {
     if (pick.mode === "preset") return preset ? `Theme: ${preset.label}` : "Custom colors";
     const tweaks = Object.keys(pick.overrides ?? {}).length;
     const base = preset ? `Based on ${preset.label}, customized` : "Custom colors";
-    return tweaks ? `${base} — ${tweaks} color${tweaks === 1 ? "" : "s"} pinned by hand` : base;
+    return tweaks ? `${base}, ${tweaks} color${tweaks === 1 ? "" : "s"} pinned by hand` : base;
 }
 
 /** Dark moods derive their own ink, so the wizard hides the ink picker for them. */
@@ -214,13 +407,23 @@ const isDarkMood = (mood: PalettePick["bgMood"]) =>
     BACKGROUND_MOODS.some((m) => m.id === (mood ?? "white") && m.dark);
 const emptyService = (): ServiceEntry => ({ name: "", tag: "" });
 
-function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
+function makeInitialData(
+    plan: PlanSlug,
+    prefillEmail: string,
+    signedReceptionistMode?: "forwarded" | "published" | "declined",
+): WizardData {
     return {
         selectedPlan: plan,
         brandName: "",
         email: prefillEmail,
         phone: "",
         address: "",
+        ownerName: "",
+        license: "",
+        established: "",
+        serviceArea: "",
+        brandsCarried: "",
+        responseTime: "",
         industry: "",
         // No blank starter row: services are chosen from chips now, and an empty row sitting
         // under them reads as "you still have to type one".
@@ -235,7 +438,16 @@ function makeInitialData(plan: PlanSlug, prefillEmail: string): WizardData {
         hasLogo: false,
         images: { heroSlides: [] },
         existingWebsiteUrl: "",
+        statValues: {},
+        reviewScore: "",
+        reviewCount: "",
+        reviewUrl: "",
+        servicePrices: {},
+        seasonBodies: {},
+        serviceRadiusMiles: "",
+        offerBadge: "",
         additionalSites: [],
+        receptionistMode: signedReceptionistMode ?? "",
         consent: false,
         turnstileToken: "",
         website: "",
@@ -423,7 +635,7 @@ function ContrastWarnings({ palette, onChange }: { palette: PalettePick; onChang
                 >
                     <span style={{ width: 14, height: 14, borderRadius: 4, background: issue.suggestion, border: "1px solid var(--rule)", flexShrink: 0 }} />
                     <span>
-                        <strong style={{ color: "var(--fg)" }}>{issue.label}</strong> may be hard to read —{" "}
+                        <strong style={{ color: "var(--fg)" }}>{issue.label}</strong> may be hard to read:{" "}
                         {issue.ratio}:1, needs {issue.required}:1.
                     </span>
                     <button
@@ -454,7 +666,7 @@ function AdvancedColors({ palette, onChange }: { palette: PalettePick; onChange:
     return (
         <details className="rounded-xl" style={{ border: "1px solid var(--rule)" }}>
             <summary className="cursor-pointer px-3 py-2 text-sm font-semibold" style={{ color: "var(--fg-2)" }}>
-                Advanced — fine-tune individual colors
+                Advanced: fine-tune individual colors
             </summary>
             <div className="grid gap-2 px-3 pb-3 sm:grid-cols-2">
                 {PALETTE_SLOT_META.map(({ slot, label }) => (
@@ -482,6 +694,7 @@ function AdvancedColors({ palette, onChange }: { palette: PalettePick; onChange:
 export default function OnboardingPageClient({
     plan,
     prefillEmail = "",
+    signedReceptionistMode,
     sessionId = "",
     portalMode = false,
     clerkUserId = "",
@@ -489,6 +702,14 @@ export default function OnboardingPageClient({
 }: {
     plan: PlanSlug;
     prefillEmail?: string;
+    /**
+     * The phone choice the client made at signing. Pre-selects the activation step and locks the
+     * website-only boundary: a client who signed a receptionist plan can switch between forward
+     * and a new number here, but cannot drop to website-only (or vice versa) without re-signing
+     * the matching schedule. Absent for Enterprise and pre-ship agreements, where all three
+     * options stay open.
+     */
+    signedReceptionistMode?: "forwarded" | "published" | "declined";
     sessionId?: string;
     /** When true: no Turnstile, no consent, submit goes to /api/portal/onboarding. */
     portalMode?: boolean;
@@ -506,7 +727,9 @@ export default function OnboardingPageClient({
     // draft is deliberately NOT read here — reading localStorage during render made
     // the step rail hydrate as "✓" where the server sent "1". The draft is restored
     // in a mount-only effect below.
-    const [formData, setFormData] = useState<WizardData>(() => makeInitialData(plan, prefillEmail));
+    const [formData, setFormData] = useState<WizardData>(() =>
+        makeInitialData(plan, prefillEmail, signedReceptionistMode),
+    );
     const [restored, setRestored] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [turnstileScriptLoaded, setTurnstileScriptLoaded] = useState(false);
@@ -522,12 +745,45 @@ export default function OnboardingPageClient({
     // these?" gate with their adjustments intact, rather than mid-edit.
     const [colorAdjusting, setColorAdjusting] = useState(false);
 
+    /**
+     * A2P identity state — see `A2pFormState`. Held apart from `formData` so the autosave
+     * effect below cannot reach it. Not persisted, by design: a reload clears it.
+     */
+    const [a2p, setA2p] = useState<A2pFormState>(() => emptyA2pForm(""));
+    const [a2pOnFile, setA2pOnFile] = useState(false);
+    /**
+     * Whether the on-file probe has finished. Starts `true` outside portal mode, where there
+     * is no authenticated context to probe with — otherwise the step would sit on "Checking…"
+     * forever.
+     */
+    const [a2pProbed, setA2pProbed] = useState(!portalMode);
+    const [a2pSubmitting, setA2pSubmitting] = useState(false);
+    const [a2pError, setA2pError] = useState<{ message: string; fields: string[] }|null>(null);
+
     const turnstileContainerRef = useRef<HTMLDivElement | null>(null);
     const turnstileWidgetIdRef = useRef<string | null>(null);
     /** Set once the draft-restore attempt has finished, so autosave can't clobber it. */
     const didRestoreRef = useRef(false);
 
     const planMeta = PLAN_META[plan];
+
+    /**
+     * Whether this client registers an A2P brand + campaign of their own, and therefore sees
+     * the business-registration step. Growth and Enterprise text their own customers; Starter
+     * and web-only do not, so they are never asked for a legal identity they have no use for.
+     */
+    const a2pApplies = plan === "growth" || plan === "enterprise";
+
+    /**
+     * The industry and website actually submitted.
+     *
+     * Derived rather than seeded into state by an effect, so the default tracks the trade the
+     * client picks (and keeps tracking it if they change their mind) while an explicit choice
+     * always wins. A seeded default would silently go stale the moment they changed trade.
+     */
+    const a2pEffectiveIndustry =
+        a2p.businessIndustry || DEFAULT_INDUSTRY_BY_VERTICAL[formData.industry] || "";
+    const a2pEffectiveWebsite = a2p.websiteUrl.trim() || formData.existingWebsiteUrl.trim();
 
     // ── Turnstile widget (rendered on the final step) ──
     useEffect(() => {
@@ -621,6 +877,26 @@ export default function OnboardingPageClient({
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { turnstileToken, consent, website, ...persistable } = formData;
             const record = { ...persistable, savedAt: new Date().toISOString() };
+
+            /**
+             * Second line of defence behind "A2P fields are not in `formData`".
+             *
+             * A value-shape tripwire, not a key denylist: it does not care what the field is
+             * called, so it survives the rename that would defeat a denylist. If a future
+             * change ever routes an EIN through form state, the draft is dropped instead of
+             * being written to Redis for 30 days and to this machine indefinitely.
+             *
+             * Loud, not silent — losing one autosave is the right trade against an
+             * unrecoverable leak, and the path (never the value) says where to fix it.
+             */
+            const leaked = findTaxIdPaths(record);
+            if (leaked.length) {
+                console.error(
+                    `[onboarding] draft autosave refused: tax-ID-shaped value at ${leaked.join(", ")}`,
+                );
+                return;
+            }
+
             if (key) {
                 localStorage.setItem(key, JSON.stringify(record));
             }
@@ -641,6 +917,39 @@ export default function OnboardingPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData]);
 
+    // ── A2P: is a business identity already on file? ──
+    /**
+     * Asked once on mount rather than assumed, because nothing on our side records that the
+     * client answered this step — that is the point of the design. If they created the
+     * EndUser before quitting, the SID is on file and the EIN is not needed again; re-asking
+     * would make them expose it a second time for no benefit.
+     *
+     * The response is a boolean. The SIDs stay server-side: the browser has no use for them.
+     */
+    useEffect(() => {
+        if (!a2pApplies || !portalMode) return;
+        const url = `/api/onboarding/a2p-identity${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`;
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(url, { cache: "no-store" });
+                if (!res.ok) throw new Error("probe failed");
+                const body = (await res.json()) as { onFile?: boolean };
+                if (!cancelled) setA2pOnFile(Boolean(body.onFile));
+            } catch {
+                // The step then asks. That is safe rather than merely acceptable: the route
+                // short-circuits a submit for a site that already has a SID on file, so a
+                // failed probe cannot cause a second identity to be created on Twilio.
+            } finally {
+                if (!cancelled) setA2pProbed(true);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // After success (non-portal mode), auto-advance to portal signup after 5s.
     useEffect(() => {
         if (submitState.type !== "success" || portalMode) return;
@@ -657,6 +966,11 @@ export default function OnboardingPageClient({
             const has = prev[field].includes(value);
             return { ...prev, [field]: has ? prev[field].filter((v) => v !== value) : [...prev[field], value] };
         });
+    }
+    /** Set one entry of a Record-shaped field (stat value, service price, season body) without
+     *  disturbing the others — the "Proof & details" step's inputs are all keyed dictionaries. */
+    function setKeyed(field: "statValues" | "servicePrices" | "seasonBodies", key: string, value: string) {
+        setFormData((prev) => ({ ...prev, [field]: { ...prev[field], [key]: value } }));
     }
 
     /**
@@ -803,12 +1117,57 @@ export default function OnboardingPageClient({
      * Welcome and the separate media/existing-site steps are gone: a screen that only sets
      * expectations is a click, and photos belong with the rest of the look.
      */
+    /** The chip menu for the chosen trade, or null for "Other" — the free-text fallback. Hoisted
+     *  above `steps` so the conditional "Proof & details" step below can read it. */
+    const menu = menuFor(formData.industry);
+    /** What this vertical's bespoke template needs beyond the generic fields — absent for any
+     *  vertical with no bespoke template (health, "Other"), which is exactly when the step
+     *  itself is omitted below rather than rendered empty. */
+    const slots = menu?.templateSlots;
+
     const steps: { key: string; label: string }[] = [
         { key: "business", label: "Your business" },
         { key: "services", label: "What you do" },
         { key: "apart", label: "What sets you apart" },
+        /**
+         * "Proof & details" (EXEC Phase 7, PLAN §4) asks only what the chosen industry's
+         * bespoke whole-site template actually renders — a stat band, a review aggregate,
+         * starting prices, a seasonal rail, a service radius, a promo ribbon. Placed after
+         * "apart" (industry + services are both already answered, so every slot below has
+         * what it needs to render its question) and before "sound" (still among the creative
+         * questions, same register as what comes next). Omitted entirely — not shown blank —
+         * for a vertical with no bespoke template, since `slots` is undefined there.
+         */
+        ...(slots ? [{ key: "proof", label: "Proof & details" }] : []),
+        /**
+         * Business registration (A2P 10DLC identity) — growth and enterprise only.
+         *
+         * Starter and web-only never register: they send no customer-facing messages, so there
+         * is no brand or campaign to register and no reason to ask a client for an EIN.
+         * Gated on plan rather than on `receptionistMode`, because what needs a registered
+         * campaign is texting the client's own customers, which only these two tiers do.
+         *
+         * Placed here, immediately after "Proof & details", per the handoff. Late enough that
+         * the client is already committed — an EIN prompt in the opening screens of a signup
+         * flow reads as a scam — and the submit-and-consume design puts no constraint on what
+         * follows, because collection and use are the same request rather than two steps.
+         */
+        ...(a2pApplies ? [{ key: "a2p", label: "Business registration" }] : []),
         { key: "sound", label: "How it should sound" },
         { key: "look", label: "Look" },
+        /**
+         * Activation sits after the creative questions and before review.
+         *
+         * Placed here rather than earlier because it is the one operational question in an
+         * otherwise creative form, and asking a client to think about call forwarding between
+         * "what sets you apart" and "pick your colours" breaks the run. Placed before review
+         * because the choice has to appear on the summary they confirm.
+         *
+         * Note the step list is plan-conditional and several things index into it by key
+         * (`lookIndex`, `onLook`, the colour sub-wizard arithmetic). Inserting here is safe
+         * because every one of those uses `findIndex` on a key rather than a fixed position.
+         */
+        { key: "activation", label: "Your phone" },
         ...(plan === "enterprise" ? [{ key: "sites", label: "Extra sites" }] : []),
         { key: "review", label: "Review & submit" },
     ];
@@ -817,9 +1176,6 @@ export default function OnboardingPageClient({
 
     const lookIndex = steps.findIndex((s) => s.key === "look");
     const onLook = steps[step].key === "look";
-
-    /** The chip menu for the chosen trade, or null for "Other" — the free-text fallback. */
-    const menu = menuFor(formData.industry);
 
     /**
      * Services the client typed rather than ticked.
@@ -870,8 +1226,24 @@ export default function OnboardingPageClient({
         scrollTop();
     }
 
+    /**
+     * Activation is the one step that blocks.
+     *
+     * Everything else in this wizard is advisory: a blank field is a follow-up email, which is
+     * why `blankCount` only hints. This is different because it is not content, it is an
+     * instruction about whether to buy a phone number, and there is no sensible default to
+     * infer. An unanswered activation choice would reach provisioning, which refuses to guess,
+     * and stall the build after the client believed they were finished.
+     */
+    const onActivation = steps[step].key === "activation";
+    const activationBlocked = onActivation && formData.receptionistMode === "";
+
     // On the "look" step the footer buttons drive the nested color wizard first.
-    const next = () => (onLook && colorStep < COLOR_STEPS - 1 ? goToColorStep(colorStep + 1) : goTo(step + 1));
+    const next = () => {
+        if (activationBlocked) return;
+        if (onLook && colorStep < COLOR_STEPS - 1) return goToColorStep(colorStep + 1);
+        goTo(step + 1);
+    };
     const back = () => (onLook && colorStep > 0 ? goToColorStep(colorStep - 1) : goTo(step - 1));
 
     /**
@@ -889,16 +1261,44 @@ export default function OnboardingPageClient({
         if (!formData.hasLogo) n += 1;
         if (formData.images.heroSlides.length === 0) n += 1;
         if (!formData.diffChips.length && !formData.diffText.trim()) n += 1;
+        // Proof & details — advisory only, same as everything else here; the step itself
+        // never blocks (EXEC Phase 7). Only counts slots this industry's template actually
+        // declares, so a vertical that doesn't ask about seasons isn't penalized for one.
+        if (slots) {
+            n += slots.stats.filter((s) => !(formData.statValues[s.key] ?? "").trim()).length;
+            if (slots.reviewAggregate && !formData.reviewScore.trim() && !formData.reviewCount.trim()) n += 1;
+            if (slots.seasons && !slots.seasons.some((s) => (formData.seasonBodies[s.key] ?? "").trim())) n += 1;
+            if (slots.serviceRadius && !formData.serviceRadiusMiles.trim()) n += 1;
+            if (slots.offerBadge && !formData.offerBadge.trim()) n += 1;
+        }
         return n;
     }
 
     function buildPayload(): BrandIntakeSubmission {
         return {
             selectedPlan: plan,
+            /**
+             * Spread conditionally so an unanswered choice is genuinely absent rather than an
+             * explicit `undefined`.
+             *
+             * The step blocks on an empty value, so in practice this is always set. It is
+             * written defensively anyway because `zBrandIntakeSubmission` treats the field as
+             * optional (a client mid-form when this step deployed submits the old shape), and
+             * "absent" has to keep meaning "not yet asked" all the way through to provisioning,
+             * which refuses to guess rather than buying a phone number on a default.
+             */
+            ...(formData.receptionistMode ? { receptionistMode: formData.receptionistMode } : {}),
             brandName: formData.brandName,
             email: formData.email,
             phone: formData.phone,
             address: formData.address,
+            // decision 29 specifics — sent as typed; empty ones are flagged, never invented.
+            ownerName: formData.ownerName,
+            license: formData.license,
+            established: formData.established,
+            serviceArea: formData.serviceArea,
+            brandsCarried: formData.brandsCarried,
+            responseTime: formData.responseTime,
             industry: formData.industry,
             serviceList: formData.serviceList.filter((s) => s.name.trim()),
             // Chips and free text are joined here, not in form state, so unticking a chip
@@ -920,6 +1320,24 @@ export default function OnboardingPageClient({
             hasLogo: formData.hasLogo,
             images: formData.images,
             existingWebsiteUrl: formData.existingWebsiteUrl,
+            // Proof & details — only ever sent for an industry whose template declared the slot
+            // (the step is skipped otherwise, and formData's dictionaries just stay empty).
+            // Blank entries are dropped rather than sent as "", the same "absent means not yet
+            // asked" rule buildPayload already follows for receptionistMode above — the console's
+            // copywriter must never read an empty string as a client-confirmed answer.
+            stats: Object.entries(formData.statValues)
+                .filter(([, v]) => v.trim())
+                .map(([key, value]) => ({ key, value: value.trim(), label: STAT_LABELS[key] ?? key })),
+            reviewAggregate:
+                formData.reviewScore.trim() || formData.reviewCount.trim()
+                    ? { score: formData.reviewScore.trim(), count: formData.reviewCount.trim(), url: formData.reviewUrl.trim() || undefined }
+                    : null,
+            servicePrices: Object.fromEntries(Object.entries(formData.servicePrices).filter(([, v]) => v.trim())),
+            seasons: Object.entries(formData.seasonBodies)
+                .filter(([, v]) => v.trim())
+                .map(([key, body]) => ({ key, label: slots?.seasons?.find((s) => s.key === key)?.label ?? key, body: body.trim() })),
+            serviceRadiusMiles: formData.serviceRadiusMiles.trim() || undefined,
+            offerBadge: formData.offerBadge.trim() || undefined,
             additionalSites:
                 plan === "enterprise"
                     ? formData.additionalSites
@@ -946,6 +1364,63 @@ export default function OnboardingPageClient({
                     : undefined,
         };
     }
+
+    /**
+     * The business-registration step's own submit — and the only thing that ever sees these
+     * values.
+     *
+     * One request: this handler posts the identity, the route sends it to Twilio, and the
+     * route keeps only the SIDs. On success the local state is cleared immediately, so the
+     * plaintext is not still sitting in a React state object while the client finishes the
+     * rest of the wizard.
+     *
+     * Note this is *not* part of `handleSubmit`. The wizard's final submit sends `formData`,
+     * which these fields are deliberately absent from.
+     */
+    const submitA2pIdentity = async () => {
+        const industry = a2pEffectiveIndustry;
+        if (a2p.registrationPath === "ein" && !isEinShaped(a2p.ein)) {
+            setA2pError({
+                message: "That EIN doesn't look right. It should be nine digits, like 12-3456789.",
+                fields: ["ein"],
+            });
+            return;
+        }
+
+        setA2pSubmitting(true);
+        setA2pError(null);
+        try {
+            const res = await fetch(
+                `/api/onboarding/a2p-identity${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                        toIdentityInput({
+                            ...a2p,
+                            businessIndustry: industry,
+                            websiteUrl: a2pEffectiveWebsite,
+                        }),
+                    ),
+                },
+            );
+            const body = (await res.json()) as { error?: string; fields?: string[] };
+            if (!res.ok) {
+                setA2pError({
+                    message: body.error ?? "Could not submit these details.",
+                    fields: body.fields ?? [],
+                });
+                return;
+            }
+            setA2pOnFile(true);
+            // Discard the plaintext the moment it is no longer needed.
+            setA2p(emptyA2pForm(formData.industry));
+        } catch {
+            setA2pError({ message: "Could not reach us just now. Please try again.", fields: [] });
+        } finally {
+            setA2pSubmitting(false);
+        }
+    };
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -1031,8 +1506,8 @@ export default function OnboardingPageClient({
                     </div>
                     <h1 style={{ fontSize: "var(--text-2xl)", marginBottom: 12 }}>You&apos;re all set!</h1>
                     <p style={{ color: "var(--fg-2)", lineHeight: 1.6 }}>
-                        Your onboarding details have been submitted — our team will write your site copy and design from what you gave us, and follow up on anything we still need. Next, create your{" "}
-                        <span style={{ color: "var(--fg)", fontWeight: 600 }}>client portal login</span> — where you&apos;ll track your website&apos;s performance
+                        Your onboarding details have been submitted. Our team will write your site copy and design from what you gave us, and follow up on anything we still need. Next, create your{" "}
+                        <span style={{ color: "var(--fg)", fontWeight: 600 }}>client portal login</span>, where you&apos;ll track your website&apos;s performance
                         {plan === "starter" ? "" : " and review your AI call logs"}.
                     </p>
                     <div style={{ marginTop: 32, display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
@@ -1063,7 +1538,7 @@ export default function OnboardingPageClient({
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                             <span className="kicker">Selected Plan</span>
                             <span style={{ fontWeight: 600, color: "var(--fg)" }}>{planMeta.label}</span>
-                            <span style={{ color: "var(--fg-3)" }}>—</span>
+                            <span style={{ color: "var(--fg-3)" }}>Not set</span>
                             <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--fg-2)" }}>{planMeta.price}</span>
                         </div>
                         <Link href="/pricing" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "underline" }}>Change plan</Link>
@@ -1108,7 +1583,7 @@ export default function OnboardingPageClient({
                     <div className="mb-6 flex items-start gap-3 rounded-lg px-4 py-3 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
                         <span className="mt-0.5 shrink-0" style={{ color: "var(--accent)" }}>✓</span>
                         <p className="flex-1">
-                            Welcome back — your progress has been restored.{" "}
+                            Welcome back. Your progress has been restored.{" "}
                             <button type="button" className="underline hover:no-underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => {
                                 const key = safeStorageKey(sessionId);
                                 if (key) localStorage.removeItem(key);
@@ -1177,6 +1652,25 @@ export default function OnboardingPageClient({
                                     <Field label="Phone"><input className={inputCls} value={formData.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(907) 555-0142" /></Field>
                                     <Field label="Business address"><input className={inputCls} value={formData.address} onChange={(e) => set("address", e.target.value)} placeholder="318 Glacier Ave, Juneau, AK" /></Field>
                                 </div>
+
+                                {/* The specifics (decision 29). Optional, but they are the single
+                                    biggest thing that stops a site reading like every other
+                                    contractor's. Used verbatim; a blank is flagged in the console
+                                    and never invented. */}
+                                <div className="space-y-5 rounded-xl border border-[var(--rule)] bg-[var(--surface)] p-5">
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-semibold text-[var(--fg)]">The specifics that make it yours</p>
+                                        <p style={helpText}>Optional, but these are what stop your site reading like everyone else&apos;s. We use them exactly as you write them, and never invent the ones you leave blank.</p>
+                                    </div>
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <Field label="Owner's name" hint="The person behind the business. Appears on your About page."><input className={inputCls} value={formData.ownerName} onChange={(e) => set("ownerName", e.target.value)} placeholder="Dana Reyes" /></Field>
+                                        <Field label="Year established" hint="Used exactly as given. We never guess a founding year."><input className={inputCls} value={formData.established} onChange={(e) => set("established", e.target.value)} placeholder="2009" /></Field>
+                                        <Field label="License number" hint="Shown as a credential. Leave blank if you are not licensed."><input className={inputCls} value={formData.license} onChange={(e) => set("license", e.target.value)} placeholder="AK-HVAC-00123" /></Field>
+                                        <Field label="Response-time commitment" hint="Your own words. Appears on the sticky call bar."><input className={inputCls} value={formData.responseTime} onChange={(e) => set("responseTime", e.target.value)} placeholder="Under 60 minutes" /></Field>
+                                        <Field label="Towns you serve" hint="Separate with commas. Named towns read better than 'the surrounding area'."><input className={inputCls} value={formData.serviceArea} onChange={(e) => set("serviceArea", e.target.value)} placeholder="Juneau, Douglas, Auke Bay" /></Field>
+                                        <Field label="Brands you carry" hint="Separate with commas. The brands you install or service."><input className={inputCls} value={formData.brandsCarried} onChange={(e) => set("brandsCarried", e.target.value)} placeholder="Carrier, Trane, Mitsubishi" /></Field>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -1243,6 +1737,342 @@ export default function OnboardingPageClient({
                                     <Chips options={customersFor(formData.industry)} selected={formData.customerChips} onToggle={(v) => toggleIn("customerChips", v)} />
                                     <input className={inputCls} value={formData.customerText} onChange={(e) => set("customerText", e.target.value)} placeholder="Anyone else you would add (optional)" />
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ── Step: Proof & details — only rendered when `slots` exists, i.e. this
+                            industry's bespoke template actually has a slot for it (EXEC Phase 7). ── */}
+                        {steps[step].key === "proof" && slots && (
+                            <div className="space-y-6">
+                                <StepTitle
+                                    title="Proof & details"
+                                    sub="We'll write your site copy for you. We won't make up numbers about your business — these come from you."
+                                />
+
+                                {slots.stats.length > 0 && (
+                                    <div className="space-y-4">
+                                        {slots.stats.map((s) => (
+                                            <Field key={s.key} label={s.prompt}>
+                                                <input
+                                                    className={inputCls}
+                                                    value={formData.statValues[s.key] ?? ""}
+                                                    onChange={(e) => setKeyed("statValues", s.key, e.target.value)}
+                                                    placeholder={s.example}
+                                                />
+                                            </Field>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {slots.reviewAggregate && (
+                                    <div className="space-y-2">
+                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Review aggregate</span>
+                                        <p style={helpText}>Shown as a star rating badge. Leave blank if you&apos;d rather not show one.</p>
+                                        <div className="grid gap-3 sm:grid-cols-3">
+                                            <Field label="Average star rating"><input className={inputCls} value={formData.reviewScore} onChange={(e) => set("reviewScore", e.target.value)} placeholder="4.9" /></Field>
+                                            <Field label="Number of reviews"><input className={inputCls} value={formData.reviewCount} onChange={(e) => set("reviewCount", e.target.value)} placeholder="180" /></Field>
+                                            <Field label="Review link (optional)"><input className={inputCls} value={formData.reviewUrl} onChange={(e) => set("reviewUrl", e.target.value)} placeholder="https://g.page/..." /></Field>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {slots.priceFrom && formData.serviceList.some((s) => s.name.trim()) && (
+                                    <div className="space-y-2">
+                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Starting prices</span>
+                                        <p style={helpText}>Shown as &quot;Starting at $X&quot; on that service. Leave any blank to show no price.</p>
+                                        <div className="space-y-3">
+                                            {formData.serviceList.filter((s) => s.name.trim()).map((s) => (
+                                                <Field key={s.name} label={s.name}>
+                                                    <input className={inputCls} value={formData.servicePrices[s.name] ?? ""} onChange={(e) => setKeyed("servicePrices", s.name, e.target.value)} placeholder="e.g. $150" />
+                                                </Field>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {slots.seasons && (
+                                    <div className="space-y-3">
+                                        <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Seasonal programs</span>
+                                        {slots.seasons.map((season) => (
+                                            <Field key={season.key} label={season.label} hint={season.prompt}>
+                                                <input
+                                                    className={inputCls}
+                                                    value={formData.seasonBodies[season.key] ?? ""}
+                                                    onChange={(e) => setKeyed("seasonBodies", season.key, e.target.value)}
+                                                    placeholder="Leave blank if you don't offer this season"
+                                                />
+                                            </Field>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {slots.serviceRadius && (
+                                    <Field label="How far do you travel for mobile service?" hint="In miles. Leave blank if you don't offer mobile service.">
+                                        <input className={inputCls} value={formData.serviceRadiusMiles} onChange={(e) => set("serviceRadiusMiles", e.target.value)} placeholder="e.g. 25" />
+                                    </Field>
+                                )}
+
+                                {slots.offerBadge && (
+                                    <Field label="Any current promotional offer?" hint="Optional — shown as a small ribbon on the site. Leave blank if none.">
+                                        <input className={inputCls} value={formData.offerBadge} onChange={(e) => set("offerBadge", e.target.value)} placeholder="e.g. First mow free" />
+                                    </Field>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── Step: Business registration (A2P 10DLC identity) ─────────────
+                            Growth and Enterprise only. Everything typed on this screen lives in
+                            `a2p` local state, never in `formData`, so neither draft store ever
+                            holds it — see `A2pFormState`. The submit button here is its own
+                            request to `/api/onboarding/a2p-identity`; the wizard's final submit
+                            does not carry these fields. ── */}
+                        {steps[step].key === "a2p" && (
+                            <div className="space-y-6">
+                                <StepTitle
+                                    title="Registering your number to text your customers"
+                                    sub="Carriers require every business that texts its customers to be registered under its own legal identity. These are the details that registration needs."
+                                />
+
+                                {!a2pProbed ? (
+                                    <p style={helpText}>Checking what we already have…</p>
+                                ) : a2pOnFile ? (
+                                    /* Resume: the EndUser already exists, so the EIN is not needed
+                                       again. Re-asking would make the client expose it twice for
+                                       nothing. */
+                                    <div className="rounded-xl p-4" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)" }}>
+                                        <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15 }}>
+                                            <strong style={{ color: "var(--fg)" }}>Your business identity is on file with our messaging provider.</strong>{" "}
+                                            Nothing more is needed from you here. We never stored these
+                                            details ourselves, so there is nothing for you to re-enter and
+                                            nothing to check.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="rounded-xl p-4" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)" }}>
+                                            <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15 }}>
+                                                <strong style={{ color: "var(--fg)" }}>Why we need this.</strong> Your number
+                                                has to send as <em>your</em> business, not ours. That means
+                                                registering your legal business details with the carriers through
+                                                Twilio, our messaging provider.
+                                            </p>
+                                            <p style={{ color: "var(--fg-2)", lineHeight: 1.65, fontSize: 15, marginTop: 10 }}>
+                                                <strong style={{ color: "var(--fg)" }}>What happens to your tax ID.</strong>{" "}
+                                                We operate zero-retention on it: when you press submit it goes
+                                                straight to Twilio in one request and we never write it down —
+                                                not in your draft, not in our database, not in your site&apos;s
+                                                files. Twilio keeps it permanently, as the registrar; they have
+                                                to, it is what they register you against. Your browser held it
+                                                while you typed it. We want you to know exactly who ends up with
+                                                it before you type it.
+                                            </p>
+                                            <p style={{ color: "var(--fg-3)", lineHeight: 1.6, fontSize: 13, marginTop: 10 }}>
+                                                Texting your customers &mdash; replies from your portal and Google
+                                                review requests &mdash; switches on once the carriers approve this
+                                                registration. Everything else on your site and your receptionist
+                                                works from launch and does not wait on it.
+                                            </p>
+                                        </div>
+
+                                        {/* Sole proprietor is offered to Growth only. A Sole Proprietor
+                                            campaign allows one number per campaign, and Enterprise runs two
+                                            or three sites — so Enterprise requires an EIN, and the choice
+                                            simply isn't shown. */}
+                                        {plan === "growth" ? (
+                                            <div className="space-y-2">
+                                                <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Does your business have an EIN?</span>
+                                                <p style={helpText}>
+                                                    The nine-digit federal tax ID on your EIN confirmation letter.
+                                                    Sole traders often don&apos;t have one, which is fine &mdash; there
+                                                    is a separate registration for that.
+                                                </p>
+                                                <div className="grid gap-2 sm:grid-cols-2">
+                                                    {([
+                                                        { id: "ein", label: "Yes, we have an EIN" },
+                                                        { id: "sole-proprietor", label: "No — register me as a sole proprietor" },
+                                                    ] as { id: A2pRegistrationPath; label: string }[]).map((o) => {
+                                                        const on = a2p.registrationPath === o.id;
+                                                        return (
+                                                            <button
+                                                                key={o.id}
+                                                                type="button"
+                                                                onClick={() => setA2p((p) => ({ ...p, registrationPath: o.id, ein: "" }))}
+                                                                className="cursor-pointer rounded-xl border px-4 py-3 text-left text-sm font-semibold transition"
+                                                                style={{
+                                                                    borderColor: on ? "var(--accent)" : "var(--rule)",
+                                                                    background: "var(--surface)",
+                                                                    color: on ? "var(--accent)" : "var(--fg-2)",
+                                                                }}
+                                                            >
+                                                                {o.label}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                                {a2p.registrationPath === "sole-proprietor" && (
+                                                    <p style={helpText}>
+                                                        Sole-proprietor registration covers one number, and the
+                                                        authorized person below gets a verification code by text, so
+                                                        use a mobile they have to hand.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : null}
+
+                                        <div className="space-y-4">
+                                            <Field
+                                                label="Legal business name"
+                                                hint="Exactly as it appears on your IRS paperwork, character for character — including punctuation, “LLC”, and any comma. A near-miss is rejected and has to start over."
+                                            >
+                                                <input
+                                                    className={inputCls}
+                                                    value={a2p.legalBusinessName}
+                                                    onChange={(e) => setA2p((p) => ({ ...p, legalBusinessName: e.target.value }))}
+                                                    placeholder="e.g. Arthur's Plumbing LLC"
+                                                    autoComplete="off"
+                                                />
+                                            </Field>
+
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <Field label="Business type">
+                                                    <select
+                                                        className={`${inputCls} cursor-pointer`}
+                                                        value={a2p.businessType}
+                                                        onChange={(e) => setA2p((p) => ({ ...p, businessType: e.target.value }))}
+                                                    >
+                                                        <option value="">Choose…</option>
+                                                        {A2P_BUSINESS_TYPES.map((t) => (
+                                                            <option key={t.value} value={t.value}>{t.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </Field>
+                                                {/* A select, not a text field: the carriers take a fixed list, and
+                                                    a freeform answer fails the compliance check days later. The
+                                                    default comes from the trade picked earlier; none of the trades
+                                                    we sell has its own entry on Twilio's list, so it is a starting
+                                                    point the client can correct, not an answer. */}
+                                                <Field label="Industry" hint="Pre-filled from your trade. Change it if something fits better.">
+                                                    <select
+                                                        className={`${inputCls} cursor-pointer`}
+                                                        value={a2pEffectiveIndustry}
+                                                        onChange={(e) => setA2p((p) => ({ ...p, businessIndustry: e.target.value }))}
+                                                    >
+                                                        <option value="">Choose…</option>
+                                                        {A2P_BUSINESS_INDUSTRIES.map((i) => (
+                                                            <option key={i.value} value={i.value}>{i.label}</option>
+                                                        ))}
+                                                    </select>
+                                                </Field>
+                                            </div>
+
+                                            {a2p.registrationPath === "ein" && (
+                                                <Field label="EIN" hint="Nine digits, as written on your EIN letter.">
+                                                    <input
+                                                        className={inputCls}
+                                                        value={a2p.ein}
+                                                        onChange={(e) => setA2p((p) => ({ ...p, ein: e.target.value }))}
+                                                        placeholder="12-3456789"
+                                                        inputMode="numeric"
+                                                        /* Never offer to remember it, and never let a password
+                                                           manager or the browser's autofill store store it. */
+                                                        autoComplete="off"
+                                                        spellCheck={false}
+                                                        data-1p-ignore
+                                                        data-lpignore="true"
+                                                    />
+                                                </Field>
+                                            )}
+
+                                            <Field label="Website" hint="Your current site, or the address your new one will live at.">
+                                                <input
+                                                    className={inputCls}
+                                                    value={a2pEffectiveWebsite}
+                                                    onChange={(e) => setA2p((p) => ({ ...p, websiteUrl: e.target.value }))}
+                                                    placeholder="https://…"
+                                                />
+                                            </Field>
+                                        </div>
+
+                                        {/* Five fields, not one. The intake already holds a freeform address,
+                                            and parsing it is how a mis-read state reaches the carriers — which
+                                            fails the compliance evaluation days later with no useful error. */}
+                                        <div className="space-y-3">
+                                            <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Registered business address</span>
+                                            <p style={helpText}>The address on your registration paperwork. It can differ from where you work from.</p>
+                                            <Field label="Street">
+                                                <input className={inputCls} value={a2p.street} onChange={(e) => setA2p((p) => ({ ...p, street: e.target.value }))} placeholder="1200 Main St, Suite 4" />
+                                            </Field>
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <Field label="City">
+                                                    <input className={inputCls} value={a2p.city} onChange={(e) => setA2p((p) => ({ ...p, city: e.target.value }))} placeholder="Orlando" />
+                                                </Field>
+                                                <Field label="State" hint="Two letters.">
+                                                    <input className={inputCls} value={a2p.region} onChange={(e) => setA2p((p) => ({ ...p, region: e.target.value }))} placeholder="FL" />
+                                                </Field>
+                                                <Field label="ZIP">
+                                                    <input className={inputCls} value={a2p.postalCode} onChange={(e) => setA2p((p) => ({ ...p, postalCode: e.target.value }))} placeholder="32801" />
+                                                </Field>
+                                                <Field label="Country">
+                                                    <input className={inputCls} value={a2p.country} onChange={(e) => setA2p((p) => ({ ...p, country: e.target.value }))} placeholder="US" />
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {/* The rep's own name, direct email and mobile get the same treatment
+                                            as the EIN: one request, nothing kept. */}
+                                        <div className="space-y-3">
+                                            <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Authorized person</span>
+                                            <p style={helpText}>
+                                                Someone who can speak for the business &mdash; usually you. Their own
+                                                email and mobile, not the business line, because the carriers
+                                                verify the person. We don&apos;t keep these either.
+                                            </p>
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <Field label="First name">
+                                                    <input className={inputCls} value={a2p.repFirstName} onChange={(e) => setA2p((p) => ({ ...p, repFirstName: e.target.value }))} autoComplete="off" />
+                                                </Field>
+                                                <Field label="Last name">
+                                                    <input className={inputCls} value={a2p.repLastName} onChange={(e) => setA2p((p) => ({ ...p, repLastName: e.target.value }))} autoComplete="off" />
+                                                </Field>
+                                                <Field label="Job title">
+                                                    <input className={inputCls} value={a2p.repBusinessTitle} onChange={(e) => setA2p((p) => ({ ...p, repBusinessTitle: e.target.value, repJobPosition: e.target.value }))} placeholder="Owner" />
+                                                </Field>
+                                                <Field label="Direct email">
+                                                    <input className={inputCls} value={a2p.repEmail} onChange={(e) => setA2p((p) => ({ ...p, repEmail: e.target.value }))} placeholder="you@example.com" autoComplete="off" />
+                                                </Field>
+                                                <Field label="Mobile" hint={a2p.registrationPath === "sole-proprietor" ? "A verification code is texted here." : undefined}>
+                                                    <input className={inputCls} value={a2p.repPhone} onChange={(e) => setA2p((p) => ({ ...p, repPhone: e.target.value }))} placeholder="+1 407 555 0123" autoComplete="off" />
+                                                </Field>
+                                            </div>
+                                        </div>
+
+                                        {a2pError && (
+                                            <div className="rounded-xl p-4 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
+                                                <p>{a2pError.message}</p>
+                                                {a2pError.fields.length > 0 && (
+                                                    /* Field names only — the server never sends a value back,
+                                                       and neither does this. */
+                                                    <p style={{ ...helpText, marginTop: 6 }}>Check: {a2pError.fields.join(", ")}</p>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <button type="button" className="btn primary" onClick={submitA2pIdentity} disabled={a2pSubmitting}>
+                                                {a2pSubmitting ? "Submitting…" : "Submit for registration"}
+                                            </button>
+                                            <span style={helpText}>
+                                                Sent once, to Twilio. Nothing on this screen is saved with the rest
+                                                of your answers, so leaving and coming back clears it.
+                                            </span>
+                                        </div>
+
+                                        <p style={helpText}>
+                                            You can carry on without this and send it to us later &mdash; the rest of
+                                            your build doesn&apos;t wait. Only texting your own customers does.
+                                        </p>
+                                    </>
+                                )}
                             </div>
                         )}
 
@@ -1361,7 +2191,7 @@ export default function OnboardingPageClient({
                                 {/* Screen 2 — confirm */}
                                 {colorStep === 2 && (
                                     <div className="space-y-5">
-                                        <StepTitle title="Confirm your colors" sub="This is the palette we'll build your site with. You can always change it later — just tell us." />
+                                        <StepTitle title="Confirm your colors" sub="This is the palette we'll build your site with. You can always change it later, just tell us." />
                                         <div style={{ maxWidth: 520 }}><PalettePreview palette={formData.palette} /></div>
                                         <p className="text-sm" style={{ color: "var(--fg-2)" }}>{paletteSummary(formData.palette)}</p>
                                         <button type="button" className="text-sm font-semibold underline" style={{ color: "var(--accent)", cursor: "pointer" }} onClick={() => { setColorAdjusting(true); goToColorStep(1); }}>
@@ -1396,7 +2226,7 @@ export default function OnboardingPageClient({
                                             </label>
                                             <label className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: "var(--fg-2)" }}>
                                                 <input type="checkbox" checked={!formData.hasLogo} onChange={(e) => set("hasLogo", !e.target.checked)} className="h-4 w-4 cursor-pointer" />
-                                                No logo yet — design one for me
+                                                No logo yet, design one for me
                                             </label>
                                         </div>
                                     )}
@@ -1405,7 +2235,7 @@ export default function OnboardingPageClient({
 
                                 {/* Photos */}
                                 <div className="space-y-3">
-                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Photos <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>(optional — real photos of your work/team beat stock)</span></span>
+                                    <span className="text-sm font-semibold" style={{ color: "var(--fg)" }}>Photos <span style={{ fontWeight: 400, color: "var(--fg-3)" }}>(optional: real photos of your work/team beat stock)</span></span>
                                     <label className={uploadBtnCls}>
                                         {uploadingSlots.has("hero") ? "Uploading…" : "Add photos"}
                                         <input type="file" accept="image/png,image/jpeg,image/webp" multiple className="hidden" onChange={handleHeroSlideUpload} />
@@ -1430,7 +2260,7 @@ export default function OnboardingPageClient({
                         {/* ── Step: Enterprise additional sites ── */}
                         {steps[step].key === "sites" && (
                             <div className="space-y-5">
-                                <StepTitle title="Additional sites" sub={`Your ${planMeta.label} plan includes up to ${planMeta.maxSites} sites. Add facts for each extra location or brand — we write their copy too.`} />
+                                <StepTitle title="Additional sites" sub={`Your ${planMeta.label} plan includes up to ${planMeta.maxSites} sites. Add facts for each extra location or brand, and we write their copy too.`} />
                                 {formData.additionalSites.map((s, i) => (
                                     <div key={i} className={cardCls}>
                                         <button type="button" className="absolute right-3 top-3 text-sm" style={{ color: "var(--accent-2)", cursor: "pointer" }} onClick={() => removeAdditionalSite(i)}>Remove</button>
@@ -1465,10 +2295,151 @@ export default function OnboardingPageClient({
                             </div>
                         )}
 
+                        {/* ── Step: Activation ──
+                            The one step that decides whether we spend money. Nothing is
+                            pre-selected, and declining is presented as a legitimate choice
+                            rather than an error, because a client who genuinely does not want
+                            AI on their line is a real customer we would rather keep on a
+                            website-only arrangement than argue with. */}
+                        {steps[step].key === "activation" && (
+                            <div className="space-y-5">
+                                <StepTitle
+                                    title="Your phone"
+                                    sub="Your receptionist needs to be able to reach your calls. Pick whichever of these suits how you run things."
+                                />
+
+                                {/* The objection, answered before the question is asked. Same
+                                    wording as the pricing page, deliberately: this is the point
+                                    where a client who half-remembers "something about AI
+                                    answering my phone" needs it restated. */}
+                                <div
+                                    className="rounded-2xl p-4"
+                                    style={{
+                                        background: "var(--surface)",
+                                        border: "1px solid var(--rule)",
+                                        borderTop: "2px solid var(--accent)",
+                                    }}
+                                >
+                                    <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                        The AI never answers before you do.
+                                    </p>
+                                    <p className="mt-1" style={{ ...helpText }}>
+                                        A caller rings your real phone first. Only if nobody picks up
+                                        does the AI step in, so it is replacing your voicemail, not
+                                        replacing you.
+                                    </p>
+                                </div>
+
+                                {/*
+                                    The website-only boundary is set at signing: a client who
+                                    signed a receptionist plan can switch between forwarding and a
+                                    new number here, but not drop to website-only (that is a
+                                    different schedule), and vice versa. With no signed choice
+                                    (Enterprise, pre-ship), all three stay open.
+                                */}
+                                {signedReceptionistMode && (
+                                    <p style={{ ...helpText }}>
+                                        You chose{" "}
+                                        <strong style={{ color: "var(--fg)" }}>
+                                            {RECEPTIONIST_OPTIONS.find((o) => o.id === signedReceptionistMode)?.label}
+                                        </strong>{" "}
+                                        when you signed.{" "}
+                                        {signedReceptionistMode === "declined"
+                                            ? "To add the receptionist, just reply to your welcome email and we'll sort out the paperwork."
+                                            : "You can switch between forwarding and a new number below. To move to website-only, reply to your welcome email and we'll handle the change."}
+                                    </p>
+                                )}
+
+                                <div className="flex flex-col gap-3">
+                                    {RECEPTIONIST_OPTIONS.map((opt) => {
+                                        const on = formData.receptionistMode === opt.id;
+                                        // Locked by the signed choice: declined locks to declined,
+                                        // a receptionist choice locks out declined. No signed
+                                        // choice leaves everything selectable.
+                                        const locked =
+                                            signedReceptionistMode === "declined"
+                                                ? opt.id !== "declined"
+                                                : signedReceptionistMode === "forwarded" || signedReceptionistMode === "published"
+                                                  ? opt.id === "declined"
+                                                  : false;
+                                        return (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => !locked && set("receptionistMode", opt.id)}
+                                                aria-pressed={on}
+                                                aria-disabled={locked}
+                                                disabled={locked}
+                                                className="rounded-2xl p-4 text-left transition"
+                                                style={{
+                                                    border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`,
+                                                    background: on ? "var(--surface-2, var(--surface))" : "var(--surface)",
+                                                    boxShadow: on ? "0 0 0 1px var(--accent) inset" : "none",
+                                                    cursor: locked ? "not-allowed" : "pointer",
+                                                    opacity: locked ? 0.45 : 1,
+                                                }}
+                                            >
+                                                <span
+                                                    className="text-sm font-semibold"
+                                                    style={{ color: on ? "var(--accent)" : "var(--fg)" }}
+                                                >
+                                                    {opt.label}
+                                                    {locked && (
+                                                        <span style={{ ...helpText, fontWeight: 400, marginLeft: 6 }}>
+                                                            · set at signing
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                <span className="mt-1 block" style={{ ...helpText }}>
+                                                    {opt.detail}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {formData.receptionistMode === "declined" && (
+                                    <div
+                                        className="rounded-2xl p-4"
+                                        style={{ background: "var(--surface)", border: "1px solid var(--rule)" }}
+                                    >
+                                        <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
+                                            Just so there are no surprises
+                                        </p>
+                                        <p className="mt-1" style={{ ...helpText }}>
+                                            Your price does not change: the website-only option costs the
+                                            same as your plan. You keep the site, the hosting and the
+                                            contact form, and we will not set up a phone number. You can
+                                            turn the receptionist on later at no extra onboarding charge,
+                                            so this is not a door closing.
+                                        </p>
+                                    </div>
+                                )}
+
+                                {formData.receptionistMode !== "" && formData.receptionistMode !== "declined" && (
+                                    <p style={{ ...helpText }}>
+                                        We will send your number and step-by-step instructions once your
+                                        site is ready. Your carrier has to make the change, so we cannot
+                                        do that part for you, but we will walk you through it. The steps
+                                        live at{" "}
+                                        <a
+                                            href="/activation"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                        >
+                                            /activation
+                                        </a>{" "}
+                                        whenever you want them, which is usually not today.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
                         {/* ── Step: Review & submit ── */}
                         {steps[step].key === "review" && (
                             <div className="space-y-5">
-                                <StepTitle title="Review & submit" sub="A quick recap. Blanks are fine — we'll follow up on anything we need." />
+                                <StepTitle title="Review & submit" sub="A quick recap. Blanks are fine, we'll follow up on anything we need." />
                                 <div className="grid gap-3 sm:grid-cols-2">
                                     <ReviewItem label="Business" value={formData.brandName} />
                                     <ReviewItem label="Industry" value={INDUSTRY_OPTIONS.find((o) => o.id === formData.industry)?.label ?? ""} />
@@ -1481,13 +2452,39 @@ export default function OnboardingPageClient({
                                     <ReviewItem label="You serve" value={joinChoices(formData.customerChips, formData.customerText)} />
                                     <ReviewItem label="Voice" value={formData.voice.join(", ")} />
                                     <ReviewItem label="Color theme" value={presetById(formData.palette.presetId)?.label ?? "Custom"} />
-                                    <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "—" : "Design one for me"} />
+                                    <ReviewItem label="Logo" value={formData.images.logo ? "Uploaded" : formData.hasLogo ? "Not uploaded" : "Design one for me"} />
                                     <ReviewItem label="Photos" value={formData.images.heroSlides.length ? `${formData.images.heroSlides.length} uploaded` : "None"} />
                                     <ReviewItem label="Existing site" value={formData.existingWebsiteUrl} />
+                                    {/* Only shown for an industry whose template actually asked for these —
+                                        absent (not a "Not set" row) for every other vertical. */}
+                                    {slots && (
+                                        <ReviewItem
+                                            label="Proof & details"
+                                            value={[
+                                                slots.stats.length > 0
+                                                    ? `${slots.stats.filter((s) => (formData.statValues[s.key] ?? "").trim()).length} of ${slots.stats.length} stats`
+                                                    : null,
+                                                slots.reviewAggregate && (formData.reviewScore.trim() || formData.reviewCount.trim()) ? "review aggregate added" : null,
+                                                slots.seasons && slots.seasons.some((s) => (formData.seasonBodies[s.key] ?? "").trim()) ? "seasons added" : null,
+                                                slots.serviceRadius && formData.serviceRadiusMiles.trim() ? "service radius added" : null,
+                                                slots.offerBadge && formData.offerBadge.trim() ? "offer added" : null,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(", ")}
+                                        />
+                                    )}
+                                    {/* Shown back before submit because it is the one answer here
+                                        that changes what gets built rather than how it looks. */}
+                                    <ReviewItem
+                                        label="Receptionist"
+                                        value={
+                                            RECEPTIONIST_OPTIONS.find((o) => o.id === formData.receptionistMode)?.label ?? ""
+                                        }
+                                    />
                                 </div>
                                 {blanks > 0 && (
                                     <p className="rounded-lg px-4 py-3 text-sm" style={{ border: "1px solid var(--rule-strong)", background: "var(--surface)", color: "var(--fg-2)" }}>
-                                        You left about <strong style={{ color: "var(--fg)" }}>{blanks}</strong> {blanks === 1 ? "detail" : "details"} blank. That&apos;s okay — we&apos;ll reach out to fill any gaps before we build.
+                                        You left about <strong style={{ color: "var(--fg)" }}>{blanks}</strong> {blanks === 1 ? "detail" : "details"} blank. That&apos;s okay, we&apos;ll reach out to fill any gaps before we build.
                                     </p>
                                 )}
                                 {!portalMode && (
@@ -1511,7 +2508,19 @@ export default function OnboardingPageClient({
                     <div className="mt-6 flex items-center justify-between">
                         <button type="button" onClick={back} disabled={step === 0} className="btn ghost" style={{ opacity: step === 0 ? 0.4 : 1, cursor: step === 0 ? "not-allowed" : "pointer" }}>← Back</button>
                         {step < lastStep ? (
-                            <button type="button" onClick={next} className="btn primary">Next →</button>
+                            <button
+                                type="button"
+                                onClick={next}
+                                disabled={activationBlocked}
+                                className="btn primary"
+                                style={{
+                                    opacity: activationBlocked ? 0.5 : 1,
+                                    cursor: activationBlocked ? "not-allowed" : "pointer",
+                                }}
+                                title={activationBlocked ? "Pick one of the three options to continue" : undefined}
+                            >
+                                Next →
+                            </button>
                         ) : (
                             <button
                                 type="submit"
@@ -1545,7 +2554,7 @@ function ReviewItem({ label, value }: { label: string; value: string }) {
     return (
         <div className="rounded-xl border border-[var(--rule)] bg-[var(--surface)] px-4 py-3">
             <p style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--fg-3)" }}>{label}</p>
-            <p style={{ marginTop: 2, color: value ? "var(--fg)" : "var(--fg-3)", fontSize: 14 }}>{value || "—"}</p>
+            <p style={{ marginTop: 2, color: value ? "var(--fg)" : "var(--fg-3)", fontSize: 14 }}>{value || "Not set"}</p>
         </div>
     );
 }

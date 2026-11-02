@@ -1,5 +1,5 @@
 import "server-only";
-import type { PortalAccount, PortalSite } from "@jdd/schema";
+import { isWebOnly, type PortalAccount, type PortalSite } from "@jdd/schema";
 import { meteringGroupFor, sumAgentSeconds, type MeteringGroup } from "./retell-usage";
 import { getBillingPeriod, type WhichPeriod } from "./billing-period";
 import { getSchedule } from "./legal/schedules";
@@ -64,8 +64,16 @@ export async function getUsageSummary(
 ): Promise<UsageSummary> {
     const schedule = getSchedule(site.plan as PlanSlug);
 
-    // Starter has no voice agent at all, so there is no allowance to report against.
-    if (!schedule.callMinutes) return { ...EMPTY, state: "not-on-plan" };
+    /**
+     * No allowance to report against.
+     *
+     * Two distinct reasons, and both have to be checked. `!schedule.callMinutes` would once
+     * have caught Starter, but every tier includes minutes now, so the only plan-level case
+     * left is a hypothetical zero-minute plan. A web-only site is the real case: its schedule
+     * is Starter's, minutes and all, but it has no receptionist and never will, so reporting
+     * usage against 100 minutes would show a meter that can only ever read zero.
+     */
+    if (!schedule.callMinutes || isWebOnly(site)) return { ...EMPTY, state: "not-on-plan" };
     if (site.status !== "live") return { ...EMPTY, state: "pending-build" };
 
     /**

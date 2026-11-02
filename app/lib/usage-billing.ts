@@ -46,8 +46,11 @@ export interface CycleResult {
  *   3. Once the period has closed, creates a Stripe pending invoice item for any overage —
  *      collected automatically on the next renewal of that same subscription.
  *
- * An allowance is not an account. Growth is sold per site and each site has its own 350
- * minutes; only Enterprise pools, across the sites of its one bundle. See `meteringGroups`.
+ * An allowance is not an account. Starter and Growth are each sold per site with their own
+ * 100 and 350 minutes; only Enterprise pools, across the sites of its one bundle. See
+ * `meteringGroups`. Starter joined this in the 2026-10-12 reprice, and its smaller allowance
+ * means overage warnings fire far more often there than on Growth: one ten-minute call is a
+ * tenth of a Starter month.
  *
  * This used to run once per account against a single cap taken from `voiceSites[0].plan`,
  * which for a two-Growth client merged the pools, capped them at 350 between them, metered
@@ -207,7 +210,7 @@ async function processGroup(
           customer: customerId,
           amount,
           currency: "usd",
-          description: `Voice AI overage — ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`,
+          description: `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`,
           subscription: subscriptionId,
         });
         console.log(`[usage-billing] created invoice item for ${email}/${groupRef}: ${duration(overageSeconds)} overage, ${amount}c`);
@@ -297,7 +300,7 @@ async function sendUsageWarning(
       from,
       to: [email],
       subject: is100
-        ? "Call-minute limit reached — overages now apply"
+        ? "Call-minute limit reached, overages now apply"
         : "You've used 80% of your monthly call minutes",
       html,
     });

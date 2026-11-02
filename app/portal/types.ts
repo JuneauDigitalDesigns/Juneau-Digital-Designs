@@ -51,11 +51,16 @@ export interface PortalClientProps {
  */
 export const PORTAL_TABS = [
     { id: "overview", label: "Overview", shortLabel: "Overview", href: "", feature: null },
-    { id: "calls", label: "Call Log", shortLabel: "Calls", href: "calls", feature: "calls" },
+    // Renamed from "Call Log": this is now the triage surface for calls *and* web-form
+    // enquiries. The href stays `calls` so existing links and bookmarks keep working, and its
+    // gate moved to `leads` — web-only sites have no call log but do receive form enquiries.
+    { id: "calls", label: "Inbox", shortLabel: "Inbox", href: "calls", feature: "leads" },
+    { id: "customers", label: "Customers", shortLabel: "Customers", href: "customers", feature: "crm" },
     { id: "traffic", label: "Traffic", shortLabel: "Traffic", href: "traffic", feature: "traffic" },
     { id: "performance", label: "Performance", shortLabel: "Speed", href: "performance", feature: "performance" },
     { id: "billing", label: "Billing", shortLabel: "Billing", href: "billing", feature: null },
     { id: "settings", label: "Settings", shortLabel: "Settings", href: "settings", feature: null },
+    { id: "support", label: "Support", shortLabel: "Support", href: "support", feature: null },
 ] as const satisfies ReadonlyArray<{
     id: string;
     label: string;
@@ -74,14 +79,19 @@ export type PortalTabId = (typeof PORTAL_TABS)[number]["id"];
  * portal to do: check leads, check the site is working, check what they are paying.
  * Performance and Settings are things you visit deliberately, not things you monitor.
  *
- * Locked tabs keep their slot rather than being filtered out. A Starter client seeing Call
- * Log with a padlock is the upsell; hiding it means they never learn the feature exists.
+ * Locked tabs keep their slot rather than being filtered out. A Starter client seeing
+ * Customers with a padlock is the upsell; hiding it means they never learn the feature exists.
  * See the note in `PortalChrome` about tabs always navigating.
+ *
+ * Traffic moved to More when Customers took a slot — four is still the ceiling. The selection
+ * rule is unchanged: the bar is for what a client opens the portal *to do*. Working today's
+ * enquiries and customers beats checking last week's visitor count, and Traffic is a deliberate
+ * visit rather than something you monitor.
  */
-export const MOBILE_BAR_TABS = ["overview", "calls", "traffic", "billing"] as const satisfies
+export const MOBILE_BAR_TABS = ["overview", "calls", "customers", "billing"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
-export const MOBILE_MORE_TABS = ["performance", "settings"] as const satisfies
+export const MOBILE_MORE_TABS = ["traffic", "performance", "settings", "support"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
 /**

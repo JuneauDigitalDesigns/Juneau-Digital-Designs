@@ -26,7 +26,7 @@ export default function VerifyEmailNotice() {
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)", fontSize: 16 }}
                 >
                     We sent a verification link when you created your login. Open it, then come
-                    back and pick your plan again — your account is tied to that address, so we
+                    back and pick your plan again. Your account is tied to that address, so we
                     confirm it before anything is set up or charged.
                 </p>
 

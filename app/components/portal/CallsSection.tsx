@@ -7,7 +7,6 @@ import {
     PieChart, Pie, Cell, Legend,
 } from "recharts";
 import type { PortalSiteProps } from "@/app/portal/types";
-import { upgradeHref } from "@/app/portal/types";
 import { Card, CardLabel, SectionHeader } from "./ui/Card";
 import { StatTile } from "./ui/StatTile";
 import { UsageMeter } from "./ui/UsageMeter";
@@ -297,8 +296,6 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
                 <FeatureState
                     feature="calls"
                     availability={availability}
-                    upgradeHref={upgradeHref(site.slug)}
-                    billingLinked={site.billingLinked}
                     ghost={
                         // Shown for both "not built yet" and "not on your plan". The ghost is
                         // the argument in the second case: a Starter client is being asked to
@@ -308,7 +305,7 @@ export default function CallsSection({ site }: { site: PortalSiteProps }) {
                             <GhostPreview
                                 description={
                                     availability.state === "not-on-plan"
-                                        ? "With Growth, this page lists every call your AI receptionist answers, with a summary of each one."
+                                        ? "Once your receptionist is switched on, this page lists every call it answers, with a summary of each one."
                                         : "Once your site is live, this page lists every call your AI receptionist answers, with a summary of each one."
                                 }
                             >
