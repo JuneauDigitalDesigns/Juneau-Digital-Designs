@@ -36,7 +36,7 @@ export function useMediaQuery(query: string): boolean {
 
 /**
  * Matches Tailwind's `md` breakpoint, which is where the portal's own table/card swaps
- * happen (`hidden md:block` in CallsSection and DataTable). Keep the two in step: a drawer
+ * happen (`hidden md:block` in DataTable). Keep the two in step: a drawer
  * that becomes a sheet at a different width than the table becomes cards is a bug nobody
  * will think to look for.
  */

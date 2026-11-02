@@ -17,20 +17,16 @@ import type { UsageSummary } from "@/app/lib/portal-usage";
  * Figures are exact, not rounded to whole minutes. The same seconds are what get billed, and a
  * tile reading "5 minutes" beside an invoice for 4m 44s is a support ticket.
  *
- * `periodLabel` names the window being shown. The Call Log can point this at the previous
- * billing period, and an allowance figure with no date range attached is ambiguous in exactly
- * the way that started this whole investigation.
+ * The date range is always stated alongside the figure. An allowance with no window attached
+ * is ambiguous in exactly the way that started this whole investigation — and the window is
+ * the subscription month, not the calendar one. It used to be overridable by a `periodLabel`
+ * prop so the Call Log could aim the meter at the previous billing period; that page is gone
+ * and nothing else ever set it, so the window is derived from the summary and nowhere else.
  *
- * Renders nothing unless the summary is `ready`. Starter has no allowance to show, and a
- * pending or failed read has no number this component could stand behind.
+ * Renders nothing unless the summary is `ready`: a web-only site has no allowance to report
+ * against, and a pending or failed read has no number this component could stand behind.
  */
-export function UsageMeter({
-    usage,
-    periodLabel,
-}: {
-    usage: UsageSummary;
-    periodLabel?: string;
-}) {
+export function UsageMeter({ usage }: { usage: UsageSummary }) {
     if (usage.state !== "ready" || usage.secondsUsed === null || usage.minutesCap === null) {
         return null;
     }
@@ -47,8 +43,7 @@ export function UsageMeter({
     const remaining = Math.max(0, capSeconds - secondsUsed);
 
     const window =
-        periodLabel ??
-        (periodStart && periodEnd ? `${shortDate(periodStart)} to ${shortDate(periodEnd)}` : null);
+        periodStart && periodEnd ? `${shortDate(periodStart)} to ${shortDate(periodEnd)}` : null;
 
     return (
         <Card className="space-y-3">

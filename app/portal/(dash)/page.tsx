@@ -113,7 +113,7 @@ export default async function OverviewPage({
                     </Suspense>
 
                     <Suspense fallback={<StatRowSkeleton count={5} />}>
-                        <MetricsBlock site={site} raw={raw} account={account} />
+                        <MetricsBlock raw={raw} account={account} />
                     </Suspense>
 
                     <div className="portal-band">
@@ -169,11 +169,9 @@ async function BuildBlock({
 }
 
 async function MetricsBlock({
-    site,
     raw,
     account,
 }: {
-    site: PortalSiteProps;
     raw: PortalSite;
     account: PortalAccount;
 }) {
@@ -181,7 +179,7 @@ async function MetricsBlock({
         getOverviewData(account, raw),
         getUsageSummary(account, raw),
     ]);
-    return <OverviewMetrics site={site} data={data} usage={usage} />;
+    return <OverviewMetrics data={data} usage={usage} />;
 }
 
 async function FeedBlock({
