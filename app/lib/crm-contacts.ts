@@ -66,6 +66,11 @@ function timeOf(iso: string | null): number {
     return Number.isNaN(t) ? 0 : t;
 }
 
+/** Lexicographic compare, for breaking ties on a stable id. */
+function cmp(a: string, b: string): number {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
 export function callContactId(call: CallRecord): string | null {
     return normalizeE164(call.callerNumber);
 }
@@ -87,7 +92,7 @@ export function buildInbox({
     promoted?: Set<string>;
     readCallIds?: Set<string>;
 }): InboxItem[] {
-    // Index leads by number so each call can ask "did this follow an enquiry?" in O(1).
+    // Index leads by number so pairing only ever considers rows that share a contact identity.
     const leadsByPhone = new Map<string, WebLeadLike[]>();
     for (const lead of leads) {
         const e164 = normalizeE164(lead.phone ?? lead.phoneRaw);
@@ -101,6 +106,10 @@ export function buildInbox({
     const consumed = new Set<string>();
     const callbackFor = new Map<string, CallRecord>();
 
+    // Every enquiry/call pair that *could* be a callback: same contact, call at or after the
+    // form, inside the window. "At or after" matters — a call that came before the form was
+    // filled in is a separate contact, because there was nothing yet to call back about.
+    const pairs: { lead: WebLeadLike; call: CallRecord; gap: number }[] = [];
     for (const call of calls) {
         const e164 = callContactId(call);
         if (!e164) continue;
@@ -108,21 +117,36 @@ export function buildInbox({
         if (!candidates) continue;
 
         const callAt = timeOf(call.date);
-        // The nearest preceding enquiry inside the window. "Preceding" matters: a call that
-        // came *before* the form was filled in is a separate contact, not a callback.
-        let best: WebLeadLike | null = null;
-        let bestGap = Number.POSITIVE_INFINITY;
         for (const lead of candidates) {
             const gap = callAt - timeOf(lead.createdAt);
-            if (gap >= 0 && gap <= CALLBACK_WINDOW_MS && gap < bestGap) {
-                best = lead;
-                bestGap = gap;
-            }
+            if (gap >= 0 && gap <= CALLBACK_WINDOW_MS) pairs.push({ lead, call, gap });
         }
-        if (best && !callbackFor.has(best.leadId)) {
-            callbackFor.set(best.leadId, call);
-            consumed.add(call.id);
-        }
+    }
+
+    /**
+     * Claim the closest pairs first, each enquiry and each call claimable once.
+     *
+     * This used to run per call: every call took its own nearest preceding enquiry, and the
+     * "one callback per enquiry" rule was enforced first-come in `calls` array order. So when
+     * two calls from one number both landed inside one enquiry's window, whichever the loop
+     * reached first won — even when the other sat far closer. And `fetchCalls` asks Airtable
+     * for `sort[0][direction]=desc`, so this is fed newest-first and the *furthest* call in
+     * the window won: an enquiry at 11:50 with its genuine callback at 11:51 and an unrelated
+     * call at 12:00 nested the 12:00 one and emitted the 11:51 callback as its own item —
+     * exactly the duplicate the collapse exists to prevent.
+     *
+     * Smallest gap first decides both competitions the same way: the nearest call for an
+     * enquiry, and, where two enquiries from one number want one call, the nearest preceding
+     * enquiry. Ids break exact ties, so the pairing never depends on input order at all.
+     */
+    pairs.sort(
+        (a, b) =>
+            a.gap - b.gap || cmp(a.call.id, b.call.id) || cmp(a.lead.leadId, b.lead.leadId),
+    );
+    for (const { lead, call } of pairs) {
+        if (callbackFor.has(lead.leadId) || consumed.has(call.id)) continue;
+        callbackFor.set(lead.leadId, call);
+        consumed.add(call.id);
     }
 
     const items: InboxItem[] = [];
