@@ -1,14 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { Big_Shoulders, DM_Mono, Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import { DM_Mono, Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import MarketingChrome from "./components/MarketingChrome";
 import ThemeProvider from "./components/theme/ThemeProvider";
 
-const bigShoulders = Big_Shoulders({
+/**
+ * Self-hosted rather than fetched from Google at build time.
+ *
+ * As `Big_Shoulders` from next/font/google this broke the build non-deterministically — the
+ * same commit built at 16:13 and failed at 18:40 on 2026-11-02 with:
+ *
+ *   Module not found: Can't resolve '@vercel/turbopack-next/internal/font/google/font'
+ *   next/font/google queries have exactly one entry
+ *
+ * Three occurrences in one day, on two machines, plus a standing
+ * "Failed to find font override values for font `Big Shoulders`" warning in dev — Next's font
+ * metadata has no metrics for this family since Google renamed it from Big Shoulders Display.
+ * A build that fails roughly half the time eventually fails unattended, and on 2026-11-02 it
+ * left production serving a dead KV credential because the redeploy that carried the new one
+ * errored here.
+ *
+ * The woff2 is the variable latin subset (weight axis 100-900), which covers the 500-900 the
+ * old static-weight list requested, in one file instead of five. Vendored under the SIL Open
+ * Font License, matching how CabinetGrotesk-Variable is handled below. Nothing is fetched at
+ * build time now, so this font cannot fail a deploy again.
+ */
+const bigShoulders = localFont({
+  src: "./fonts/BigShoulders-Variable.woff2",
   variable: "--font-big-shoulders",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800", "900"],
+  weight: "100 900",
   display: "swap",
 });
 
