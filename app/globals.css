@@ -2895,6 +2895,179 @@ select option {
   .portal-band { grid-template-columns: 1.9fr 1fr; align-items: start; }
 }
 
+/* ── Portal: the Overview's hero figure and its supporting strip ───────────────
+   The Overview used to be five `StatTile`s of identical weight in
+   `.portal-metric-grid`, so "Qualified leads" and "Calls on record, all time" competed
+   as equals and nothing on the page said where to look. One figure now carries it and
+   the rest visibly support it.
+
+   Hero and strip are siblings with no spacing between them in `OverviewSection.tsx`,
+   and are styled as the two halves of ONE panel: the hero rounds its top corners and
+   drops its bottom border, the strip rounds its bottom corners and draws that edge
+   back as the divider between them. A hero rendered with no strip under it closes
+   itself off instead — `HeroMetric` is exported, and Starter's Overview leads with a
+   traffic figure.
+
+   `--shadow-1`, the resting-card depth, on both halves rather than the `--shadow-2`
+   the health strip above uses: a 24px-blur drop shadow on the strip paints back up
+   over the hero's lower edge, because the strip is the later sibling and both halves
+   are positioned. The hero leads on type size, not on elevation. */
+.portal-hero {
+  position: relative;
+  padding: 18px 20px;
+  background: var(--elev-1);
+  border: 1px solid var(--elev-border);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  box-shadow: var(--shadow-1);
+}
+.portal-hero:last-child {
+  border-bottom: 1px solid var(--elev-border);
+  border-radius: 8px;
+}
+
+.portal-hero-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--fg-3);
+}
+
+/* Baseline-aligned, so the delta pill sits on the figure's baseline instead of
+   floating at its optical centre. It wraps because at 375px a five-digit count and a
+   pill do not fit on one line. */
+.portal-hero-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* `.portal-numeral` already supplies the display face and the tabular figures that
+   keep the count-up from reflowing the line as digits change — size and the tighter
+   tracking large type wants are all that belong here. `--text-hero` is a fixed px
+   value that steps once at 1024px; see the token note further down this file for why
+   it is not a `clamp()`. */
+.portal-hero-num {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tightest);
+  color: var(--fg);
+}
+
+/* Shape only: the up/down colours are inline styles on the badge, which beat anything
+   in this file — see PORTAL-DESIGN.md. Without this rule the pill had no pill. */
+.portal-hero-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Mono metadata rather than prose: the line states a denominator. `--text-hero-sub`
+   steps with `--text-hero` at the same breakpoint. */
+.portal-hero-sub {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-hero-sub);
+  line-height: var(--leading-snug);
+  color: var(--fg-3);
+}
+
+/* Bleeds to both edges and lands flush on the divider: the trend is context for the
+   figure, not a chart in its own right. The negative margins cancel the hero's padding on
+   three sides exactly, so nothing overflows and the hero needs no `overflow: hidden` —
+   which matters, because the label's InfoTip opens downward inside this box and
+   clipping it would hide the billing-period sentence. */
+.portal-hero-spark {
+  margin: 14px -20px -18px;
+}
+
+/* The demoted numbers: one hairline-divided strip instead of three equal cards.
+   `grid-auto-flow: column` rather than `repeat(auto-fit, …)` because the cell count is
+   conditional — the minutes-used cell exists only on plans with an allowance, and it
+   was a third cell until the full usage meter moved onto the Overview. An auto-fit
+   track list wraps at a width that depends on that count, and a wrapped row leaves the
+   `+ *` divider below on the wrong edge. Columns never wrap, so any count reads right. */
+.portal-strip {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--elev-1);
+  border: 1px solid var(--elev-border);
+  border-top-color: var(--rule-weak);
+  border-radius: 0 0 8px 8px;
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+/* Internal hairlines are `--rule-weak`, the value `.portal-health-grid` uses, and the
+   hero junction above is set to match: inside one panel the dividers read lighter than
+   its outline. */
+.portal-strip > * + * {
+  border-left: 1px solid var(--rule-weak);
+}
+
+/* Cells reach the panel's edges, so they carry no radius of their own. A linking cell
+   also gets `.portal-row`, whose 6px hover wash would otherwise float inside a flush
+   cell like a loose chip; squared off, the strip's `overflow: hidden` clips the wash to
+   the rounded bottom corners instead. */
+.portal-strip-cell {
+  display: block;
+  min-width: 0;
+  padding: 12px 16px 13px;
+  border-radius: 0;
+}
+.portal-strip-k {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--fg-3);
+}
+.portal-strip-v {
+  margin-top: 5px;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--fg);
+}
+/* The unit — "all time", "of 500m" — is prose beside a figure, so it steps back out of
+   the numeral's display face and tight tracking. */
+.portal-strip-v small {
+  margin-left: 5px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-base);
+  color: var(--fg-3);
+}
+.portal-strip-hint {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--fg-3);
+}
+
+/* Under 640px the cells stack and the divider moves to the top edge. The hero figure
+   needs nothing here: `--text-hero` steps up at 1024px, not down. */
+@media (max-width: 639px) {
+  .portal-strip { grid-auto-flow: row; }
+  .portal-strip > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--rule-weak);
+  }
+}
+
 .portal-dot {
   display: inline-block;
   border-radius: 9999px;
