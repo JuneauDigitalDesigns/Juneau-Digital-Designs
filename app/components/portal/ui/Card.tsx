@@ -32,6 +32,7 @@ export function Card({
     interactive = false,
     style,
     as: Tag = "div",
+    "data-tour": dataTour,
 }: {
     children: ReactNode;
     className?: string;
@@ -41,6 +42,18 @@ export function Card({
     interactive?: boolean;
     style?: CSSProperties;
     as?: "div" | "section" | "article" | "li";
+    /**
+     * Tour anchor, declared explicitly rather than reached by a rest spread — the prop list is
+     * deliberately closed, for the same reason the `density` note above gives.
+     *
+     * It has to be declared at all because a closed prop list silently *drops* `data-*`, and
+     * nothing catches that: TypeScript does not check hyphenated JSX attributes against a
+     * component's props, and there is no runtime error either. `data-tour="inbox-list"` was set
+     * on this component, never reached the DOM, and the first-run tour — which polls four
+     * seconds for that anchor and then gives up without rendering or logging — never ran for
+     * anyone. Pinned by `test/tour-anchors.test.mjs`.
+     */
+    "data-tour"?: string;
 }) {
     const classes = [
         elevation === 2 ? "portal-elev-2" : "portal-elev",
@@ -52,7 +65,7 @@ export function Card({
         .join(" ");
 
     return (
-        <Tag className={classes} style={style}>
+        <Tag className={classes} style={style} data-tour={dataTour}>
             {children}
         </Tag>
     );
