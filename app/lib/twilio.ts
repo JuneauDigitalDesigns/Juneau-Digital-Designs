@@ -59,7 +59,18 @@ export function validateTwilioSignature({
 export function publicWebhookUrl(request: Request): string {
   const configured = process.env.SMS_WEBHOOK_URL;
   if (configured) return configured;
+  return reconstructPublicUrl(request);
+}
 
+/**
+ * Rebuild the public URL from forwarded headers, with no env override.
+ *
+ * Separate from `publicWebhookUrl` because a second webhook (the review status callback) signs
+ * against its *own* URL — reusing `publicWebhookUrl` there would wrongly return `SMS_WEBHOOK_URL`
+ * (the inbound route) and break signature validation. That route passes its own configured URL
+ * and falls back to this.
+ */
+export function reconstructPublicUrl(request: Request): string {
   const url = new URL(request.url);
   const proto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(":", "");
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
@@ -73,18 +84,76 @@ export function publicWebhookUrl(request: Request): string {
  * Service is what carries the registered campaign and the Advanced Opt-Out behaviour, so
  * sending around it would produce exactly the unregistered-sender failure this whole
  * change exists to fix.
+ *
+ * `from` pins the sender *within* the service — Twilio accepts `From` + `MessagingServiceSid`
+ * together, and the number still inherits the registered campaign and Advanced Opt-Out. The
+ * review-request flow uses it so a caller sees the business's own number. Omit it and the
+ * service picks a sender from its pool, which is the right default for owner alerts.
+ *
+ * `statusCallback` asks Twilio to POST delivery updates to our webhook, used by the review
+ * flow to track delivered/failed per recipient.
  */
-export async function sendSms({ to, body }: { to: string; body: string }): Promise<void> {
+/**
+ * Which campaign a message belongs to. **Required, never defaulted.**
+ *
+ * The two lanes have different senders, different campaigns and different readiness dates:
+ *
+ *  - `account` — JDD → the business owner (post-call briefs, new-lead alerts, portal
+ *    notifications). Rides JDD's approved `ACCOUNT_NOTIFICATION` campaign from a dedicated JDD
+ *    notification number. Works day one on every tier.
+ *  - `customer` — the business → its own customer (lead replies, review requests). Rides the
+ *    *client's own* `CUSTOMER_CARE` campaign from their provisioned number, and only once their
+ *    A2P registration verifies.
+ *
+ * Making this an explicit argument rather than an optional override is deliberate: a forgotten
+ * parameter would silently send customer traffic on the account campaign, which produces no
+ * error and surfaces weeks later as carrier filtering.
+ */
+export type SmsLane =
+  | { lane: "account" }
+  | { lane: "customer"; messagingServiceSid: string; from: string };
+
+export async function sendSms({
+  to,
+  body,
+  statusCallback,
+  ...laneOpts
+}: {
+  to: string;
+  body: string;
+  statusCallback?: string;
+} & SmsLane): Promise<{ sid: string | null }> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
-  if (!accountSid || !authToken || !messagingServiceSid) {
-    throw new Error(
-      "Twilio is not configured — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and " +
-        "TWILIO_MESSAGING_SERVICE_SID",
-    );
+  if (!accountSid || !authToken) {
+    throw new Error("Twilio is not configured — set TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN");
   }
+
+  let serviceSid: string;
+  let from: string | undefined;
+
+  if (laneOpts.lane === "customer") {
+    serviceSid = laneOpts.messagingServiceSid;
+    from = laneOpts.from;
+  } else {
+    const master = process.env.TWILIO_MESSAGING_SERVICE_SID;
+    if (!master) {
+      throw new Error("Account-lane SMS needs TWILIO_MESSAGING_SERVICE_SID");
+    }
+    serviceSid = master;
+    // Pinned so the owner gets every alert from one sender they can save as a contact, rather
+    // than whichever number the pool happened to pick. Optional until the number is bought.
+    from = process.env.TWILIO_NOTIFICATION_NUMBER || undefined;
+  }
+
+  const params = new URLSearchParams({
+    To: to,
+    Body: body,
+    MessagingServiceSid: serviceSid,
+  });
+  if (from) params.set("From", from);
+  if (statusCallback) params.set("StatusCallback", statusCallback);
 
   const res = await fetch(`${API_BASE}/Accounts/${accountSid}/Messages.json`, {
     method: "POST",
@@ -92,11 +161,14 @@ export async function sendSms({ to, body }: { to: string; body: string }): Promi
       Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: new URLSearchParams({ To: to, Body: body, MessagingServiceSid: messagingServiceSid }),
+    body: params,
   });
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Twilio send failed (${res.status}): ${detail.slice(0, 300)}`);
   }
+
+  const json = (await res.json().catch(() => null)) as { sid?: string } | null;
+  return { sid: json?.sid ?? null };
 }

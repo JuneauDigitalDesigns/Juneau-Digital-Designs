@@ -7,7 +7,6 @@ import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
 import {
     ChartPieSlice,
-    PhoneCall,
     TrendUp,
     Gauge,
     CreditCard,
@@ -20,7 +19,11 @@ import {
     ArrowSquareOut,
     Check,
     Lock,
+    Question,
+    Tray,
+    Users,
 } from "@phosphor-icons/react";
+import TourController, { launchTour } from "./tour/TourController";
 import PortalBrand from "./PortalBrand";
 import SiteSelector from "./SiteSelector";
 import { PortalDataProvider } from "./PortalDataProvider";
@@ -42,15 +45,21 @@ const planLabel: Record<string, string> = {
     enterprise: "Enterprise",
 };
 
+/**
+ * One icon per tab id. `satisfies Record<PortalTabId, …>` is load-bearing: this map is indexed
+ * unguarded below, so a tab added without an icon would render `undefined` as a component and
+ * crash the whole rail. The constraint turns that into a compile error instead.
+ */
 const TAB_ICON = {
     overview: ChartPieSlice,
-    calls: PhoneCall,
+    calls: Tray,
+    customers: Users,
     traffic: TrendUp,
     performance: Gauge,
     billing: CreditCard,
     settings: Gear,
     support: Lifebuoy,
-} as const;
+} as const satisfies Record<PortalTabId, typeof ChartPieSlice>;
 
 /**
  * The authenticated portal's chrome. Two shapes, one component.
@@ -82,12 +91,19 @@ export default function PortalChrome({
     sites,
     accountEmail,
     railCollapsed,
+    tourCompleted,
+    tourInitialStep,
+    tourTier,
     children,
 }: {
     sites: PortalSiteProps[];
     accountEmail: string;
     /** Server-read cookie. See `(dash)/layout.tsx` — holding this client-side would flash. */
     railCollapsed: boolean;
+    /** First-run tour state, read from Clerk publicMetadata in the layout. */
+    tourCompleted: boolean;
+    tourInitialStep: number;
+    tourTier: "starter" | "growth";
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
@@ -134,6 +150,7 @@ export default function PortalChrome({
 
     return (
         <div className="portal-shell" data-rail={collapsed ? "collapsed" : "expanded"}>
+            <TourController tourCompleted={tourCompleted} initialStep={tourInitialStep} tier={tourTier} />
             {/* ── Mobile: slim topbar ──────────────────────────────────────────── */}
             <header className="portal-topbar">
                 <a
@@ -289,6 +306,7 @@ export default function PortalChrome({
                                 href={tabHref(tab.href, selected.slug)}
                                 aria-current={isActive ? "page" : undefined}
                                 title={tab.label}
+                                data-tour={`nav-${tab.id}`}
                                 className={`portal-rail-link${isActive ? " is-active" : ""}`}
                             >
                                 <Icon
@@ -329,15 +347,33 @@ export default function PortalChrome({
                     to switch. The signed-in address takes its place — it was already being
                     passed down and never shown, which meant a client with two logins had no
                     way to tell which one they were in. */}
-                <div className="portal-rail-foot">
-                    <UserButton />
-                    <span
-                        className="truncate min-w-0"
-                        style={{ color: "var(--fg-3)", fontSize: "var(--text-sm)" }}
-                        title={accountEmail}
+                <div
+                    className="portal-rail-foot"
+                    style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "stretch" }}
+                >
+                    {/* Help / replay the tour — above the account row per the design. */}
+                    <button
+                        type="button"
+                        onClick={() => launchTour()}
+                        data-tour="portal-help"
+                        className="portal-rail-link"
+                        style={{ width: "100%", cursor: "pointer" }}
+                        aria-label="Replay the portal tour"
+                        title="Help & tour"
                     >
-                        {accountEmail}
-                    </span>
+                        <Question size={17} className="shrink-0" />
+                        <span className="truncate">Help &amp; tour</span>
+                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+                        <UserButton />
+                        <span
+                            className="truncate min-w-0"
+                            style={{ color: "var(--fg-3)", fontSize: "var(--text-sm)" }}
+                            title={accountEmail}
+                        >
+                            {accountEmail}
+                        </span>
+                    </div>
                 </div>
             </aside>
 
@@ -488,6 +524,19 @@ export default function PortalChrome({
                             <span>Open {host}</span>
                         </a>
                     )}
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setMoreOpen(false);
+                            launchTour();
+                        }}
+                        className="portal-rail-link"
+                        style={{ minHeight: 44, width: "100%", cursor: "pointer" }}
+                    >
+                        <Question size={18} className="shrink-0" />
+                        <span>Replay tour</span>
+                    </button>
                 </nav>
 
                 <div

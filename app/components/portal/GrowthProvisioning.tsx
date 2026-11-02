@@ -137,16 +137,19 @@ function CheckMark() {
 }
 
 /**
- * Is this site mid-Growth-provisioning?
+ * Is this site's receptionist still being set up?
  *
- * Derived, not stored: a paid tier whose call feature hasn't reached `ready` is by definition
- * still being set up. `siteFeature` resolves calls to `pending-build` while the site is
- * building or `connecting` once it's live without an `airtableBaseId` — either way the work
- * is outstanding.
+ * Derived, not stored, and deliberately **tier-agnostic**: every plan includes a receptionist
+ * since the 2026-10-12 reprice, so "provisioning" is purely whether the calls feature has
+ * reached `ready`. `siteFeature` resolves calls to `pending-build` while the site is building
+ * or `connecting` once it's live without an `airtableBaseId` — either way the work is
+ * outstanding. A web-only site (receptionist declined) resolves to `not-on-plan` and correctly
+ * returns false here.
+ *
+ * This used to gate on `plan === "growth" || "enterprise"`, which hid this tracker from a
+ * Starter client whose receptionist was mid-setup — exactly the client who most needs to see
+ * it. The plan union no longer decides receptionist entitlement; `siteFeature` does.
  */
-export function isProvisioningGrowth(
-    site: PortalSiteProps,
-    calls: FeatureAvailability,
-): boolean {
-    return (site.plan === "growth" || site.plan === "enterprise") && calls.state !== "ready";
+export function isProvisioningReceptionist(calls: FeatureAvailability): boolean {
+    return calls.state === "pending-build" || calls.state === "connecting";
 }

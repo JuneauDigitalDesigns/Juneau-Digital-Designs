@@ -6,7 +6,16 @@ import {
   normalizeE164,
   recordConsentEvent,
 } from "@/app/lib/sms-consent";
-import { publicWebhookUrl, validateTwilioSignature } from "@/app/lib/twilio";
+import {
+  appendMessage,
+  findCustomerByPhone,
+  getNumberOwner,
+  getOwnerEmail,
+  markReviewOptOut,
+  type NumberOwner,
+} from "@/app/lib/portal-crm";
+import { publicWebhookUrl, sendSms, validateTwilioSignature } from "@/app/lib/twilio";
+import { getConsentStateForAccount, isDeliverable } from "@/app/lib/sms-consent";
 
 export const runtime = "nodejs";
 
@@ -55,6 +64,10 @@ export async function POST(request: Request) {
 
   const from = normalizeE164(params.From ?? "");
   const keyword = (params.Body ?? "").trim().toUpperCase();
+  const messageBody = (params.Body ?? "").trim();
+  // Which of our numbers they texted — the only thing identifying the client, since the
+  // Messaging Service's inbound webhook is shared across every client.
+  const to = normalizeE164(params.To ?? "");
 
   if (!from) {
     // Nothing to act on, but a non-200 makes Twilio retry a message we will never
@@ -63,6 +76,15 @@ export async function POST(request: Request) {
   }
 
   const { ip, userAgent } = consentRequestContext(request);
+  const owner = to ? await getNumberOwner(to) : null;
+
+  if (to && !owner) {
+    // Not a failure worth retrying — but it means a client's number is live and unmapped, so
+    // their customers' replies are landing nowhere. Loud, and still a 200.
+    console.error(
+      `[twilio-sms] inbound to ${to} has no owner in portal:number-owner — reply dropped`,
+    );
+  }
 
   if (STOP_WORDS.has(keyword)) {
     const state = await getConsentState(from);
@@ -79,6 +101,10 @@ export async function POST(request: Request) {
       });
       console.log("[twilio-sms] consent revoked by keyword", from);
     }
+    // Independent of the owner-alert consent above: a customer is not the account owner and
+    // has no consent record, so this is the only place their STOP is recorded in our books.
+    // Blocks every future send to them — chat and review requests alike.
+    if (owner) await markReviewOptOut(owner.acctScope, from);
     // No reply body: Advanced Opt-Out sends the confirmation itself, and a second message
     // to someone who just asked us to stop texting them is precisely the wrong answer.
     return twiml();
@@ -107,7 +133,60 @@ export async function POST(request: Request) {
     return twiml(HELP_REPLY);
   }
 
+  // Not a keyword — so it is a customer replying to their tradesperson. Thread it.
+  if (owner && messageBody) {
+    const customer = await findCustomerByPhone(owner.acctScope, owner.slug, from);
+    if (customer) {
+      await appendMessage(owner.acctScope, owner.slug, customer.customerId, {
+        direction: "in",
+        body: messageBody.slice(0, 1600),
+        at: new Date().toISOString(),
+        messageSid: params.MessageSid ?? params.SmsSid ?? null,
+        status: "received",
+      });
+      await notifyOwnerOfReply(owner, customer.name);
+    } else {
+      // A text from someone who is not a customer yet. Logged rather than auto-created: the
+      // CRM is deliberately promotion-only, and silently inventing records from inbound SMS
+      // would be the v1 mistake in a new place.
+      console.log(`[twilio-sms] inbound from non-customer ${from} on ${owner.slug}`);
+    }
+  }
+
+  // Never auto-reply to a conversational message. The client answers from the portal.
   return twiml();
+}
+
+/**
+ * Tell the owner a customer replied — **the fact, not the message**.
+ *
+ * The portal is where they hold the conversation, so the alert's job is to get them there, not
+ * to relay content to a second device. Keeping the body out also means a customer's words are
+ * never forwarded somewhere the client did not expect.
+ *
+ * Account lane: JDD → the owner, on the already-approved notification campaign, so this works
+ * day one and never waits on the client's own A2P registration. Honours the owner's existing
+ * SMS consent; silent when they never opted in or have revoked.
+ */
+async function notifyOwnerOfReply(owner: NumberOwner, customerName: string | null): Promise<void> {
+  try {
+    const email = await getOwnerEmail(owner.acctScope);
+    if (!email) return;
+
+    const consent = await getConsentStateForAccount(email);
+    if (!isDeliverable(consent)) return;
+
+    const who = customerName?.trim() || "a customer";
+    await sendSms({
+      lane: "account",
+      to: consent.phone,
+      body: `You have a new message from ${who} in your portal: https://juneaudigitaldesigns.com/portal/customers`,
+    });
+  } catch (e) {
+    // A failed notification must never fail the webhook — Twilio would retry and we would
+    // thread the same inbound message twice.
+    console.error("[twilio-sms] owner notification failed", e);
+  }
 }
 
 /** Twilio expects TwiML, and an empty <Response/> means "say nothing back". */

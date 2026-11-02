@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { FeatureAvailability } from "@jdd/schema";
 import type { InfraSnapshot, SegmentState } from "@/app/lib/portal-infra";
-import { tabHref, upgradeHref } from "@/app/portal/types";
+import { tabHref } from "@/app/portal/types";
 import { Card } from "./ui/Card";
 import { StatusDot, type Status } from "./ui/StatusDot";
 import { relativeTime } from "./ui/format";
@@ -23,7 +23,6 @@ export function HealthStrip({
     score,
     slug,
     calls,
-    billingLinked,
 }: {
     infra: InfraSnapshot;
     /** Cached PageSpeed score, or null when today's run hasn't happened yet. */
@@ -31,8 +30,6 @@ export function HealthStrip({
     slug: string;
     /** Drives the Receptionist segment — the client's view of their plan tier. */
     calls: FeatureAvailability;
-    /** False means no subscription on file, so the upgrade link would dead-end. */
-    billingLinked: boolean;
 }) {
     return (
         <Card elevation={2} density="none" className="overflow-hidden">
@@ -84,21 +81,17 @@ export function HealthStrip({
                     state={receptionistState(calls)}
                     value={receptionistValue(calls)}
                     detail={
+                        // Web-only (receptionist declined). It's included in their plan, so
+                        // enabling it is a contact-us, not the Starter→Growth upgrade this used
+                        // to point at. The full message lives on the Call Log panel.
                         calls.state === "not-on-plan" ? (
-                            billingLinked ? (
-                                <Link
-                                    href={upgradeHref(slug)}
-                                    className="underline underline-offset-2"
-                                    style={{ color: "var(--accent)" }}
-                                >
-                                    Add it with Growth
-                                </Link>
-                            ) : (
-                                // No subscription on file — the upgrade would dead-end after
-                                // the client signed. Say nothing actionable here; the Call Log
-                                // panel carries the contact-us message in full.
-                                <span>Not on your plan</span>
-                            )
+                            <a
+                                href="mailto:hello@juneaudigitaldesigns.com?subject=Add%20my%20AI%20receptionist"
+                                className="underline underline-offset-2"
+                                style={{ color: "var(--accent)" }}
+                            >
+                                Add your receptionist
+                            </a>
                         ) : (
                             receptionistDetail(calls)
                         )

@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import PortalChrome from "@/app/components/portal/PortalChrome";
@@ -23,6 +23,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // hydration on every single load. This layout is already `force-dynamic`, so a cookie
     // read costs nothing it wasn't already paying.
     const railCollapsed = (await cookies()).get("portal_rail")?.value === "collapsed";
+
+    // First-run tour state travels with the Clerk user (per person, not per account), and is
+    // read here so the shell knows on the server whether to auto-launch — no flash of the tour
+    // for someone who already finished it.
+    const user = await currentUser();
+    const tourMeta = (user?.publicMetadata as { tour?: { completed?: boolean; lastStepIndex?: number } } | null)?.tour;
+    const tourCompleted = Boolean(tourMeta?.completed);
+    const tourInitialStep = typeof tourMeta?.lastStepIndex === "number" ? tourMeta.lastStepIndex : 0;
 
     const ctx = await resolveDashboard();
 
@@ -66,6 +74,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 sites={sites}
                 accountEmail={account.email}
                 railCollapsed={railCollapsed}
+                tourCompleted={tourCompleted}
+                tourInitialStep={tourInitialStep}
+                // The tour teaches a different product per tier, so it branches on what the
+                // primary site actually has rather than showing Starter a CRM walkthrough.
+                tourTier={sites[0]?.features.crm.state === "ready" ? "growth" : "starter"}
             >
                 {children}
             </PortalChrome>

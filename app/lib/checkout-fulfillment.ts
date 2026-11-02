@@ -174,6 +174,9 @@ export async function provisionPaidSession(
       // from the portal, a thrown error here is not.
       if (doubleOptInEnabled()) {
         await sendSms({
+          // JDD → the owner about their own account, so it rides the approved
+          // ACCOUNT_NOTIFICATION campaign rather than any client's own campaign.
+          lane: "account",
           to: promoted.phone,
           body:
             "Juneau Digital Designs: reply YES to confirm you want a text summary " +
