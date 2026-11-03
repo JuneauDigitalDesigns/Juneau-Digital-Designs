@@ -100,6 +100,20 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
         [all, showArchived, needsReply, staleOnly, reviewReady, search],
     );
 
+    /**
+     * A deep link can name a customer that is not there any more.
+     *
+     * Before this, the record simply rendered nothing when its fetch came back empty — which
+     * on desktop meant a blank content area where the board used to be, with no way out but
+     * the browser's back button. Falling back to the board, and dropping the parameter so a
+     * refresh does not do it again, is the only honest answer: the customer is gone, the board
+     * is not.
+     */
+    const handleNotFound = useCallback(() => {
+        setOpenId(null);
+        setParam("open", "");
+    }, [setParam]);
+
     const byStage = useMemo(() => {
         const m: Record<StageKey, CustomerRow[]> = {
             lead: [], contacted: [], quoted: [], scheduled: [], won: [], lost: [],
@@ -204,6 +218,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                     variant="page"
                     onChanged={refresh}
                     onRequestReview={(c) => setReviewFor(c)}
+                    onNotFound={handleNotFound}
                 />
                 {reviewDialog}
             </>
@@ -367,6 +382,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                 siteSlug={site.slug}
                 onChanged={refresh}
                 onRequestReview={(c) => setReviewFor(c)}
+                onNotFound={handleNotFound}
             />
 
             {reviewDialog}

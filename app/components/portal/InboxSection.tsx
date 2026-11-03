@@ -12,6 +12,7 @@ import { freshness } from "./ui/format";
 import { duration } from "@/app/lib/duration";
 import {
     filterInbox,
+    inboxItemForDeepLink,
     promotionInput,
     type InboxFilter,
     type InboxItem,
@@ -64,7 +65,16 @@ function fullWhen(iso: string | null): string {
 export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const router = useRouter();
     const params = useSearchParams();
-    const [openId, setOpenId] = useState<string | null>(null);
+    /**
+     * Seeded from the URL so a deep link survives a cold load and a refresh.
+     *
+     * The owner's text links to one enquiry (`/portal/l/<id>` redirects here with `?open=`),
+     * and this used to start at null and read no parameter at all — so the link opened the
+     * inbox and nothing else, which is the one thing it was for. Read as the initial value,
+     * not synced from the param on every render: once the drawer is open the client owns it,
+     * and a `router.replace` must not fight them.
+     */
+    const [openId, setOpenId] = useState<string | null>(params.get("open"));
     const [promoting, setPromoting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -84,10 +94,25 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
         router.replace(`?${next.toString()}`, { scroll: false });
     };
 
+    /** Open an item and say so in the URL, so a reload lands back on it. */
+    const openItem = (id: string | null) => {
+        setOpenId(id);
+        setParam("open", id ?? "");
+    };
+
     const all = useMemo(() => data?.items ?? [], [data]);
     const items = useMemo(() => filterInbox(all, filter, search), [all, filter, search]);
 
-    const open = all.find((i) => i.id === openId) ?? null;
+    /**
+     * Resolves a nested callback to the enquiry it was folded into, so a link to the call the
+     * receptionist made opens the enquiry that caused it rather than nothing.
+     *
+     * Searches every item, including ones promoted away. The *list* hides those — it is a
+     * worklist — but a link naming one by id is not the list, and the drawer already says
+     * "Already in your customers" rather than offering to promote it twice. The redirect
+     * sends promoted ids to the customer record anyway; this is the direct-link case.
+     */
+    const open = inboxItemForDeepLink(all, openId);
     // Both counts are of the worklist, so neither includes what has been promoted away.
     const working = useMemo(() => all.filter((i) => !i.promoted), [all]);
     const unreadCount = working.filter((i) => !i.read).length;
@@ -232,7 +257,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                     <button
                         key={item.id}
                         type="button"
-                        onClick={() => setOpenId(item.id)}
+                        onClick={() => openItem(item.id)}
                         className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer transition-colors"
                         style={{
                             borderTop: i === 0 ? undefined : "1px solid var(--rule)",
@@ -297,7 +322,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
 
             <Drawer
                 open={open !== null}
-                onClose={() => setOpenId(null)}
+                onClose={() => openItem(null)}
                 title={open?.name ?? "Enquiry"}
                 width="lg"
                 surface="raised"

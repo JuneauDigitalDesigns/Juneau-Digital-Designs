@@ -80,6 +80,7 @@ export default function CustomerRecord({
     variant,
     onChanged,
     onRequestReview,
+    onNotFound,
 }: {
     customerId: string | null;
     siteSlug: string;
@@ -87,6 +88,12 @@ export default function CustomerRecord({
     variant: "page" | "sheet";
     onChanged: () => void;
     onRequestReview: (c: CustomerRow) => void;
+    /**
+     * The record could not be loaded — archived, deleted, or a deep link naming a customer
+     * that is not this account's. The caller takes the view back to the board; see the note
+     * where it is passed in.
+     */
+    onNotFound?: () => void;
 }) {
     const [data, setData] = useState<DetailResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -113,14 +120,19 @@ export default function CustomerRecord({
         fetch(`/api/portal/customers/${customerId}?site=${encodeURIComponent(siteSlug)}`)
             .then((r) => r.json())
             .then((json) => {
-                if (!cancelled) setData(json?.customer ? json : null);
+                if (cancelled) return;
+                if (json?.customer) setData(json);
+                else {
+                    setData(null);
+                    onNotFound?.();
+                }
             })
             .catch(() => {})
             .finally(() => !cancelled && setLoading(false));
         return () => {
             cancelled = true;
         };
-    }, [customerId, siteSlug]);
+    }, [customerId, siteSlug, onNotFound]);
 
     const customer = data?.customer ?? null;
 

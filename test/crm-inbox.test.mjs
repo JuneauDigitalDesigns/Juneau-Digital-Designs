@@ -20,11 +20,15 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 import {
     buildInbox,
     callContactId,
+    classifyDeepLink,
     filterInbox,
+    inboxItemForDeepLink,
+    isDeepLinkId,
     markOrigin,
     promotionInput,
 } from "../app/lib/crm-contacts.ts";
@@ -93,6 +97,7 @@ test("a form lead and the callback it triggered collapse into one item", () => {
     // The call is nested, not merged: its summary, length and recording stay attributable to
     // the call rather than being read as properties of the form submission.
     assert.deepEqual(item.callback, {
+        id: "recCall",
         at: at(0),
         durationSeconds: 94,
         summary: "Asked about a bathroom refit.",
@@ -517,4 +522,107 @@ test("marking the origin does not mutate the timeline it was given", () => {
     markOrigin(timeline, "recCall");
 
     assert.ok(!("origin" in timeline[0].meta), "the caller's array was written through");
+});
+
+/* ── deep links from the owner's text ─────────────────────────────────────── */
+
+test("a deep link to a call opens that call", () => {
+    const items = buildInbox({ calls: [call()] });
+
+    assert.equal(inboxItemForDeepLink(items, "recCall").id, "recCall");
+});
+
+test("a deep link to a nested callback opens the enquiry it belongs to", () => {
+    /**
+     * The case that makes this helper necessary. On Growth the owner is texted about the call
+     * the receptionist made, but `buildInbox` consumes that call into the enquiry that caused
+     * it — so it is not an item, and matching ids alone finds nothing at all.
+     */
+    const items = buildInbox({
+        calls: [call({ id: "recCallback", date: at(0) })],
+        leads: [lead({ createdAt: at(-10 * MIN) })],
+    });
+
+    assert.equal(items.length, 1, "the call really was folded in");
+    assert.equal(items[0].callback.id, "recCallback", "the callback carries its own id");
+    assert.equal(inboxItemForDeepLink(items, "recCallback").id, "lead:L1");
+});
+
+test("a deep link to nothing opens nothing, and does not throw", () => {
+    const items = buildInbox({ calls: [call()] });
+
+    assert.equal(inboxItemForDeepLink(items, "recGone00000000000"), null);
+    assert.equal(inboxItemForDeepLink(items, null), null);
+    assert.equal(inboxItemForDeepLink([], "recCall"), null);
+});
+
+test("a deep link still reaches an item that has been promoted away", () => {
+    // The list hides promoted leads — it is a worklist. A link naming one by id is not the
+    // list, and the drawer tells them it is already a customer rather than offering it twice.
+    const items = buildInbox({ calls: [call()], promoted: new Set(["recCall"]) });
+
+    assert.deepEqual(ids(filterInbox(items, "all")), [], "hidden from the list");
+    assert.equal(inboxItemForDeepLink(items, "recCall").id, "recCall", "still reachable by id");
+});
+
+test("a promoted item resolves to its customer, not to the inbox", () => {
+    // The whole reason the redirect asks before choosing a destination: sending a promoted
+    // lead to the inbox lands on an ordinary inbox with no sign of the thing they tapped.
+    assert.deepEqual(classifyDeepLink("recABCDEFGHIJKLMN", "cust_7", null), {
+        kind: "customer",
+        customerId: "cust_7",
+    });
+    assert.deepEqual(classifyDeepLink("lead:abc", "cust_7", true), {
+        kind: "customer",
+        customerId: "cust_7",
+    });
+});
+
+test("a lead that is no longer in the store is gone", () => {
+    assert.deepEqual(classifyDeepLink("lead:abc", null, false), { kind: "gone" });
+    assert.deepEqual(classifyDeepLink("lead:abc", null, true), {
+        kind: "inbox",
+        itemId: "lead:abc",
+    });
+});
+
+test("an unknown call id is taken on trust rather than called gone", () => {
+    /**
+     * Pinning a deliberate limit, not an oversight. The resolver reads KV only — it runs on
+     * the hot path of a tapped text message and will not put an Airtable round trip there —
+     * and a call lives in Airtable, so its absence cannot be proven. Both answers end at the
+     * plain inbox anyway; only the route differs.
+     */
+    assert.deepEqual(classifyDeepLink("recABCDEFGHIJKLMN", null, null), {
+        kind: "inbox",
+        itemId: "recABCDEFGHIJKLMN",
+    });
+});
+
+test("only the two real id shapes resolve to anything", () => {
+    // An id that came from somewhere we did not write never reaches a KV key or a query
+    // string. `gone` even when a customer was somehow found for it.
+    for (const bad of [
+        "",
+        "../../etc/passwd",
+        "lead:",
+        "rec",
+        "recTooShort",
+        "recWayTooLongToBeReal00000",
+        "lead:has spaces",
+        "<script>",
+        "cust_7",
+    ]) {
+        assert.equal(isDeepLinkId(bad), false, `${bad} should not be a deep-link id`);
+        assert.deepEqual(classifyDeepLink(bad, "cust_7", true), { kind: "gone" }, bad);
+    }
+
+    assert.equal(isDeepLinkId("recABCDEFGHIJKLMN"), true);
+    assert.equal(isDeepLinkId("lead:0f8e7d6c-1234-4abc-89de-0123456789ab"), true);
+});
+
+test("a real leadId is a valid deep-link id", () => {
+    // `portal-leads.ts` creates these with `randomUUID()`, so the shape is a canonical v4:
+    // hex and hyphens, 36 characters. The guard has to admit it.
+    assert.equal(isDeepLinkId(`lead:${randomUUID()}`), true);
 });
