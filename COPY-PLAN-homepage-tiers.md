@@ -162,6 +162,18 @@ from JDD's notification number saying a new lead is waiting in the portal. Two c
   describe that alert, but **only in the commit that moves the post-call text to the notification
   number** (ops item 2). Today Make sends it from the client's own number, which fails `30034` for a
   real client.
+**Gate B approved word for word, 2026-11-02.** Three bullets go in with the copy commit; the fourth
+waits for the sender fix:
+
+| Where | Approved wording | When |
+|---|---|---|
+| `RECEPTIONIST_INCLUDED` (`schedules.ts:65`) | "A lead record for every call, with the caller's name, number, and reason for calling, delivered to the client portal" | Copy commit |
+| Starter `:90` and web-only `:229` | "Website contact form submissions recorded as leads in the client portal" | Copy commit |
+| Growth `included`, new | "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, job value, and tags" | Copy commit |
+| `RECEPTIONIST_INCLUDED` (`schedules.ts:64`) | "A text alert from Juneau Digital Designs to the Client's phone whenever a new lead, from a call or the website contact form, is recorded in the client portal" | The commit that moves the post-call text to the notification number |
+
+The CRM bullet names no texting or review requests; those stay out of the contract until they ship.
+
 - The web-form alert is built on `claude/owner-lead-alert-385bb1` (`1a84de5`), unmerged, and sends
   nothing until `TWILIO_NOTIFICATION_NUMBER` is set in the Vercel env. The copy that says "you get a
   text" should not deploy before both paths are live.
