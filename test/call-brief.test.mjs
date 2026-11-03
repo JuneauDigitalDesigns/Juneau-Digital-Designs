@@ -148,7 +148,7 @@ test("an owner who opted in through the portal gets the brief, on the account la
             To: OWNER_PHONE,
             From: NOTIFICATION_NUMBER,
             MessagingServiceSid: MASTER_SERVICE,
-            Body: "Name:Santa Juno\nStatus:callback\nPhone: (207) 318-1838\nCall summary is in your portal.",
+            Body: "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.",
         },
     );
 });
@@ -212,29 +212,35 @@ test("a caller's name cannot carry a link or a number into the owner's text", ()
     const body = callBriefBody({
         callerName: "Visit evil.example/x or call 407-555-0199",
         priority: "callback",
-        callerNumber: "+14075550188",
     });
-    const nameLine = body.split("\n")[0];
+    const nameLine = body.split("\n")[1];
     assert.doesNotMatch(nameLine, /evil\.example|\/|\d/);
-    assert.match(nameLine, /^Name:Visit evil example x or call\b/);
+    assert.match(nameLine, /^Name: Visit evil example x or call\b/);
 });
 
 test("no summary line — the analysed summary is a stranger's words, so it stays in the portal", () => {
-    const body = callBriefBody({ callerName: "Dana", priority: "callback", callerNumber: "+14075550188" });
+    const body = callBriefBody({ callerName: "Dana", priority: "callback" });
     assert.doesNotMatch(body, /About:/);
-    assert.match(body, /Call summary is in your portal\.$/);
+    assert.match(body, /The full lead is in your portal\.$/);
 });
 
 test("blank or unexpected analysis values degrade to safe text, never to a stranger's string", () => {
-    const body = callBriefBody({ callerName: "", priority: "", callerNumber: "not a number <a href>" });
-    assert.equal(body, "Name:not given\nStatus:callback\nCall summary is in your portal.");
+    const body = callBriefBody({ callerName: "", priority: "" });
+    assert.equal(body, "JDD Notification Service\nName: not given\nPriority: Callback\nThe full lead is in your portal.");
     assert.equal(callBriefName("4075550199"), "not given");
-    assert.match(callBriefBody({ callerName: "Dana", priority: "emergency", callerNumber: null }), /Status:emergency/);
-    assert.match(callBriefBody({ callerName: "Dana", priority: "URGENT click here", callerNumber: null }), /Status:callback/);
+    assert.match(callBriefBody({ callerName: "Dana", priority: "emergency" }), /Priority: Emergency/);
+    assert.match(callBriefBody({ callerName: "Dana", priority: "URGENT click here" }), /Priority: Callback/);
+});
+
+/* Xander's wording, 2026-11-03: header, name, priority, where the full lead is. No phone number. */
+test("the brief opens with JDD Notification Service and carries no phone number", () => {
+    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency" });
+    assert.equal(body, "JDD Notification Service\nName: Santa Juno\nPriority: Emergency\nThe full lead is in your portal.");
+    assert.doesNotMatch(body, /Phone|\(\d{3}\)/);
 });
 
 test("the brief is plain GSM-7, so a normal one is a single segment", () => {
-    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency", callerNumber: "+12073181838" });
+    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency" });
     assert.match(body, /^[\x20-\x7E\n]+$/);
     assert.ok(body.length <= 160, `${body.length} chars`);
 });
