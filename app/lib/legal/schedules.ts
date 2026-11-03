@@ -61,7 +61,7 @@ const onboardingRow = (fee: number): [string, string] => [
 const RECEPTIONIST_INCLUDED = [
   "One (1) dedicated business phone number",
   "One (1) AI receptionist answering inbound calls 24/7, which answers only when the Client's own line is not picked up",
-  "A post-call text brief to the Client's phone after every call",
+  "A text alert from Juneau Digital Designs to the Client's phone whenever a new lead, from a call or the website contact form, is recorded in the client portal",
   "A lead record for every call, with the caller's name, number, and reason for calling, delivered to the client portal",
   "Auto-generated call summaries and call metadata for every call, viewable in the client portal",
 ];
