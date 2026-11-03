@@ -62,7 +62,7 @@ const RECEPTIONIST_INCLUDED = [
   "One (1) dedicated business phone number",
   "One (1) AI receptionist answering inbound calls 24/7, which answers only when the Client's own line is not picked up",
   "A post-call text brief to the Client's phone after every call",
-  "A lead email with the caller's name, number, and reason for calling",
+  "A lead record for every call, with the caller's name, number, and reason for calling, delivered to the client portal",
   "Auto-generated call summaries and call metadata for every call, viewable in the client portal",
 ];
 
@@ -87,7 +87,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       "SSL certificate and secure HTTPS delivery",
       "Daily backups and uptime monitoring",
       ...RECEPTIONIST_INCLUDED,
-      "Email lead capture from the website contact form",
+      "Website contact form submissions recorded as leads in the client portal",
       "Two (2) content edit requests per month (copy and colors only)",
       "One Google Analytics 4 property setup",
       "Client portal access for website health, site status, and the call log",
@@ -126,6 +126,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     included: [
       "Everything included in the Starter plan",
       "AI outbound callbacks to website form submissions, typically within sixty (60) seconds",
+      "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, job value, and tags",
       "AI lead qualification, including answers to common questions drawn from the Client's intake",
       "Searchable call log with full call transcripts",
       "Urgency and caller-name extraction on every call",
@@ -226,7 +227,7 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
     "Hosting on enterprise-grade infrastructure (Vercel)",
     "SSL certificate and secure HTTPS delivery",
     "Daily backups and uptime monitoring",
-    "Email lead capture from the website contact form",
+    "Website contact form submissions recorded as leads in the client portal",
     "Two (2) content edit requests per month (copy and colors only)",
     "One Google Analytics 4 property setup",
     "Client portal access for website health and site status",

@@ -1,13 +1,14 @@
 ﻿"use client";
 /* Z-index constants: navbar 50 | grain 60 | modals 70 */
 
-import { useState, useEffect, useRef, useCallback, useSyncExternalStore } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Info } from "@phosphor-icons/react";
 import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
 import LeadPanel from "./LeadPanel";
+import PortalPreview from "./PortalPreview";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 
 const DEMO_TEL = "tel:+19302221343";
@@ -29,11 +30,16 @@ const EASE = [0.16, 1, 0.3, 1] as const;
    `.reveal` rules they drove are still in globals.css for any page that wants them. */
 
 /* ── Journey reveal ─────────────────────────────────────────────
-   The scroll journey's own entrance, deliberately louder than <Reveal>: further travel,
-   a slight scale, and roughly a third longer. These are the marquee sections, and at
+   The page's one entrance, deliberately louder than <Reveal>: further travel, a slight
+   scale, and roughly a third longer. These are the marquee sections, and at
    `translateY(20px)` they read as page furniture settling rather than content arriving.
    `delay` is in stagger steps, not seconds — copy is step 0, the visual beside it step 1,
-   so the reader is told what they're looking at just before it lands. */
+   so the reader is told what they're looking at just before it lands.
+
+   This used to sit beside a pinned stage that held the website, receptionist and
+   calculator in one frame and swapped them on scroll. That went when the page moved to
+   Lenis (see <SmoothScroll> in MarketingChrome): every section now travels with the
+   document, and arrives through this as it comes into view. */
 const JOURNEY_STAGGER = 0.15;
 
 function JourneyReveal({
@@ -72,234 +78,6 @@ function JourneyReveal({
   );
 }
 
-/* ── The pinned stage ───────────────────────────────────────────
-   From the Website section on, the page stops travelling. The three journey sections
-   become three panels stacked in one pinned frame, and scrolling swaps which one is on
-   top instead of moving the page past them.
-
-   A scroll is a TRIGGER, not a scrubber. It commits to the next panel, which then fades
-   and rises on its own ~400ms clock and completes regardless of what the reader does
-   next. This is the whole reason the transition is not derived from scroll position:
-   when it was, how far you had scrolled *was* how far the animation had played, so a
-   half-arrived section was reachable and — because opacity applied to the panel's opaque
-   background too — the previous section showed through it for the entire fade.
-
-   Two consequences worth keeping in mind before changing any of this:
-     · The cover and the content are separate elements. The panel carries the opaque
-       background and switches instantly; only its inner wrapper fades. Nested opacity
-       multiplies, so the background paints at full strength while the content is still
-       arriving. Collapse them back into one element and the bleed returns.
-     · No wheel is hijacked. Panels are `position: absolute; inset: 0` inside the sticky
-       stage, so their content does not move with scroll — once opacity is time-based
-       there is no halfway state left for the scroll offset to express, and calling
-       preventDefault would only break the calculator's inner scrolling.
-
-   Below 1024px, or with reduced motion, `display: contents` erases the stage and panel
-   boxes in CSS and the three sections fall back into ordinary document flow with their
-   existing <JourneyReveal> entrances. One set of markup, no second implementation. */
-const JOURNEY_PANELS = 3;
-/* Scroll distance that advances one panel, as a fraction of the stage height. Mirrored by
-   `--journey-step` in globals.css, which sizes the track — keep the two in step. */
-const JOURNEY_STEP_RATIO = 0.5;
-/* Steps of dwell after the last panel lands, so the calculator does not arrive at the
-   exact instant the stage starts unpinning. */
-const JOURNEY_TAIL = 0.4;
-const PANEL_RISE = 80;
-/* navbar is `h-16` + a 1px rule, and it is sticky — the stage has to pin below it. */
-const NAV_H = 65;
-/* How far past the current panel's settle point counts as a deliberate scroll. */
-const COMMIT_THRESHOLD = 0.2;
-
-/* The transition is sequential: the outgoing section leaves, then the incoming arrives.
-   They never overlap, which is what keeps the no-bleed guarantee while still letting both
-   halves of the move be seen. */
-const PANEL_OUT_MS = 280;
-const PANEL_IN_MS = 420;
-/* Standard ease-in-out, deliberately NOT the page-wide EASE. That curve is
-   exponential-out: measured on the running page it put the incoming panel at 49% opacity
-   and half its travel within 40ms, so a 400ms transition had nothing perceptible left
-   after ~100ms and read as a snap. An even curve spends the duration on the move. */
-const EASE_PANEL = [0.42, 0, 0.58, 1] as const;
-/* Must outlast the whole transition. While locked, further scrolling is ignored, which is
-   what makes one gesture advance exactly one panel and stops a flick stacking two. */
-const COMMIT_LOCK_MS = PANEL_OUT_MS + PANEL_IN_MS + 80;
-
-/* Server snapshot is `false`, so SSR and the first client render agree and the pinned
-   branch can never cause a hydration mismatch. */
-function useMediaQuery(query: string) {
-  const subscribe = useCallback(
-    (cb: () => void) => {
-      const mq = window.matchMedia(query);
-      mq.addEventListener("change", cb);
-      return () => mq.removeEventListener("change", cb);
-    },
-    [query]
-  );
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(query).matches,
-    () => false
-  );
-}
-
-function JourneyPanel({
-  index,
-  pinned,
-  active,
-  reduceMotion,
-  children,
-}: {
-  index: number;
-  pinned: boolean;
-  active: number;
-  reduceMotion: boolean;
-  children: React.ReactNode;
-}) {
-  /* Everything at or before the active index is covered: its background is opaque and
-     occludes whatever is beneath. Only the active panel shows its content. Panel 0 is
-     covered and active from the start, so it needs no entrance. */
-  const covered = index <= active;
-  const isActive = index === active;
-
-  return (
-    <motion.div
-      className="journey-panel no-scrollbar"
-      /* A panel at opacity 0 still hit-tests, so without this the calculator would
-         swallow clicks meant for the receptionist underneath it. Also keeps covered
-         panels out of the tab order. */
-      inert={pinned && !isActive}
-      /* Drives the per-row stagger on `.journey-outcome`, which cannot key off viewport
-         intersection in here: every panel is `inset: 0` and so is always intersecting.
-         Only set while pinned — unpinned, the rows belong to <JourneyReveal>. */
-      data-active={pinned && isActive ? "true" : undefined}
-      /* The cover, and only the cover. Still instant — any ramp here is a window in which
-         two panels are visible at once — but it now waits for the outgoing content to
-         finish leaving. Until then the panel being left keeps its opaque background, so
-         its exit happens IN VIEW instead of behind the incoming panel. The switch lands on
-         a frame where both contents are at zero, so it cannot be seen and cannot bleed. */
-      animate={pinned ? { opacity: covered ? 1 : 0 } : { opacity: 1 }}
-      transition={{ duration: 0, delay: reduceMotion || !pinned ? 0 : PANEL_OUT_MS / 1000 }}
-    >
-      <motion.div
-        className="journey-panel-content"
-        /* The resting offset carries the direction: a panel ahead of the active index
-           waits below the frame, one already passed sits above it. So going forward the
-           new section rises from below while the old drifts up, and going back the
-           previous one comes down from above — mirrored, with no direction to track. */
-        animate={
-          pinned
-            ? { opacity: isActive ? 1 : 0, y: isActive ? 0 : index > active ? PANEL_RISE : -PANEL_RISE }
-            : { opacity: 1, y: 0 }
-        }
-        transition={
-          reduceMotion || !pinned
-            ? { duration: 0 }
-            : isActive
-              ? { duration: PANEL_IN_MS / 1000, delay: PANEL_OUT_MS / 1000, ease: EASE_PANEL }
-              : { duration: PANEL_OUT_MS / 1000, ease: EASE_PANEL }
-        }
-      >
-        {children}
-      </motion.div>
-    </motion.div>
-  );
-}
-
-function ScrollJourney({ panels }: { panels: React.ReactNode[] }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const reduceMotion = !!useReducedMotion();
-  const pinned = useMediaQuery("(min-width: 1024px)") && !reduceMotion;
-
-  const [active, setActive] = useState(0);
-  const activeRef = useRef(0);
-  const lockedRef = useRef(false);
-  const lockTimer = useRef<number | undefined>(undefined);
-
-  /* Reset when the viewport crosses the breakpoint in either direction. Done during
-     render rather than in an effect — React's documented way to adjust state on a
-     changed input, and it avoids rendering one frame with a stale index after a resize
-     back into pinned mode. Remounting via `key` would reset it too, but that would throw
-     away the calculator's state on every resize. */
-  const [lastPinned, setLastPinned] = useState(pinned);
-  if (lastPinned !== pinned) {
-    setLastPinned(pinned);
-    setActive(0);
-  }
-
-  useEffect(() => () => window.clearTimeout(lockTimer.current), []);
-
-  useEffect(() => {
-    // paired with the render-phase reset above; refs can only be touched in an effect
-    activeRef.current = 0;
-    lockedRef.current = false;
-    if (!pinned) return;
-
-    const stepPx = () => (window.innerHeight - NAV_H) * JOURNEY_STEP_RATIO;
-    const settleFor = (i: number) => {
-      const track = trackRef.current;
-      if (!track) return 0;
-      return track.getBoundingClientRect().top + window.scrollY - NAV_H + i * stepPx();
-    };
-
-    /* The active panel gets first refusal on the wheel: if it can still scroll in the
-       direction being asked for, that is what the scroll is for. Keeps a tall calculator
-       on a short viewport scrollable before the stage advances past it. */
-    const panelCanScroll = (dir: number) => {
-      const el = trackRef.current?.querySelectorAll<HTMLElement>(".journey-panel")[activeRef.current];
-      if (!el) return false;
-      const max = el.scrollHeight - el.clientHeight;
-      if (max <= 2) return false;
-      return dir > 0 ? el.scrollTop < max - 1 : el.scrollTop > 1;
-    };
-
-    const onScroll = () => {
-      if (lockedRef.current) return;
-      const track = trackRef.current;
-      if (!track) return;
-      const rect = track.getBoundingClientRect();
-      // only while the stage is actually pinned — outside the run, scrolling is normal
-      if (rect.top > NAV_H + 2 || rect.bottom < window.innerHeight - 2) return;
-
-      const delta = window.scrollY - settleFor(activeRef.current);
-      if (Math.abs(delta) < stepPx() * COMMIT_THRESHOLD) return;
-
-      const dir = delta > 0 ? 1 : -1;
-      if (panelCanScroll(dir)) return;
-
-      const next = activeRef.current + dir;
-      if (next < 0 || next >= JOURNEY_PANELS) return;
-
-      activeRef.current = next;
-      setActive(next);
-      lockedRef.current = true;
-      window.scrollTo({ top: settleFor(next), behavior: "smooth" });
-      window.clearTimeout(lockTimer.current);
-      lockTimer.current = window.setTimeout(() => {
-        lockedRef.current = false;
-      }, COMMIT_LOCK_MS);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [pinned]);
-
-  return (
-    <div
-      ref={trackRef}
-      className="journey-track"
-      style={{ "--journey-panels": JOURNEY_PANELS, "--journey-tail": JOURNEY_TAIL } as React.CSSProperties}
-    >
-      <div className="journey-stage">
-        {panels.map((panel, i) => (
-          <JourneyPanel key={i} index={i} pinned={pinned} active={active} reduceMotion={reduceMotion}>
-            {panel}
-          </JourneyPanel>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ── Hero ───────────────────────────────────────────────────────
    Copy only. The screenshot moved down into <WebsiteSection>, where it has a column to
    itself and copy that argues for it, and the three-item offer strip went with it — the
@@ -315,17 +93,28 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
         textAlign: "center",
       }}
     >
-      {/* Freed from the two-column grid the headline gets the whole measure, so the cap
-          goes 84 → 120px (reached at ~923px wide). The 46px floor and 13vw rate are
-          deliberately unchanged: at a 52px floor "Do Business." measures 282px inside a
-          284px box on a 320px screen, and the first font fallback that renders a hair
-          wide clips it. The extra room on desktop was the point; the phone was already
-          tuned. */}
-      <h1 style={{ fontWeight: 900, fontSize: "clamp(46px,13vw,120px)", lineHeight: 0.9, letterSpacing: ".005em", textTransform: "uppercase" }}>
-        Get found.<br />Get called.<br /><span style={{ color: "var(--accent-2)" }}>Do Business.</span>
+      {/* The third line is the spine of the page: the first two are what the website and
+          the receptionist do, this is what the whole system adds up to. It replaced "Do
+          Business.", which any agency could promise.
+
+          Every term of the clamp is set by that third line, which has to hold one line at
+          every width. Measured in Big Shoulders 900 it is 6.99× its font size wide — 28%
+          wider than "Do Business." (5.44×), which the old clamp(46px, 13vw, 120px) was
+          tuned for. Against the box it sits in (the section's 900px max, less its gutter):
+            · cap 108px → 755px, inside the 788px box at ≥1400px wide (120px was 839px and
+              wrapped "TEAM." onto a fourth line);
+            · rate 12.4vw → 0.87vw of text in 0.92vw of box through the mid range;
+            · floor 39px → 273px at 320px wide, inside the 284px box with room for a
+              fallback font that renders a hair wide.
+          Re-measure before changing the line, or any of the three numbers. */}
+      <h1 style={{ fontWeight: 900, fontSize: "clamp(39px,12.4vw,108px)", lineHeight: 0.9, letterSpacing: ".005em", textTransform: "uppercase" }}>
+        Get found.<br />Get called.<br /><span style={{ color: "var(--accent-2)" }}>Run like a team.</span>
       </h1>
+      {/* The third clause is true on every plan, Starter included, so the hero never sells
+          something one tier lacks. "24/7" stays: it is one of only two availability claims
+          on the page, the other being the receptionist's "two in the morning". */}
       <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px auto 32px", maxWidth: "46ch" }}>
-        A website that gets you called, and a 24/7 receptionist that answers when you can&apos;t.
+        A website that gets you called, a 24/7 receptionist that answers when you can&apos;t, and one place where every lead waits for you. The front office you never had to hire.
       </p>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
         {/* The ring-pulse animation stays with the phone CTA in <RailCTA> at the bottom
@@ -339,11 +128,12 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
 }
 
 /* ── The journey ────────────────────────────────────────────────
-   Three sections that each take one of the hero's claims and spend a screen on it:
-   the website, the receptionist, then the arithmetic. Copy and visual alternate sides
-   at ≥900px and always stack copy-first below it — see `.journey-grid` in globals.css,
-   which flips the columns with `order` rather than DOM position so the mobile reading
-   order survives the flip. */
+   Three sections that each take one part of the system and spend a screen on it: the
+   website, the receptionist, then the portal where every lead lands. Their headings read
+   as one sentence — "A website that makes the phone ring." / "Then someone picks up." /
+   "Then nothing slips." Copy and visual alternate sides at ≥900px and always stack
+   copy-first below it — see `.journey-grid` in globals.css, which flips the columns with
+   `order` rather than DOM position so the mobile reading order survives the flip. */
 
 function JourneySection({
   heading,
@@ -351,16 +141,17 @@ function JourneySection({
   outcomes,
   visual,
   visualFirst = false,
+  footnote,
 }: {
   heading: string;
   body: string;
   outcomes: string[];
   visual: React.ReactNode;
   visualFirst?: boolean;
+  /** A line under the outcomes, set apart from them. Only the portal section uses it, for
+   *  the one sentence on the page that separates the plans before the price cards. */
+  footnote?: React.ReactNode;
 }) {
-  /* Padding lives in `.journey-section`, not inline, so the pinned stage can compress it
-     — a stylesheet can't beat an inline style without `!important`. 100px a side is right
-     in a scrolling column and wrong in an 800px frame. */
   return (
     <section className="journey-section">
       <div className={`journey-grid${visualFirst ? " journey-grid--flip" : ""}`}>
@@ -378,18 +169,18 @@ function JourneySection({
           {/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page,
               carrying the most specific facts we have. The hierarchy was inverted against
               the value of the content, so these are now full-contrast sentences. */}
-          {/* `--row` is the stagger index. The rows are revealed by
-              `.journey-panel[data-active]` in globals.css rather than by a <JourneyReveal>
-              per row — inside the pinned stage every panel intersects the viewport at
-              once, so a viewport-triggered stagger would play behind panel 01 and be
-              finished before this panel is ever looked at. */}
           <div className="journey-outcomes">
-            {outcomes.map((o, i) => (
-              <span key={o} className="journey-outcome" style={{ "--row": i } as React.CSSProperties}>
+            {outcomes.map((o) => (
+              <span key={o} className="journey-outcome">
                 {o}
               </span>
             ))}
           </div>
+          {footnote && (
+            <p style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 20 }}>
+              {footnote}
+            </p>
+          )}
         </JourneyReveal>
 
         <JourneyReveal delay={1} className="journey-visual">
@@ -404,14 +195,16 @@ function JourneySection({
 function WebsiteSection() {
   return (
     <JourneySection
-      /* Leads with the outcome and hands straight off to panel 02, which answers it with
+      /* Leads with the outcome and hands straight off to section 02, which answers it with
          "Then someone picks up." The old heading described how we work; this one describes
          what the reader gets. */
       heading="A website that makes the phone ring."
       /* The body used to restate the heading ("we build it, host it, keep it current")
          before adding anything. It now answers the objection that actually stalls buyers,
          which until this pass only existed in the FAQ below. */
-      body="We write it, build it, and host it. No coding or maintenance on your part, and it&apos;s always up to date."
+      /* A plain string prop, not JSX text, so a typographic apostrophe rather than an
+         entity: `&apos;` here rendered on the page as the six literal characters. */
+      body="We write it, build it, and host it. No coding or maintenance on your part, and it’s always up to date."
       outcomes={[
         "You answer a few questions.",
         "It goes live in less than a week.",
@@ -441,26 +234,67 @@ function WebsiteSection() {
 function ReceptionistSection() {
   return (
     <JourneySection
-      /* The sequel to panel 01's heading. Read in order the pinned run now argues one
-         continuous line: the site makes the phone ring, then someone picks up, then here
-         is what not picking up costs. The old heading said "Books the job. Texts you.",
-         which the body and two bullets then said again. */
+      /* The sequel to section 01's heading, and the middle of the sentence the three
+         journey headings make. The old heading said "Books the job. Texts you.", which the
+         body and two bullets then said again. */
       heading="Then someone picks up."
-      /* LOAD-BEARING TAIL. "Nights and weekends too" is the only availability claim left
-         on this panel, since the outcomes no longer carry one. Remove it and the section
-         never says the thing people buy this for.
+      /* LOAD-BEARING TAIL. "Or it's two in the morning" is this section's only
+         availability claim, since the outcomes carry none. Remove it and the section never
+         says the thing people buy this for. (An earlier "Nights and weekends too" went
+         missing exactly that way, with this warning left standing over nothing.) The hour
+         matches the film's 2:13 AM HVAC call.
 
          Deliberately industry-neutral: this page sells to any service business, so no
          ladders, roofs or vans. */
-      body="You're with a customer and unable to answer the phone. It picks up for you."
+      body="You’re with a customer, or it’s two in the morning. Either way, it picks up."
+      /* The third outcome is where the lead goes. It used to end at a text with the
+         details; the lead now lands in the portal on every plan, and the text tells the
+         owner it is there. */
       outcomes={[
         "It asks the questions you'd ask, in English or in Spanish.",
         "It captures the lead's name, number and what the job is.",
-        "Finally it texts you the details, so you can call them back.",
+        "Then the lead goes straight into your portal, and you get a text saying it’s there.",
       ]}
       /* No CTA on this panel by design. The calculator and the pricing rail carry the
          asks; the film's own Get Started went with the recap block it lived in. */
       visual={<SiteToCallPanel />}
+    />
+  );
+}
+
+/* ── 03 · The portal ────────────────────────────────────────────
+   Where the lead the film just delivered actually lives. Until this section existed the
+   words portal, inbox and CRM appeared nowhere on the homepage, so the page sold a website
+   and a receptionist whose output was a text message — the product before leads were
+   recorded anywhere.
+
+   It carries the only sentence on the page that separates the plans before the price
+   cards, and it does it by what Growth adds rather than by what Starter lacks: Starter is
+   the way in, the same system with the follow-up left to the owner. */
+function PortalSection() {
+  return (
+    <JourneySection
+      /* Ends the sentence the journey headings make. */
+      heading="Then nothing slips."
+      body="Every call and every web enquiry lands in your portal, with who it was and what they need. Open it on your phone between jobs and you know exactly who’s waiting."
+      /* The third outcome is the one place on this page the two carrier-gated features
+         appear. It names them and says what they wait on, never how long: approval is the
+         carriers' to grant, so a timeframe here would be ours promising theirs. */
+      outcomes={[
+        "Calls and website enquiries in one inbox, newest first, with a summary of each.",
+        "Move each lead from Lead to Won, and spot the ones going stale before they go cold.",
+        "Text a customer back from your business number, or ask for a Google review in one tap. Both switch on once the carriers approve your business registration.",
+      ]}
+      footnote={
+        <>
+          Every plan gets the inbox.{" "}
+          <strong style={{ color: "var(--fg)" }}>
+            Growth adds the pipeline, the texting and the reviews: the part a team would do.
+          </strong>
+        </>
+      }
+      visualFirst
+      visual={<PortalPreview />}
     />
   );
 }
@@ -859,7 +693,7 @@ const ANSWERS: { q: string; a: string }[] = [
   },
   {
     q: "What if it can't answer something?",
-    a: "It takes their details and texts you. It doesn't guess, and it doesn't make things up about your business.",
+    a: "It takes their details, puts the lead in your portal, and texts you that it's there. It doesn't guess, and it doesn't make things up about your business.",
   },
 ];
 
@@ -972,13 +806,18 @@ function StraightAnswers() {
   );
 }
 
-/* ── 03 · The price ─────────────────────────────────────────────
+/* ── 04 · The price ─────────────────────────────────────────────
    All three plans, as three cards, but not at equal volume. Growth is the one almost
    everyone should buy, so it is the loudest and sits centre; Starter is a real option at
    full strength beside it; Enterprise is present and honestly priced but visually
    receded, because for the business this page is written for it is a distraction, not a
    choice. Hiding it outright would be worse — a plan you have to go and find reads as a
    plan someone is being cagey about.
+
+   The two bolded lines are the tier line, and /pricing carries the same pair in its
+   taglines. Change one, change both, or the two pages drift into describing different
+   products — which is how the old "Starter tells you" pair ended up on one page and a
+   reworded version on the other.
 
    Prices come from Schedule A, never typed in by hand — the same rule the pricing page
    follows. A number written into marketing copy is a number that can eventually
@@ -987,27 +826,31 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(64px,7vw,120px) clamp(18px,4vw,56px)" }}>
       <JourneyReveal>
+        {/* Was "Two tools, one monthly bill." — the old product's thesis in five words. */}
         <p style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-2)", marginBottom: "clamp(32px,3.5vw,52px)" }}>
-          Two tools, one monthly bill.
+          One system. One monthly bill.
         </p>
 
         <div className="home-pricing-grid">
           <div className="home-pricing-card">
             <div className="kicker">Starter</div>
             <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-            <p>A four-page site, plus a receptionist that answers the calls you miss and texts you who rang and what they wanted. You hear about every lead.</p>
+            <p>A four-page site and a receptionist on your line. Every call and web enquiry lands in your portal, and you get a text when one does. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
           </div>
 
+          {/* "Within about a minute", matching /pricing and the contract's "typically within
+              sixty (60) seconds" — not "inside a minute", which promises the upper bound. */}
           <div className="home-pricing-card home-pricing-card--featured">
             <div className="kicker">Growth</div>
             <div className="home-pricing-price">${GROWTH_PRICE}<span>/mo</span></div>
-            <p>Everything in Starter &mdash; and it rings new web leads back inside a minute, before they try the next name on the list. It chases them for you.</p>
+            <p>Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong style={{ color: "var(--fg)" }}>Growth works them like a team would.</strong></p>
           </div>
 
+          {/* "Two or three", not "up to three": Enterprise starts at two sites. */}
           <div className="home-pricing-card home-pricing-card--muted">
             <div className="kicker">Enterprise</div>
             <div className="home-pricing-price">${ENTERPRISE_PRICE}<span>/mo</span></div>
-            <p>Up to three sites, each with its own receptionist and phone number. One call log, one monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
+            <p>Two or three sites, each with its own receptionist and phone number, all feeding one portal. One monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
           </div>
         </div>
 
@@ -1064,9 +907,14 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
   const openForm = () => setFormOpen(true);
 
   /* Order is the argument. The hero makes the claim; the three journey sections each
-     take one third of it and spend a screen proving it — what you get, what answers the
-     phone, what it costs you to keep missing calls. Then the work we've shipped, then
-     the objections, then the price, then the ask.
+     take one part of the system and spend a screen proving it — the website that makes
+     the phone ring, the receptionist that picks up, the portal where the lead lands.
+     Then the calculator prices the cost of not having it, then the work we've shipped,
+     then the objections, then the price, then the ask.
+
+     The calculator follows the portal rather than the receptionist because it is the one
+     section about the reader's business instead of the system; it reads as the bill for
+     the loop the three before it describe.
 
      FeaturedSites moved down out of the second slot: real client sites directly under
      the hero interrupted the product explanation to show proof of a thing not yet
@@ -1075,13 +923,10 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
     <div style={{ width: "100%", background: "var(--bg)" }}>
       <Hero onOpenForm={openForm} />
 
-      <ScrollJourney
-        panels={[
-          <WebsiteSection key="website" />,
-          <ReceptionistSection key="receptionist" />,
-          <MissedCallsCalculator key="calculator" onOpenForm={openForm} />,
-        ]}
-      />
+      <WebsiteSection />
+      <ReceptionistSection />
+      <PortalSection />
+      <MissedCallsCalculator onOpenForm={openForm} />
 
       <FeaturedSites sites={featuredSites} />
 

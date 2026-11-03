@@ -9,14 +9,22 @@ import { SCENARIOS, CallScenario } from "@/app/data/switchboard-calls";
  *
  * Act 1 is what the customer experiences: they're on the site, they tap the call bar,
  * and someone picks up. Act 2 rewinds to the *same window* and shows the owner's phone
- * ringing unanswered, then the text arriving.
+ * ringing unanswered, then the text arriving, then one glance at the Inbox it points to.
  *
- * Two things are load-bearing:
+ * Three things are load-bearing:
  *
  * 1. It opens on the website. This section argues for the website too — it shows the
  *    handoff rather than asserting it.
- * 2. The asymmetry is the argument. Act 1 is long; Act 2 is a ring nobody answers and
- *    one text. That imbalance is the pitch, so don't "balance" the two acts.
+ * 2. The asymmetry is the argument. Act 1 is long; Act 2 is a ring nobody answers, one
+ *    text, and the lead already sitting in the Inbox. That imbalance is the pitch, so
+ *    don't "balance" the two acts — the Inbox beat is one screen, not a tour of the portal.
+ *    The section after this one does the tour.
+ * 3. Act 2 shows real messages and real places, never invented ones. The text is the
+ *    post-call brief in its actual shape (see `postCallBrief`), from JDD's notification
+ *    sender, arriving after the call ends — which is when it sends. And the film ends in
+ *    the Inbox, not on the pipeline: in CRM v2 a caller only becomes a pipeline card when
+ *    the owner promotes them, so a call landing on the board by itself would be a claim
+ *    the product doesn't keep.
  *
  * Act 2 is a FLASHBACK, not a sequel — in real time the owner's phone rings before the
  * AI picks up, because the unanswered ring is what triggers the forward. The
@@ -35,6 +43,8 @@ type Phase =
   | "missed"
   | "later"
   | "text"
+  | "portalcard"
+  | "inbox"
   | "recap";
 
 /* ~30s total. The pauses are what make it read as real — resist tightening them. */
@@ -49,6 +59,8 @@ const T = {
   missed: 2000,
   later: 1600,
   text: 4000,
+  portalcard: 1400,
+  inbox: 1800,
 };
 
 /* The call beat runs ~9s but represents a ~2 minute call — Act 2's "2 MINUTES LATER"
@@ -334,11 +346,30 @@ function MissedCallScreen({ scenario }: { scenario: CallScenario }) {
 }
 
 /* ── Act 2 · the text ────────────────────────────────────────── */
+
+/**
+ * The post-call brief, in the shape the real one has.
+ *
+ * Template from /sms-terms ("A typical call summary reads"), which is kept byte-identical
+ * to what the Make post-call scenario sends:
+ *   Juneau Digital Designs call alert: Callback requested. New lead Maria Alvarez,
+ *   callback (930) 555-0117. Reply STOP to opt out.
+ * If that sample changes, this changes with it. The film shows the message the owner
+ * actually gets, never a nicer one.
+ */
+function postCallBrief(sc: CallScenario): string {
+  return `Juneau Digital Designs call alert: ${sc.ownerMessage.reason}. New lead ${sc.caller.name}, callback ${sc.ownerMessage.callback}. Reply STOP to opt out.`;
+}
+
+/* The sender is JDD, not "AI Receptionist": the brief is an account-lane message from
+   JDD's notification number to the owner (Program One on /sms-terms). */
+const SENDER = "Juneau Digital Designs";
+
 function OwnerTextScreen({ scenario }: { scenario: CallScenario }) {
   return (
     <div style={{ background: "#f2f2f7", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
       <div style={{ background: "rgba(242,242,247,0.97)", padding: "38px 16px 10px", borderBottom: "0.5px solid rgba(0,0,0,0.15)", textAlign: "center" }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#000" }}>AI Receptionist</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#000" }}>{SENDER}</div>
         <div style={{ fontSize: 11, color: "#007AFF", marginTop: 1 }}>text message</div>
       </div>
 
@@ -349,17 +380,65 @@ function OwnerTextScreen({ scenario }: { scenario: CallScenario }) {
           transition={{ duration: 0.4, ease: "easeOut" }}
           style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 5, maxWidth: "88%" }}
         >
-          <div style={{ background: "#e5e5ea", borderRadius: "18px 18px 18px 4px", padding: "11px 14px", color: "#000", lineHeight: 1.45 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 7 }}>{scenario.ownerMessage.headline}</div>
-            {scenario.ownerMessage.lines.map((line, i) => (
-              <div key={i} style={{ fontSize: 12.5, color: i === 0 ? "#000" : "rgba(0,0,0,0.6)" }}>{line}</div>
-            ))}
+          <div style={{ background: "#e5e5ea", borderRadius: "18px 18px 18px 4px", padding: "11px 14px", color: "#000", fontSize: 13, lineHeight: 1.45 }}>
+            {postCallBrief(scenario)}
           </div>
           <div style={{ fontSize: 10, color: "rgba(0,0,0,0.33)", paddingLeft: 4 }}>
-            AI Receptionist · {scenario.callTime}
+            {SENDER} · {scenario.callTime}
           </div>
         </motion.div>
       </div>
+    </div>
+  );
+}
+
+/* ── Act 2 · the Inbox ───────────────────────────────────────── */
+
+/**
+ * Where the brief points: the portal's Inbox on the owner's phone, with this call on top.
+ *
+ * The Inbox rather than the pipeline, because that is where a call lands on every plan;
+ * the pipeline only holds callers the owner has promoted. The two rows under the new one
+ * are deliberately blank bars with a source icon — one call, one website form — so the
+ * beat says "both doors lead here" without inventing a second customer to read.
+ */
+function InboxScreen({ scenario }: { scenario: CallScenario }) {
+  const ghost = (icon: string, key: string) => (
+    <div key={key} style={{ display: "flex", gap: 10, alignItems: "center", padding: "11px 12px", borderBottom: "1px solid rgba(20,18,12,0.07)", opacity: 0.55 }}>
+      <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(20,18,12,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>{icon}</div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+        <div style={{ height: 7, width: "48%", borderRadius: 4, background: "rgba(20,18,12,0.14)" }} />
+        <div style={{ height: 6, width: "78%", borderRadius: 4, background: "rgba(20,18,12,0.08)" }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ background: "#f6f3ea", color: "#14120c", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+      <div style={{ padding: "40px 14px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid rgba(20,18,12,0.1)" }}>
+        <div style={{ fontSize: 16, fontWeight: 700 }}>Inbox</div>
+        <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7a715a" }}>Your portal</div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: -14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 12px", background: "#fffdf5", borderBottom: "1px solid rgba(20,18,12,0.1)", boxShadow: "inset 3px 0 0 #d2542f" }}
+      >
+        <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(20,18,12,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>☎</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>{scenario.caller.name}</span>
+            <span style={{ fontSize: 9.5, color: "#7a715a" }}>{scenario.callTime}</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: "#43402c", marginTop: 2 }}>{scenario.ownerMessage.summary}</div>
+          <div style={{ fontSize: 10.5, color: "#7a715a", marginTop: 2 }}>{scenario.ownerMessage.reason} · {scenario.ownerMessage.callback}</div>
+        </div>
+      </motion.div>
+
+      {ghost("✉", "web")}
+      {ghost("☎", "call")}
     </div>
   );
 }
@@ -479,6 +558,12 @@ export default function SiteToCallPanel() {
     at(() => setPhase("text"), t);
 
     t += T.text;
+    at(() => setPhase("portalcard"), t);
+
+    t += T.portalcard;
+    at(() => setPhase("inbox"), t);
+
+    t += T.inbox;
     at(() => setPhase("recap"), t);
   }, [at, clearAll]);
 
@@ -567,9 +652,15 @@ export default function SiteToCallPanel() {
               </motion.div>
             )}
 
-            {(phase === "text" || phase === "recap") && (
-              <motion.div key="text" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
+            {(phase === "text" || phase === "portalcard") && (
+              <motion.div key="text" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
                 <OwnerTextScreen scenario={scenario} />
+              </motion.div>
+            )}
+
+            {(phase === "inbox" || phase === "recap") && (
+              <motion.div key="inbox" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
+                <InboxScreen scenario={scenario} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -578,6 +669,7 @@ export default function SiteToCallPanel() {
             {phase === "act1card" && <StageCard key="c1" label="What your customer sees" />}
             {phase === "act2card" && <StageCard key="c2" label="Meanwhile, on your phone" sub={`Same call · ${scenario.callTime}`} />}
             {phase === "later" && <StageCard key="c3" label="2 minutes later" />}
+            {phase === "portalcard" && <StageCard key="c4" label="In your portal" />}
           </AnimatePresence>
         </div>
 
@@ -618,9 +710,9 @@ export default function SiteToCallPanel() {
           </div>
         )}
 
-        {/* Bottom-anchored, not centred like the gate: the final screen is the text
-            message the film exists to deliver, and its bubble sits at the top. Centring
-            this would cover the payoff. */}
+        {/* Bottom-anchored, not centred like the gate: the final screen is the Inbox with
+            the new lead at the top, which is the payoff the film exists to deliver.
+            Centring this would cover it. */}
         {showRecap && (
           <div className="film-gate film-gate--replay">
             <button type="button" onClick={replay} className="btn ghost film-replay-btn">
