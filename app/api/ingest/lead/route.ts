@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { notifyOwnerOfLead } from "@/app/lib/lead-alert";
 import { recordLead, resolveIngestToken } from "@/app/lib/portal-leads";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
 
@@ -113,20 +114,29 @@ export async function POST(request: Request) {
         if (value) fields[k.slice(0, 64)] = value;
     }
 
+    const name = str(body.name, CAP.name);
+
+    let lead;
     try {
-        const lead = await recordLead({
+        lead = await recordLead({
             acctScope: owner.acctScope,
             slug: owner.slug,
-            name: str(body.name, CAP.name),
+            name,
             phoneRaw,
             email,
             message: str(body.message, CAP.message),
             fields,
             callbackPlaced: body.callbackPlaced === true,
         });
-        return NextResponse.json({ ok: true, leadId: lead.leadId });
     } catch (e) {
         console.error(`[ingest/lead] write failed for ${owner.slug}`, e);
         return NextResponse.json({ error: "Could not record the lead" }, { status: 502 });
     }
+
+    // Only once the lead is stored, and after the response. Outside the try on purpose: the
+    // owner's text is best-effort, and nothing about it may turn a recorded lead into a 502 —
+    // the visitor would be told it didn't send and post it again.
+    after(() => notifyOwnerOfLead({ acctScope: owner.acctScope, slug: owner.slug, name }));
+
+    return NextResponse.json({ ok: true, leadId: lead.leadId });
 }
