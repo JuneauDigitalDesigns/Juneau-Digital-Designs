@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { authorizeOps } from "@/app/lib/ops-auth";
 import {
   getConsentLog,
   getConsentState,
@@ -55,25 +55,10 @@ export async function GET(request: Request) {
   });
 }
 
+/**
+ * Fails closed, same as plan-sync. Consent records carry IP addresses and phone numbers; an
+ * unset secret must never read as "no check required".
+ */
 function authorize(request: Request): NextResponse | null {
-  const expected = process.env.OPS_SHARED_SECRET;
-  if (!expected) {
-    // Fail closed, same as plan-sync. Consent records carry IP addresses and phone
-    // numbers; an unset secret must never read as "no check required".
-    console.error("[ops/sms-consent] OPS_SHARED_SECRET is not set — refusing");
-    return NextResponse.json({ error: "Not configured." }, { status: 503 });
-  }
-  if (!secretMatches(request.headers.get("x-ops-secret"), expected)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  return null;
-}
-
-/** Constant-time compare so the secret can't be probed a byte at a time. */
-function secretMatches(provided: string | null, expected: string): boolean {
-  if (!provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  return authorizeOps(request, "OPS_SHARED_SECRET", "ops/sms-consent");
 }

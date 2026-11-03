@@ -1,9 +1,12 @@
 import "server-only";
 import type Stripe from "stripe";
 import { stripe } from "./stripe";
-import { getAgreement, persistAgreement } from "./kv";
+import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement, persistAgreement } from "./kv";
 import { getPurchaseIntent, markIntentConsumed } from "./purchase-intent";
-import { createPendingSite } from "./account-store";
+import { createPendingSite, getAccount, saveAccount } from "./account-store";
+import { getOrder, transitionOrder } from "./operator-orders";
+import { invitePortalUser } from "./portal-invite";
+import { sendWelcomeEmail } from "./welcome-email";
 import { doubleOptInEnabled, promotePendingConsent } from "./sms-consent";
 import { sendSms } from "./twilio";
 import type { PortalPlan } from "@jdd/schema";
@@ -47,6 +50,11 @@ export interface FulfilledSession {
   clientLegalName: string;
   signerName: string;
   signerEmail: string;
+  /**
+   * The welcome email has already been dealt with by this path (operator orders send their own,
+   * because only the first caller holds the portal invite link). The webhook skips its send.
+   */
+  welcomeSent?: boolean;
 }
 
 const VALID_PLANS: PortalPlan[] = ["starter", "growth", "enterprise"];
@@ -62,6 +70,15 @@ export async function provisionPaidSession(
       : sessionIdOrSession;
 
   if (session.payment_status !== "paid") return null;
+
+  /**
+   * An operator-closed client (sold on a call) takes its own path, decided HERE rather than in
+   * the webhook. Three callers run this function — the webhook, `/checkout/success`, and the ops
+   * order status check — and if any of them fell through to the self-serve code below, it would
+   * create a `pending-…` placeholder site, and the `sessionId` idempotency would then lock that
+   * wrong slug in for every later caller.
+   */
+  if (session.metadata?.order_id) return provisionOperatorOrder(session);
 
   const agreementId = session.metadata?.agreement_id;
   const purchaseId = session.metadata?.purchase_id;
@@ -199,6 +216,142 @@ export async function provisionPaidSession(
     signerName: agreement.signerName,
     signerEmail: agreement.signerEmail,
   };
+}
+
+/**
+ * Fulfil a session that paid for an operator order.
+ *
+ * The same outcome as self-serve — a pending site on the buyer's account, the agreement kept
+ * past its TTL — with three differences, each from the order:
+ *
+ *   - the slug is the one locked at order time (`slugLocked`), not a `pending-…` placeholder, so
+ *     the portal, the console's `clients/` folder and the A2P record all share it;
+ *   - identity is the order's email, stated by the operator, since nobody signed in;
+ *   - the client is invited to the portal (a Clerk invitation, never a password) and the
+ *     welcome email carrying that invite is sent from here, by whichever caller gets here first.
+ *     The invite link exists only in this call, so the send cannot be left to the webhook.
+ *
+ * Idempotent like the rest of this file: `createPendingSite` on `sessionId`, the order's own
+ * status, and the welcome email's NX claim on the session id.
+ */
+async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise<FulfilledSession | null> {
+  const orderId = session.metadata?.order_id ?? "";
+  const order = await getOrder(orderId);
+  if (!order) {
+    console.error("[fulfillment] operator order not found", orderId, session.id);
+    return null;
+  }
+  const email = order.client.email;
+  const result: FulfilledSession = {
+    slug: order.siteSlug,
+    email,
+    plan: order.plan,
+    ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
+    ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
+    clientLegalName: order.client.legalName,
+    signerName: order.client.contactName,
+    signerEmail: email,
+    welcomeSent: true,
+  };
+  if (order.status === "fulfilled") return result;
+
+  const agreement = order.agreementId ? await getAgreement(order.agreementId) : null;
+  if (!agreement) console.warn("[fulfillment] operator order has no agreement record", orderId, order.agreementId);
+
+  await createPendingSite(email, {
+    slug: order.siteSlug,
+    slugLocked: true,
+    orderId: order.id,
+    name: order.client.dba || order.client.legalName,
+    plan: order.plan,
+    status: "pending-onboarding",
+    sessionId: session.id,
+    signerEmail: email,
+    signerName: order.client.contactName,
+    onboardingCompletedAt: null,
+    addedAt: Date.now(),
+    ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
+    ...(order.agreementId ? { agreementId: order.agreementId } : {}),
+    ...(agreement ? { agreementPdfUrl: agreement.pdfUrl, agreementVersion: agreement.agreementVersion } : {}),
+    ...(typeof session.customer === "string" ? { stripeCustomerId: session.customer } : {}),
+  });
+  console.log("[fulfillment] operator site created", email, order.siteSlug, order.plan);
+
+  // The governing agreement, recorded on the account now that it has been paid for. A fresh
+  // master for a new client; an addendum leaves the existing master where it is.
+  if (agreement && order.agreementKind === "master") {
+    const account = await getAccount(email);
+    if (account && account.masterAgreement?.agreementId !== agreement.id) {
+      await saveAccount({
+        ...account,
+        masterAgreement: {
+          agreementId: agreement.id,
+          version: agreement.agreementVersion,
+          tierCeiling: order.plan,
+          signedAt: Date.parse(agreement.audit.signedAt) || Date.now(),
+        },
+        updatedAt: Date.now(),
+      });
+    }
+  }
+  if (order.agreementId) {
+    await persistAgreement(order.agreementId).catch((e) =>
+      console.error("[fulfillment] could not persist agreement", order.agreementId, e),
+    );
+  }
+
+  // Order → paid. A cancelled order that still got paid (a race with Cancel) is not refused:
+  // the money moved, so the site above stands, and the order is left for a human to look at.
+  let current = order;
+  if (current.status === "awaiting-payment" || current.status === "expired") {
+    current = await transitionOrder(current, "paid", { kind: "paid", text: "Payment received" }, {
+      payment: {
+        ...(current.payment ?? { method: "link" as const, stripeCustomerId: String(session.customer ?? "") }),
+        checkoutSessionId: session.id,
+        ...(typeof session.subscription === "string" ? { subscriptionId: session.subscription } : {}),
+        ...(session.amount_total != null ? { amountTotal: session.amount_total } : {}),
+        paidAt: Date.now(),
+        tosAcceptedOnStripe: session.consent?.terms_of_service === "accepted",
+      },
+    });
+  } else if (current.status !== "paid") {
+    console.error("[fulfillment] operator order paid while", current.status, "— needs a human", orderId, session.id);
+    return result;
+  }
+
+  const invite = await invitePortalUser(email, order.siteSlug);
+  current = await transitionOrder(
+    current,
+    "fulfilled",
+    { kind: "invite", text: invite.kind === "invitation" ? "Portal invite sent" : "Site added to existing login" },
+    {
+      fulfilledAt: Date.now(),
+      invite:
+        invite.kind === "invitation"
+          ? { kind: "invitation", invitationId: invite.invitationId, sentAt: Date.now() }
+          : { kind: "existing-login", sentAt: Date.now() },
+    },
+  );
+
+  if (await claimWelcomeEmailSend(session.id)) {
+    try {
+      await sendWelcomeEmail({
+        signerEmail: email,
+        signerName: order.client.contactName,
+        clientLegalName: order.client.legalName,
+        plan: order.plan,
+        ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
+        ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
+        siteSlug: order.siteSlug,
+        ...(invite.kind === "invitation" ? { inviteUrl: invite.url } : { existingLogin: true }),
+      });
+    } catch (e) {
+      // Release the claim so a retry can send it; the console's Resend invite is the backstop.
+      await clearWelcomeEmailMark(session.id).catch(() => {});
+      console.error("[fulfillment] operator welcome email failed", email, e);
+    }
+  }
+  return result;
 }
 
 /**

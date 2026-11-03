@@ -22,6 +22,13 @@ export interface WelcomeEmailData {
   forwardingNumber?: string;
   /** The pending site's slug, for the onboarding deep link. */
   siteSlug: string;
+  /**
+   * A Clerk invitation link, for a client closed on a call who has never signed in. Becomes the
+   * first step. Never a password: portal access for these clients is invitation only.
+   */
+  inviteUrl?: string;
+  /** A client closed on a call who already has a portal login: "sign in as usual". */
+  existingLogin?: boolean;
 }
 
 /**
@@ -122,9 +129,30 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
       </div>`
     : "";
 
-  const innerHtml = `
-    <p style="margin:0 0 20px;">Thanks for signing on with Juneau Digital Designs. We've got your signed agreement and your first payment. Before we start building, here's what we need from you.</p>
+  // A client closed on a call never signed in, so their first step is the portal login the
+  // invite sets up (never a password we chose). A returning client signs in as usual. Neither
+  // flag set is the self-serve email, unchanged.
+  const operatorClose = Boolean(data.inviteUrl || data.existingLogin);
+  const stepsHtml = data.inviteUrl
+    ? `
+    ${step(
+      1,
+      "Set up your portal login",
+      "Choose how you'll sign in: a password, an email code, or Google. The link takes you straight to your onboarding form.",
+      data.inviteUrl,
+      "Set up my login",
+      true,
+    )}
 
+    ${step(
+      2,
+      "Finish your onboarding form",
+      "This is where you tell us about your business, services, and the look you want. It takes about 10 minutes and it's what we build your site from.",
+      onboardingUrl,
+      "Finish onboarding",
+      false,
+    )}`
+    : `
     ${step(
       1,
       "Finish your onboarding form",
@@ -136,12 +164,22 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
 
     ${step(
       2,
-      "Log into your client portal",
-      "Track your build progress, watch your call log, and see your site's health — all in one place. Use the email you signed up with.",
+      data.existingLogin ? "Sign in as usual" : "Log into your client portal",
+      data.existingLogin
+        ? "Your new site is on the portal login you already have. Track your build progress and see your site's health there."
+        : "Track your build progress, watch your call log, and see your site's health — all in one place. Use the email you signed up with.",
       portalUrl,
       "Open my portal",
       false,
-    )}
+    )}`;
+
+  const innerHtml = `
+    <p style="margin:0 0 20px;">${
+      operatorClose
+        ? "Thanks for joining Juneau Digital Designs. We've got your agreement and your first payment. Before we start building, here's what we need from you."
+        : "Thanks for signing on with Juneau Digital Designs. We've got your signed agreement and your first payment. Before we start building, here's what we need from you."
+    }</p>
+${stepsHtml}
 
     ${forwardingHeadsUp}
 

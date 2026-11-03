@@ -7,6 +7,7 @@ import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
 import { claimWelcomeEmailSend, clearWelcomeEmailMark } from "@/app/lib/kv";
 import { sendWelcomeEmail } from "@/app/lib/welcome-email";
+import { deletePayCode, getOrder, transitionOrder } from "@/app/lib/operator-orders";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -29,6 +30,26 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "bad signature";
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // An operator order's payment link lapsed unpaid (Checkout Sessions live 24 hours). The order
+  // shows "Link expired" so a fresh one can be sent, and the short code stops resolving. The
+  // Site ID stays claimed: a lapsed link is a client who hasn't paid yet, not one who said no —
+  // only Cancel frees it.
+  if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const orderId = session.metadata?.order_id;
+    if (orderId) {
+      try {
+        const order = await getOrder(orderId);
+        if (order?.status === "awaiting-payment" && order.payment?.checkoutSessionId === session.id) {
+          if (order.payment.shortCode) await deletePayCode(order.payment.shortCode);
+          await transitionOrder(order, "expired", { kind: "expired", text: "Payment link expired" });
+        }
+      } catch (e) {
+        console.error("[stripe webhook] could not expire order", orderId, session.id, e);
+      }
+    }
   }
 
   if (event.type === "customer.subscription.deleted") {
@@ -124,8 +145,10 @@ export async function POST(req: Request) {
          * In `after()` so a slow Resend call never delays the 2xx Stripe needs. A failed send
          * releases the claim so the next retry re-attempts rather than the email being lost.
          */
-        if (fulfilled) {
-          const canSend = fulfilled.receptionistMode != null || fulfilled.plan === "enterprise";
+        // Operator orders send their own welcome email, carrying the portal invite, from inside
+        // fulfilment (see `provisionOperatorOrder`).
+        if (fulfilled && !fulfilled.welcomeSent) {
+          const canSend =fulfilled.receptionistMode != null || fulfilled.plan === "enterprise";
           if (canSend) {
             after(async () => {
               if (!(await claimWelcomeEmailSend(session.id))) return;
