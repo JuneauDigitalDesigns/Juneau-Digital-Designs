@@ -5,7 +5,13 @@ import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { getAddendumForPlan, getSchedule, getTermsForPlan, PROVIDER, WEB_ONLY_SCHEDULE } from "./legal";
 import { PdfDoc, renderSections } from "./legal/pdf-renderer";
-import type { AgreementSubmission, AgreementAudit, VerbalAcceptance } from "./agreement-types";
+import type {
+  AgreementAcceptance,
+  AgreementSubmission,
+  AgreementAudit,
+  ClickwrapAcceptance,
+  VerbalAcceptance,
+} from "./agreement-types";
 
 const PROVIDER_SIG_PATH = resolve(process.cwd(), "public", "signature.png");
 
@@ -22,12 +28,15 @@ export async function generateSignedPdf(
   audit: AgreementAudit,
   agreementId: string,
   /**
-   * Present when the client accepted by voice on a sales call. The client signature image is
-   * then replaced by an acceptance block, and the audit page records the call instead of a
-   * browser. Everything else, the terms included, is the same document.
+   * How the client accepted. A drawn signature (absent, or `drawn-signature`) prints the image;
+   * a ticked box (`clickwrap-self`) or a yes on a sales call (`verbal-operator`) prints an
+   * acceptance block in its place, and the audit page records what actually happened. Everything
+   * else, the terms included, is the same document.
    */
-  verbal?: VerbalAcceptance,
+  acceptance?: AgreementAcceptance,
 ): Promise<Uint8Array> {
+  const verbal = acceptance?.method === "verbal-operator" ? acceptance : undefined;
+  const clickwrap = acceptance?.method === "clickwrap-self" ? acceptance : undefined;
   /**
    * Master or addendum, resolved once here.
    *
@@ -123,6 +132,8 @@ export async function generateSignedPdf(
   doc.text("CLIENT:", { size: 9.5, bold: true, after: 6 });
   if (verbal) {
     doc.text(verbalAcceptanceText(submission, verbal), { size: 9.5, after: 8 });
+  } else if (clickwrap) {
+    doc.text(clickwrapAcceptanceText(submission, clickwrap), { size: 9.5, after: 8 });
   } else {
     const sigBase64 = submission.signatureDataUrl?.split(",")[1] ?? "";
     const clientSig = await doc.pdf.embedPng(Buffer.from(sigBase64, "base64"));
@@ -142,7 +153,9 @@ export async function generateSignedPdf(
   doc.text(
     verbal
       ? `Verbal acceptance record for Service Agreement ${version}`
-      : `Electronic signature record for Service Agreement ${version}`,
+      : clickwrap
+        ? `Electronic acceptance record for Service Agreement ${version}`
+        : `Electronic signature record for Service Agreement ${version}`,
     { size: 9.5, after: 16 },
   );
 
@@ -161,7 +174,7 @@ export async function generateSignedPdf(
     : [
         ["Terms scrolled to end", audit.scrollCompletedAt],
         ["Time on page", formatDuration(audit.dwellMs)],
-        ["Signed at (UTC)", audit.signedAt],
+        clickwrap ? ["Accepted (box ticked) at (UTC)", clickwrap.checkedAt] : ["Signed at (UTC)", audit.signedAt],
         ["IP address", audit.ip],
         ["User agent", audit.userAgent],
       ];
@@ -199,7 +212,12 @@ export async function generateSignedPdf(
           "billing period, automatic renewal and cancellation terms aloud from the script identified above, the client " +
           "agreed, and the operator recorded that acceptance at the time shown. The full terms, identified by the terms " +
           "hash above, were emailed to the client at the address shown immediately afterwards."
-      : "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
+      : clickwrap
+        ? "This electronic acceptance complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
+          "The client affirmed intent to be bound by the agreement above by scrolling through the full terms and checking " +
+          "the box stating they had read and agree to the Terms of Service on juneaudigitaldesigns.com/agreement. " +
+          "The terms hash above identifies the exact text presented to the client at the time of acceptance."
+        : "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
           "The signer affirmed intent to be bound by the agreement above by scrolling through the full terms, drawing their " +
           "signature on a touch or pointer interface, and checking the acceptance box on juneaudigitaldesigns.com/agreement. " +
           "The terms hash above identifies the exact text presented to the signer at the time of signing.",
@@ -220,6 +238,19 @@ function verbalAcceptanceText(submission: AgreementSubmission, verbal: VerbalAcc
     `Accepted by verbal consent during a telephone call on ${at} ET. The terms summarised above were read to ` +
     `${submission.signerName} (${submission.signerEmail}), who agreed to them. Acceptance was recorded by ` +
     `${PROVIDER.legalName} (operator: ${verbal.operator}). Call reference: ${verbal.callRef}.`
+  );
+}
+
+/** The block printed where a drawn signature would go, for a ticked box. */
+function clickwrapAcceptanceText(submission: AgreementSubmission, clickwrap: ClickwrapAcceptance): string {
+  const at = new Date(clickwrap.checkedAt).toLocaleString("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "America/New_York",
+  });
+  return (
+    `Accepted electronically on ${at} ET by ${submission.signerName} (${submission.signerEmail}), ` +
+    `who checked the box stating they had read and agree to the Terms of Service.`
   );
 }
 

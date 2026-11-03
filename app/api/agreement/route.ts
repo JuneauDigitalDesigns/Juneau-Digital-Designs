@@ -12,18 +12,15 @@ import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
 import { SMS_CONSENT_TEXT_VERSION } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
+import { acceptanceMethod, validateAgreementSubmission } from "@/app/lib/agreement-validate.mjs";
 import type {
+  AgreementAcceptance,
   AgreementAudit,
   AgreementRecord,
   AgreementSubmission,
-  PlanSlug,
-  ReceptionistMode,
 } from "@/app/lib/agreement-types";
 
 export const runtime = "nodejs";
-
-const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
-const VALID_RECEPTIONIST_MODES: ReceptionistMode[] = ["forwarded", "published", "declined"];
 
 /**
  * A master Starter agreement where the client declined the receptionist — the one case that
@@ -42,13 +39,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const err = validate(body);
+  // The rules live in agreement-validate.mjs so the test suite runs the same ones.
+  const err = validateAgreementSubmission(body);
   if (err) return NextResponse.json({ error: err }, { status: 400 });
 
   const id = randomUUID();
   const signedAt = new Date();
   const openedAt = new Date(body.pageOpenedAt);
   const isAddendum = body.kind === "addendum";
+
+  /**
+   * How the terms were accepted. A ticked box since 2026-11-03; a drawn signature only from a
+   * page loaded before that shipped. The box records who ticked it, when, and from where — the
+   * document itself is identified by `audit.termsHash` and `agreementVersion`, as before.
+   */
+  const acceptance: AgreementAcceptance =
+    acceptanceMethod(body) === "clickwrap-self"
+      ? {
+          method: "clickwrap-self",
+          checkedAt: signedAt.toISOString(),
+          ip: clientIp(req),
+          userAgent: req.headers.get("user-agent") || "unknown",
+        }
+      : { method: "drawn-signature" };
+  // A drawn signature from a stale page is kept as it always was; a clickwrap submission
+  // carries no image, and never stores a stray one.
+  if (acceptance.method === "clickwrap-self") delete body.signatureDataUrl;
 
   const audit: AgreementAudit = {
     ip: clientIp(req),
@@ -69,7 +85,7 @@ export async function POST(req: Request) {
 
   let pdfBytes: Uint8Array;
   try {
-    pdfBytes = await generateSignedPdf(body, audit, id);
+    pdfBytes = await generateSignedPdf(body, audit, id, acceptance);
   } catch (e) {
     console.error("[/api/agreement] pdf generation failed", e);
     return NextResponse.json({ error: "Could not generate signed PDF" }, { status: 500 });
@@ -105,6 +121,7 @@ export async function POST(req: Request) {
     ...(body.forwardingNumber ? { forwardingNumber: body.forwardingNumber.trim() } : {}),
     pdfUrl,
     audit,
+    acceptance,
     // The addendum carries its own version. Stamping TERMS_VERSION on it would make a
     // client look as though they had re-signed the master when they had not — and
     // `masterNeedsResign` reads exactly this field to decide whether they still need to.
@@ -214,86 +231,4 @@ function clientIp(req: Request): string {
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0].trim();
   return req.headers.get("x-real-ip") || "unknown";
-}
-
-function validate(body: AgreementSubmission): string | null {
-  if (!VALID_PLANS.includes(body.plan)) return "Invalid plan";
-  if (body.kind && body.kind !== "master" && body.kind !== "addendum") {
-    return "Invalid agreement kind";
-  }
-  // An addendum with no master to adopt is not an addendum. `/start` always supplies this;
-  // its absence means the client reached the signing form some other way.
-  if (body.kind === "addendum" && !nonEmpty(body.parentAgreementId)) {
-    return "Missing parent agreement";
-  }
-  if (!nonEmpty(body.clientLegalName)) return "Missing client legal name";
-  if (!nonEmpty(body.clientEntityType)) return "Missing entity type";
-  if (!nonEmpty(body.clientAddress)) return "Missing client address";
-  if (!nonEmpty(body.signerName)) return "Missing signer name";
-  if (!nonEmpty(body.signerTitle)) return "Missing signer title";
-  if (!validEmail(body.signerEmail)) return "Invalid signer email";
-  if (!body.signatureDataUrl?.startsWith("data:image/png;base64,")) {
-    return "Missing or invalid signature";
-  }
-  // The scroll gate is enforced in the UI, but a submission that never reached
-  // the end of the terms must not be accepted just because it skipped the UI.
-  if (!validTimestamp(body.pageOpenedAt)) return "Missing page open timestamp";
-  if (!validTimestamp(body.scrollCompletedAt)) {
-    return "Agreement was not read to the end";
-  }
-  // Only on a master. The Enterprise master is where the client commits to the site list, so
-  // it has to be named there. An addendum adding a site to an existing Enterprise bundle
-  // derives its sites from `account.sites` instead — the account record is the truth about
-  // what they own by then, and asking them to retype it invites the two to disagree.
-  if (body.plan === "enterprise" && body.kind !== "addendum") {
-    const sites = (body.additionalSites || []).filter(nonEmpty);
-    if (sites.length < 2) return "Enterprise requires at least 2 site names";
-  }
-  // Phone handling. Captured at signing for a new Starter/Growth purchase, so the welcome
-  // email can speak to the client's actual choice and the onboarding form opens prefilled.
-  // Skipped for upgrades (the client already has a phone setup) and for Enterprise (the
-  // per-site choice is deferred to the onboarding form). The UI enforces this too; the server
-  // must not trust it to.
-  const needsPhoneChoice = !body.upgradeSlug && (body.plan === "starter" || body.plan === "growth");
-  if (body.receptionistMode && !VALID_RECEPTIONIST_MODES.includes(body.receptionistMode)) {
-    return "Invalid phone option";
-  }
-  if (needsPhoneChoice && !body.receptionistMode) {
-    return "Please choose how your phone should be handled";
-  }
-  // Website-only is a Starter concession, not a Growth or Enterprise option: those are
-  // receptionist plans with no web-only schedule to sign against.
-  if (body.receptionistMode === "declined" && body.plan !== "starter") {
-    return "Website-only is only available on the Starter plan";
-  }
-  // Forwarding needs a number to forward from. A choice of "forward" with nothing to forward
-  // is not a usable instruction.
-  if (body.receptionistMode === "forwarded" && !normalizeE164(body.forwardingNumber)) {
-    return "A valid number to forward is required";
-  }
-
-  // A website-only site produces no calls, so there is nothing to text a summary about.
-  // Replaces the old Starter-wide block: since the 2026-10-12 reprice every plan includes the
-  // receptionist, and the one case with no calls is the website-only choice, not the tier.
-  if (body.smsConsent && body.receptionistMode === "declined") {
-    return "Call alert texts require a receptionist";
-  }
-  // Consent without a reachable number is not consent to anything. Checked in the UI too,
-  // but a record claiming permission to text an unparseable string is worse than no record.
-  if (body.smsConsent && !normalizeE164(body.alertPhone)) {
-    return "A valid mobile number is required to enable call alert texts";
-  }
-  return null;
-}
-
-function nonEmpty(s: unknown): s is string {
-  return typeof s === "string" && s.trim().length > 0;
-}
-
-function validEmail(s: unknown): s is string {
-  return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-function validTimestamp(s: unknown): s is string {
-  return typeof s === "string" && !Number.isNaN(Date.parse(s));
 }
