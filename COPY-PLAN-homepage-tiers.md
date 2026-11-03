@@ -178,6 +178,19 @@ The CRM bullet names no texting or review requests; those stay out of the contra
   nothing until `TWILIO_NOTIFICATION_NUMBER` is set in the Vercel env. The copy that says "you get a
   text" should not deploy before both paths are live.
 
+**Mockup approved, 2026-11-03.** `jdd-homepage-mockup.html` (Desktop, outside the repo) shows the
+whole page in the current site look: approved copy, the §4 order, Lenis with scroll reveals in place
+of `ScrollJourney`, the film playing through to the CRM card, and the portal section's inbox and
+pipeline. It is the reference for the build. Two things it settles that the plan left open:
+
+- the portal section's visual is an inbox above a pipeline board, with "Inbox · every plan" and
+  "Pipeline · Growth" marking the split, and the two gated actions shown as "after carrier approval";
+- the film's CRM beat is one screen on the same phone: the new card at the top of the Lead column,
+  two quieter cards beneath it, one from a call and one from the website.
+
+Still to measure in the build: "Run like a team." fits at 375px but would likely clip at 320px with
+the live `h1` floor (46px, 13vw).
+
 ---
 
 ## 10. Out of scope
