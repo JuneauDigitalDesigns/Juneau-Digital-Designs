@@ -99,6 +99,9 @@ export async function POST(request: Request) {
         callerName: str(body.caller_name, CAP.name),
         priority: str(body.caller_priority, CAP.priority),
         callerNumber: str(body.caller_number, CAP.number),
+        // The call's Airtable row, so the owner's text can link straight to it (when links are on).
+        // Optional: clones made before Make sent it simply get the link-less brief.
+        recordId: str(body.airtable_record_id, 32),
     };
     after(() => notifyOwnerOfCall(input));
 
