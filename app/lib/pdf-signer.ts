@@ -207,7 +207,7 @@ export async function generateSignedPdf(
   doc.space(20);
   doc.text(
     verbal
-      ? // DRAFT legal wording (PLAN §9.4) — Xander approves this text before merge.
+      ? // Legal wording approved by Xander, 2026-11-03 (PLAN §9.4).
         "The client accepted this agreement verbally during a telephone call. The operator read the plan, price, " +
           "billing period, automatic renewal and cancellation terms aloud from the script identified above, the client " +
           "agreed, and the operator recorded that acceptance at the time shown. The full terms, identified by the terms " +
@@ -227,7 +227,7 @@ export async function generateSignedPdf(
   return doc.finish();
 }
 
-/** The block printed where a drawn signature would go. DRAFT wording: PLAN §9.4. */
+/** The block printed where a drawn signature would go. Wording approved 2026-11-03 (PLAN §9.4). */
 function verbalAcceptanceText(submission: AgreementSubmission, verbal: VerbalAcceptance): string {
   const at = new Date(verbal.confirmedAt).toLocaleString("en-US", {
     dateStyle: "long",

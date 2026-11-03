@@ -43,43 +43,72 @@ const TIERS: PricingTier[] = [
     {
         slug: "starter",
         name: "Starter",
-        tagline: "Starter tells you who called. A real website and a receptionist that catches missed calls and sends you the name, number, and reason.",
+        /* The tier line, shared word for word with the homepage cards — change both or
+           neither. Starter is the way in: the whole system, with the follow-up left to the
+           owner. Its list is short because everything it shares with Growth now sits in
+           EVERY_PLAN above the cards, not because it is a lesser product. */
+        tagline: "Starter reports every lead. The way in: the whole system, with the follow-up left to you.",
         features: [
-            "A four-page website: Home, Services, About, Contact",
-            "Hosting, SSL, and maintenance included",
-            "AI receptionist answers the calls you miss",
-            "Post-call text brief sent to your phone after every call",
-            "Lead email with the caller's name, number, and reason",
-            "2 content edits per month",
-            "Client portal to check your site and your calls",
+            "Web form leads go straight to your portal inbox",
+            "Client portal to check your site, your calls, and your web leads",
+            // Real, not a promise: StarterShowcase runs it from the locked Customers tab.
+            "A guided walkthrough of Growth's pipeline, inside your portal",
         ],
         highlighted: false,
     },
     {
         slug: "growth",
         name: "Growth",
-        tagline: "Growth acts for you. Everything in Starter, plus it works the lead instead of just handing it to you.",
+        tagline: "Growth works them like a team would. It calls web leads back for you, and gives you a pipeline to run the rest.",
+        /* The callback and the pipeline are the headline pair, in that order. The last
+           bullet waits on the client's own carrier registration, so it says what it waits
+           on and never how long. */
         features: [
             "Everything in Starter, plus:",
-            "60-second callback: a web form lead gets called back automatically within about a minute",
+            "60-second callback: a web form lead gets called back automatically within about a minute, and the result lands in your inbox",
+            "Customer pipeline: move every lead from Lead to Won, with notes, job value, and tags",
             "AI qualifies the lead and answers common questions",
             "Searchable call log with full transcripts",
             "Urgency and caller-name extraction on every call",
+            "Text customers back from your business number, and ask for Google reviews in one tap, once the carriers approve your business registration",
         ],
         highlighted: true,
     },
     {
         slug: "enterprise",
         name: "Enterprise",
-        tagline: "For people running more than one shop. Separate sites and receptionists, one call log, one bill.",
+        tagline: "For people running more than one shop. Separate sites and receptionists, one portal, one bill.",
+        /* "One portal and call log", not "one pipeline": the contract promises a
+           consolidated portal view across sites; a pipeline spanning sites is not verified. */
         features: [
             "Everything in Growth, plus:",
             "2 to 3 websites, for example a service site and an e-commerce site",
             "A dedicated AI receptionist and phone number per site",
-            "One shared call log across all sites",
+            "One portal and call log covering every site",
         ],
         highlighted: false,
     },
+];
+
+/**
+ * What every plan gets, shown once above the cards.
+ *
+ * Starter and Growth run an identical stack front to back; they differ only in web-form
+ * behaviour, the CRM, and minutes. Listed per card, the shared stack made Starter read as a
+ * shorter, lesser list — the opposite of what is true. Stated once here, the cards carry
+ * only the differences and Growth's additions read as additions.
+ *
+ * "Every call and web enquiry lands in your portal" replaced the old "Lead email" bullet:
+ * no plan delivers leads by email any more.
+ */
+const EVERY_PLAN = [
+    "A custom four-page website: Home, Services, About, Contact",
+    "Hosting, SSL, and maintenance included",
+    "Your number rings you first. If you don't pick up, the AI receptionist does, 24/7, in English or Spanish",
+    "Every call and web enquiry lands in your portal",
+    "A text when a new lead arrives",
+    "A summary of every call",
+    "2 content edits per month",
 ];
 
 /** The minutes footnote, appended last so it reads as a line item rather than a selling point. */
@@ -233,8 +262,8 @@ export default function PricingPageClient() {
                             lineHeight: 1.6,
                         }}
                     >
-                        Every plan is a real website with an AI receptionist that only answers the
-                        phone when you cannot. Month to month, cancel anytime.
+                        Every plan is a real website, an AI receptionist that only answers when you
+                        can&apos;t, and a portal where every lead lands. Month to month, cancel anytime.
                     </p>
                 </motion.div>
 
@@ -291,6 +320,39 @@ export default function PricingPageClient() {
                             );
                         })}
                     </div>
+                </motion.div>
+
+                {/* ── On every plan ── see EVERY_PLAN */}
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
+                    style={{
+                        marginBottom: 24,
+                        padding: "clamp(20px, 2.5vw, 28px)",
+                        borderRadius: 16,
+                        border: "1px solid var(--rule)",
+                        background: "var(--surface)",
+                    }}
+                >
+                    <p className="kicker" style={{ marginBottom: 14, color: "var(--fg-2)" }}>On every plan</p>
+                    <ul
+                        style={{
+                            listStyle: "none",
+                            padding: 0,
+                            margin: 0,
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+                            gap: "10px 28px",
+                        }}
+                    >
+                        {EVERY_PLAN.map((item) => (
+                            <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14.5, color: "var(--fg-2)" }}>
+                                <Check weight="bold" size={14} style={{ color: "var(--online)", marginTop: 3, flexShrink: 0 }} />
+                                <span>{item}</span>
+                            </li>
+                        ))}
+                    </ul>
                 </motion.div>
 
                 {/* Pricing Cards */}

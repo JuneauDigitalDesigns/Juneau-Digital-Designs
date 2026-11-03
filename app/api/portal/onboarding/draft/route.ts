@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveDraft, getDraft } from "@/app/lib/onboarding-draft-store";
-import { findTaxIdPaths } from "@/app/lib/a2p-identity.mjs";
+import { findTaxIdPaths } from "@/app/lib/tax-id-guard.mjs";
 
 export async function GET(request: Request) {
   const ctx = await resolvePortalRequest(request);

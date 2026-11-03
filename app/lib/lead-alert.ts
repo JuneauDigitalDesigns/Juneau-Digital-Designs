@@ -3,6 +3,7 @@ import { findAccountEmailByScope } from "./account-store";
 import { getOwnerEmail, setOwnerEmail } from "./portal-crm";
 import { getConsentStateForAccount, isDeliverable } from "./sms-consent";
 import { sendSms } from "./twilio";
+import { ownerItemLink } from "./owner-links";
 
 /**
  * Text the business owner that a web-form lead has landed in their portal.
@@ -47,8 +48,26 @@ export function leadAlertName(raw: string | null | undefined): string {
     return /\p{L}/u.test(cleaned) ? cleaned : "a website visitor";
 }
 
+/**
+ * The new-lead text as it goes out today (no link), in the form Xander approved with the Twilio
+ * campaign draft (2026-11-03): who it's from, who the lead is, how to stop. All GSM-7 — the old
+ * em dash forced UCS-2 — so with the longest name `leadAlertName` allows it is still one segment.
+ */
 export function leadAlertBody(name: string | null | undefined): string {
-    return `New lead from ${leadAlertName(name)} — open your portal.`;
+    return [OWNER_TEXT_HEADER, `New lead from ${leadAlertName(name)}.`, OWNER_TEXT_STOP_LINE].join("\n");
+}
+
+/** Shared by both owner texts once links are on — the campaign samples' first and last lines. */
+export const OWNER_TEXT_HEADER = "JDD Notification Service";
+export const OWNER_TEXT_STOP_LINE = "Reply STOP to opt out, HELP for help";
+
+/**
+ * The new-lead text WITH a link, in the registered sample's exact form
+ * (jdd-ops/TWILIO-SUPPORT-campaign-update.md). Only ever sent when `OWNER_TEXT_LINKS=on` and a
+ * link was actually minted; otherwise `leadAlertBody` goes out — the same lines minus "View it".
+ */
+export function leadAlertBodyWithLink(name: string | null | undefined, url: string): string {
+    return [OWNER_TEXT_HEADER, `New lead from ${leadAlertName(name)}.`, `View it: ${url}`, OWNER_TEXT_STOP_LINE].join("\n");
 }
 
 /**
@@ -62,10 +81,38 @@ export async function notifyOwnerOfLead({
     acctScope,
     slug,
     name,
+    leadId,
 }: {
     acctScope: string;
     slug: string;
     name: string | null;
+    /** The stored lead — its Inbox id is `lead:<leadId>`. Only used when owner-text links are on. */
+    leadId?: string | null;
+}): Promise<LeadAlertResult> {
+    const url = await ownerItemLink({ acctScope, slug, itemId: leadId ? `lead:${leadId}` : null });
+    const body = url ? leadAlertBodyWithLink(name, url) : leadAlertBody(name);
+    return textAccountOwner({ acctScope, slug, body, tag: "lead-alert" });
+}
+
+/**
+ * The one way JDD texts a business owner: resolve the account, check consent, send on the
+ * account lane. **Never throws.** Shared by the new-lead alert and the end-of-call brief
+ * (`call-brief.ts`) so the consent rule exists exactly once — a second copy is a second place
+ * for "absent", "revoked" or "awaiting YES" to be read as permission.
+ *
+ * `body` must already be safe to send under JDD's name: no stranger's free text, no links.
+ */
+export async function textAccountOwner({
+    acctScope,
+    slug,
+    body,
+    tag,
+}: {
+    acctScope: string;
+    slug: string;
+    body: string;
+    /** Log prefix, so a failure says which alert it was. */
+    tag: string;
 }): Promise<LeadAlertResult> {
     try {
         let email = await getOwnerEmail(acctScope);
@@ -75,7 +122,7 @@ export async function notifyOwnerOfLead({
             if (email) await setOwnerEmail(acctScope, email).catch(() => {});
         }
         if (!email) {
-            console.warn(`[lead-alert] no account email for ${slug}; owner not notified`);
+            console.warn(`[${tag}] no account email for ${slug}; owner not notified`);
             return { sent: false, reason: "no-owner-email" };
         }
 
@@ -84,14 +131,10 @@ export async function notifyOwnerOfLead({
         const consent = await getConsentStateForAccount(email);
         if (!isDeliverable(consent)) return { sent: false, reason: "no-consent" };
 
-        const { sid } = await sendSms({
-            lane: "account",
-            to: consent.phone,
-            body: leadAlertBody(name),
-        });
+        const { sid } = await sendSms({ lane: "account", to: consent.phone, body });
         return { sent: true, sid };
     } catch (e) {
-        console.error(`[lead-alert] owner notification failed for ${slug}`, e);
+        console.error(`[${tag}] owner notification failed for ${slug}`, e);
         return { sent: false, reason: "failed" };
     }
 }
