@@ -12,7 +12,7 @@ import {
     type PortalSite,
     type PortalSiteInput,
 } from "@jdd/schema";
-import { getCached, setCached, dropCached, accountCacheKey, ACCOUNT_TTL } from "./portal-kv";
+import { getCached, setCached, dropCached, accountCacheKey, accountScope, ACCOUNT_TTL } from "./portal-kv";
 
 /**
  * Portal account store — the source of truth for which sites a client can see.
@@ -117,6 +117,26 @@ export async function listAccounts(): Promise<PortalAccount[]> {
         accounts.push(parsed.data);
     }
     return accounts;
+}
+
+/**
+ * The account email behind an `acctScope`, or null.
+ *
+ * A scope is a one-way digest, so this walks the account keys and hashes each address rather
+ * than reading an index. The paths that only know a scope — lead ingest resolves one from a
+ * token — had nothing else to go on: the only scope → email index is written when the owner
+ * sends a portal message, so for almost every account it does not exist, and an alert keyed on
+ * it would never fire. Callers cache the answer; this is the cold path.
+ *
+ * Reads key names only, not records, so a malformed account cannot stop the match.
+ */
+export async function findAccountEmailByScope(acctScope: string): Promise<string | null> {
+    const keys: string[] = await getRedis().keys("jdd:account:*");
+    for (const key of keys) {
+        const email = key.slice("jdd:account:".length);
+        if (email && accountScope(email) === acctScope) return email;
+    }
+    return null;
 }
 
 /**

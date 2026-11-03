@@ -87,8 +87,8 @@ export function reconstructPublicUrl(request: Request): string {
  *
  * `from` pins the sender *within* the service — Twilio accepts `From` + `MessagingServiceSid`
  * together, and the number still inherits the registered campaign and Advanced Opt-Out. The
- * review-request flow uses it so a caller sees the business's own number. Omit it and the
- * service picks a sender from its pool, which is the right default for owner alerts.
+ * review-request flow uses it so a caller sees the business's own number. Both lanes always
+ * pin it — see the account branch below for what happened when one did not.
  *
  * `statusCallback` asks Twilio to POST delivery updates to our webhook, used by the review
  * flow to track delivered/failed per recipient.
@@ -142,9 +142,17 @@ export async function sendSms({
       throw new Error("Account-lane SMS needs TWILIO_MESSAGING_SERVICE_SID");
     }
     serviceSid = master;
-    // Pinned so the owner gets every alert from one sender they can save as a contact, rather
-    // than whichever number the pool happened to pick. Optional until the number is bought.
-    from = process.env.TWILIO_NOTIFICATION_NUMBER || undefined;
+    // Required, not optional. Without a `From`, Twilio picks any sender in the master pool,
+    // and that pool still holds client numbers — so an owner alert could go out from a
+    // client's own line, on JDD's campaign, with nothing logged. Refusing is the only safe answer:
+    // every account-lane caller already treats a throw as "not sent" and carries on.
+    from = process.env.TWILIO_NOTIFICATION_NUMBER?.trim();
+    if (!from) {
+      throw new Error(
+        "Account-lane SMS needs TWILIO_NOTIFICATION_NUMBER — refusing to let the Messaging " +
+          "Service pick a sender, because its pool contains client numbers",
+      );
+    }
   }
 
   const params = new URLSearchParams({
