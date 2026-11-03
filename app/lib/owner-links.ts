@@ -77,7 +77,9 @@ export interface OwnerLinkRecord {
 }
 
 /** Inbox item ids we will point a link at. Anything else is refused rather than stored. */
-export const INBOX_ITEM_ID = /^(lead:[A-Za-z0-9_-]{1,64}|rec[A-Za-z0-9]{14})$/;
+// leadIds are UUID v4 today (portal-leads.ts: randomUUID()). Loose on purpose: a too-tight bound would
+// silently drop a real lead's link, while a junk id only ever resolves to the plain Inbox.
+export const INBOX_ITEM_ID = /^(lead:[A-Za-z0-9_-]{1,200}|rec[A-Za-z0-9]{14})$/;
 
 /**
  * Mint the URL for one owner text, or `null` when no link should be sent: the switch is off, the
