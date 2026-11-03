@@ -22,6 +22,7 @@ export default function CustomerDrawer({
     siteSlug,
     onChanged,
     onRequestReview,
+    onNotFound,
 }: {
     open: boolean;
     onClose: () => void;
@@ -29,6 +30,7 @@ export default function CustomerDrawer({
     siteSlug: string;
     onChanged: () => void;
     onRequestReview: (c: CustomerRow) => void;
+    onNotFound?: () => void;
 }) {
     return (
         <Drawer open={open} onClose={onClose} title="Customer" width="xl" padded={false} surface="raised">
@@ -38,6 +40,7 @@ export default function CustomerDrawer({
                 variant="sheet"
                 onChanged={onChanged}
                 onRequestReview={onRequestReview}
+                onNotFound={onNotFound}
             />
         </Drawer>
     );
