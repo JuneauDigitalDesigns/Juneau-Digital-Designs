@@ -73,21 +73,21 @@ export async function POST(request: Request) {
     });
   }
 
-  // Only the enable path is plan-gated. Turning alerts OFF must work on every plan and from
-  // every state — a client who downgraded to Starter while holding a live consent still
-  // needs a working off switch, and refusing a revocation over a plan check is the one
-  // failure here that would actually matter.
-  if (ctx.site.plan === "starter") {
-    return NextResponse.json(
-      { error: "Call alert texts are not available on the Starter plan" },
-      { status: 400 },
-    );
-  }
+  // No plan gate, on purpose. There used to be one — `ctx.site.plan === "starter"` refused
+  // the grant — and it was wrong twice over:
+  //  - Since the 2026-10-12 reprice every tier has the receptionist, and the new-lead text
+  //    goes to every tier, web-only included. A Starter owner had no way to turn on the
+  //    alerts their plan includes.
+  //  - Consent belongs to the ACCOUNT, but the check read ONE site's plan, and this request
+  //    carries no `?site=`, so it resolved the account's default site. A Growth client on an
+  //    account whose first site was Starter was told alerts were "not available on the
+  //    Starter plan" while looking at their Growth site.
+  // What a given text is for is decided where it is sent, not here.
 
   const next = normalizeE164(typeof phone === "string" ? phone : "");
   if (!next) {
     return NextResponse.json(
-      { error: "Enter a valid mobile number to receive call alerts." },
+      { error: "Enter a valid mobile number to receive text alerts." },
       { status: 400 },
     );
   }
