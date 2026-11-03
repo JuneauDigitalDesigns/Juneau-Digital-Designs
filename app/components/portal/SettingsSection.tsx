@@ -454,23 +454,11 @@ function FeaturedSection({
  * against words the client actually saw at that moment, not words they saw months ago on
  * a page they no longer remember.
  */
-function SmsAlertsSection({
-    consent,
-    plan,
-}: {
-    consent: SmsConsentProps | null;
-    plan: PortalSiteProps["plan"];
-}) {
-    // Same boundary as the agreement page: starter has no receptionist, so there are no
-    // calls to summarize and nothing here would ever fire. Hidden outright rather than
-    // explained — Starter never receives texts as part of the service, so the section has
-    // nothing to show a Starter client either way.
-    //
-    // The branch lives here, in a component with no state of its own, so the controls below
-    // can keep their hooks at the top of an unconditional body.
-    if (plan === "starter") {
-        return null;
-    }
+function SmsAlertsSection({ consent }: { consent: SmsConsentProps | null }) {
+    // Shown on every plan. It used to return null for Starter, on the pre-reprice belief that
+    // Starter had no receptionist and so nothing would ever text. Since 2026-10-12 every tier
+    // has one, and the new-lead text goes to every tier — web-only included. Consent is
+    // account-wide, so a per-site plan is the wrong thing to gate it on anyway.
     return <SmsAlertsControls consent={consent} />;
 }
 
@@ -508,7 +496,7 @@ function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
     }
 
     return (
-        <SectionCard title="Call alert texts">
+        <SectionCard title="Text alerts">
             <p
                 style={{
                     fontSize: 14,
@@ -517,8 +505,8 @@ function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
                     lineHeight: "var(--leading-relaxed, 1.6)",
                 }}
             >
-                Get a text after each call your receptionist handles, plus occasional alerts about
-                your account. Optional, and never required to use the service. Full details on our{" "}
+                Get a text when a new lead lands in your portal or your receptionist handles a call,
+                plus occasional alerts about your account. Optional, and never required to use the service. Full details on our{" "}
                 <Link
                     href="/sms-terms"
                     style={{ color: "var(--accent)", textDecoration: "underline" }}
@@ -544,7 +532,7 @@ function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
                         ? "Preferences saved."
                         : consent?.status === "pending-confirmation"
                           ? "Waiting on your reply to the confirmation text before alerts start."
-                          : "Call alerts are on."}
+                          : "Text alerts are on."}
                 </div>
             )}
 
@@ -660,7 +648,7 @@ export default function SettingsSection({
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
-            <SmsAlertsSection consent={smsConsent} plan={site.plan} />
+            <SmsAlertsSection consent={smsConsent} />
             <FeaturedSection site={site} />
         </div>
     );
