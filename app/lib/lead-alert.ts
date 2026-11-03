@@ -67,6 +67,29 @@ export async function notifyOwnerOfLead({
     slug: string;
     name: string | null;
 }): Promise<LeadAlertResult> {
+    return textAccountOwner({ acctScope, slug, body: leadAlertBody(name), tag: "lead-alert" });
+}
+
+/**
+ * The one way JDD texts a business owner: resolve the account, check consent, send on the
+ * account lane. **Never throws.** Shared by the new-lead alert and the end-of-call brief
+ * (`call-brief.ts`) so the consent rule exists exactly once — a second copy is a second place
+ * for "absent", "revoked" or "awaiting YES" to be read as permission.
+ *
+ * `body` must already be safe to send under JDD's name: no stranger's free text, no links.
+ */
+export async function textAccountOwner({
+    acctScope,
+    slug,
+    body,
+    tag,
+}: {
+    acctScope: string;
+    slug: string;
+    body: string;
+    /** Log prefix, so a failure says which alert it was. */
+    tag: string;
+}): Promise<LeadAlertResult> {
     try {
         let email = await getOwnerEmail(acctScope);
         if (!email) {
@@ -75,7 +98,7 @@ export async function notifyOwnerOfLead({
             if (email) await setOwnerEmail(acctScope, email).catch(() => {});
         }
         if (!email) {
-            console.warn(`[lead-alert] no account email for ${slug}; owner not notified`);
+            console.warn(`[${tag}] no account email for ${slug}; owner not notified`);
             return { sent: false, reason: "no-owner-email" };
         }
 
@@ -84,14 +107,10 @@ export async function notifyOwnerOfLead({
         const consent = await getConsentStateForAccount(email);
         if (!isDeliverable(consent)) return { sent: false, reason: "no-consent" };
 
-        const { sid } = await sendSms({
-            lane: "account",
-            to: consent.phone,
-            body: leadAlertBody(name),
-        });
+        const { sid } = await sendSms({ lane: "account", to: consent.phone, body });
         return { sent: true, sid };
     } catch (e) {
-        console.error(`[lead-alert] owner notification failed for ${slug}`, e);
+        console.error(`[${tag}] owner notification failed for ${slug}`, e);
         return { sent: false, reason: "failed" };
     }
 }
