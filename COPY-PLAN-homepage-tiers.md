@@ -143,7 +143,32 @@ Not copy, so they are recorded here as requirements, not done inside the copy pa
 
 ---
 
-## 9. Out of scope
+## 9. Gate A outcome — 2026-11-02
+
+The drafted copy is in `jdd-homepage-copy-review.html` (Desktop, outside the repo). The operator
+approved every item marked ready and chose:
+
+| Choice | Decision |
+|---|---|
+| Headline | **"Get found. Get called. Run like a team."** The `h1` font floor is re-measured for the longer third line, not assumed |
+| Portal section heading | **"Then nothing slips."** |
+| Tier line | **"Starter reports every lead. Growth works them like a team would."** Homepage cards and `/pricing` taglines |
+| Contract and the CRM | **Gate B grows by one bullet:** Growth names the CRM pipeline. It is built, so it goes in now under the same rule as portal capture |
+
+**The post-call text is the JDD alert, not the old brief.** After every call the owner gets a text
+from JDD's notification number saying a new lead is waiting in the portal. Two consequences:
+
+- `schedules.ts:64` ("A post-call text brief to the Client's phone after every call") is rewritten to
+  describe that alert, but **only in the commit that moves the post-call text to the notification
+  number** (ops item 2). Today Make sends it from the client's own number, which fails `30034` for a
+  real client.
+- The web-form alert is built on `claude/owner-lead-alert-385bb1` (`1a84de5`), unmerged, and sends
+  nothing until `TWILIO_NOTIFICATION_NUMBER` is set in the Vercel env. The copy that says "you get a
+  text" should not deploy before both paths are live.
+
+---
+
+## 10. Out of scope
 
 - How the page looks (type, colour, imagery). Visual-upgrade work.
 - `/sms-terms` and the consent string. Settled in the last pass; read only to keep the film's sender
