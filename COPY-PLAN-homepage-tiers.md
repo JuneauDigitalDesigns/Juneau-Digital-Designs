@@ -191,6 +191,24 @@ pipeline. It is the reference for the build. Two things it settles that the plan
 Still to measure in the build: "Run like a team." fits at 375px but would likely clip at 320px with
 the live `h1` floor (46px, 13vw).
 
+**Built, 2026-11-03.** Three places the build departs from the mockup, each because the mockup
+assumed something the system does not do:
+
+- **The film ends in the Inbox, not on the pipeline.** CRM v2 creates a customer only when the
+  owner promotes one (`portal-crm.ts`), so a call does not land in the Lead column by itself. The
+  Inbox is where it lands, on every plan, and the film now shows that.
+- **The film's text is the real post-call brief**, not the drafted "New lead in your portal / Tap to
+  open". Its shape is the /sms-terms sample, which is kept byte-identical to the Make scenario:
+  "Juneau Digital Designs call alert: {reason}. New lead {name}, callback {phone}. Reply STOP to opt
+  out." It arrives after the call ends, which is when the brief sends.
+- **The headline is clamp(39px, 12.4vw, 108px).** Measured in the site's own Big Shoulders 900,
+  "Run like a team." is 6.99× its font size, wider than the mockup's font, and wrapped at the old
+  120px cap. One line at 320, 375, 768, 1024 and 1440px.
+
+Also fixed in passing: the website section's body rendered `it&apos;s` literally (an entity in a
+string prop), and LeadPanel's scroll lock never held because it locked `<body>` while `<html>` is
+the scroller.
+
 ---
 
 ## 10. Out of scope

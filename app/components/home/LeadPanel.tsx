@@ -15,9 +15,14 @@ import { useEffect, useRef, useState } from "react";
  * visitor dials themselves at the bottom of the page.
  */
 
+/* The hints were written before the 2026-10 reprice and said the opposite of the product
+   twice: that Starter has no receptionist, and that its leads arrive by email. Every plan
+   has the receptionist and every lead lands in the portal; what Growth adds is the
+   callback and the pipeline. This is the first thing the hero button opens, so it has to
+   agree with the cards further down. */
 const PLANS: { slug: "starter" | "growth" | "enterprise"; label: string; hint: string }[] = [
-  { slug: "starter", label: "Starter", hint: "4-page site + email leads" },
-  { slug: "growth", label: "Growth", hint: "+ AI receptionist" },
+  { slug: "starter", label: "Starter", hint: "Site, receptionist, lead inbox" },
+  { slug: "growth", label: "Growth", hint: "+ callbacks and pipeline" },
   { slug: "enterprise", label: "Enterprise", hint: "Multiple locations" },
 ];
 
@@ -45,14 +50,18 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
     };
     document.addEventListener("keydown", onKey);
 
-    // Don't let the page scroll behind the panel.
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    /* Don't let the page scroll behind the panel. On <html>, not <body>: globals.css gives
+       <html> `overflow-x: hidden`, which makes it the page's scroller, so a lock on <body>
+       never held — the page scrolled behind the backdrop all along. Locking <html> also
+       pauses Lenis, which watches that element's overflow (`autoToggle` in SmoothScroll). */
+    const root = document.documentElement;
+    const prevOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
 
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
+      root.style.overflow = prevOverflow;
     };
   }, [onClose]);
 
@@ -122,6 +131,9 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
         aria-modal="true"
         aria-label="Tell us about your business"
         className="no-scrollbar"
+        /* The sheet scrolls itself. Without this Lenis takes the wheel over it and scrolls
+           the page behind the panel instead. */
+        data-lenis-prevent
         style={{
           position: "absolute",
           top: 0,
