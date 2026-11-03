@@ -227,33 +227,53 @@ test("only one call is ever nested under one enquiry", () => {
     assert.ok(standalone, "the call that was not nested is still in the inbox");
 });
 
-test("which of two candidate calls is nested depends on the order they arrive in", () => {
+test("the nearest call is nested, whichever order the calls arrive in", () => {
     /**
-     * Pinning real behaviour, not endorsing it. **This is a live discrepancy** — see the PR.
+     * The bug this file was written to find, kept as the test that would catch it again.
      *
-     * Each call picks its own nearest preceding enquiry, but the "one callback per enquiry"
-     * guard is first-come in `calls` array order. So the first call the loop happens to reach
-     * claims the slot, even when a later one sits closer to the enquiry.
+     * Matching used to run per call: each call took its own nearest preceding enquiry, but the
+     * "one callback per enquiry" rule was enforced first-come in `calls` array order, so the
+     * first call the loop happened to reach claimed the slot even when a later one sat much
+     * closer. It was not a rarity either: `fetchCalls` requests `sort[0][direction]=desc`, so
+     * production fed this newest-first and the *furthest* call inside the window won. The
+     * enquiry at 11:50 with its genuine callback at 11:51 and an unrelated call at 12:00
+     * nested the 12:00 one and showed the 11:51 callback as a standalone item — the duplicate
+     * the collapse exists to prevent, one step removed.
      *
-     * It is not hypothetical: `fetchCalls` requests `sort[0][direction]=desc`, so production
-     * feeds this newest-first, and the *furthest* call inside the window wins. The enquiry at
-     * 11:50 with a callback at 11:51 and an unrelated call at 12:00 nests the 12:00 one and
-     * shows the 11:51 callback as a standalone item — the duplicate the collapse exists to
-     * prevent, one step removed.
+     * Pairing is decided per enquiry by gap now, so both orders agree on the nearer call.
      */
-    const newestFirst = buildInbox({
-        calls: [call({ id: "recLate", date: at(0) }), call({ id: "recEarly", date: at(-9 * MIN) })],
-        leads: [lead({ createdAt: at(-10 * MIN) })],
-    });
-    assert.equal(newestFirst.find((i) => i.source === "web-form").callback.at, at(0));
-    assert.deepEqual(ids(newestFirst), ["recEarly", "lead:L1"]);
+    const calls = [call({ id: "recEarly", date: at(-9 * MIN) }), call({ id: "recLate", date: at(0) })];
+    const leads = [lead({ createdAt: at(-10 * MIN) })];
 
-    const oldestFirst = buildInbox({
-        calls: [call({ id: "recEarly", date: at(-9 * MIN) }), call({ id: "recLate", date: at(0) })],
-        leads: [lead({ createdAt: at(-10 * MIN) })],
-    });
-    assert.equal(oldestFirst.find((i) => i.source === "web-form").callback.at, at(-9 * MIN));
-    assert.deepEqual(ids(oldestFirst), ["recLate", "lead:L1"]);
+    const oldestFirst = buildInbox({ calls, leads });
+    const newestFirst = buildInbox({ calls: [...calls].reverse(), leads });
+
+    assert.deepEqual(oldestFirst, newestFirst, "the pairing does not depend on the input order");
+
+    const form = oldestFirst.find((i) => i.source === "web-form");
+    assert.equal(form.callback.at, at(-9 * MIN), "the call a minute after the form is the callback");
+    assert.deepEqual(ids(oldestFirst), ["recLate", "lead:L1"], "and the later one stands alone");
+});
+
+test("with three calls in one window, only the nearest is nested", () => {
+    // A busy morning on one number: the callback a minute after the form, then two unrelated
+    // inbound calls, all three inside the hour. Only one can be the callback, and swallowing
+    // either of the others would hide a real inbound — so the inbox is the enquiry plus two
+    // calls, and which one is nested cannot turn on the order Airtable returned them in.
+    const calls = [
+        call({ id: "recFar", date: at(40 * MIN) }),
+        call({ id: "recNear", date: at(-9 * MIN) }),
+        call({ id: "recMid", date: at(5 * MIN) }),
+    ];
+    const leads = [lead({ createdAt: at(-10 * MIN) })];
+
+    for (const order of [calls, [...calls].reverse()]) {
+        const items = buildInbox({ calls: order, leads });
+        const form = items.find((i) => i.source === "web-form");
+
+        assert.equal(form.callback.at, at(-9 * MIN), "the nearest call is the callback");
+        assert.deepEqual(new Set(ids(items)), new Set(["lead:L1", "recMid", "recFar"]));
+    }
 });
 
 test("a lead whose number cannot be parsed still reaches the inbox", () => {
