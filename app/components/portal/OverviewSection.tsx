@@ -11,11 +11,11 @@ import type { UsageSummary } from "@/app/lib/portal-usage";
 import { Card, CardLabel } from "./ui/Card";
 import { StatTile } from "./ui/StatTile";
 import { Sparkline } from "./ui/Sparkline";
+import { UsageMeter } from "./ui/UsageMeter";
 import { FeatureState, FeatureError } from "./ui/FeatureState";
 import { Stagger, StaggerItem, useCountUp } from "./ui/Motion";
 import { InfoTip } from "./ui/InfoTip";
 import { outcomeColor } from "./ui/chartTheme";
-import { usageHint, usageLevel, usageStatTone } from "./ui/usage";
 import { duration, money, relativeTime, shortDate, shortDateTime } from "./ui/format";
 
 /**
@@ -29,17 +29,6 @@ const PERIOD_INFO =
     "Counts run on your billing period, which starts the day you subscribed and resets on that date each month. This is not the calendar month.";
 
 /**
- * The tile's one hint line: the threshold warning when there is one, then the reset date.
- * Kept to a single line because this is the glance; the Call Log carries the full sentence.
- */
-function usageGlance(usage: UsageSummary): string | undefined {
-    const parts = [usageHint(usage)];
-    if (usage.periodEnd) parts.push(`resets ${shortDate(usage.periodEnd)}`);
-    const line = parts.filter(Boolean).join(" · ");
-    return line || undefined;
-}
-
-/**
  * The Overview's value modules: leads, traffic, billing.
  *
  * Presentation only. This used to `fetch()` its own API from a `useEffect`, which guaranteed
@@ -47,11 +36,9 @@ function usageGlance(usage: UsageSummary): string | undefined {
  * account from KV — the data now arrives as props from the server-rendered page.
  */
 export function OverviewMetrics({
-    site,
     data,
     usage,
 }: {
-    site: PortalSiteProps;
     data: OverviewData;
     usage: UsageSummary;
 }) {
@@ -121,20 +108,26 @@ export function OverviewMetrics({
                     value={data.totalCalls?.toLocaleString() ?? "—"}
                     unit="all time"
                 />
-                {/* Only on plans with an allowance, and only once we have a figure we can
-                    stand behind — the Call Log carries the full meter and the overage
-                    estimate. */}
-                {usage.state === "ready" && usage.secondsUsed !== null && (
-                    <StatStripCell
-                        label="Minutes used"
-                        value={duration(usage.secondsUsed) ?? "—"}
-                        unit={`of ${usage.minutesCap?.toLocaleString()}m`}
-                        tone={usageStatTone(usageLevel(usage.pct))}
-                        hint={usageGlance(usage)}
-                        href={tabHref("calls", site.slug)}
-                    />
-                )}
             </StatStrip>
+
+            {/*
+              * The allowance meter, and the only place a client can read how much of their
+              * included call time they have spent — a figure that lands on their invoice.
+              *
+              * It lived on the Call Log until the Inbox rebuild retired that page. A glance
+              * tile sat in the strip above and linked here for the detail; with one page left
+              * there is nothing to link to, so the two collapse into this one card rather than
+              * stating the same number twice a few hundred pixels apart.
+              *
+              * Guarded on the same condition the tile used: only plans with an allowance, and
+              * only once there is a figure we can stand behind. The meter self-censors too,
+              * but without this the wrapper would leave a 16px gap on a Starter overview.
+              */}
+            {usage.state === "ready" && usage.secondsUsed !== null && (
+                <div className="mt-4">
+                    <UsageMeter usage={usage} />
+                </div>
+            )}
         </div>
     );
 }

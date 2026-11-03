@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 /**
  * One tabular dataset, rendered as a table on a desktop and as cards on a phone.
  *
- * This existed twice before, in different states of repair. `CallsSection` hand-wrote a
+ * This existed twice before, in different states of repair. The old Call Log hand-wrote a
  * `hidden md:block` table *and* a `md:hidden` card list over the same rows, so every column
  * change meant editing two blocks and hoping they stayed in step. `BillingSection` never got
  * the second half at all and shipped `overflow-x-auto`, which left a client dragging a

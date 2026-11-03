@@ -14,6 +14,12 @@ import type { UsageSummary } from "@/app/lib/portal-usage";
  * has zero overage, so they fell through to the 80% branch and saw yellow while being, in
  * fact, out of minutes. `usageLevel` is now the only definition.
  *
+ * Those two consumers have since become one — the Inbox rebuild retired the Call Log, so the
+ * meter moved onto the Overview and absorbed the glance tile that used to link to it. The
+ * short-form helpers the tile needed (`usageHint`, `usageStatTone`) went with it. Kept as a
+ * module rather than folded into `UsageMeter.tsx` because the thresholds are the shared
+ * definition, and the next thing to quote a usage figure should find them here.
+ *
  * That mirrors the rule `portal-usage.ts` already states for the numbers themselves: there is
  * exactly one definition of "how many minutes did they use", because a client shown one figure
  * and invoiced another is a refund and a lost account. The colour and the sentence that quote
@@ -39,21 +45,14 @@ export function usageToneVar(level: UsageLevel): string {
     return "var(--accent)";
 }
 
-/** The same tone in `StatTile`'s prop vocabulary. */
-export function usageStatTone(level: UsageLevel): "default" | "warn" | "negative" {
-    if (level === "over") return "negative";
-    if (level === "warn") return "warn";
-    return "default";
-}
-
 /** `$0.20`, or null when the plan has no rate on record. */
 function formatRate(rate: number | null | undefined): string | null {
     return typeof rate === "number" ? `$${rate.toFixed(2)}` : null;
 }
 
 /**
- * The sentence shown on the Call Log meter. Null below the warn threshold, where there is
- * nothing to say that the numbers do not already say.
+ * The sentence shown on the meter. Null below the warn threshold, where there is nothing to
+ * say that the numbers do not already say.
  *
  * The two `over` cases are genuinely different messages. Past the cap, the client wants the
  * damage so far. Exactly at the cap, nothing has been charged yet and the useful information
@@ -77,18 +76,4 @@ export function usageNotice(usage: UsageSummary): string | null {
     return rate
         ? `You've used all ${cap} included minutes. Any further calls are billed at ${rate} per minute and added to your next invoice.`
         : `You've used all ${cap} included minutes. Any further calls are added to your next invoice.`;
-}
-
-/**
- * The short form for the Overview tile, which has one line of hint and is a glance rather
- * than an explanation. The full sentence lives one click away on the Call Log.
- */
-export function usageHint(usage: UsageSummary): string | undefined {
-    const level = usageLevel(usage.pct);
-    if (level === "warn") return "approaching your allowance";
-    if (level === "over") {
-        const rate = formatRate(usage.overageRate);
-        return rate ? `overage billed at ${rate}/min` : "over your allowance";
-    }
-    return undefined;
 }
