@@ -10,6 +10,12 @@ import Drawer from "./ui/Drawer";
 import { useCachedFetch, CLIENT_TTL } from "./PortalDataProvider";
 import { freshness } from "./ui/format";
 import { duration } from "@/app/lib/duration";
+import {
+    filterInbox,
+    promotionInput,
+    type InboxFilter,
+    type InboxItem,
+} from "@/app/lib/crm-contacts";
 
 /**
  * The Inbox — every call and web enquiry, newest first.
@@ -19,27 +25,6 @@ import { duration } from "@/app/lib/duration";
  * opening inside a list row read as a chat bubble rather than a record.
  */
 
-interface InboxItem {
-    id: string;
-    source: "call" | "web-form";
-    name: string | null;
-    phone: string | null;
-    phoneDisplay: string;
-    email: string | null;
-    preview: string | null;
-    at: string | null;
-    read: boolean;
-    promoted: boolean;
-    durationSeconds: number | null;
-    recordingUrl: string | null;
-    callback: {
-        at: string | null;
-        durationSeconds: number | null;
-        summary: string | null;
-        recordingUrl: string | null;
-    } | null;
-}
-
 interface InboxData {
     state: "ready" | "not-on-plan" | "pending-build" | "connecting" | "error";
     items: InboxItem[];
@@ -48,7 +33,11 @@ interface InboxData {
     error?: string;
 }
 
-type Filter = "all" | "unread" | "calls" | "forms";
+/**
+ * `promoted` is a view of what has already left, not another slice of the worklist — see
+ * `filterInbox`, which owns the rule that the other four hide promoted leads entirely.
+ */
+const FILTERS = ["all", "unread", "calls", "forms", "promoted"] as const;
 
 /** Compact relative time — the list has one column of room for it. */
 function shortAgo(iso: string | null): string {
@@ -85,7 +74,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
         CLIENT_TTL.calls,
     );
 
-    const filter = (params.get("f") ?? "all") as Filter;
+    const filter = (params.get("f") ?? "all") as InboxFilter;
     const search = (params.get("q") ?? "").trim().toLowerCase();
 
     const setParam = (key: string, value: string) => {
@@ -96,21 +85,13 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     };
 
     const all = useMemo(() => data?.items ?? [], [data]);
-    const items = useMemo(() => {
-        return all.filter((i) => {
-            if (filter === "unread" && i.read) return false;
-            if (filter === "calls" && i.source !== "call") return false;
-            if (filter === "forms" && i.source !== "web-form") return false;
-            if (search) {
-                const hay = `${i.name ?? ""} ${i.phoneDisplay} ${i.preview ?? ""}`.toLowerCase();
-                if (!hay.includes(search)) return false;
-            }
-            return true;
-        });
-    }, [all, filter, search]);
+    const items = useMemo(() => filterInbox(all, filter, search), [all, filter, search]);
 
     const open = all.find((i) => i.id === openId) ?? null;
-    const unreadCount = all.filter((i) => !i.read).length;
+    // Both counts are of the worklist, so neither includes what has been promoted away.
+    const working = useMemo(() => all.filter((i) => !i.promoted), [all]);
+    const unreadCount = working.filter((i) => !i.read).length;
+    const promotedCount = all.length - working.length;
 
     async function promote() {
         if (!open) return;
@@ -120,14 +101,9 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
             const res = await fetch(`/api/portal/customers?site=${encodeURIComponent(site.slug)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: open.name,
-                    phone: open.phone,
-                    email: open.email,
-                    note: open.preview,
-                    source: open.source,
-                    sourceRef: open.id,
-                }),
+                // What travels is decided in one testable place, not inlined here — four of
+                // these fields used to be missing and nothing could see that they were.
+                body: JSON.stringify(promotionInput(open)),
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok) {
@@ -150,7 +126,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
         <SectionHeader
             title="Inbox"
             meta={freshness(
-                `${unreadCount} new · ${all.length} this period`,
+                `${unreadCount} new · ${working.length} to work`,
                 fetchedAt,
             )}
         />
@@ -206,23 +182,28 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                     role="tablist"
                     aria-label="Filter inbox"
                 >
-                    {(["all", "unread", "calls", "forms"] as Filter[]).map((f) => (
-                        <button
-                            key={f}
-                            type="button"
-                            role="tab"
-                            aria-selected={filter === f}
-                            onClick={() => setParam("f", f === "all" ? "" : f)}
-                            className="px-3.5 py-1.5 text-xs uppercase tracking-wide cursor-pointer"
-                            style={{
-                                fontFamily: "var(--font-mono)",
-                                background: filter === f ? "var(--accent)" : "transparent",
-                                color: filter === f ? "var(--on-accent)" : "var(--fg-3)",
-                            }}
-                        >
-                            {f}
-                        </button>
-                    ))}
+                    {FILTERS.map((f) => {
+                        // Nothing has been promoted yet: the tab would only ever open an empty
+                        // list, and on a new account it is a word the client has no use for.
+                        if (f === "promoted" && promotedCount === 0) return null;
+                        return (
+                            <button
+                                key={f}
+                                type="button"
+                                role="tab"
+                                aria-selected={filter === f}
+                                onClick={() => setParam("f", f === "all" ? "" : f)}
+                                className="px-3.5 py-1.5 text-xs uppercase tracking-wide cursor-pointer"
+                                style={{
+                                    fontFamily: "var(--font-mono)",
+                                    background: filter === f ? "var(--accent)" : "transparent",
+                                    color: filter === f ? "var(--on-accent)" : "var(--fg-3)",
+                                }}
+                            >
+                                {f === "promoted" ? `promoted · ${promotedCount}` : f}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 

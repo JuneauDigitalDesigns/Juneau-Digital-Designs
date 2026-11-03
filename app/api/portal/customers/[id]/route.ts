@@ -12,6 +12,7 @@ import {
     type Activity,
 } from "@/app/lib/portal-crm";
 import { duration } from "@/app/lib/duration";
+import { markOrigin } from "@/app/lib/crm-contacts";
 
 export const runtime = "nodejs";
 
@@ -99,9 +100,33 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         meta: { body: m.body, status: m.status },
     }));
 
-    const timeline = [...stored, ...callActivity, ...messageActivity].sort(
-        (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+    const timeline = markOrigin(
+        [...stored, ...callActivity, ...messageActivity].sort(
+            (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+        ),
+        customer.sourceRef,
     );
+
+    /**
+     * The customer came from a call we can no longer show them.
+     *
+     * `fetchCalls` reads at most `MAX_RECORDS` rows, and a row can be deleted upstream, so a
+     * long-standing customer's originating call eventually falls out of the window. The record
+     * then has a `sourceRef` pointing at nothing. Saying so is better than a timeline that
+     * quietly begins after the thing that started it — the client knows there was a call, and
+     * silence reads as data loss.
+     */
+    const fromCall = Boolean(customer.sourceRef) && !customer.sourceRef!.startsWith("lead:");
+    if (fromCall && !timeline.some((e) => e.meta?.origin)) {
+        timeline.push({
+            id: `origin-missing:${customer.sourceRef}`,
+            kind: "call",
+            at: customer.firstContactAt ?? customer.createdAt,
+            summary: "The call this customer came from is no longer in your call log",
+            actor: "system",
+            meta: { origin: true, unavailable: true },
+        });
+    }
 
     // Reading the record clears its unread badge.
     await markThreadRead(acct, slug, id);

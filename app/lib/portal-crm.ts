@@ -89,6 +89,14 @@ export interface Customer {
     source: "call" | "web-form" | "manual";
     /** Airtable record id or leadId this was promoted from. Null for manual adds. */
     sourceRef: string | null;
+    /**
+     * When they first got in touch, as opposed to when the client got round to promoting them.
+     *
+     * `createdAt` used to carry both jobs, so a customer promoted from a week-old call read as
+     * having appeared today. Optional because records written before this did not have it —
+     * read it as `firstContactAt ?? createdAt` and no migration is needed.
+     */
+    firstContactAt?: string | null;
     createdAt: string;
     updatedAt: string;
     updatedBy: string;
@@ -246,8 +254,10 @@ export interface CreateCustomerInput {
     stage?: PipelineStage;
     value?: number | null;
     note?: string | null;
+    tags?: string[];
     source: Customer["source"];
     sourceRef?: string | null;
+    firstContactAt?: string | null;
 }
 
 /**
@@ -280,11 +290,12 @@ export async function createCustomer(
         address: input.address?.trim() || null,
         stage: input.stage ?? "lead",
         value: input.value ?? null,
-        tags: [],
+        tags: input.tags ?? [],
         note: input.note?.trim() || null,
         archived: false,
         source: input.source,
         sourceRef: input.sourceRef ?? null,
+        firstContactAt: input.firstContactAt ?? null,
         createdAt: now,
         updatedAt: now,
         updatedBy: byUser,
@@ -318,16 +329,27 @@ export interface CustomerPatch {
     lastContactAt?: string | null;
 }
 
+/**
+ * A patch either lands or it does not, and the caller has to tell the client which.
+ *
+ * It used to return `Customer | null`, where null meant only "no such customer". Now that a
+ * phone edit can be refused on its own merits, the two outcomes need telling apart — a
+ * collision reported as a 404 would read to the client as "your customer disappeared".
+ */
+export type UpdateResult =
+    | { ok: true; customer: Customer }
+    | { ok: false; reason: "not-found" | "phone-taken" };
+
 export async function updateCustomer(
     acct: string,
     slug: string,
     customerId: string,
     patch: CustomerPatch,
     byUser: string,
-): Promise<Customer | null> {
+): Promise<UpdateResult> {
     const redis = getRedis();
     const existing = await getCustomer(acct, slug, customerId);
-    if (!existing) return null;
+    if (!existing) return { ok: false, reason: "not-found" };
 
     const now = new Date().toISOString();
     const stageChanged = patch.stage !== undefined && patch.stage !== existing.stage;
@@ -353,6 +375,21 @@ export async function updateCustomer(
     // A phone change has to move the dedupe index with it, or the old number keeps resolving.
     if (patch.phone !== undefined) {
         const e164 = normalizeE164(patch.phone ?? "");
+
+        /**
+         * Refuse a number another customer already holds.
+         *
+         * The index maps one number to one customer, and this used to overwrite it — so
+         * correcting a typo into a number already on the board silently re-pointed it, and the
+         * customer who really owned it stopped being found by phone: their inbound SMS and
+         * every promotion dedupe would land on the wrong record. Failing the edit is the only
+         * safe answer; merging two customers is a decision we do not get to make here.
+         */
+        if (e164 && e164 !== existing.phone) {
+            const holder = await redis.get<string>(phoneIndex(acct, slug, e164));
+            if (holder && holder !== customerId) return { ok: false, reason: "phone-taken" };
+        }
+
         if (existing.phone && existing.phone !== e164) {
             await redis.del(phoneIndex(acct, slug, existing.phone));
         }
@@ -370,7 +407,7 @@ export async function updateCustomer(
             meta: { from: existing.stage, to: next.stage },
         });
     }
-    return next;
+    return { ok: true, customer: next };
 }
 
 export const STAGE_LABEL: Record<PipelineStage, string> = {

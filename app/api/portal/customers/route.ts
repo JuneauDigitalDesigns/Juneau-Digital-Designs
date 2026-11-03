@@ -101,6 +101,16 @@ export async function POST(request: Request) {
     const str = (v: unknown): string | null =>
         typeof v === "string" && v.trim() ? v.trim().slice(0, 300) : null;
 
+    /**
+     * The note is the one field here that carries prose rather than an identifier.
+     *
+     * It ran through the 300-character clamp above, while `PATCH` has always allowed 4000 — so
+     * promoting a call whose summary ran long cut it, silently, at the only moment the client
+     * could not tell what had been removed. Same ceiling as PATCH now.
+     */
+    const noteStr = (v: unknown): string | null =>
+        typeof v === "string" && v.trim() ? v.trim().slice(0, 4000) : null;
+
     const source = b.source === "call" || b.source === "web-form" ? b.source : "manual";
     const name = str(b.name);
     const phone = str(b.phone);
@@ -113,6 +123,19 @@ export async function POST(request: Request) {
         );
     }
 
+    // An ISO string we wrote ourselves, but it arrives from a browser, so it is checked like
+    // anything else — a junk date would otherwise become the record's createdAt.
+    const when = typeof b.firstContactAt === "string" ? b.firstContactAt : null;
+    const firstContactAt = when && !Number.isNaN(new Date(when).getTime()) ? when : null;
+
+    const tags = Array.isArray(b.tags)
+        ? b.tags
+              .filter((t): t is string => typeof t === "string")
+              .map((t) => t.trim().slice(0, 40))
+              .filter(Boolean)
+              .slice(0, 12)
+        : [];
+
     const acct = accountScope(ctx.account.email);
     const { customer, existed } = await createCustomer(
         acct,
@@ -122,9 +145,11 @@ export async function POST(request: Request) {
             phone,
             email: str(b.email),
             address: str(b.address),
-            note: str(b.note),
+            note: noteStr(b.note),
+            tags,
             source,
             sourceRef: str(b.sourceRef),
+            firstContactAt,
         },
         ctx.userId,
     );
@@ -208,7 +233,17 @@ export async function PATCH(request: Request) {
         patch,
         ctx.userId,
     );
-    if (!updated) return NextResponse.json({ error: "No such customer" }, { status: 404 });
+    if (!updated.ok) {
+        // 409, not 404: the record is fine, the number is the problem. Worded for a client
+        // correcting a typo, who needs to know where the number already went.
+        if (updated.reason === "phone-taken") {
+            return NextResponse.json(
+                { error: "Another customer already has that phone number." },
+                { status: 409 },
+            );
+        }
+        return NextResponse.json({ error: "No such customer" }, { status: 404 });
+    }
 
-    return NextResponse.json({ ok: true, customer: updated });
+    return NextResponse.json({ ok: true, customer: updated.customer });
 }
