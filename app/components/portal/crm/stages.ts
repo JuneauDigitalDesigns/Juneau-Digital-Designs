@@ -43,6 +43,8 @@ export interface CustomerRow {
     archived: boolean;
     source: "call" | "web-form" | "manual";
     createdAt: string;
+    /** When they first got in touch. Absent on records written before it was carried over. */
+    firstContactAt?: string | null;
     lastContactAt: string | null;
     reviewSent: { sentAt: string; deliveryStatus: string; optedOut: boolean } | null;
     stale: boolean;
