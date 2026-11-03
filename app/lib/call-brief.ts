@@ -59,6 +59,8 @@ export function callBriefBody({
         `Name: ${callBriefName(callerName)}`,
         `Priority: ${PRIORITY_LABEL[callBriefPriority(priority)]}`,
         "The full lead is in your portal.",
+        // Added with the campaign samples (Xander, 2026-11-03): every owner text says how to stop.
+        OWNER_TEXT_STOP_LINE,
     ].join("\n");
 }
 

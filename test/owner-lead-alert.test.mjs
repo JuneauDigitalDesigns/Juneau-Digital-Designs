@@ -188,7 +188,7 @@ test("a lead for an owner with SMS consent produces exactly one account-lane tex
             To: OWNER_PHONE,
             From: NOTIFICATION_NUMBER,
             MessagingServiceSid: MASTER_SERVICE,
-            Body: "New lead from Maria Lopez — open your portal.",
+            Body: "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help",
         },
     );
 });
@@ -269,8 +269,17 @@ test("the visitor's name cannot carry a link or a number into the alert", () => 
     assert.doesNotMatch(leadAlertBody("Click www.evil.com now"), /\.\w/);
 });
 
-test("the alert stays one UCS-2 segment however long the name", () => {
-    // The em dash forces UCS-2, where one segment is 70 characters.
+test("the alert is GSM-7 and one segment however long the name", () => {
+    // The old em dash forced UCS-2 (70-char segments). The approved form has none, so it is GSM-7,
+    // where one segment is 160 — and the STOP line must not push a long name into a second one.
     const body = leadAlertBody("Bartholomew Maximilian Featherstonehaugh-Worthington III");
-    assert.ok(body.length <= 70, `${body.length} chars: ${body}`);
+    assert.match(body, /^[\n\x20-\x7E]+$/, "GSM-7 only");
+    assert.ok(body.length <= 160, `${body.length} chars: ${body}`);
+});
+
+test("the end-of-call brief is GSM-7 and one segment however long the name", async () => {
+    const { callBriefBody } = await import("../app/lib/call-brief.ts");
+    const body = callBriefBody({ callerName: "Bartholomew Maximilian Featherstonehaugh-Worthington III", priority: "emergency" });
+    assert.match(body, /^[\n\x20-\x7E]+$/, "GSM-7 only");
+    assert.ok(body.length <= 160, `${body.length} chars: ${body}`);
 });

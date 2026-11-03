@@ -153,13 +153,13 @@ const call = (over = {}) => ({
 const linkKeys = () => [...kv.keys()].filter((k) => k.startsWith("portal:owner-link:"));
 /** Swap the minted id for the sample's illustrative one, to compare with the registered sample. */
 const asSample = (body, sampleId) => body.replace(LINK, `https://www.juneaudigitaldesigns.com/portal/l/${sampleId}`);
-const TODAY_BRIEF = "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.";
+const TODAY_BRIEF = "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help";
 
 /* ── switch OFF: today's texts, byte for byte, and no link minted ─────────── */
 
 test("links off: the new-lead text is exactly today's", async () => {
     await notifyOwnerOfLead(lead());
-    assert.equal(twilioCalls[0].Body, "New lead from Maria Lopez — open your portal.");
+    assert.equal(twilioCalls[0].Body, "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help");
     assert.deepEqual(linkKeys(), []);
 });
 
@@ -222,7 +222,7 @@ test("links on, KV refuses the link: the owner still gets today's text", async (
     process.env.OWNER_TEXT_LINKS = "on";
     kvSetFails = true;
     await notifyOwnerOfLead(lead());
-    assert.equal(twilioCalls[0].Body, "New lead from Maria Lopez — open your portal.");
+    assert.equal(twilioCalls[0].Body, "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help");
 });
 
 /* ── /portal/l/<id>: only the account it was made for ─────────────────────── */

@@ -48,8 +48,13 @@ export function leadAlertName(raw: string | null | undefined): string {
     return /\p{L}/u.test(cleaned) ? cleaned : "a website visitor";
 }
 
+/**
+ * The new-lead text as it goes out today (no link), in the form Xander approved with the Twilio
+ * campaign draft (2026-11-03): who it's from, who the lead is, how to stop. All GSM-7 — the old
+ * em dash forced UCS-2 — so with the longest name `leadAlertName` allows it is still one segment.
+ */
 export function leadAlertBody(name: string | null | undefined): string {
-    return `New lead from ${leadAlertName(name)} — open your portal.`;
+    return [OWNER_TEXT_HEADER, `New lead from ${leadAlertName(name)}.`, OWNER_TEXT_STOP_LINE].join("\n");
 }
 
 /** Shared by both owner texts once links are on — the campaign samples' first and last lines. */
@@ -59,7 +64,7 @@ export const OWNER_TEXT_STOP_LINE = "Reply STOP to opt out, HELP for help";
 /**
  * The new-lead text WITH a link, in the registered sample's exact form
  * (jdd-ops/TWILIO-SUPPORT-campaign-update.md). Only ever sent when `OWNER_TEXT_LINKS=on` and a
- * link was actually minted; otherwise `leadAlertBody` goes out unchanged.
+ * link was actually minted; otherwise `leadAlertBody` goes out — the same lines minus "View it".
  */
 export function leadAlertBodyWithLink(name: string | null | undefined, url: string): string {
     return [OWNER_TEXT_HEADER, `New lead from ${leadAlertName(name)}.`, `View it: ${url}`, OWNER_TEXT_STOP_LINE].join("\n");

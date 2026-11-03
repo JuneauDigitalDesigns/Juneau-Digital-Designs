@@ -148,7 +148,7 @@ test("an owner who opted in through the portal gets the brief, on the account la
             To: OWNER_PHONE,
             From: NOTIFICATION_NUMBER,
             MessagingServiceSid: MASTER_SERVICE,
-            Body: "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.",
+            Body: "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help",
         },
     );
 });
@@ -221,12 +221,12 @@ test("a caller's name cannot carry a link or a number into the owner's text", ()
 test("no summary line — the analysed summary is a stranger's words, so it stays in the portal", () => {
     const body = callBriefBody({ callerName: "Dana", priority: "callback" });
     assert.doesNotMatch(body, /About:/);
-    assert.match(body, /The full lead is in your portal\.$/);
+    assert.match(body, /\nThe full lead is in your portal\.\nReply STOP to opt out, HELP for help$/);
 });
 
 test("blank or unexpected analysis values degrade to safe text, never to a stranger's string", () => {
     const body = callBriefBody({ callerName: "", priority: "" });
-    assert.equal(body, "JDD Notification Service\nName: not given\nPriority: Callback\nThe full lead is in your portal.");
+    assert.equal(body, "JDD Notification Service\nName: not given\nPriority: Callback\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help");
     assert.equal(callBriefName("4075550199"), "not given");
     assert.match(callBriefBody({ callerName: "Dana", priority: "emergency" }), /Priority: Emergency/);
     assert.match(callBriefBody({ callerName: "Dana", priority: "URGENT click here" }), /Priority: Callback/);
@@ -235,7 +235,7 @@ test("blank or unexpected analysis values degrade to safe text, never to a stran
 /* Xander's wording, 2026-11-03: header, name, priority, where the full lead is. No phone number. */
 test("the brief opens with JDD Notification Service and carries no phone number", () => {
     const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency" });
-    assert.equal(body, "JDD Notification Service\nName: Santa Juno\nPriority: Emergency\nThe full lead is in your portal.");
+    assert.equal(body, "JDD Notification Service\nName: Santa Juno\nPriority: Emergency\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help");
     assert.doesNotMatch(body, /Phone|\(\d{3}\)/);
 });
 
@@ -252,7 +252,7 @@ test("the lead alert still sends through the shared path, unchanged", async () =
     seedConsent("granted");
     const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-plumbing", name: "Maria Lopez" });
     assert.equal(result.sent, true);
-    assert.equal(twilioCalls[0].Body, "New lead from Maria Lopez — open your portal.");
+    assert.equal(twilioCalls[0].Body, "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help");
 });
 
 test("call-brief.ts sends only through textAccountOwner — no second consent check", () => {
