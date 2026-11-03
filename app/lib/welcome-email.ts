@@ -6,6 +6,7 @@ import { SCHEDULES, WEB_ONLY_SCHEDULE } from "./legal";
 import type { PlanSlug } from "./agreement-types";
 import { brandedEmailHtml } from "./email-template";
 import { EMAIL, EMAIL_FONT } from "./email-tokens";
+import { formatUsPhone, normalizeE164 } from "./phone";
 
 const SITE_URL = "https://juneaudigitaldesigns.com";
 
@@ -109,8 +110,64 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
   const replyTo = process.env.QUOTE_TO_EMAIL;
 
   const resend = new Resend(apiKey);
+  const { subject, html } = renderWelcomeEmail(data);
 
-  const webOnly = data.plan === "starter" && data.receptionistMode === "declined";
+  try {
+    const result = await resend.emails.send({
+      from: fromAddress,
+      to: [data.signerEmail],
+      subject,
+      html,
+      ...(replyTo ? { replyTo } : {}),
+    });
+    if (result.error) {
+      console.error("[welcome-email] send rejected by Resend", data.signerEmail, result.error);
+      throw new Error("Resend rejected the welcome email");
+    }
+    console.log("[welcome-email] sent", data.signerEmail, result.data?.id);
+  } catch (err) {
+    console.error("[welcome-email] send threw", data.signerEmail, err);
+    throw err;
+  }
+}
+
+/**
+ * The text-alerts setup step: turn alerts on in the portal, then save the sender as a contact.
+ *
+ * Deliberately an instruction, never a consent capture. Opt-in to the account-lane texts happens
+ * only where the client ticks it themselves (portal Settings, or the self-serve agreement page),
+ * which is what the carrier registration describes. The consent wording is not quoted here.
+ *
+ * Saving the number is not decoration: unknown senders get filtered on many phones, so a client
+ * who opts in and never saves it can miss every alert. The number is the account-lane sender
+ * (`TWILIO_NOTIFICATION_NUMBER`), read rather than typed; when it isn't set, that sentence is
+ * left out instead of guessed.
+ */
+function textAlertsPanel(webOnly: boolean): string {
+  const raw = process.env.TWILIO_NOTIFICATION_NUMBER?.trim();
+  const e164 = raw ? normalizeE164(raw) : null;
+  const number = e164 ? formatUsPhone(e164) : null;
+  const whatYouGet = webOnly
+    ? "You'll get a text when a new lead comes in."
+    : "You'll get a text when a new lead comes in, and a short summary at the end of each call.";
+  return `
+      <div style="background:${EMAIL.panelInset};border:1px dashed ${EMAIL.rule};border-radius:10px;padding:16px 18px;margin:22px 0 4px;">
+        <div style="font-family:${EMAIL_FONT.display};font-size:16px;font-weight:600;color:${EMAIL.ink};margin-bottom:6px;">Get a text for every new lead</div>
+        <p style="margin:0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;">In your client portal, go to <strong style="color:${EMAIL.ink};">Settings &rarr; Text alerts</strong> and turn them on. ${whatYouGet}</p>
+        ${
+          number
+            ? `<p style="margin:10px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;">Then save <strong style="color:${EMAIL.ink};">${number}</strong> to your contacts as <strong style="color:${EMAIL.ink};">JDD Notifications</strong>, so our texts don't get filtered into an unknown-senders folder.</p>`
+            : ""
+        }
+      </div>`;
+}
+
+/**
+ * The welcome email, as a subject and HTML. Pure (no send), so it can be previewed and checked
+ * without Resend. `sendWelcomeEmail` is the only caller that mails it.
+ */
+export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; html: string } {
+  const webOnly =data.plan === "starter" && data.receptionistMode === "declined";
   const isForwarding = data.receptionistMode === "forwarded";
   const label = planLabel(data.plan, webOnly);
 
@@ -118,7 +175,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
   const portalUrl = `${SITE_URL}/portal`;
 
   // No em-dash in a subject line a client reads.
-  const subject = "Welcome to Juneau Digital Designs — let's get you set up";
+  const subject = "Welcome to Juneau Digital Designs: let's get you set up";
 
   const forwardingHeadsUp = isForwarding
     ? `
@@ -190,6 +247,8 @@ ${stepsHtml}
       </div>
     </div>
 
+    ${textAlertsPanel(webOnly)}
+
     <p style="margin:22px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;"><strong style="color:${EMAIL.ink};">What happens next:</strong> once your onboarding form is in, we start building. You'll see progress in your portal, and we'll reach out if we need anything. Questions? Just reply to this email.</p>
   `;
 
@@ -199,21 +258,5 @@ ${stepsHtml}
     body: innerHtml,
   });
 
-  try {
-    const result = await resend.emails.send({
-      from: fromAddress,
-      to: [data.signerEmail],
-      subject,
-      html,
-      ...(replyTo ? { replyTo } : {}),
-    });
-    if (result.error) {
-      console.error("[welcome-email] send rejected by Resend", data.signerEmail, result.error);
-      throw new Error("Resend rejected the welcome email");
-    }
-    console.log("[welcome-email] sent", data.signerEmail, result.data?.id);
-  } catch (err) {
-    console.error("[welcome-email] send threw", data.signerEmail, err);
-    throw err;
-  }
+  return { subject, html };
 }
