@@ -26,7 +26,16 @@ export interface CallScenario {
   callTime: string;
   site: MockSite;
   transcript: TranscriptLine[];
-  ownerMessage: { headline: string; lines: string[]; };
+  /**
+   * What the owner's phone receives after the call, and what the Inbox row shows.
+   *
+   * `reason` and `callback` fill the post-call brief, whose wording is not ours to write
+   * here: it is the Make master scenario's, quoted byte for byte on /sms-terms ("A typical
+   * call summary reads"). SiteToCallPanel builds the text from that one template, so the
+   * film can only ever show the shape the real message has. `summary` is the Inbox row's
+   * one-line description of the job.
+   */
+  ownerMessage: { reason: string; summary: string; callback: string; };
 }
 
 /* Caller and business numbers use the 555-01XX range reserved for fictional use, so
@@ -46,10 +55,7 @@ export const SCENARIOS: CallScenario[] = [
       { role: "CALLER", text: "Dana Kim. This number works fine." },
       { role: "AI",     text: "Got it, Dana. I'll pass this along right now and someone will reach out to get you on the schedule." },
     ],
-    ownerMessage: {
-      headline: "New service request",
-      lines: ["Name: Dana Kim", "Issue: Kitchen sink leak", "Status: Needs scheduling", "Phone: (207) 555-0143"],
-    },
+    ownerMessage: { reason: "Needs scheduling", summary: "Kitchen sink leak", callback: "(207) 555-0143" },
   },
   {
     id: "hvac",
@@ -65,10 +71,7 @@ export const SCENARIOS: CallScenario[] = [
       { role: "CALLER", text: "Robert Ochoa, 847 Elm Street. Reach me at this number." },
       { role: "AI",     text: "Got it, Robert. I'm flagging this as urgent, someone will be calling you back very shortly." },
     ],
-    ownerMessage: {
-      headline: "URGENT: no heat, kids home",
-      lines: ["Name: Robert Ochoa", "Address: 847 Elm Street", "Status: Urgent callback needed", "Phone: (512) 555-0129"],
-    },
+    ownerMessage: { reason: "Urgent callback needed", summary: "No heat, kids home", callback: "(512) 555-0129" },
   },
   {
     id: "landscape",
@@ -84,10 +87,7 @@ export const SCENARIOS: CallScenario[] = [
       { role: "CALLER", text: "Sarah Mills. This number's fine. Property's at 412 Cedar Lane." },
       { role: "AI",     text: "Perfect, Sarah. I've got all of that. Someone will be in touch soon to go over the details." },
     ],
-    ownerMessage: {
-      headline: "Quote request: follow up needed",
-      lines: ["Name: Sarah Mills", "Request: Fall cleanup, ~¼ acre", "Address: 412 Cedar Lane", "Phone: (603) 555-0192"],
-    },
+    ownerMessage: { reason: "Quote requested", summary: "Fall cleanup, about ¼ acre", callback: "(603) 555-0192" },
   },
   {
     id: "roofing",
@@ -103,10 +103,7 @@ export const SCENARIOS: CallScenario[] = [
       { role: "CALLER", text: "Tom Benitez. Best number is this one. I'm at 29 Maple Drive." },
       { role: "AI",     text: "Got it, Tom. I'll get this to the guys now and someone will reach out to get you scheduled." },
     ],
-    ownerMessage: {
-      headline: "Storm damage: inspection needed",
-      lines: ["Name: Tom Benitez", "Issue: Missing shingles, possible leak", "Address: 29 Maple Drive", "Phone: (816) 555-0158"],
-    },
+    ownerMessage: { reason: "Inspection needed", summary: "Missing shingles, possible leak", callback: "(816) 555-0158" },
   },
   {
     id: "electric",
@@ -122,9 +119,6 @@ export const SCENARIOS: CallScenario[] = [
       { role: "CALLER", text: "Mika Chen. This number's the best way to reach me." },
       { role: "AI",     text: "Great, Mika. I'll pass that along and someone will give you a call to talk through next steps." },
     ],
-    ownerMessage: {
-      headline: "Panel upgrade inquiry",
-      lines: ["Name: Mika Chen", "Service: Electrical panel upgrade", "Status: Needs estimate call", "Phone: (414) 555-0171"],
-    },
+    ownerMessage: { reason: "Needs estimate call", summary: "Electrical panel upgrade", callback: "(414) 555-0171" },
   },
 ];

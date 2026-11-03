@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Navbar from "./navbar/navbar";
 import Footer from "./footer/footer";
+import SmoothScroll from "./SmoothScroll";
 
 /**
  * Renders the marketing navbar, footer and grain texture everywhere except the portal
@@ -42,6 +43,7 @@ export default function MarketingChrome({ children }: { children: React.ReactNod
                 children
             ) : (
                 <>
+                    <SmoothScroll />
                     <Navbar />
                     {children}
                     <Footer />
