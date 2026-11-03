@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { Redis } from "@upstash/redis";
 import { accountScope } from "./portal-kv";
+import { resolveInboxDeepLink } from "./portal-deep-link";
 
 /**
  * Links in the owner's texts that open the portal on that one lead.
@@ -136,5 +137,18 @@ export async function resolveOwnerLink({
     if (rec.acctScope !== accountScope(viewer.email)) return OWNER_LINK_FALLBACK_PATH;
     if (!viewer.sites.some((s) => s.slug === rec.slug)) return OWNER_LINK_FALLBACK_PATH;
     if (!INBOX_ITEM_ID.test(rec.itemId)) return OWNER_LINK_FALLBACK_PATH;
-    return portalOpenPath({ slug: rec.slug, itemId: rec.itemId });
+
+    // Ownership is settled; now WHICH view still holds it. A lead the owner already promoted has
+    // left the Inbox (it's a worklist), so it opens in Customers; a callback folded under its
+    // enquiry opens the enquiry. That rule is the CRM's, owned by `resolveInboxDeepLink`, which
+    // never throws and answers `gone` for anything it can't place.
+    const target = await resolveInboxDeepLink(rec.acctScope, rec.slug, rec.itemId);
+    if (target.kind === "customer") return customerOpenPath({ slug: rec.slug, customerId: target.customerId });
+    if (target.kind === "inbox") return portalOpenPath({ slug: rec.slug, itemId: target.itemId });
+    return OWNER_LINK_FALLBACK_PATH;
+}
+
+/** A promoted lead's landing: the customer record (full view on desktop, sheet on mobile). */
+export function customerOpenPath({ slug, customerId }: { slug: string; customerId: string }): string {
+    return `/portal/customers?site=${encodeURIComponent(slug)}&open=${encodeURIComponent(customerId)}`;
 }

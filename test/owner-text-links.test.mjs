@@ -42,6 +42,8 @@ const links = await import("../app/lib/owner-links.ts");
 const { notifyOwnerOfLead } = await import("../app/lib/lead-alert.ts");
 const { notifyOwnerOfCall } = await import("../app/lib/call-brief.ts");
 const { accountScope } = await import("../app/lib/portal-kv.ts");
+const { recordLead } = await import("../app/lib/portal-leads.ts");
+const { createCustomer } = await import("../app/lib/portal-crm.ts");
 
 const ACCT = accountScope(OWNER_EMAIL);
 const LINK = /https:\/\/www\.juneaudigitaldesigns\.com\/portal\/l\/([A-Za-z0-9]{8})/;
@@ -69,6 +71,29 @@ function upstash(command) {
         }
         case "del":
             return kv.delete(args[0]) ? 1 : 0;
+        // The sets, sorted sets and multi-get the CRM's real recordLead / createCustomer /
+        // listCustomers use, so the deep-link resolver below runs as itself, on real records.
+        case "expire":
+            return 1;
+        case "sadd": {
+            const set = new Set(JSON.parse(kv.get(args[0]) ?? "[]"));
+            for (const m of args.slice(1)) set.add(String(m));
+            kv.set(args[0], JSON.stringify([...set]));
+            return 1;
+        }
+        case "smembers":
+            return JSON.parse(kv.get(args[0]) ?? "[]").map(b64);
+        case "mget":
+            return args.map((k) => (kv.has(k) ? b64(kv.get(k)) : null));
+        case "zadd": {
+            const z = JSON.parse(kv.get(args[0]) ?? "[]");
+            for (let i = 1; i < args.length; i += 2) {
+                if (/^[a-z]+$/i.test(String(args[i]))) { i -= 1; continue; } // flags like NX
+                z.push([Number(args[i]), String(args[i + 1])]);
+            }
+            kv.set(args[0], JSON.stringify(z));
+            return 1;
+        }
         case "keys": {
             const re = new RegExp(`^${args[0].replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
             return [...kv.keys()].filter((k) => re.test(k)).map(b64);
@@ -210,11 +235,25 @@ async function mint(itemId) {
 const owner = { email: OWNER_EMAIL, sites: [{ slug: SLUG }] };
 
 test("the owner's link opens the Inbox on that lead, or on that call", async () => {
-    assert.equal(
-        await links.resolveOwnerLink({ id: await mint("lead:abc-123"), viewer: owner }),
-        "/portal/calls?site=arthurs-plumbing&open=lead%3Aabc-123",
-    );
+    const stored = await recordLead({ acctScope: ACCT, slug: SLUG, name: "Maria Lopez", phoneRaw: "4075550188", email: null, message: "AC out", fields: {}, callbackPlaced: false });
+    const leadItem = `lead:${stored.leadId}`;
+    assert.equal(await links.resolveOwnerLink({ id: await mint(leadItem), viewer: owner }), `/portal/calls?site=arthurs-plumbing&open=${encodeURIComponent(leadItem)}`);
+    // A call can't be proven absent from KV, so an unknown rec… is still "inbox" (the CRM's rule).
     assert.equal(await links.resolveOwnerLink({ id: await mint(REC), viewer: owner }), `/portal/calls?site=arthurs-plumbing&open=${REC}`);
+});
+
+test("a lead the owner already turned into a customer opens in Customers, not the Inbox", async () => {
+    // The Inbox is a worklist: a promoted lead has left it, and a link there would open nothing.
+    const { customer } = await createCustomer(ACCT, SLUG, { name: "Santa Juno", phone: "2073181838", source: "call", sourceRef: REC }, "test");
+    assert.equal(
+        await links.resolveOwnerLink({ id: await mint(REC), viewer: owner }),
+        `/portal/customers?site=arthurs-plumbing&open=${encodeURIComponent(customer.customerId)}`,
+    );
+});
+
+test("a lead that no longer exists is not-found, exactly like a foreign id", async () => {
+    const gone = await links.resolveOwnerLink({ id: await mint("lead:4f2c9a1e-0000-4e8a-9c21-5d6e7f8a9b0c"), viewer: owner });
+    assert.equal(gone, links.OWNER_LINK_FALLBACK_PATH);
 });
 
 test("another account's id gets exactly the not-found answer, revealing nothing", async () => {
