@@ -52,6 +52,22 @@ export function leadAlertBody(name: string | null | undefined): string {
 }
 
 /**
+ * Should the owner be texted the moment a web-form lead is stored?
+ *
+ * Not when the receptionist is already calling the visitor back (Growth / Enterprise,
+ * `LEAD_CALLBACK=on`). The agent works that lead first, and the owner hears about it at the END
+ * of the call, from the post-call brief, once the call is logged. Texting at submit sent "New lead"
+ * the instant the callback started ringing, before the agent had collected anything (seen on the
+ * growth fixture, 2026-11-03).
+ *
+ * When no callback went out — Starter, web-only, or a Growth callback that failed to place —
+ * nobody else will tell the owner, so the text goes now. The lead itself is stored either way.
+ */
+export function alertsOwnerAtIngest(callbackPlaced: boolean): boolean {
+    return !callbackPlaced;
+}
+
+/**
  * Resolve the owner, check their consent, send. **Never throws.**
  *
  * Called only after the lead is persisted. A failure here costs the owner a heads-up, never

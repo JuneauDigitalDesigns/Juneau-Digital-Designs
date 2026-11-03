@@ -274,3 +274,31 @@ test("the alert stays one UCS-2 segment however long the name", () => {
     const body = leadAlertBody("Bartholomew Maximilian Featherstonehaugh-Worthington III");
     assert.ok(body.length <= 70, `${body.length} chars: ${body}`);
 });
+
+/* ── when the alert goes out ──────────────────────────────────────────────────
+ *
+ * Shipped 2026-11-03, found on the growth fixture: a Growth web-form lead texted the owner
+ * "New lead" the instant the receptionist's callback started ringing, before the agent had
+ * collected anything. The owner should hear about a callback lead at the END of the call, from
+ * the post-call brief. Leads with no callback (Starter, web-only, a callback that failed to
+ * place) still text at once, because nothing else will.
+ */
+
+const { alertsOwnerAtIngest } = await import("../app/lib/lead-alert.ts");
+const { readFileSync } = await import("node:fs");
+
+test("a lead the receptionist is calling back does not text the owner at submit", () => {
+    assert.equal(alertsOwnerAtIngest(true), false);
+});
+
+test("a lead with no callback texts the owner at submit", () => {
+    assert.equal(alertsOwnerAtIngest(false), true);
+});
+
+test("the ingest route gates the alert on whether the callback was placed", () => {
+    const src = readFileSync(new URL("../app/api/ingest/lead/route.ts", import.meta.url), "utf8");
+    const gate = src.indexOf("if (alertsOwnerAtIngest(callbackPlaced))");
+    const send = src.indexOf("notifyOwnerOfLead({", gate);
+    assert.ok(gate > 0, "ingest route no longer asks alertsOwnerAtIngest");
+    assert.ok(send > gate && send - gate < 200, "the owner alert is not inside the callback gate");
+});
