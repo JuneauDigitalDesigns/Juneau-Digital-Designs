@@ -43,6 +43,16 @@ export interface InboxItem {
     durationSeconds: number | null;
     recordingUrl: string | null;
     /**
+     * Carried for promotion rather than for the list, which shows neither.
+     *
+     * The receptionist takes an address down by ear and Airtable keeps it on the row, so it was
+     * already a field away from the customer record — it just never travelled. `outcome` is the
+     * Airtable triage word ("Qualified"), which becomes a starting tag. Both are null on a
+     * web-form lead, which has neither.
+     */
+    address: string | null;
+    outcome: string | null;
+    /**
      * The receptionist's callback, when this form enquiry triggered one.
      *
      * Present only on `web-form` items. Rendering it nested under the enquiry is the whole
@@ -50,6 +60,15 @@ export interface InboxItem {
      * stop trusting.
      */
     callback: {
+        /**
+         * The Airtable record id of the call itself.
+         *
+         * Carried because a consumed call still has to be addressable. An owner's text links
+         * to whatever the voice stack logged — often the callback — and that call is not an
+         * inbox item: it was folded in here, so matching a deep link against item ids alone
+         * finds nothing. See `inboxItemForDeepLink`.
+         */
+        id: string;
         at: string | null;
         durationSeconds: number | null;
         summary: string | null;
@@ -168,8 +187,11 @@ export function buildInbox({
             promoted: promoted.has(id),
             durationSeconds: null,
             recordingUrl: null,
+            address: null,
+            outcome: null,
             callback: cb
                 ? {
+                      id: cb.id,
                       at: cb.date,
                       durationSeconds: cb.durationSeconds,
                       summary: cb.summary,
@@ -195,10 +217,193 @@ export function buildInbox({
             promoted: promoted.has(call.id),
             durationSeconds: call.durationSeconds,
             recordingUrl: call.recordingUrl,
+            address: call.address,
+            outcome: call.outcome,
             callback: null,
         });
     }
 
     items.sort((a, b) => timeOf(b.at) - timeOf(a.at));
     return items;
+}
+
+/* ── what the inbox shows ─────────────────────────────────────────────────── */
+
+export type InboxFilter = "all" | "unread" | "calls" | "forms" | "promoted";
+
+/**
+ * The inbox is a worklist, so a promoted lead leaves it.
+ *
+ * It used to stay, marked with a "✓ Promoted" tag, because `buildInbox` only ever *flagged*
+ * promotion and nothing downstream filtered on the flag. That made the inbox look like it never
+ * empties: the one list whose whole job is "what still needs working" kept showing the items
+ * that had been worked. Every filter here except `promoted` now hides them, and the `promoted`
+ * filter shows nothing else — so there is still a way back to something promoted by mistake,
+ * which is the only reason not to drop them outright.
+ *
+ * Pure, and the filter the component used to inline, so the rule is testable away from React.
+ */
+export function filterInbox(
+    items: InboxItem[],
+    filter: InboxFilter,
+    search = "",
+): InboxItem[] {
+    const q = search.trim().toLowerCase();
+    return items.filter((i) => {
+        if (filter === "promoted") {
+            if (!i.promoted) return false;
+        } else {
+            if (i.promoted) return false;
+            if (filter === "unread" && i.read) return false;
+            if (filter === "calls" && i.source !== "call") return false;
+            if (filter === "forms" && i.source !== "web-form") return false;
+        }
+        if (q) {
+            const hay = `${i.name ?? ""} ${i.phoneDisplay} ${i.preview ?? ""}`.toLowerCase();
+            if (!hay.includes(q)) return false;
+        }
+        return true;
+    });
+}
+
+/* ── promotion ────────────────────────────────────────────────────────────── */
+
+/** What `POST /api/portal/customers` is given when an inbox item becomes a customer. */
+export interface PromotionInput {
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    address: string | null;
+    note: string | null;
+    tags: string[];
+    source: InboxSource;
+    sourceRef: string;
+    /** When they actually got in touch — not when the client got round to promoting them. */
+    firstContactAt: string | null;
+}
+
+/**
+ * Everything worth keeping from an inbox item, in one place.
+ *
+ * This was four fields inlined in `InboxSection.promote()`, and the three it left behind each
+ * cost the client something real: the address the receptionist had already taken down, the
+ * Airtable outcome that says whether the call was worth anything, and the time they actually
+ * rang — without which the record claims they turned up the moment the client clicked.
+ *
+ * The call summary is **not** copied beyond this note. Calls are folded into the record from
+ * Airtable on read (see `customers/[id]/route.ts`), deliberately, so that a summary corrected
+ * upstream cannot silently disagree with the timeline. The note is the client's own copy to
+ * edit; the authoritative text stays where it is written.
+ */
+export function promotionInput(item: InboxItem): PromotionInput {
+    const outcome = item.outcome?.trim().toLowerCase();
+    return {
+        name: item.name,
+        phone: item.phone,
+        email: item.email,
+        address: item.address,
+        note: item.preview,
+        // One starting tag, lower-cased to match how tags are typed by hand. Triage words the
+        // receptionist uses for "nothing here" would be noise on a customer the client has
+        // just decided to keep, so they do not travel.
+        tags: outcome && !NON_TAG_OUTCOMES.has(outcome) ? [outcome] : [],
+        source: item.source,
+        sourceRef: item.id,
+        firstContactAt: item.at,
+    };
+}
+
+/** Airtable outcomes that say "this was not a lead", which no customer should be tagged with. */
+const NON_TAG_OUTCOMES = new Set(["spam", "wrong number", "no answer", "hung up", "test"]);
+
+/* ── the record's origin ──────────────────────────────────────────────────── */
+
+/** The timeline shape this needs, structural so the `server-only` Activity type stays put. */
+interface TimelineLike {
+    id: string;
+    meta?: Record<string, unknown>;
+}
+
+/**
+ * Flag the one timeline entry a customer was promoted from.
+ *
+ * `sourceRef` has been stored on every promoted customer since v2 and read by nothing. The
+ * record therefore showed the call they came from as just another row among their calls, with
+ * its summary and recording behind a disclosure click and no hint either existed. Marking it
+ * lets the record pin that one open.
+ *
+ * Matches the id the detail route builds for a folded-in call (`call:{airtableId}`). A
+ * web-form `sourceRef` (`lead:{leadId}`) matches nothing, because the lead store is not folded
+ * into the timeline; that is not an error, so it flags nothing and says nothing.
+ */
+export function markOrigin<T extends TimelineLike>(timeline: T[], sourceRef: string | null): T[] {
+    if (!sourceRef) return timeline;
+    const originId = `call:${sourceRef}`;
+    return timeline.map((e) =>
+        e.id === originId ? { ...e, meta: { ...(e.meta ?? {}), origin: true } } : e,
+    );
+}
+
+/* ── deep links ───────────────────────────────────────────────────────────── */
+
+/**
+ * Which inbox item a deep link should open.
+ *
+ * The owner's text carries whatever the voice stack logged. On a Growth site that is often the
+ * *callback* — a call `buildInbox` consumed into its parent enquiry, so it is not an item of
+ * its own and an id match alone finds nothing. Falling through to the enquiry it belongs to is
+ * the right answer: to the client it was one enquiry, which is the whole reason the two were
+ * collapsed.
+ *
+ * Null when the id names nothing in the list. The caller renders the inbox as normal — an id
+ * that is missing, promoted away, or simply outside the loaded window all look the same here,
+ * and deliberately so: the view must never tell a visitor whether an id exists.
+ */
+export function inboxItemForDeepLink(items: InboxItem[], id: string | null): InboxItem | null {
+    if (!id) return null;
+    return (
+        items.find((i) => i.id === id) ?? items.find((i) => i.callback?.id === id) ?? null
+    );
+}
+
+/** Where `/portal/l/<id>` should send a visitor. */
+export type DeepLinkTarget =
+    | { kind: "customer"; customerId: string }
+    | { kind: "inbox"; itemId: string }
+    | { kind: "gone" };
+
+/**
+ * The decision an inbox deep link turns on, with the lookups already done.
+ *
+ * Split from the lookups so the branching is testable without a live KV. `promotedCustomerId`
+ * is the customer this source ref became, if it has been promoted; `leadExists` answers the
+ * store for a `lead:` id and is null for anything else.
+ *
+ * A promoted item resolves to its customer rather than to the inbox, and that is the whole
+ * reason this exists: a promoted lead is no longer *in* the inbox — `filterInbox` hides it —
+ * so sending one there would land the visitor on an ordinary inbox with no sign of the thing
+ * they tapped. The redirect has to know before it chooses a destination.
+ */
+export function classifyDeepLink(
+    itemId: string,
+    promotedCustomerId: string | null,
+    leadExists: boolean | null,
+): DeepLinkTarget {
+    if (!isDeepLinkId(itemId)) return { kind: "gone" };
+    if (promotedCustomerId) return { kind: "customer", customerId: promotedCustomerId };
+    // Only a lead can be proven absent from here; see `resolveInboxDeepLink` on why a call id
+    // is taken on trust.
+    if (leadExists === false) return { kind: "gone" };
+    return { kind: "inbox", itemId };
+}
+
+/**
+ * The two id shapes an inbox item can have, as a guard.
+ *
+ * `lead:<uuid>` from `portal-leads`, or a bare Airtable record id. Anything else came from
+ * somewhere we did not write, so it resolves to nothing rather than being carried into a KV
+ * key or a query string.
+ */
+export function isDeepLinkId(id: string): boolean {
+    return /^lead:[A-Za-z0-9_-]{1,64}$/.test(id) || /^rec[A-Za-z0-9]{14}$/.test(id);
 }
