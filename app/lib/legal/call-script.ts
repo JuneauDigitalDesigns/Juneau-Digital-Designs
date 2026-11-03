@@ -46,7 +46,7 @@ export function buildCallScript(
     annual
       ? "It renews automatically every year until you cancel."
       : "It renews automatically every month until you cancel. There is no minimum term.",
-    // OPEN (PLAN O1): check the annual-prepay wording against the terms before merge.
+    // Annual prepay is non-refundable and runs to the end of the paid year (Xander, 2026-11-03).
     "You can cancel any time from your portal or by emailing us. It stops at the end of the period you have already paid for, and there are no refunds for partial periods.",
     ...(s.callMinutes != null
       ? [
