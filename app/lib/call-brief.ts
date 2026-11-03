@@ -1,7 +1,6 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
 import { leadAlertName, textAccountOwner, type LeadAlertResult } from "./lead-alert";
-import { formatUsPhone, normalizeE164 } from "./phone";
 
 /**
  * The owner's end-of-call brief: one text to the business owner after the receptionist has
@@ -15,7 +14,7 @@ import { formatUsPhone, normalizeE164 } from "./phone";
  * reads consent at send time through the same `textAccountOwner` every owner text uses.
  *
  * ── The wording ─────────────────────────────────────────────────────────────────────────────
- * The labels are the ones Make sent (`Name:` / `Status:` / `Phone:`). Its `About: {summary}` line
+ * The wording is Xander's (see callBriefBody). Make's old `About: {summary}` line
  * is gone on purpose: the summary is model-written prose about what a stranger said, and nothing
  * a stranger controls goes out under JDD's name. The summary is in the portal, which is where the
  * text points. The name passes through `leadAlertName`, the same filter the lead alert uses, so a
@@ -38,22 +37,27 @@ export function callBriefName(raw: string | null | undefined): string {
     return name === leadAlertName(null) ? "not given" : name;
 }
 
+/** First line of every brief, so the owner knows who is texting before reading the rest. */
+export const CALL_BRIEF_HEADER = "JDD Notification Service";
+
+const PRIORITY_LABEL: Record<Priority, string> = { emergency: "Emergency", callback: "Callback" };
+
+/**
+ * Xander's wording (2026-11-03): who it's from, the caller's name, the priority, and where the
+ * rest is. No phone number and no summary — the full lead is one tap away in the portal.
+ */
 export function callBriefBody({
     callerName,
     priority,
-    callerNumber,
 }: {
     callerName: string | null | undefined;
     priority: string | null | undefined;
-    callerNumber: string | null | undefined;
 }): string {
-    // Only a number that normalizes is shown; anything else would be a stranger-controlled string.
-    const e164 = normalizeE164(callerNumber ?? null);
     return [
-        `Name:${callBriefName(callerName)}`,
-        `Status:${callBriefPriority(priority)}`,
-        ...(e164 ? [`Phone: ${formatUsPhone(e164)}`] : []),
-        "Call summary is in your portal.",
+        CALL_BRIEF_HEADER,
+        `Name: ${callBriefName(callerName)}`,
+        `Priority: ${PRIORITY_LABEL[callBriefPriority(priority)]}`,
+        "The full lead is in your portal.",
     ].join("\n");
 }
 
@@ -93,13 +97,13 @@ export async function notifyOwnerOfCall({
     callId,
     callerName,
     priority,
-    callerNumber,
 }: {
     acctScope: string;
     slug: string;
     callId: string;
     callerName: string | null;
     priority: string | null;
+    /** Accepted from Make but not texted: the number is in the portal with the rest of the lead. */
     callerNumber: string | null;
 }): Promise<CallBriefResult> {
     const key = briefKey(acctScope, callId);
@@ -114,7 +118,7 @@ export async function notifyOwnerOfCall({
     const result = await textAccountOwner({
         acctScope,
         slug,
-        body: callBriefBody({ callerName, priority, callerNumber }),
+        body: callBriefBody({ callerName, priority }),
         tag: "call-brief",
     });
     if (!result.sent && result.reason === "failed") {
