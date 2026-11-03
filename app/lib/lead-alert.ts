@@ -3,6 +3,7 @@ import { findAccountEmailByScope } from "./account-store";
 import { getOwnerEmail, setOwnerEmail } from "./portal-crm";
 import { getConsentStateForAccount, isDeliverable } from "./sms-consent";
 import { sendSms } from "./twilio";
+import { ownerItemLink } from "./owner-links";
 
 /**
  * Text the business owner that a web-form lead has landed in their portal.
@@ -51,6 +52,19 @@ export function leadAlertBody(name: string | null | undefined): string {
     return `New lead from ${leadAlertName(name)} — open your portal.`;
 }
 
+/** Shared by both owner texts once links are on — the campaign samples' first and last lines. */
+export const OWNER_TEXT_HEADER = "JDD Notification Service";
+export const OWNER_TEXT_STOP_LINE = "Reply STOP to opt out, HELP for help";
+
+/**
+ * The new-lead text WITH a link, in the registered sample's exact form
+ * (jdd-ops/TWILIO-SUPPORT-campaign-update.md). Only ever sent when `OWNER_TEXT_LINKS=on` and a
+ * link was actually minted; otherwise `leadAlertBody` goes out unchanged.
+ */
+export function leadAlertBodyWithLink(name: string | null | undefined, url: string): string {
+    return [OWNER_TEXT_HEADER, `New lead from ${leadAlertName(name)}.`, `View it: ${url}`, OWNER_TEXT_STOP_LINE].join("\n");
+}
+
 /**
  * Resolve the owner, check their consent, send. **Never throws.**
  *
@@ -62,12 +76,17 @@ export async function notifyOwnerOfLead({
     acctScope,
     slug,
     name,
+    leadId,
 }: {
     acctScope: string;
     slug: string;
     name: string | null;
+    /** The stored lead — its Inbox id is `lead:<leadId>`. Only used when owner-text links are on. */
+    leadId?: string | null;
 }): Promise<LeadAlertResult> {
-    return textAccountOwner({ acctScope, slug, body: leadAlertBody(name), tag: "lead-alert" });
+    const url = await ownerItemLink({ acctScope, slug, itemId: leadId ? `lead:${leadId}` : null });
+    const body = url ? leadAlertBodyWithLink(name, url) : leadAlertBody(name);
+    return textAccountOwner({ acctScope, slug, body, tag: "lead-alert" });
 }
 
 /**

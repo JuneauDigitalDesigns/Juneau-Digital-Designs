@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     // Only once the lead is stored, and after the response. Outside the try on purpose: the
     // owner's text is best-effort, and nothing about it may turn a recorded lead into a 502 —
     // the visitor would be told it didn't send and post it again.
-    after(() => notifyOwnerOfLead({ acctScope: owner.acctScope, slug: owner.slug, name }));
+    after(() => notifyOwnerOfLead({ acctScope: owner.acctScope, slug: owner.slug, name, leadId: lead.leadId }));
 
     return NextResponse.json({ ok: true, leadId: lead.leadId });
 }
