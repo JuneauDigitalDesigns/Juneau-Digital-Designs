@@ -1632,126 +1632,16 @@ select option {
    Two columns at ≥900px, one below it. Copy is always first in the DOM — it is what
    should be read first when the columns collapse — and the sections that want the visual
    on the left get it there with `order`, not by reordering the markup. Doing it in the
-   markup would put the screenshot above the copy on every phone. */
+   markup would put the screenshot above the copy on every phone.
 
-/* ── Pinned stage ────────────────────────────────────────────
-   Base state is a no-op: `display: contents` generates no box, so the three sections sit
-   in ordinary document flow exactly as they did before, and the inline opacity/transform
-   that Framer writes onto the panels lands on elements that have no box to apply it to.
-   That is the whole fallback — no `!important`, no second render tree, and no remount
-   when the viewport crosses the breakpoint (so calculator state survives a resize). */
-:root {
-  --nav-h: 65px;
-  --journey-stage-h: calc(100vh - var(--nav-h));
-  --journey-stage-h: calc(100dvh - var(--nav-h));
-  /* Scroll distance that advances one panel. Mirrored by JOURNEY_STEP_RATIO in
-     homepageclient.tsx, which uses it to compute each panel's settle offset — the two
-     have to agree or the programmatic settle lands off the panel it just committed to. */
-  --journey-step: calc(var(--journey-stage-h) * 0.5);
-}
+   These sections used to sit inside a pinned stage that swapped them on scroll. That
+   stage, its `display: contents` fallback and its per-row outcome stagger are gone: the
+   page scrolls with Lenis now, and every section travels with the document and enters
+   through <JourneyReveal>. Lenis's own required rules come from its shipped stylesheet,
+   imported in SmoothScroll.tsx, not copied here. */
 
-.journey-track { position: relative; }
-.journey-stage,
-.journey-panel,
-.journey-panel-content { display: contents; }
-
-@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
-  /* Height comes from the viewport, not from content — the calculator can change size at
-     runtime without changing the pace. One stage to hold the frame, then one step per
-     remaining panel plus the tail dwell. At 1440x900 that is ~1837px, against the ~3340px
-     it took when a panel cost a whole viewport to advance. */
-  .journey-track {
-    height: calc(
-      var(--journey-stage-h) +
-      (var(--journey-panels) - 1 + var(--journey-tail)) * var(--journey-step)
-    );
-  }
-
-  .journey-stage {
-    display: block;
-    position: sticky;
-    top: var(--nav-h);
-    height: var(--journey-stage-h);
-    overflow: hidden;
-    /* keeps the panels' paint order clear of the navbar (z-50) and grain (z-60) */
-    isolation: isolate;
-  }
-
-  /* All three panels occupy the same box. Paint order is DOM order, so each covers the
-     one before it and no z-index is needed — but the background must be opaque or the
-     cover fails and two panels show through each other. */
-  .journey-panel {
-    display: flex;
-    flex-direction: column;
-    position: absolute;
-    inset: 0;
-    background: var(--bg);
-    overflow-y: auto;
-    overflow-x: hidden;
-    /* LOAD-BEARING. The run relies on native scroll chaining: a panel taller than the
-       frame eats the wheel until it bottoms out and then hands the rest to the document,
-       which is what advances the stage. `contain` here would strand the reader. */
-    overscroll-behavior-y: auto;
-  }
-  .journey-panel:not(:first-child) { will-change: opacity, transform; }
-
-  /* The panel carries the opaque background and nothing else; this wrapper carries the
-     fade and the rise. They must stay separate — with one element the background fades
-     too, and a half-faded background is exactly how the previous panel used to show
-     through mid-transition.
-
-     `margin-block: auto`, NOT `justify-content: center`. Centring a flex item taller than
-     its container clips the TOP of it and makes it permanently unreachable by scrolling —
-     and the panel still swallows the wheel, so the page deadlocks. Auto margins collapse
-     to 0 when free space is negative: tall content top-aligns and stays scrollable, short
-     content still centres. */
-  .journey-panel-content {
-    display: block;
-    flex: 0 0 auto;
-    margin-block: auto;
-    width: 100%;
-  }
-
-  /* Inside the stage the vertical rhythm is the frame's, not the document's. ~100px a
-     side is right in a long column and wrong in an 800px frame — at 1024x768 it is the
-     difference between the receptionist fitting and scrolling.
-
-     Vertical centring is `.journey-panel-content`'s job now, not the section's — the
-     section is no longer the flex item, so its own `margin: 0 auto` no longer competes. */
-  .journey-stage .journey-section { padding-block: clamp(24px, 4vh, 56px); }
-  .journey-stage .calc-section { padding-block: clamp(20px, 3vh, 44px); }
-
-  /* The outcome rows arrive one at a time, AFTER the panel has settled, so they read as
-     evidence accumulating rather than as more of the panel swap.
-
-     Keyed to `[data-active]`, NOT to <JourneyReveal>. All three panels are
-     `position: absolute; inset: 0`, so all three geometrically intersect the viewport the
-     moment the stage pins — and IntersectionObserver measures geometry, not opacity. The
-     `whileInView ... once: true` reveals on panels 02 and 03 therefore fire and latch
-     while panel 01 is still on screen. Anything hung off them is over before the reader
-     arrives. Applying a class that carries an `animation` replays it each time, which is
-     also why this needs no key or remount (same trick as `.calc-step`).
-
-     700ms base = PANEL_OUT_MS 280 + PANEL_IN_MS 420, i.e. the moment the panel's own
-     content finishes arriving. Keep the two in step if either constant moves.
-
-     Scoped inside this media query on purpose: below 1024px, and under reduced motion,
-     `display: contents` puts the sections back in normal flow and <JourneyReveal> handles
-     the entrance. The rows must never be left holding `opacity: 0` down there. */
-  .journey-panel[data-active="true"] .journey-outcome {
-    animation: calc-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-    animation-delay: calc(700ms + var(--row) * 120ms);
-  }
-}
-
-/* CSS scroll-snap used to settle the run. It was removed with the move to triggered
-   transitions: the controller in ScrollJourney now scrolls to each panel's settle offset
-   itself, and a snap engine fighting a smooth programmatic scrollTo produces exactly the
-   stutter this was meant to prevent. */
-
-/* Was inline on each <section>. It has to be a class so the pinned stage can override
-   it: inside a viewport-height frame this padding is the difference between the panel
-   fitting and scrolling. Values are unchanged, so nothing moves outside the stage. */
+/* Was inline on each <section>. A class rather than inline so a stylesheet can still
+   reach it; the values are the same ones the inline style had. */
 .journey-section {
   max-width: 1320px;
   margin: 0 auto;
@@ -1829,6 +1719,167 @@ select option {
   align-self: stretch;
   background: var(--accent);
   border-radius: 1px;
+}
+
+/* ── Portal preview (homepage section 03) ─────────────────────
+   A drawing of the portal in the agency palette — see PortalPreview.tsx for what each part
+   is held to. Kept to the elevation and chart tokens the rest of the page uses, so the
+   pipeline's stage colours are the same ones the real board draws with. */
+.pp {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--elev-1);
+  box-shadow: var(--shadow-2);
+  overflow: hidden;
+}
+.pp-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel-header);
+}
+.pp-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.pp-tabs { display: flex; gap: 6px; }
+.pp-tab {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--fg-3);
+}
+.pp-tab--on { background: var(--fg); color: var(--bg); }
+.pp-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--rule-weak);
+  font-size: 14px;
+}
+.pp-row:last-child { border-bottom: none; }
+.pp-src {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--surface);
+  color: var(--fg-2);
+}
+.pp-name { font-weight: 600; color: var(--fg); }
+.pp-unread {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-2);
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.pp-summary {
+  color: var(--fg-3);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-time { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); }
+.pp-split {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.pp-split-growth {
+  border: 1px solid var(--accent-2);
+  color: var(--accent-2);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+.pp-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid var(--rule);
+}
+/* Two columns on a phone, so the cards stay legible; the later stages are what a phone
+   reader can most afford to lose. */
+.pp-col:nth-child(n + 3) { display: none; }
+@media (min-width: 620px) {
+  .pp-board { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .pp-col:nth-child(n + 3) { display: block; }
+}
+.pp-col-h {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+.pp-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.pp-card {
+  background: var(--elev-2);
+  border: 1px solid var(--elev-border);
+  border-radius: 8px;
+  padding: 8px 9px;
+  margin-bottom: 7px;
+  font-size: 12.5px;
+  box-shadow: var(--shadow-1);
+}
+.pp-card-name { display: flex; align-items: center; gap: 5px; font-weight: 600; color: var(--fg); }
+.pp-card-note { color: var(--fg-3); font-size: 11.5px; }
+.pp-stale { width: 7px; height: 7px; border-radius: 50%; background: var(--chart-warn); flex: 0 0 auto; }
+.pp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+}
+.pp-action {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--fg-2);
+}
+.pp-action small {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--fg-3);
 }
 
 /* ── Home pricing cards ──────────────────────────────────────
@@ -2893,6 +2944,179 @@ select option {
 }
 @media (min-width: 1024px) {
   .portal-band { grid-template-columns: 1.9fr 1fr; align-items: start; }
+}
+
+/* ── Portal: the Overview's hero figure and its supporting strip ───────────────
+   The Overview used to be five `StatTile`s of identical weight in
+   `.portal-metric-grid`, so "Qualified leads" and "Calls on record, all time" competed
+   as equals and nothing on the page said where to look. One figure now carries it and
+   the rest visibly support it.
+
+   Hero and strip are siblings with no spacing between them in `OverviewSection.tsx`,
+   and are styled as the two halves of ONE panel: the hero rounds its top corners and
+   drops its bottom border, the strip rounds its bottom corners and draws that edge
+   back as the divider between them. A hero rendered with no strip under it closes
+   itself off instead — `HeroMetric` is exported, and Starter's Overview leads with a
+   traffic figure.
+
+   `--shadow-1`, the resting-card depth, on both halves rather than the `--shadow-2`
+   the health strip above uses: a 24px-blur drop shadow on the strip paints back up
+   over the hero's lower edge, because the strip is the later sibling and both halves
+   are positioned. The hero leads on type size, not on elevation. */
+.portal-hero {
+  position: relative;
+  padding: 18px 20px;
+  background: var(--elev-1);
+  border: 1px solid var(--elev-border);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  box-shadow: var(--shadow-1);
+}
+.portal-hero:last-child {
+  border-bottom: 1px solid var(--elev-border);
+  border-radius: 8px;
+}
+
+.portal-hero-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--fg-3);
+}
+
+/* Baseline-aligned, so the delta pill sits on the figure's baseline instead of
+   floating at its optical centre. It wraps because at 375px a five-digit count and a
+   pill do not fit on one line. */
+.portal-hero-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* `.portal-numeral` already supplies the display face and the tabular figures that
+   keep the count-up from reflowing the line as digits change — size and the tighter
+   tracking large type wants are all that belong here. `--text-hero` is a fixed px
+   value that steps once at 1024px; see the token note further down this file for why
+   it is not a `clamp()`. */
+.portal-hero-num {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: var(--tracking-tightest);
+  color: var(--fg);
+}
+
+/* Shape only: the up/down colours are inline styles on the badge, which beat anything
+   in this file — see PORTAL-DESIGN.md. Without this rule the pill had no pill. */
+.portal-hero-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Mono metadata rather than prose: the line states a denominator. `--text-hero-sub`
+   steps with `--text-hero` at the same breakpoint. */
+.portal-hero-sub {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-hero-sub);
+  line-height: var(--leading-snug);
+  color: var(--fg-3);
+}
+
+/* Bleeds to both edges and lands flush on the divider: the trend is context for the
+   figure, not a chart in its own right. The negative margins cancel the hero's padding on
+   three sides exactly, so nothing overflows and the hero needs no `overflow: hidden` —
+   which matters, because the label's InfoTip opens downward inside this box and
+   clipping it would hide the billing-period sentence. */
+.portal-hero-spark {
+  margin: 14px -20px -18px;
+}
+
+/* The demoted numbers: one hairline-divided strip instead of three equal cards.
+   `grid-auto-flow: column` rather than `repeat(auto-fit, …)` because the cell count is
+   conditional — the minutes-used cell exists only on plans with an allowance, and it
+   was a third cell until the full usage meter moved onto the Overview. An auto-fit
+   track list wraps at a width that depends on that count, and a wrapped row leaves the
+   `+ *` divider below on the wrong edge. Columns never wrap, so any count reads right. */
+.portal-strip {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--elev-1);
+  border: 1px solid var(--elev-border);
+  border-top-color: var(--rule-weak);
+  border-radius: 0 0 8px 8px;
+  box-shadow: var(--shadow-1);
+  overflow: hidden;
+}
+/* Internal hairlines are `--rule-weak`, the value `.portal-health-grid` uses, and the
+   hero junction above is set to match: inside one panel the dividers read lighter than
+   its outline. */
+.portal-strip > * + * {
+  border-left: 1px solid var(--rule-weak);
+}
+
+/* Cells reach the panel's edges, so they carry no radius of their own. A linking cell
+   also gets `.portal-row`, whose 6px hover wash would otherwise float inside a flush
+   cell like a loose chip; squared off, the strip's `overflow: hidden` clips the wash to
+   the rounded bottom corners instead. */
+.portal-strip-cell {
+  display: block;
+  min-width: 0;
+  padding: 12px 16px 13px;
+  border-radius: 0;
+}
+.portal-strip-k {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-widest);
+  color: var(--fg-3);
+}
+.portal-strip-v {
+  margin-top: 5px;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--fg);
+}
+/* The unit — "all time", "of 500m" — is prose beside a figure, so it steps back out of
+   the numeral's display face and tight tracking. */
+.portal-strip-v small {
+  margin-left: 5px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-base);
+  color: var(--fg-3);
+}
+.portal-strip-hint {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--fg-3);
+}
+
+/* Under 640px the cells stack and the divider moves to the top edge. The hero figure
+   needs nothing here: `--text-hero` steps up at 1024px, not down. */
+@media (max-width: 639px) {
+  .portal-strip { grid-auto-flow: row; }
+  .portal-strip > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--rule-weak);
+  }
 }
 
 .portal-dot {

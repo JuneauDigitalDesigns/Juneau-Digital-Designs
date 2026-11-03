@@ -8,6 +8,8 @@ import { Card, SectionHeader } from "../ui/Card";
 import { FeatureState, FeatureError } from "../ui/FeatureState";
 import { useCachedFetch, CLIENT_TTL } from "../PortalDataProvider";
 import CustomerDrawer from "./CustomerDrawer";
+import CustomerRecord from "./CustomerRecord";
+import { useIsMobile } from "../ui/useMediaQuery";
 import ReviewRequestDialog from "../ReviewRequestDialog";
 import StarterShowcase from "./StarterShowcase";
 import {
@@ -49,6 +51,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
         gate.state === "ready",
     );
 
+    const isMobile = useIsMobile();
     const [openId, setOpenId] = useState<string | null>(params.get("open"));
     const [reviewFor, setReviewFor] = useState<CustomerRow | null>(null);
     const [collapsed, setCollapsed] = useState<Set<StageKey>>(new Set(COLLAPSED_BY_DEFAULT));
@@ -96,6 +99,20 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
             }),
         [all, showArchived, needsReply, staleOnly, reviewReady, search],
     );
+
+    /**
+     * A deep link can name a customer that is not there any more.
+     *
+     * Before this, the record simply rendered nothing when its fetch came back empty — which
+     * on desktop meant a blank content area where the board used to be, with no way out but
+     * the browser's back button. Falling back to the board, and dropping the parameter so a
+     * refresh does not do it again, is the only honest answer: the customer is gone, the board
+     * is not.
+     */
+    const handleNotFound = useCallback(() => {
+        setOpenId(null);
+        setParam("open", "");
+    }, [setParam]);
 
     const byStage = useMemo(() => {
         const m: Record<StageKey, CustomerRow[]> = {
@@ -160,6 +177,53 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     const unreadCount = all.filter((c) => c.unread).length;
     const staleCount = all.filter((c) => c.stale).length;
     const reviewCount = all.filter((c) => c.stage === "won" && c.phone && !c.reviewSent).length;
+
+    const reviewDialog = (
+        <ReviewRequestDialog
+            open={reviewFor !== null}
+            onClose={() => setReviewFor(null)}
+            contact={
+                reviewFor
+                    ? {
+                          contactId: reviewFor.customerId,
+                          displayName: reviewFor.name,
+                          phone: reviewFor.phone,
+                          phoneDisplay: formatPhone(reviewFor.phone),
+                          reviewSent: reviewFor.reviewSent,
+                      }
+                    : null
+            }
+            businessName={site.name}
+            reviewLinkConfigured={data.reviewLinkConfigured}
+            messagingState={data.messagingState}
+            siteSlug={site.slug}
+            onSent={() => refresh()}
+        />
+    );
+
+    /**
+     * On a desktop the record replaces the board rather than sliding over it.
+     *
+     * It was a 760px drawer on every width, which is not enough room for a details panel beside
+     * a full timeline — and the board underneath it was no use while it was open anyway. The
+     * `?open=` URL is unchanged, so every existing link into a record still works; only what
+     * renders for it differs. A phone keeps the sheet, below.
+     */
+    if (openId && !isMobile) {
+        return (
+            <>
+                <CustomerRecord
+                    customerId={openId}
+                    siteSlug={site.slug}
+                    variant="page"
+                    onChanged={refresh}
+                    onRequestReview={(c) => setReviewFor(c)}
+                    onNotFound={handleNotFound}
+                />
+                {reviewDialog}
+            </>
+        );
+    }
 
     return (
         <div className="space-y-5">
@@ -306,6 +370,8 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                 </>
             )}
 
+            {/* Desktop opens the record in place of the board — see the early return above —
+                so the sheet is only ever mounted on a phone. */}
             <CustomerDrawer
                 open={openId !== null}
                 onClose={() => {
@@ -316,28 +382,10 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                 siteSlug={site.slug}
                 onChanged={refresh}
                 onRequestReview={(c) => setReviewFor(c)}
+                onNotFound={handleNotFound}
             />
 
-            <ReviewRequestDialog
-                open={reviewFor !== null}
-                onClose={() => setReviewFor(null)}
-                contact={
-                    reviewFor
-                        ? {
-                              contactId: reviewFor.customerId,
-                              displayName: reviewFor.name,
-                              phone: reviewFor.phone,
-                              phoneDisplay: formatPhone(reviewFor.phone),
-                              reviewSent: reviewFor.reviewSent,
-                          }
-                        : null
-                }
-                businessName={site.name}
-                reviewLinkConfigured={data.reviewLinkConfigured}
-                messagingState={data.messagingState}
-                siteSlug={site.slug}
-                onSent={() => refresh()}
-            />
+            {reviewDialog}
 
             {adding && (
                 <AddCustomer
