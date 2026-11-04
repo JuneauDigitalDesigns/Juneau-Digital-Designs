@@ -8,7 +8,7 @@ import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
 import LeadPanel from "./LeadPanel";
-import PortalPreview from "./PortalPreview";
+import PortalDemo from "./PortalDemo";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 
 const DEMO_TEL = "tel:+19302221343";
@@ -294,7 +294,7 @@ function PortalSection() {
         </>
       }
       visualFirst
-      visual={<PortalPreview />}
+      visual={<PortalDemo />}
     />
   );
 }
