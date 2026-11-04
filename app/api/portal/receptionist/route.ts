@@ -6,6 +6,7 @@ import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
 import { sendOpsNotice } from "@/app/lib/ops-notice";
 import { RECEPTIONIST_FAILED } from "@/app/lib/plan-change-copy";
+import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
 
 export const runtime = "nodejs";
 
@@ -40,26 +41,29 @@ export async function POST(request: Request) {
     const agreementId = body.agreement_id?.trim();
     if (!agreementId) return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
 
-    // The standard Starter master, accepted by this account, with a receptionist chosen.
+    // The standard Starter master, accepted by this account (it is held, so it isn't the
+    // account's master yet), with a receptionist chosen.
     const agreement = await getAgreement(agreementId);
     const mode = agreement?.receptionistMode;
     if (
         !agreement ||
         agreement.plan !== "starter" ||
         agreement.kind === "addendum" ||
-        account.masterAgreement?.agreementId !== agreementId ||
+        !acceptedBy(agreement, account) ||
         (mode !== "forwarded" && mode !== "published")
     ) {
         return NextResponse.json({ error: RECEPTIONIST_FAILED }, { status: 400 });
     }
 
-    await saveAccount(
-        upsertSite(
+    // It becomes the account's master in the same save that records the change.
+    await saveAccount({
+        ...upsertSite(
             account,
             { slug: site.slug, receptionistMode: mode, agreementId, agreementVersion: agreement.agreementVersion, agreementPdfUrl: agreement.pdfUrl },
             Date.now(),
         ),
-    );
+        masterAgreement: masterRefFor(agreement),
+    });
 
     // Saved before persisting: `saveAgreement` sets the TTL again.
     const settled = { ...agreement, pendingReceptionist: false };

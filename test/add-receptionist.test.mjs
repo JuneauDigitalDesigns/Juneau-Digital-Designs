@@ -71,7 +71,8 @@ test("the switch-on charges nothing, records the choice and tells Xander", () =>
   assert.doesNotMatch(route, /stripe/i);
   assert.match(route, /receptionistMode: mode/);
   assert.match(route, /sendOpsNotice\(/);
-  assert.match(route, /account\.masterAgreement\?\.agreementId !== agreementId/);
+  assert.match(route, /!acceptedBy\(agreement, account\)/);
+  assert.match(route, /masterAgreement: masterRefFor\(agreement\)/);
 });
 
 test("a website-only upgrade to Growth asks for, and records, the phone choice", () => {
