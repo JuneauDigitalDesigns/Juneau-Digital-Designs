@@ -9,6 +9,7 @@ import { SectionCard, FieldRow, StaticField, inputStyle } from "./ui/FormPrimiti
 import { StatRowSkeleton, TableSkeleton } from "./ui/Skeleton";
 import { useCachedFetch, useInvalidate, CLIENT_TTL } from "./PortalDataProvider";
 import { freshness } from "./ui/format";
+import { cancellationCardText, downgradeTile } from "@/app/lib/plan-change-copy";
 
 interface Invoice {
     id: string;
@@ -30,6 +31,8 @@ interface BillingData {
     interval?: string | null;
     currentPeriodEnd?: number;
     cancelAt?: number | null;
+    /** A downgrade the client accepted, waiting for the end of the paid period. */
+    pendingPlanChange?: { fromPlan: string; toPlan: string; effectiveAt: number } | null;
     paymentMethod?: { brand: string; last4: string; expMonth: number; expYear: number } | null;
     invoices?: Invoice[];
     error?: string;
@@ -148,6 +151,19 @@ export default function BillingSection({
                 />
             </div>
 
+            {data.pendingPlanChange && (
+                <p
+                    className="text-sm rounded-md px-3.5 py-2.5 border"
+                    style={{ color: "var(--fg-2)", background: "var(--surface)", borderColor: "var(--rule)" }}
+                >
+                    {downgradeTile({
+                        toName: planLabel[data.pendingPlanChange.toPlan] ?? data.pendingPlanChange.toPlan,
+                        fromName: planLabel[data.pendingPlanChange.fromPlan] ?? data.pendingPlanChange.fromPlan,
+                        date: date(data.pendingPlanChange.effectiveAt),
+                    })}
+                </p>
+            )}
+
             <SectionCard title="Payment method">
                 {data.paymentMethod ? (
                     <StaticField
@@ -237,7 +253,13 @@ export default function BillingSection({
                 )}
             </SectionCard>
 
-            {site.status === "live" && <CancellationCard site={site} />}
+            {site.status === "live" && (
+                <CancellationCard
+                    site={site}
+                    interval={data.interval === "year" ? "year" : "month"}
+                    periodEnd={data.currentPeriodEnd ?? null}
+                />
+            )}
         </div>
     );
 }
@@ -249,7 +271,16 @@ export default function BillingSection({
  * and burying it under "homepage showcase opt-in" made it hard to find deliberately and
  * easy to hit accidentally. It belongs next to what the client is actually paying.
  */
-function CancellationCard({ site }: { site: PortalSiteProps }) {
+function CancellationCard({
+    site,
+    interval,
+    periodEnd,
+}: {
+    site: PortalSiteProps;
+    /** The period the client bills on, and when the paid one ends (epoch ms). */
+    interval: "month" | "year";
+    periodEnd: number | null;
+}) {
     const invalidate = useInvalidate();
     const [confirm, setConfirm] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -260,7 +291,6 @@ function CancellationCard({ site }: { site: PortalSiteProps }) {
             : null,
     );
 
-    const noticeDays = site.plan === "enterprise" ? 60 : 30;
     const nameMatches = confirm.trim().toLowerCase() === site.name.toLowerCase();
 
     async function cancel() {
@@ -311,10 +341,10 @@ function CancellationCard({ site }: { site: PortalSiteProps }) {
 
     return (
         <SectionCard title="Cancellation">
+            {/* v5.3 has no notice period: cancellation takes effect at the end of the paid period.
+                This used to quote 30 (60 on Enterprise) days' notice and an extra billed month. */}
             <p className="text-sm mb-4" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                Cancellations require {noticeDays} days written notice per your agreement. Your service
-                stays active — and billed — until the first billing date at or after {noticeDays} days
-                from today.
+                {cancellationCardText({ interval, periodEnd: date(periodEnd) })}
             </p>
 
             {site.plan === "enterprise" && (

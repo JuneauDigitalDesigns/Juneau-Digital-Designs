@@ -5,7 +5,11 @@ import { stripe } from "@/app/lib/stripe";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
 import { writeCancelSignal, writeSubToSlug } from "@/app/lib/cancel-kv";
-import { subscriptionPeriod } from "@/app/lib/plan-billing";
+import { releaseScheduledChange, subscriptionPeriod } from "@/app/lib/plan-billing";
+import { billingIntervalOf } from "@/app/lib/billing-periods.mjs";
+import { getPlanChange, isPendingPlanChange, savePlanChange } from "@/app/lib/plan-change";
+import { dropBillingCache } from "@/app/lib/portal-kv";
+import { CANCEL_EMAIL_ACCESS, CANCEL_EMAIL_NOTICE, cancelEmailFooter } from "@/app/lib/plan-change-copy";
 import { brandedEmailHtml } from "@/app/lib/email-template";
 import { EMAIL, EMAIL_FONT } from "@/app/lib/email-tokens";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
@@ -149,6 +153,9 @@ export async function POST(request: Request) {
         );
     }
 
+    const recurringItem = sub.items.data.find((i) => i.price.recurring !== null);
+    const interval = billingIntervalOf(recurringItem?.price.recurring);
+
     const nowS = Math.floor(Date.now() / 1000);
     const target = nowS + noticeDays * DAY_S;
     const cancelAtS = firstBoundaryAtOrAfter(period.start, period.end, target);
@@ -156,6 +163,14 @@ export async function POST(request: Request) {
     // ── Schedule cancellation in Stripe ──────────────────────────────────────
 
     try {
+        // A downgrade scheduled for the period end is superseded: the subscription now ends
+        // then instead. A subscription still attached to a schedule is managed by it, so it is
+        // released first, and the pending change is marked withdrawn.
+        if (sub.schedule) {
+            await releaseScheduledChange(subscriptionId);
+            const pending = await getPlanChange(ctx.account.email, ctx.site.slug);
+            if (isPendingPlanChange(pending)) await savePlanChange({ ...pending, status: "cancelled" });
+        }
         await stripe.subscriptions.update(subscriptionId, {
             cancel_at: cancelAtS,
         });
@@ -169,26 +184,45 @@ export async function POST(request: Request) {
     const now = Date.now();
     const effectiveAtMs = cancelAtS * 1000;
 
-    const accountWithSub = upsertSite(ctx.account, {
-        slug: ctx.site.slug,
-        stripeSubscriptionId: subscriptionId,
-        ...(customerId ? { stripeCustomerId: customerId } : {}),
-        cancelRequestedAt: now,
-        cancelEffectiveAt: effectiveAtMs,
-    }, now);
+    /**
+     * Every site the subscription pays for ends on that date, not just the one the client
+     * cancelled from. On Enterprise one subscription covers every site in the bundle (the card
+     * says so), and marking only one left the rest reading live, with no billing behind them and
+     * no teardown signal. Starter and Growth have one site per subscription, so this is just
+     * that site.
+     */
+    const ending = ctx.account.sites.filter(
+        (s) =>
+            s.slug === ctx.site.slug ||
+            (ctx.site.plan === "enterprise" && s.plan === "enterprise" && s.stripeSubscriptionId === subscriptionId),
+    );
+
+    let accountWithSub = ctx.account;
+    for (const s of ending) {
+        accountWithSub = upsertSite(accountWithSub, {
+            slug: s.slug,
+            stripeSubscriptionId: subscriptionId,
+            ...(customerId ? { stripeCustomerId: customerId } : {}),
+            cancelRequestedAt: now,
+            cancelEffectiveAt: effectiveAtMs,
+        }, now);
+    }
     await saveAccount(accountWithSub);
 
     // ── Write cancel signal + reverse index ──────────────────────────────────
 
-    await writeCancelSignal({
-        slug: ctx.site.slug,
-        siteName,
-        plan: ctx.site.plan,
-        accountEmail: ctx.account.email,
-        requestedAt: now,
-        effectiveAt: effectiveAtMs,
-        stripeSubscriptionId: subscriptionId,
-    }).catch(() => {});
+    for (const s of ending) {
+        await writeCancelSignal({
+            slug: s.slug,
+            siteName: s.name ?? s.slug,
+            plan: s.plan,
+            accountEmail: ctx.account.email,
+            requestedAt: now,
+            effectiveAt: effectiveAtMs,
+            stripeSubscriptionId: subscriptionId,
+        }).catch(() => {});
+        await dropBillingCache(ctx.account.email, s.slug);
+    }
 
     await writeSubToSlug(subscriptionId, ctx.site.slug).catch(() => {});
 
@@ -218,7 +252,7 @@ export async function POST(request: Request) {
                         </tr>
                         <tr>
                             <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">Plan</td>
-                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};">${plan} (${noticeDays}-day notice)</td>
+                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};">${plan}, cancels at the end of the paid ${interval}${ending.length > 1 ? ` (${ending.length} sites: ${ending.map((s) => s.slug).join(", ")})` : ""}</td>
                         </tr>
                         <tr>
                             <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">Subscription</td>
@@ -262,16 +296,15 @@ export async function POST(request: Request) {
                     </p>
                 </div>
                 <p style="color:${EMAIL.ink};font-size:14px;margin:0 0 12px;">
-                    Your subscription stays active and you keep full access until that date.
-                    Your final charge will be on the last billing date before ${effectiveDateStr}.
+                    ${CANCEL_EMAIL_ACCESS}
                 </p>
                 <p style="color:${EMAIL.fg3};font-size:13px;margin:0;">
-                    Per Section 14 of your agreement, this written notice confirms your
-                    ${noticeDays}-day termination period begins today.
-                    If you have questions, reply to this email.
+                    ${CANCEL_EMAIL_NOTICE}
                 </p>
             `,
-            footerNote: `This email serves as written notice of termination per the Juneau Digital Designs Master Services Agreement, Section 14. Cancellation request submitted ${new Date().toISOString().slice(0, 10)}.`,
+            // No section number and no notice period: v5.3 has none, and Term is §14 on Starter
+            // and Growth but §15 on Enterprise. Wording approved by Xander 2026-11-04.
+            footerNote: cancelEmailFooter(new Date().toISOString().slice(0, 10)),
         });
 
         await resend.emails.send({

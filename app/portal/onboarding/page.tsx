@@ -61,7 +61,7 @@ export default async function PortalOnboardingPage({
             // The phone choice made at signing. The form opens on it and locks the website-only
             // boundary: switching into or out of website-only is a terms change, not an edit.
             signedReceptionistMode={pendingSite.receptionistMode}
-            portalMode
+            signerName={pendingSite.signerName ?? ""}
             clerkUserId={userId}
             siteRef={pendingSite.slug}
         />

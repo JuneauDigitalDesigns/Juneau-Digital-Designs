@@ -2,13 +2,16 @@ import { NextResponse, after } from "next/server";
 import { stripe } from "@/app/lib/stripe";
 import { fulfilOperatorPayment, provisionPaidSession } from "@/app/lib/checkout-fulfillment";
 import { motoInvoiceOrder, motoRef } from "@/app/lib/moto-charge.mjs";
-import { completeConsolidation, getConsolidation } from "@/app/lib/consolidation";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
-import { claimWelcomeEmailSend, clearWelcomeEmailMark } from "@/app/lib/kv";
+import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement } from "@/app/lib/kv";
+import { masterRefFor } from "@/app/lib/held-agreement";
 import { sendWelcomeEmail } from "@/app/lib/welcome-email";
 import { deletePayCode, getOrder, transitionOrder } from "@/app/lib/operator-orders";
+import { planOfSubscription } from "@/app/lib/plan-billing";
+import { getPlanChange, savePlanChange } from "@/app/lib/plan-change";
+import { dropBillingCache } from "@/app/lib/portal-kv";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -85,7 +88,9 @@ export async function POST(req: Request) {
   if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
     try {
-      const slug = await getSlugBySubscription(sub.id);
+      // Cancelled because its site moved onto Enterprise: the site lives on, so it keeps its
+      // place on the homepage.
+      const slug = sub.metadata?.consolidated_into ? null : await getSlugBySubscription(sub.id);
       if (slug) {
         await removePublishedFeaturedSite(slug);
         console.log("[stripe webhook] removed featured site on subscription delete", slug, sub.id);
@@ -95,34 +100,67 @@ export async function POST(req: Request) {
     }
   }
 
-  // A plan change. Stripe is the source of truth for what someone pays for, so this — not
-  // the upgrade route — is what writes `plan` onto the site record. If the proration invoice
-  // fails, no event arrives and the record keeps saying Starter, which is the truth.
+  // A plan change: the upgrade and plan-sync routes write `plan` themselves the moment Stripe
+  // accepts the change, and this reconciles. It is also the ONLY writer for a scheduled downgrade,
+  // which takes effect at the period end when nobody is watching: Stripe moves the price as the
+  // schedule's second phase begins and fires this event.
   //
-  // Scoped to upgrades by requiring `site_slug` and `account_email`: only /api/portal/upgrade
-  // sets those. A first purchase also puts `plan` in subscription metadata, and must not be
-  // mistaken for a tier change here.
+  // The plan is read from the subscription's recurring PRICE, never from `metadata.plan`.
+  // Metadata only says what the last change wrote, and every later event (a renewal, a card
+  // update) re-asserted it, which could quietly revert an operator's change. The price is what
+  // the client is actually paying for.
+  //
+  // Scoped to plan changes by requiring `site_slug` and `account_email`, which only the plan
+  // change paths write. A first purchase must not be mistaken for a tier change here.
   if (event.type === "customer.subscription.updated") {
     const sub = event.data.object as Stripe.Subscription;
     const slug = sub.metadata?.site_slug;
     const email = sub.metadata?.account_email;
-    const rawPlan = sub.metadata?.plan ?? "";
 
-    if (slug && email && VALID_PLANS.includes(rawPlan as PortalPlan)) {
-      const plan = rawPlan as PortalPlan;
+    if (slug && email) {
+      const plan = planOfSubscription(sub);
       try {
         const account = await getAccount(email);
         const current = account?.sites.find((s) => s.slug === slug);
 
-        if (!account || !current) {
+        if (!plan || !VALID_PLANS.includes(plan)) {
+          console.warn("[stripe webhook] subscription price is not a plan we sell", slug, sub.id);
+        } else if (!account || !current) {
           console.warn("[stripe webhook] no site for plan change", email, slug, sub.id);
+        } else if (
+          sub.status === "canceled" ||
+          (current.stripeSubscriptionId && current.stripeSubscriptionId !== sub.id)
+        ) {
+          // Not the subscription this site is billed on now. A move to Enterprise updates and
+          // then cancels each absorbed Growth subscription, and their events can arrive after
+          // the site has been repointed at the Enterprise one: taking the plan from them would
+          // put the site back on Growth.
+          console.log("[stripe webhook] event for a subscription the site no longer bills on", slug, sub.id);
         } else if (current.plan === plan) {
-          // Replayed event, or an update about something else entirely — this handler runs
-          // on every subscription edit, including cancellations.
+          // Replayed event, or an update about something else entirely: this handler runs on
+          // every subscription edit, including cancellations.
           console.log("[stripe webhook] plan already current, nothing to do", slug, plan);
         } else {
           await saveAccount(upsertSite(account, { slug, plan }, Date.now()));
+          await dropBillingCache(account.email, slug);
           console.log("[stripe webhook] plan changed", email, slug, current.plan, "→", plan);
+        }
+
+        // A scheduled downgrade that has now landed is finished.
+        if (plan) {
+          const pending = await getPlanChange(email, slug);
+          if (pending?.status === "scheduled" && pending.toPlan === plan) {
+            // The Starter agreement the client accepted governs from now, so it becomes the
+            // account's master here: not when it was accepted, nor when it was scheduled, so a
+            // downgrade that is withdrawn first leaves the master the client still holds.
+            const accepted = pending.agreementId ? await getAgreement(pending.agreementId) : null;
+            const latest = accepted ? await getAccount(email) : null;
+            if (accepted && latest) {
+              await saveAccount({ ...latest, masterAgreement: masterRefFor(accepted), updatedAt: Date.now() });
+            }
+            await savePlanChange({ ...pending, status: "done" });
+            console.log("[stripe webhook] scheduled plan change complete", slug, plan);
+          }
         }
       } catch (e) {
         console.error("[stripe webhook] plan change failed", slug, sub.id, e);
@@ -145,17 +183,18 @@ export async function POST(req: Request) {
      * session that was already provisioned would be noise.
      */
     /**
-     * A consolidation pays for a bundle that replaces subscriptions the client already has —
-     * it does not add a site. Provisioning one here would leave them with an extra
-     * `pending-onboarding` record and a wizard to fill in for a site that already exists.
+     * A Growth → Enterprise move no longer goes through Checkout: it upgrades a subscription in
+     * place (`/api/portal/consolidate`). A session still carrying `consolidation_id` is one
+     * opened by the old flow. It must never provision a pending site (it does not add one), so
+     * it is logged for a person to look at rather than fulfilled.
      */
     const consolidationId = session.metadata?.consolidation_id;
     if (consolidationId) {
-      try {
-        await finishConsolidation(session, consolidationId);
-      } catch (e) {
-        console.error("[stripe webhook] consolidation failed", consolidationId, session.id, e);
-      }
+      console.error(
+        "[stripe webhook] Checkout session from the retired consolidation flow, not fulfilled",
+        consolidationId,
+        session.id,
+      );
     } else {
       try {
         const fulfilled = await provisionPaidSession(session);
@@ -213,45 +252,3 @@ export async function POST(req: Request) {
   return NextResponse.json({ received: true });
 }
 
-/**
- * Payment for an Enterprise bundle has cleared — now close the Growth subscriptions it
- * replaces and repoint the sites.
- *
- * Guarded against redelivery on two levels: a record already `done` is left alone, and
- * `completeConsolidation` tracks each cancellation individually so a partial run resumes
- * instead of re-issuing cancels.
- */
-async function finishConsolidation(
-  session: Stripe.Checkout.Session,
-  consolidationId: string,
-): Promise<void> {
-  if (session.payment_status !== "paid") {
-    console.warn("[stripe webhook] consolidation session not paid", consolidationId, session.id);
-    return;
-  }
-
-  const email = session.metadata?.account_email;
-  if (!email) {
-    console.error("[stripe webhook] consolidation has no account_email", consolidationId);
-    return;
-  }
-
-  const record = await getConsolidation(email);
-  if (!record || record.id !== consolidationId) {
-    console.error("[stripe webhook] no matching consolidation record", consolidationId, email);
-    return;
-  }
-  if (record.status === "done") {
-    console.log("[stripe webhook] consolidation already applied, replay", consolidationId);
-    return;
-  }
-
-  const subscriptionId =
-    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
-  if (!subscriptionId) {
-    console.error("[stripe webhook] consolidation session has no subscription", session.id);
-    return;
-  }
-
-  await completeConsolidation(record, subscriptionId);
-}

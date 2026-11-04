@@ -127,14 +127,15 @@ test("both draft writers consult the guard before writing", () => {
     );
 });
 
-test("no A2P identity field is a member of the autosaved WizardData", () => {
-    // This is the §3 blocker itself: `WizardData` is what gets autosaved, in full, to Redis
-    // for 30 days and to localStorage. The A2P fields live in their own `useState`. If
-    // someone ever moves one into `WizardData` — to make it survive a reload, which is the
-    // tempting change — this fails.
-    const wizard = sourceOf("../app/components/onboarding/onboardingpageclient.tsx");
-    const start = wizard.indexOf("type WizardData = {");
-    assert.ok(start > -1, "could not find the WizardData declaration");
+test("no A2P identity field is a member of the autosaved WizardState", () => {
+    // This is the §3 blocker itself: the wizard's state type is what gets autosaved, in full, to
+    // Redis for 30 days and to localStorage. If someone ever adds an identity field to it (to make
+    // it survive a reload, which is the tempting change) this fails. The type moved from
+    // `WizardData` in onboardingpageclient.tsx to `WizardState` in wizard/model.ts with the
+    // Build-along redesign; the check is unchanged.
+    const wizard = sourceOf("../app/components/onboarding/wizard/model.ts");
+    const start = wizard.indexOf("export type WizardState = {");
+    assert.ok(start > -1, "could not find the WizardState declaration");
     const body = wizard.slice(start, wizard.indexOf("\n};", start));
 
     for (const field of [
@@ -152,7 +153,7 @@ test("no A2P identity field is a member of the autosaved WizardData", () => {
         assert.doesNotMatch(
             body,
             new RegExp(`(^|[^A-Za-z])${field}\\s*:`, "m"),
-            `${field} must not be a WizardData member — it would be autosaved to both draft stores`,
+            `${field} must not be a WizardState member — it would be autosaved to both draft stores`,
         );
     }
 });

@@ -4,6 +4,7 @@ import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan, inspectSubscriptionPlan } from "@/app/lib/plan-billing";
 import { upsertSite, type PortalAccount, type PortalPlan, type PortalSite } from "@jdd/schema";
+import { getPlanChange, isPendingPlanChange } from "@/app/lib/plan-change";
 
 export const runtime = "nodejs";
 
@@ -31,11 +32,24 @@ export async function GET(request: Request) {
     if ("response" in found) return found.response;
 
     const inspection = await inspectSubscriptionPlan(found.site, found.site.plan);
-    return NextResponse.json({ ok: true, recordPlan: found.site.plan, ...inspection });
+    // A downgrade asked for or scheduled is not drift: the record keeps the higher plan until
+    // the period end on purpose. Reported so the console can say so instead of offering a sync.
+    const planChange = await getPlanChange(found.account.email, slug);
+    return NextResponse.json({
+        ok: true,
+        recordPlan: found.site.plan,
+        ...inspection,
+        pendingPlanChange: isPendingPlanChange(planChange) ? planChange : null,
+    });
 }
 
 /**
  * Operator entry point: make Stripe match the plan already on the portal record.
+ *
+ * This is drift repair and operator upgrades, and it takes effect now. It is NOT how a client's
+ * downgrade is made: that waits for the end of the paid period and needs the client's acceptance,
+ * so it goes through `/api/ops/plan-change`. A subscription with a scheduled change is refused
+ * here (`scheduled-change`) until that change is withdrawn.
  *
  * The ops console can change a client's tier in KV, but never touches Stripe — it has no auth
  * of any kind and deliberately runs on a restricted read-only Stripe key. So a plan can be

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         const reason =
             gate.state === "not-on-plan"
                 ? "Texting your customers comes with Growth."
-                : "Texting turns on once the carriers approve your business registration — usually about two more weeks.";
+                : "Texting turns on once the carriers approve your business registration.";
         return NextResponse.json({ error: reason, state: gate.state }, { status: 403 });
     }
 

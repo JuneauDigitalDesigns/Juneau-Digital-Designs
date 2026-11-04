@@ -18,12 +18,12 @@ export const portalClerkAppearance = {
     variables: {
         colorBackground: "#ffffff",        // --elev-1 (card surface)
         colorText: "#0d1117",              // --fg
-        colorTextSecondary: "#767c85",     // --fg-3
+        colorTextSecondary: "#656b73",     // --fg-3 (AA: 5.38:1 on the white card)
         colorPrimary: "#2563eb",           // --accent (product blue)
         colorInputBackground: "#ffffff",   // --elev-2
         colorInputText: "#0d1117",         // --fg
         colorNeutral: "#0d1117",           // base for borders/dividers
-        colorSuccess: "#16a34a",           // --online
+        colorSuccess: "#136f32",           // --online
         borderRadius: "6px",               // control radius; cards are 8px
         fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif",
     },

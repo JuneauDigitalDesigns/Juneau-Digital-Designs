@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import { tabHref } from "@/app/portal/types";
 import { duration } from "@/app/lib/duration";
+import { buildTimeline, type TimelineEntry } from "@/app/lib/timeline";
 import {
     STAGES,
     STAGE_COLOR,
@@ -53,6 +54,14 @@ interface DetailResponse {
 }
 
 type TimelineFilter = "all" | "messages" | "calls" | "notes";
+
+/** Words, not lowercase mono. The filters are read by someone who does not work here. */
+const FILTER_LABEL: Record<TimelineFilter, string> = {
+    all: "Everything",
+    messages: "Texts",
+    calls: "Calls",
+    notes: "Your notes",
+};
 
 const KIND_ICON = {
     call: PhoneCall,
@@ -197,28 +206,24 @@ export default function CustomerRecord({
         [data],
     );
 
-    /** Collapse consecutive same-kind events into one row ("3 messages"). */
-    const grouped = useMemo(() => {
-        const events = (data?.timeline ?? []).filter(
-            (e) => e.meta?.origin !== true && bucketOf(e.kind).includes(filter),
-        );
-        const out: { day: string; rows: { lead: TimelineEvent; run: TimelineEvent[] }[] }[] = [];
-
-        for (const ev of events) {
-            const day = dayLabel(ev.at);
-            let bucket = out.find((b) => b.day === day);
-            if (!bucket) {
-                bucket = { day, rows: [] };
-                out.push(bucket);
-            }
-            const last = bucket.rows[bucket.rows.length - 1];
-            const sameRun =
-                last && (last.lead.kind === ev.kind || (isSms(last.lead.kind) && isSms(ev.kind)));
-            if (sameRun && isSms(ev.kind)) last.run.push(ev);
-            else bucket.rows.push({ lead: ev, run: [ev] });
-        }
-        return out;
-    }, [data, filter]);
+    /**
+     * The whole reading of the history, decided in `app/lib/timeline.ts`.
+     *
+     * It used to be grouped and collapsed inline here, and the component then drew rows that
+     * said what happened without saying who did it. Moving the shaping out is what made the
+     * titles, the day headings and the conversation runs testable — and what let this file
+     * go back to drawing what it is handed.
+     */
+    const days = useMemo(
+        () =>
+            buildTimeline(
+                (data?.timeline ?? []).filter(
+                    (e) => e.meta?.origin !== true && bucketOf(e.kind).includes(filter),
+                ),
+                customer?.name ?? null,
+            ),
+        [data, filter, customer],
+    );
 
     if (loading && !customer) {
         return (
@@ -263,15 +268,15 @@ export default function CustomerRecord({
                         type="button"
                         onClick={() => setFilter(f)}
                         aria-pressed={filter === f}
-                        className="px-2.5 py-1 rounded-full text-[11px] border cursor-pointer capitalize"
+                        className="px-2.5 py-1 rounded-lg text-[12.5px] border cursor-pointer"
                         style={{
-                            fontFamily: "var(--font-mono)",
+                            fontWeight: filter === f ? 600 : 400,
                             background: filter === f ? "var(--fg)" : "var(--elev-1)",
                             color: filter === f ? "var(--elev-1)" : "var(--fg-2)",
                             borderColor: filter === f ? "var(--fg)" : "var(--rule-strong)",
                         }}
                     >
-                        {f}
+                        {FILTER_LABEL[f]}
                     </button>
                 ))}
                 <span
@@ -287,125 +292,165 @@ export default function CustomerRecord({
                 data-tour="crm-drawer-timeline"
                 className={`${pad} pb-5 overflow-y-auto flex-1 min-w-0`}
             >
-                {grouped.length === 0 && (
+                {days.length === 0 && (
                     <p className="py-8 text-sm text-center" style={{ color: "var(--fg-3)" }}>
                         Nothing here yet.
                     </p>
                 )}
 
-                {grouped.map((bucket) => (
-                    <div key={bucket.day}>
-                        <div
-                            className="flex items-center gap-2.5 mt-5 mb-2.5 text-[10px] uppercase tracking-wider"
-                            style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}
-                        >
-                            {bucket.day}
-                            <span className="flex-1 h-px" style={{ background: "var(--rule)" }} />
+                {days.map((day) => (
+                    <div key={day.key} className="pt-4 min-w-0">
+                        <div className="flex items-baseline gap-2.5 mb-1">
+                            <b className="text-[13px] font-bold" style={{ color: "var(--fg)" }}>
+                                {day.label}
+                            </b>
+                            <span className="text-[12px]" style={{ color: "var(--fg-3)" }}>
+                                {day.detail}
+                            </span>
                         </div>
 
-                        {bucket.rows.map(({ lead, run }) => {
-                            const Icon = KIND_ICON[lead.kind];
-                            const many = run.length > 1;
-                            const isOpen = expanded.has(lead.id);
-                            const detail =
-                                (lead.meta?.detail as string | undefined) ??
-                                (lead.meta?.body as string | undefined);
+                        {day.entries.map((entry, i) => {
+                            const { lead, run } = entry;
+                            const isOpen = expanded.has(entry.id);
+                            const detail = lead.meta?.detail as string | undefined;
                             const recording = lead.meta?.recordingUrl as string | undefined;
+                            const long = (detail?.length ?? 0) > 260;
+                            const first = i === 0;
+                            const last = i === day.entries.length - 1;
 
                             return (
-                                <div key={lead.id} className="min-w-0">
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setExpanded((s) => {
-                                                const n = new Set(s);
-                                                if (n.has(lead.id)) n.delete(lead.id);
-                                                else n.add(lead.id);
-                                                return n;
-                                            })
-                                        }
-                                        className="w-full flex gap-3 items-start py-2.5 text-left cursor-pointer min-w-0"
-                                    >
-                                        <span
-                                            className="shrink-0 w-[26px] h-[26px] rounded-full flex items-center justify-center"
-                                            style={{
-                                                background: tint(lead.kind),
-                                                color: tintFg(lead.kind),
-                                            }}
-                                        >
-                                            <Icon size={13} />
-                                        </span>
-                                        <span className="flex-1 min-w-0 pt-0.5">
+                                <div key={entry.id} className="relative flex gap-3 py-2.5 min-w-0">
+                                    {/* The spine. Trimmed at the first and last marker so the
+                                        line connects events rather than floating past them. */}
+                                    <span
+                                        aria-hidden="true"
+                                        className="absolute w-px"
+                                        style={{
+                                            left: 13,
+                                            top: first ? 20 : 0,
+                                            bottom: last ? "calc(100% - 20px)" : 0,
+                                            background: "var(--rule)",
+                                        }}
+                                    />
+                                    <Marker entry={entry} />
+
+                                    <div className="flex-1 min-w-0 pt-px">
+                                        <div className="flex items-baseline gap-2.5 flex-wrap">
                                             <span
-                                                className="block text-[13.5px]"
+                                                className="text-[13.5px] font-semibold"
                                                 style={{ color: "var(--fg)" }}
                                             >
-                                                {many ? `${run.length} messages` : lead.summary}
+                                                {entry.title}
                                             </span>
-                                            {!many && detail && !isOpen && (
-                                                <span
-                                                    className="block text-[12.5px] mt-1 truncate"
-                                                    style={{ color: "var(--fg-2)" }}
-                                                >
-                                                    {detail}
-                                                </span>
-                                            )}
-                                        </span>
-                                        <span
-                                            className="shrink-0 text-[10.5px] pt-1"
-                                            style={{
-                                                fontFamily: "var(--font-mono)",
-                                                color: "var(--fg-2)",
-                                            }}
-                                        >
-                                            {new Date(lead.at).toLocaleTimeString(undefined, {
-                                                hour: "numeric",
-                                                minute: "2-digit",
-                                            })}
-                                        </span>
-                                    </button>
+                                            <span
+                                                className="text-[9.5px] uppercase px-1.5 py-0.5 rounded"
+                                                style={{
+                                                    fontFamily: "var(--font-mono)",
+                                                    letterSpacing: "0.09em",
+                                                    background: "var(--surface)",
+                                                    color: "var(--fg-2)",
+                                                }}
+                                            >
+                                                {entry.kindLabel}
+                                            </span>
+                                            <span
+                                                className="ml-auto shrink-0 text-[10.5px] whitespace-nowrap"
+                                                style={{
+                                                    fontFamily: "var(--font-mono)",
+                                                    color: "var(--fg-3)",
+                                                }}
+                                            >
+                                                {entry.timeLabel}
+                                            </span>
+                                        </div>
 
-                                    {isOpen && (detail || recording || many) && (
-                                        <div
-                                            className="ml-[38px] mb-2 rounded-xl border p-4 min-w-0"
-                                            style={{
-                                                background: "var(--bg)",
-                                                borderColor: "var(--rule)",
-                                            }}
-                                        >
-                                            {many ? (
-                                                <div className="space-y-2.5">
-                                                    {run.map((m) => (
+                                        {/* A conversation reads as itself. It used to collapse
+                                            to "2 messages", which hid the only part anyone
+                                            wanted — a text is short enough to show in place. */}
+                                        {run.length > 1 || isSms(lead.kind) ? (
+                                            <div className="flex flex-col gap-1.5 mt-1.5 min-w-0">
+                                                {run.map((m) => {
+                                                    const mine = m.kind === "sms-out";
+                                                    return (
                                                         <p
                                                             key={m.id}
-                                                            className="text-[13px] leading-relaxed"
-                                                            style={{ color: "var(--fg-2)" }}
+                                                            className="m-0 text-[13px] leading-snug rounded-xl px-3 py-2"
+                                                            style={{
+                                                                maxWidth: "min(46ch, 100%)",
+                                                                marginLeft: mine ? "auto" : undefined,
+                                                                background: mine
+                                                                    ? "rgba(37,99,235,0.08)"
+                                                                    : "var(--surface)",
+                                                                color: "var(--fg-2)",
+                                                            }}
                                                         >
-                                                            <span style={{ color: "var(--fg-3)" }}>
-                                                                {m.summary}:{" "}
-                                                            </span>
-                                                            {String(m.meta?.body ?? "")}
+                                                            {String(m.meta?.body ?? m.summary)}
                                                         </p>
-                                                    ))}
-                                                </div>
-                                            ) : (
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            detail && (
                                                 <p
-                                                    className="text-[13.5px] leading-relaxed m-0"
-                                                    style={{ color: "var(--fg-2)" }}
+                                                    className="m-0 mt-1 text-[13px] leading-relaxed"
+                                                    style={{
+                                                        color: "var(--fg-2)",
+                                                        maxWidth: "62ch",
+                                                        display: long && !isOpen ? "-webkit-box" : undefined,
+                                                        WebkitLineClamp: long && !isOpen ? 3 : undefined,
+                                                        WebkitBoxOrient:
+                                                            long && !isOpen ? "vertical" : undefined,
+                                                        overflow: long && !isOpen ? "hidden" : undefined,
+                                                    }}
                                                 >
                                                     {detail}
                                                 </p>
+                                            )
+                                        )}
+
+                                        {/* Only a genuinely long summary gets a disclosure.
+                                            Everything used to, including one-line notes. */}
+                                        {long && (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setExpanded((s) => {
+                                                        const n = new Set(s);
+                                                        if (n.has(entry.id)) n.delete(entry.id);
+                                                        else n.add(entry.id);
+                                                        return n;
+                                                    })
+                                                }
+                                                className="mt-1.5 text-[12.5px] font-medium cursor-pointer"
+                                                style={{ color: "var(--accent)" }}
+                                            >
+                                                {isOpen ? "Show less" : "Read the whole summary"}
+                                            </button>
+                                        )}
+
+                                        {recording && (
+                                            <audio
+                                                controls
+                                                preload="none"
+                                                src={recording}
+                                                className="mt-2.5 w-full"
+                                                style={{ maxWidth: 360 }}
+                                            />
+                                        )}
+
+                                        {lead.kind === "stage-change" &&
+                                            typeof lead.meta?.from === "string" && (
+                                                <p
+                                                    className="m-0 mt-1 text-[10.5px]"
+                                                    style={{
+                                                        fontFamily: "var(--font-mono)",
+                                                        color: "var(--fg-3)",
+                                                    }}
+                                                >
+                                                    From {String(lead.meta.from)}
+                                                </p>
                                             )}
-                                            {recording && (
-                                                <audio
-                                                    controls
-                                                    preload="none"
-                                                    src={recording}
-                                                    className="mt-3 w-full"
-                                                />
-                                            )}
-                                        </div>
-                                    )}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -451,8 +496,12 @@ export default function CustomerRecord({
                     <Pending>Texting your customers comes with Growth.</Pending>
                 ) : (
                     <Pending>
+                        {/* No timeframe. Carrier approval is not ours to promise, and the
+                            marketing side already holds that line — see the note in
+                            `homepageclient.tsx` on a timeframe here being ours promising
+                            theirs. */}
                         <b>Texting turns on soon.</b> Your business registration is with the
-                        carriers — usually about two more weeks. Calls and leads are unaffected.
+                        carriers. Calls and leads are unaffected.
                     </Pending>
                 )}
             </div>
@@ -1027,6 +1076,50 @@ function EditableField({
 }
 
 /* ── shared bits ──────────────────────────────────────────────────────────── */
+
+/**
+ * The dot on the spine: what kind of thing this was, and who did it.
+ *
+ * **Filled means the customer did it; outlined means the client did.** That is the one
+ * distinction an owner reads a history for — whether they are chasing or being chased — and
+ * it has to survive a glance, so it is carried by the shape of the marker rather than by the
+ * wording alone. The type is still spelled out beside the title, because a shape and a colour
+ * are a legend nobody was given.
+ */
+function Marker({ entry }: { entry: TimelineEntry }) {
+    // `markerKind`, never `lead.kind`: a promotion is stored wearing the source's kind, and
+    // reading it raw here drew a green phone beside "Added to your customers from your inbox".
+    const Icon = entry.markerKind === "record" ? Plus : KIND_ICON[entry.markerKind];
+    const hue = markerHue(entry.markerKind);
+    const filled = entry.inbound;
+
+    return (
+        <span
+            aria-hidden="true"
+            className="relative z-[1] shrink-0 w-[27px] h-[27px] rounded-full flex items-center justify-center"
+            style={{
+                background: filled ? hue : "var(--elev-1)",
+                borderWidth: 1.5,
+                borderStyle: "solid",
+                borderColor: filled ? hue : hue === "var(--fg-3)" ? "var(--rule-strong)" : hue,
+                color: filled ? "#ffffff" : hue,
+            }}
+        >
+            <Icon size={13} weight={filled ? "fill" : "regular"} />
+        </span>
+    );
+}
+
+/** One colour per kind, from the portal's chart tokens. The CRM gets no palette of its own. */
+function markerHue(kind: TimelineEntry["markerKind"]): string {
+    if (kind === "call") return "var(--chart-pos)";
+    if (kind === "sms-in" || kind === "sms-out") return "var(--accent)";
+    if (kind === "web-form") return "var(--chart-series-2)";
+    if (kind === "review-request") return "var(--chart-warn)";
+    // `record` lands here with every other bookkeeping entry: neutral, because nothing
+    // happened between the client and the customer.
+    return "var(--fg-3)";
+}
 
 function isSms(kind: TimelineEvent["kind"]): boolean {
     return kind === "sms-in" || kind === "sms-out";

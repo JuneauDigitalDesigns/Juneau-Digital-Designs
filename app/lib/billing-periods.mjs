@@ -95,13 +95,108 @@ export function meteringWindows({ periodStartMs, periodEndMs, interval, nowMs, s
 }
 
 /**
- * How Stripe should prorate a change from `fromPlan` to `toPlan`.
+ * Which way a plan change goes. A null `fromPlan` (a price we don't sell) is treated as an
+ * upgrade, because the only safe thing to do with an unknown starting point is to charge for
+ * the difference now and refuse if the card does not pay.
+ *
+ * @param {keyof typeof PLAN_RANK | null} fromPlan
+ * @param {keyof typeof PLAN_RANK} toPlan
+ * @returns {"upgrade" | "downgrade" | "none"}
+ */
+export function planChangeKind(fromPlan, toPlan) {
+  if (fromPlan === null) return "upgrade";
+  if (PLAN_RANK[toPlan] === PLAN_RANK[fromPlan]) return "none";
+  return PLAN_RANK[toPlan] > PLAN_RANK[fromPlan] ? "upgrade" : "downgrade";
+}
+
+/**
+ * The Stripe parameters for a plan change that takes effect NOW (an upgrade, or an operator
+ * repairing billing drift).
+ *
+ * `payment_behavior` is the point. Stripe's default for a subscription update is
+ * `allow_incomplete`: the new price is applied even when the proration invoice fails, and the
+ * subscription goes `past_due`. A client whose card declined was therefore moved to Growth anyway,
+ * and lost Starter too once the retries ran out. `error_if_incomplete` makes Stripe answer 402 and
+ * leave the subscription exactly as it was.
+ *
+ * @param {{ interval: "month" | "year", fromPlan: keyof typeof PLAN_RANK | null,
+ *           toPlan: keyof typeof PLAN_RANK }} input
+ * @returns {{ proration_behavior: "always_invoice" | "none", payment_behavior: "error_if_incomplete" }}
+ */
+export function immediateChangeParams(input) {
+  return { proration_behavior: planChangeProration(input), payment_behavior: "error_if_incomplete" };
+}
+
+/**
+ * The subscription-schedule phases that move a subscription to a lower plan at the end of the
+ * period the client has already paid for (contract v5.3 §15.4: "takes effect at the end of the
+ * current billing period, and fees already paid for that period are not credited or refunded").
+ *
+ * Phase 1 is the current price, unchanged, up to the period end. Phase 2 is the lower price on
+ * the same period; with `end_behavior: "release"` on the schedule the subscription simply carries
+ * on there afterwards. Neither phase prorates, so nothing is credited and nothing is charged until
+ * the renewal, which is billed at the lower price.
+ *
+ * Phase 2's metadata is copied onto the subscription by Stripe when the phase begins, which is
+ * what lets the `customer.subscription.updated` webhook find the site and see the change.
+ *
+ * @param {{ currentPhaseStart: number, periodEnd: number, currentPriceId: string,
+ *           targetPriceId: string, interval: "month" | "year",
+ *           metadata: Record<string, string> }} input  times in epoch seconds
+ */
+export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, interval, metadata }) {
+  return [
+    {
+      items: [{ price: currentPriceId, quantity: 1 }],
+      start_date: currentPhaseStart,
+      end_date: periodEnd,
+      proration_behavior: "none",
+    },
+    {
+      items: [{ price: targetPriceId, quantity: 1 }],
+      duration: { interval, interval_count: 1 },
+      proration_behavior: "none",
+      metadata,
+    },
+  ];
+}
+
+/**
+ * Which plan a subscription is billed on, read from its recurring price.
+ *
+ * The webhook used to take the plan from `metadata.plan`, which only says what the last plan
+ * change wrote. Any later subscription event (a renewal, a card update) re-asserted it, so an
+ * operator's change could be silently reverted, and a downgrade scheduled for the period end
+ * would never be seen. The price is what the client actually pays.
+ *
+ * @param {{ price?: { id?: string, recurring?: unknown } | null }[]} items
+ * @param {Record<string, { monthly?: string | null, annual?: string | null }>} priceTable
+ * @returns {string | null}
+ */
+export function planFromItems(items, priceTable) {
+  const recurring = items.filter((i) => i.price && i.price.recurring != null);
+  if (recurring.length !== 1) return null;
+  const id = recurring[0].price?.id;
+  if (!id) return null;
+  for (const [plan, prices] of Object.entries(priceTable)) {
+    if (prices.monthly === id || prices.annual === id) return plan;
+  }
+  return null;
+}
+
+/**
+ * How Stripe should prorate a change from `fromPlan` to `toPlan` that takes effect now.
+ *
+ * Client downgrades no longer come through here; they are scheduled for the period end
+ * (`downgradeSchedulePhases`). What remains is upgrades, and an operator correcting billing that
+ * drifted from the plan on record:
  *
  * Annual (approved 2026-11-04): an upgrade takes effect now and the client pays the difference
  * for the rest of the paid year (`always_invoice`); a downgrade gives no credit for the year
- * already paid and the lower price starts at renewal (`none`).
+ * already paid (`none`).
  *
- * Monthly is unchanged: both directions prorate immediately, as they always have.
+ * Monthly: both directions prorate immediately. For an operator repair where the client was
+ * being over-billed, the credit is the correction.
  *
  * @param {{ interval: "month" | "year", fromPlan: keyof typeof PLAN_RANK | null,
  *           toPlan: keyof typeof PLAN_RANK }} input
@@ -125,7 +220,7 @@ export function billingIntervalOf(recurring) {
 }
 
 /**
- * The Enterprise price a Growth → Enterprise consolidation checks out on: the period the
+ * The Enterprise price a Growth → Enterprise consolidation moves the host subscription to: the period the
  * absorbed Growth subscriptions already bill on. This used to be the Enterprise MONTHLY price
  * unconditionally, so a client prepaying Growth annually was moved onto monthly billing (with
  * the unused year credited back) by the act of upgrading.

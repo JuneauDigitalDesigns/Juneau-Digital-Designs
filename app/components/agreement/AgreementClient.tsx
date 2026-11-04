@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
+import { makeSessionFetch } from "@/app/lib/session-fetch";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
+import { RECEPTIONIST_FAILED, RECEPTIONIST_SESSION_EXPIRED } from "@/app/lib/plan-change-copy";
 import PlanChip from "./PlanChip";
 import TermsReader from "./TermsReader";
 
@@ -36,6 +39,22 @@ interface Props {
      */
     upgradeSlug?: string | null;
     /**
+     * Set when an existing client is accepting a lower plan's terms for a downgrade Xander has
+     * scheduled at their request. Signing is identical; the step after it schedules the change
+     * for the end of their paid period instead of charging anything.
+     */
+    downgradeSlug?: string | null;
+    /**
+     * Set when a website-only Starter client is switching the AI receptionist on: the standard
+     * Starter terms with a phone choice, then `/api/portal/receptionist` instead of a checkout.
+     */
+    receptionistSlug?: string | null;
+    /**
+     * Ask the phone choice even though this is an in-place change: switching the receptionist
+     * on, or a website-only site upgrading to Growth, has no phone setup to keep.
+     */
+    askPhoneChoice?: boolean;
+    /**
      * Which instrument is on screen. `addendum` is the one-page Site Addendum a returning
      * client signs for a later site; it adopts their master by reference.
      */
@@ -44,10 +63,15 @@ interface Props {
     parentAgreementId?: string;
     /**
      * This signature authorises a Growth → Enterprise consolidation rather than a new site.
-     * Same document, same signature; the step after it opens a Checkout Session that replaces
-     * their existing subscriptions instead of adding one.
+     * Same document, same signature; the step after it upgrades one of their Growth
+     * subscriptions to Enterprise in place and cancels the rest, instead of adding one.
      */
     consolidate?: boolean;
+    /**
+     * Site names to start the Enterprise site list with: the Growth sites a consolidation moves.
+     * Editable, like every other prefilled field.
+     */
+    prefillSites?: string[];
     /**
      * Contracting details carried over from the master, so a returning client isn't retyping
      * their own address. Every field stays editable — a second site bought by a different
@@ -107,12 +131,18 @@ export default function AgreementClient({
     webOnlySections,
     webOnlyVersion,
     upgradeSlug = null,
+    downgradeSlug = null,
+    receptionistSlug = null,
+    askPhoneChoice = false,
     kind = "master",
     parentAgreementId,
     consolidate = false,
+    prefillSites,
     prefill,
 }: Props) {
     const isUpgrade = upgradeSlug !== null;
+    const isDowngrade = downgradeSlug !== null;
+    const isAddingReceptionist = receptionistSlug !== null;
     const isAddendum = kind === "addendum";
     const isEnterprise = plan === "enterprise";
     /**
@@ -133,8 +163,13 @@ export default function AgreementClient({
      * to onboarding) and for upgrades (the client already has a phone setup). Starter offers all
      * three options; Growth drops "website only", which is a Starter-only concession.
      */
-    const showPhoneSection = !isEnterprise && !isUpgrade;
-    const phoneOptions = RECEPTIONIST_OPTIONS.filter((o) => plan === "starter" || o.id !== "declined");
+    // A downgrade keeps the phone setup the client already has, like an upgrade, unless there
+    // is none to keep (`askPhoneChoice`: switching the receptionist on, or a website-only
+    // upgrade). Website-only is never offered when the point is to switch the receptionist on.
+    const showPhoneSection = !isEnterprise && (askPhoneChoice || (!isUpgrade && !isDowngrade));
+    const phoneOptions = RECEPTIONIST_OPTIONS.filter(
+        (o) => (plan === "starter" && !isAddingReceptionist) || o.id !== "declined",
+    );
     const [receptionistMode, setReceptionistMode] = useState<ReceptionistMode | "">("");
     const [forwardingNumber, setForwardingNumber] = useState("");
 
@@ -187,9 +222,9 @@ export default function AgreementClient({
         signerTitle: prefill?.signerTitle ?? "",
         signerEmail: prefill?.signerEmail ?? "",
         alertPhone: "",
-        site1: "",
-        site2: "",
-        site3: "",
+        site1: prefillSites?.[0] ?? "",
+        site2: prefillSites?.[1] ?? "",
+        site3: prefillSites?.[2] ?? "",
     });
     const [agreed, setAgreed] = useState(false);
     // Separate from `agreed` in every sense: its own state, its own box, its own place in
@@ -197,6 +232,14 @@ export default function AgreementClient({
     const [smsConsent, setSmsConsent] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    /**
+     * Every API call below goes through this: it carries a fresh Clerk session token, so a
+     * buyer who spent minutes reading the terms is not answered "Sign in to continue". The
+     * layout mounts Clerk for this page; see `app/agreement/layout.tsx` and `session-fetch.ts`.
+     */
+    const { getToken } = useAuth();
+    const sessionFetch = useMemo(() => makeSessionFetch(getToken), [getToken]);
 
     function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
         setForm((f) => ({ ...f, [key]: value }));
@@ -256,7 +299,7 @@ export default function AgreementClient({
         setSubmitting(true);
         try {
             // 1. Record the agreement (accepted by the ticked box)
-            const sigRes = await fetch("/api/agreement", {
+            const sigRes = await sessionFetch("/api/agreement", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -286,6 +329,10 @@ export default function AgreementClient({
                     // below actually goes through. Not an authorization claim — the upgrade
                     // endpoint re-resolves this slug against the signed-in account.
                     ...(isUpgrade ? { upgradeSlug } : {}),
+                    ...(isDowngrade ? { downgradeSlug } : {}),
+                    ...(isAddingReceptionist ? { receptionistSlug } : {}),
+                    // Holds the client email until the move to Enterprise has gone through.
+                    ...(consolidate ? { consolidate: true } : {}),
                     // Which document was on screen. The route hashes the text it is told was
                     // shown, so this has to match what the server rendered — it does, because
                     // the server decided it and passed it down as a prop.
@@ -297,12 +344,13 @@ export default function AgreementClient({
                 throw new Error(sigData.error || `Signing failed (${sigRes.status})`);
             }
 
-            // 2. Charge. Three endings, and picking the wrong one costs the client money:
-            //    an upgrade edits the subscription they already pay for, a consolidation opens
-            //    one that replaces several, and a new site adds one. Opening a plain checkout
-            //    for either of the first two would leave them paying for both old and new.
+            // 2. Charge. The endings differ, and picking the wrong one costs the client money:
+            //    an upgrade edits the subscription they already pay for, a consolidation upgrades
+            //    one and cancels the others, a downgrade schedules a change, and a new site adds
+            //    a subscription. A plain checkout for any of the first three would leave them
+            //    paying for both old and new.
             if (consolidate) {
-                const conRes = await fetch("/api/portal/consolidate", {
+                const conRes = await sessionFetch("/api/portal/consolidate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ agreement_id: sigData.agreement_id }),
@@ -315,11 +363,55 @@ export default function AgreementClient({
                         "Your session expired while signing. Your agreement is saved. Please sign in and start the move again.",
                     );
                 }
-                const conData = (await conRes.json()) as { url?: string; error?: string };
-                if (!conRes.ok || !conData.url) {
+                const conData = (await conRes.json()) as { ok?: boolean; error?: string };
+                if (!conRes.ok || !conData.ok) {
                     throw new Error(conData.error || `Could not start the move (${conRes.status})`);
                 }
-                window.location.href = conData.url;
+                window.location.href = "/portal?consolidated=1";
+                return;
+            }
+
+            if (isAddingReceptionist) {
+                // Nothing is charged: same plan, same price. Records the phone choice and asks
+                // Xander to provision. Same session-expiry trap as the upgrade below.
+                const rcRes = await fetch(
+                    `/api/portal/receptionist?site=${encodeURIComponent(receptionistSlug!)}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ agreement_id: sigData.agreement_id }),
+                    },
+                );
+                if (!rcRes.headers.get("content-type")?.includes("application/json")) {
+                    throw new Error(RECEPTIONIST_SESSION_EXPIRED);
+                }
+                const rcData = (await rcRes.json()) as { ok?: boolean; error?: string };
+                if (!rcRes.ok || !rcData.ok) throw new Error(rcData.error || RECEPTIONIST_FAILED);
+                window.location.href = `/portal?site=${encodeURIComponent(receptionistSlug!)}`;
+                return;
+            }
+
+            if (isDowngrade) {
+                // Nothing is charged: this schedules the change for the end of the paid period.
+                // Same session-expiry trap as the upgrade below.
+                const dnRes = await fetch(
+                    `/api/portal/downgrade?site=${encodeURIComponent(downgradeSlug!)}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ agreement_id: sigData.agreement_id }),
+                    },
+                );
+                if (!dnRes.headers.get("content-type")?.includes("application/json")) {
+                    throw new Error(
+                        "Your session expired while signing. Your agreement is saved. Please sign in and open the link again.",
+                    );
+                }
+                const dnData = (await dnRes.json()) as { ok?: boolean; error?: string };
+                if (!dnRes.ok || !dnData.ok) {
+                    throw new Error(dnData.error || `Could not schedule the change (${dnRes.status})`);
+                }
+                window.location.href = `/portal/billing?site=${encodeURIComponent(downgradeSlug!)}`;
                 return;
             }
 
@@ -327,7 +419,7 @@ export default function AgreementClient({
                 // Slug goes in the query string, not the body: that is where
                 // resolvePortalRequest looks for it, and it re-resolves it against the
                 // signed-in account rather than trusting what we send.
-                const upRes = await fetch(
+                const upRes = await sessionFetch(
                     `/api/portal/upgrade?site=${encodeURIComponent(upgradeSlug!)}`,
                     {
                         method: "POST",
@@ -352,7 +444,7 @@ export default function AgreementClient({
                 return;
             }
 
-            const ckRes = await fetch("/api/checkout", {
+            const ckRes = await sessionFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ plan, agreement_id: sigData.agreement_id, period: billingPeriod }),

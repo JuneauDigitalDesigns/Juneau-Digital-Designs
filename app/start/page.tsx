@@ -5,6 +5,7 @@ import {
     canAddPlan,
     createAccount,
     growthSitesForConsolidation,
+    isActiveSite,
     masterNeedsResign,
     legacyMasterFrom,
 } from "@jdd/schema";
@@ -14,6 +15,7 @@ import { planLimits } from "@/app/lib/plan-limits";
 import { TERMS_VERSION } from "@/app/lib/legal";
 import UpsellEnterprise from "@/app/components/pricing/UpsellEnterprise";
 import VerifyEmailNotice from "@/app/components/pricing/VerifyEmailNotice";
+import EnterpriseContactUs from "@/app/components/pricing/EnterpriseContactUs";
 import type { PlanSlug } from "@/app/lib/agreement-types";
 
 export const metadata: Metadata = {
@@ -102,6 +104,14 @@ export default async function StartPage({
      * billing state, not entitlement, and that helper is pure and shared with layers that have
      * no business knowing about Stripe subscriptions.
      */
+    // A Starter holder buying Enterprise is set up by hand (D5, 2026-11-04). The path below
+    // would open a second subscription beside the Starter one, which keeps billing, and leave
+    // the Starter site out of the bundle. Checked before the Growth case, so an account holding
+    // both is not half-moved by consolidation.
+    if (plan === "enterprise" && account.sites.some((s) => s.plan === "starter" && isActiveSite(s))) {
+        return <EnterpriseContactUs />;
+    }
+
     if (plan === "enterprise" && growthSitesForConsolidation(account).length > 0) {
         redirect("/portal/consolidate");
     }

@@ -149,12 +149,22 @@ function Delta({ value }: { value: number }) {
     const up = value > 0;
     const color = flat ? "var(--fg-3)" : up ? "var(--chart-pos)" : "var(--chart-neg)";
 
+    /**
+     * The chip tints itself from its own ink, which works for the two signal colours but not
+     * for the flat case: `--fg-3` is the lightest ink in the portal, so a 14% wash of it under
+     * itself measured 4.48:1 — just under AA, and the only pairing in the portal where text
+     * sat on a wash of itself. The flat chip carries no signal anyway, so it uses `--surface`,
+     * the portal's existing neutral wash and what every other neutral chip already sits on.
+     * That reads 4.95:1 on a card and 4.62:1 on `--bg`.
+     */
+    const background = flat ? "var(--surface)" : `color-mix(in srgb, ${color} 14%, transparent)`;
+
     return (
         <span
             className="text-xs font-medium px-1.5 py-0.5 rounded-full"
             style={{
                 color,
-                background: `color-mix(in srgb, ${color} 14%, transparent)`,
+                background,
                 fontFamily: "var(--font-mono)",
             }}
         >

@@ -62,6 +62,23 @@ export interface AgreementSubmission {
    */
   upgradeSlug?: string;
   /**
+   * Set when an existing client is accepting a lower plan's terms for a scheduled downgrade.
+   * Like `upgradeSlug`, not an authorization claim: `/api/portal/downgrade` re-resolves the slug
+   * against the signed-in account. It holds the client email until the change is scheduled.
+   */
+  downgradeSlug?: string;
+  /**
+   * Set when this Enterprise agreement authorises moving the account's Growth sites onto
+   * Enterprise. Holds the client email until `/api/portal/consolidate` has made the move.
+   */
+  consolidate?: boolean;
+  /**
+   * Set when a website-only Starter client is switching the AI receptionist on: the standard
+   * Starter terms with a phone choice. Holds the client email until `/api/portal/receptionist`
+   * has recorded the change. Like the slugs above, not an authorization claim.
+   */
+  receptionistSlug?: string;
+  /**
    * Optional opt-in to post-call summary texts. Deliberately separate from the agreement
    * acceptance: the service is sold, delivered, and billed identically whether this is
    * checked or not, which is what "consent is not a condition of purchase" has to mean in
@@ -185,4 +202,25 @@ export interface AgreementRecord {
   pendingUpgrade?: boolean;
   /** Slug the upgrade was for. Only meaningful alongside `pendingUpgrade`. */
   upgradeSlug?: string;
+  /**
+   * The same hold for a downgrade: accepted from the link the console request emailed, and
+   * emailed to the client only once `/api/portal/downgrade` has scheduled the change.
+   */
+  pendingDowngrade?: boolean;
+  /** Slug the downgrade is for. Only meaningful alongside `pendingDowngrade`. */
+  downgradeSlug?: string;
+  /**
+   * The portal account that was signed in when this was accepted, taken from the session, not
+   * the form. Plan-change routes bind on it (`acceptedBy`), since a held agreement isn't recorded
+   * as the account's master until the change goes through.
+   */
+  accountEmail?: string;
+  /**
+   * The same hold for a Growth → Enterprise move. The client used to be emailed the Enterprise
+   * agreement the moment they accepted it, before the move was known to be possible or paid for.
+   */
+  pendingConsolidation?: boolean;
+  /** The same hold for switching the receptionist on, and the site it is for. */
+  pendingReceptionist?: boolean;
+  receptionistSlug?: string;
 }

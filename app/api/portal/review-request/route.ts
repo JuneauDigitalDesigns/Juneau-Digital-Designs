@@ -4,7 +4,8 @@ import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { accountScope } from "@/app/lib/portal-kv";
 import { normalizeE164 } from "@/app/lib/phone";
 import { sendSms } from "@/app/lib/twilio";
-import { recordReviewSend } from "@/app/lib/portal-crm";
+import { appendActivity, findCustomerByPhone, recordReviewSend } from "@/app/lib/portal-crm";
+import { reviewRequestActivity } from "@/app/lib/review-message";
 import {
     canSendReview,
     composeReviewMessage,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
         const reason =
             gate.state === "not-on-plan"
                 ? "Review requests come with Growth."
-                : "Review requests turn on once the carriers approve your business registration — usually about two more weeks.";
+                : "Review requests turn on once the carriers approve your business registration.";
         return NextResponse.json({ error: reason, state: gate.state }, { status: 403 });
     }
 
@@ -115,6 +116,32 @@ export async function POST(request: Request) {
         messageSid: sid,
         deliveryStatus: sid ? "queued" : "unknown",
     });
+
+    /**
+     * Put it on the customer's history too.
+     *
+     * The send is recorded against the number, which is what enforces one-per-customer; this
+     * is the other half, so the record shows that they were asked. The customer is found by
+     * number rather than taken from the request: this route is given a phone number, the
+     * dialog can be opened from more than one place, and an id from a browser is not something
+     * to write someone else's history from.
+     *
+     * No customer is an ordinary outcome — a review can be requested for a caller who was
+     * never promoted — so there is simply nothing to append. Failing here would also be
+     * wrong: the text has already gone, and reporting a send as failed because a note did
+     * not save would invite a second one, which the guard would then refuse.
+     */
+    try {
+        const customer = await findCustomerByPhone(acct, ctx.site.slug, phone);
+        if (customer) {
+            await appendActivity(acct, ctx.site.slug, customer.customerId, {
+                ...reviewRequestActivity(customer.name),
+                meta: { messageSid: sid },
+            });
+        }
+    } catch (e) {
+        console.error(`[review-request] sent, but the timeline note failed for ${ctx.site.slug}`, e);
+    }
 
     return NextResponse.json({ ok: true, review });
 }

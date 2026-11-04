@@ -6,9 +6,18 @@ import { auth } from "@clerk/nextjs/server";
 import type { MasterAgreementRef } from "@jdd/schema";
 import { hashAddendumForPlan, hashTermsForPlan } from "@/app/lib/legal/hash";
 import { ADDENDUM_VERSION, TERMS_VERSION } from "@/app/lib/legal";
-import { saveAgreement } from "@/app/lib/kv";
+import {
+  agreementIsPaid,
+  claimAgreementSlot,
+  getAgreement,
+  releaseAgreementSlot,
+  saveAgreement,
+  takeAgreementSlot,
+} from "@/app/lib/kv";
+import { agreementIdempotencyKey } from "@/app/lib/agreement-idempotency";
 import { saveAccount } from "@/app/lib/account-store";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
+import { isHeldForPlanChange } from "@/app/lib/held-agreement";
 import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
 import { SMS_CONSENT_TEXT_VERSION } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
@@ -32,6 +41,30 @@ function isWebOnlyMaster(body: AgreementSubmission): boolean {
 }
 
 export async function POST(req: Request) {
+  /**
+   * Signed-in clients only, checked before anything else.
+   *
+   * Everything below renders a branded agreement, stores it, and emails it to whatever address
+   * the body names. Without this, a signed-out caller could make JDD do all three for anyone.
+   * `/start` and `/agreement` already turn signed-out visitors away; this closes the API behind
+   * them. `/start` creates the account before sending anyone to sign, so a login with no
+   * account skipped the funnel and is refused here the same way `/api/checkout` refuses it.
+   */
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+  }
+  let account: Awaited<ReturnType<typeof resolveAccountForUser>>;
+  try {
+    account = await resolveAccountForUser(userId);
+  } catch (e) {
+    console.error("[/api/agreement] account lookup failed", e);
+    return NextResponse.json({ error: "Could not look up your account" }, { status: 500 });
+  }
+  if (!account) {
+    return NextResponse.json({ error: "No account for this login" }, { status: 403 });
+  }
+
   let body: AgreementSubmission;
   try {
     body = (await req.json()) as AgreementSubmission;
@@ -83,11 +116,46 @@ export async function POST(req: Request) {
       : hashTermsForPlan(body.plan, { webOnly: isWebOnlyMaster(body) }),
   };
 
+  /**
+   * Accepting the same agreement twice returns the first one.
+   *
+   * A retry used to file a second record and email a second copy: on the 2026-11-04 Stripe test
+   * run, a checkout that failed after signing sent the client back through the funnel, and they
+   * ended up holding two agreements for one purchase. Now the same account accepting the same
+   * document with the same details (`agreementIdempotencyKey` says exactly what counts) within a
+   * day gets the first agreement's id back. No new PDF, record, master update, consent or email.
+   *
+   * Not once that agreement has been paid for: a paid agreement belongs to the purchase it
+   * completed, and buying again is a new acceptance.
+   */
+  const idempotencyKey = agreementIdempotencyKey(account.email, body, {
+    version: isAddendum ? ADDENDUM_VERSION : TERMS_VERSION,
+    termsHash: audit.termsHash,
+  });
+  let prior: AgreementRecord | null;
+  try {
+    prior = await priorAcceptance(idempotencyKey, id);
+  } catch (e) {
+    console.error("[/api/agreement] idempotency check failed", e);
+    return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
+  }
+  if (prior) {
+    console.log(`[/api/agreement] repeat acceptance, returning ${prior.id} (${account.email}, ${prior.plan})`);
+    return NextResponse.json({ agreement_id: prior.id, pdf_url: prior.pdfUrl });
+  }
+  // From here a failure gives the slot back, so the client's retry signs afresh rather than
+  // being handed an agreement that was never saved.
+  const releaseSlot = () =>
+    releaseAgreementSlot(idempotencyKey, id).catch((e) =>
+      console.error(`[/api/agreement] ${id} could not release idempotency slot`, e),
+    );
+
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = await generateSignedPdf(body, audit, id, acceptance);
   } catch (e) {
     console.error("[/api/agreement] pdf generation failed", e);
+    await releaseSlot();
     return NextResponse.json({ error: "Could not generate signed PDF" }, { status: 500 });
   }
 
@@ -101,12 +169,16 @@ export async function POST(req: Request) {
     pdfUrl = uploaded.url;
   } catch (e) {
     console.error("[/api/agreement] blob upload failed", e);
+    await releaseSlot();
     return NextResponse.json({ error: "Could not store signed PDF" }, { status: 500 });
   }
 
   const record: AgreementRecord = {
     id,
     plan: body.plan,
+    // The signed-in account (resolved at the top), taken from the session rather than the form.
+    // Plan-change routes bind a held agreement on it, since it isn't the account's master yet.
+    accountEmail: account.email,
     clientLegalName: body.clientLegalName,
     clientEntityType: body.clientEntityType,
     clientAddress: body.clientAddress,
@@ -133,12 +205,20 @@ export async function POST(req: Request) {
     ...(body.upgradeSlug
       ? { pendingUpgrade: true, upgradeSlug: body.upgradeSlug.trim() }
       : {}),
+    ...(body.downgradeSlug
+      ? { pendingDowngrade: true, downgradeSlug: body.downgradeSlug.trim() }
+      : {}),
+    ...(body.consolidate && body.plan === "enterprise" ? { pendingConsolidation: true } : {}),
+    ...(body.receptionistSlug
+      ? { pendingReceptionist: true, receptionistSlug: body.receptionistSlug.trim() }
+      : {}),
   };
 
   try {
     await saveAgreement(record);
   } catch (e) {
     console.error("[/api/agreement] KV save failed", e);
+    await releaseSlot();
     return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
   }
 
@@ -158,20 +238,20 @@ export async function POST(req: Request) {
    *
    * Best effort: the agreement itself is already stored, which is the artefact that must
    * survive. Losing this costs one extra full signature later, not the signature just given.
+   *
+   * NOT for an agreement held for an in-place plan change (`isHeldForPlanChange`). A refused or
+   * failed change must leave the master the client actually holds, so the plan-change route
+   * records it, and persists it, only once the change has gone through.
    */
-  if (!isAddendum) {
+  if (!isAddendum && !isHeldForPlanChange(record)) {
     try {
-      const { userId } = await auth();
-      const account = userId ? await resolveAccountForUser(userId) : null;
-      if (account) {
-        const master: MasterAgreementRef = {
-          agreementId: id,
-          version: TERMS_VERSION,
-          tierCeiling: body.plan,
-          signedAt: signedAt.getTime(),
-        };
-        await saveAccount({ ...account, masterAgreement: master, updatedAt: Date.now() });
-      }
+      const master: MasterAgreementRef = {
+        agreementId: id,
+        version: TERMS_VERSION,
+        tierCeiling: body.plan,
+        signedAt: signedAt.getTime(),
+      };
+      await saveAccount({ ...account, masterAgreement: master, updatedAt: Date.now() });
     } catch (e) {
       console.error(`[/api/agreement] ${id} could not record master on account`, e);
     }
@@ -217,6 +297,15 @@ export async function POST(req: Request) {
   // flagged is an orphan for ops to chase.
   if (record.pendingUpgrade) {
     console.log(`[/api/agreement] ${id} held for upgrade confirmation (${record.upgradeSlug})`);
+  } else if (record.pendingDowngrade) {
+    // Same reason: the client gets the Starter agreement once the downgrade is scheduled.
+    console.log(`[/api/agreement] ${id} held for downgrade confirmation (${record.downgradeSlug})`);
+  } else if (record.pendingConsolidation) {
+    // And the Enterprise agreement once the move to Enterprise has gone through.
+    console.log(`[/api/agreement] ${id} held for consolidation`);
+  } else if (record.pendingReceptionist) {
+    // And the Starter agreement once the receptionist switch-on has been recorded.
+    console.log(`[/api/agreement] ${id} held for receptionist switch-on (${record.receptionistSlug})`);
   } else {
     after(() =>
       stripLastPage(pdfBytes)
@@ -226,6 +315,44 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
+}
+
+/**
+ * How long a repeat waits for the first acceptance to finish saving. The first one claims the
+ * slot before it renders the PDF and uploads it, which takes a few seconds, so a double press
+ * finds the slot taken and the record not there yet.
+ */
+const IN_FLIGHT_WAIT_MS = 10_000;
+const IN_FLIGHT_POLL_MS = 500;
+
+/**
+ * The unpaid agreement this acceptance repeats, or null after claiming the slot for `id`.
+ *
+ * The slot is taken over when its holder was paid for, or when it never appears: the request
+ * that claimed it died without saving or releasing it, and leaving the slot to it would leave
+ * the client unable to sign at all for a day.
+ */
+async function priorAcceptance(key: string, id: string): Promise<AgreementRecord | null> {
+  const deadline = Date.now() + IN_FLIGHT_WAIT_MS;
+  for (;;) {
+    const holder = await claimAgreementSlot(key, id);
+    if (holder === null || holder === id) return null;
+
+    const prior = await getAgreement(holder);
+    if (prior) {
+      if (await agreementIsPaid(holder)) {
+        await takeAgreementSlot(key, id);
+        return null;
+      }
+      return prior;
+    }
+    if (Date.now() >= deadline) {
+      console.warn(`[/api/agreement] slot held by ${holder}, never saved; ${id} takes it over`);
+      await takeAgreementSlot(key, id);
+      return null;
+    }
+    await new Promise((r) => setTimeout(r, IN_FLIGHT_POLL_MS));
+  }
 }
 
 function clientIp(req: Request): string {
