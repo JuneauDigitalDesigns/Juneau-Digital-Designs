@@ -123,3 +123,27 @@ export function planChangeProration({ interval, fromPlan, toPlan }) {
 export function billingIntervalOf(recurring) {
   return recurring?.interval === "year" ? "year" : "month";
 }
+
+/**
+ * The Enterprise price a Growth → Enterprise consolidation checks out on: the period the
+ * absorbed Growth subscriptions already bill on. This used to be the Enterprise MONTHLY price
+ * unconditionally, so a client prepaying Growth annually was moved onto monthly billing (with
+ * the unused year credited back) by the act of upgrading.
+ *
+ * Refuses rather than guessing: when Enterprise has no price for that period (as
+ * `changeSubscriptionPlan` does), and when the absorbed sites bill on different periods, so
+ * there is no one period to keep.
+ *
+ * @param {{ intervals: ("month" | "year")[],
+ *           prices: { monthly?: string | null, annual?: string | null } }} input
+ * @returns {{ ok: true, interval: "month" | "year", priceId: string }
+ *         | { ok: false, code: "mixed-periods" | "no-price", interval?: "month" | "year" }}
+ */
+export function consolidationPrice({ intervals, prices }) {
+  const distinct = [...new Set(intervals)];
+  if (distinct.length > 1) return { ok: false, code: "mixed-periods" };
+  // No readable subscription to copy from is the monthly case, as it was before.
+  const interval = distinct[0] === "year" ? "year" : "month";
+  const priceId = interval === "year" ? prices.annual : prices.monthly;
+  return priceId ? { ok: true, interval, priceId } : { ok: false, code: "no-price", interval };
+}

@@ -5,7 +5,7 @@ import { stripe } from "@/app/lib/stripe";
 import { getAgreement } from "@/app/lib/kv";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import {
-  enterprisePriceId,
+  enterprisePriceFor,
   getConsolidation,
   pickHostCustomer,
   saveConsolidation,
@@ -56,11 +56,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No Growth sites to consolidate" }, { status: 409 });
   }
 
-  const priceId = enterprisePriceId();
-  if (!priceId) {
-    console.error("[consolidate] STRIPE_PRICE_ENTERPRISE_MONTHLY is not configured");
-    return NextResponse.json({ error: "Enterprise isn't configured for billing" }, { status: 500 });
+  // On the period the Growth sites already bill on: annual stays annual.
+  const price = await enterprisePriceFor(account);
+  if (!price.ok) {
+    if (price.code === "mixed-periods") {
+      return NextResponse.json(
+        { error: "Your Growth sites are billed on different periods, so this move needs to be set up with us directly." },
+        { status: 409 },
+      );
+    }
+    if (price.code === "unreadable") {
+      return NextResponse.json({ error: "We couldn't read your current billing, so nothing was changed." }, { status: 502 });
+    }
+    console.error("[consolidate] no", price.interval, "Enterprise price configured");
+    return NextResponse.json(
+      {
+        error:
+          price.interval === "year"
+            ? "Annual billing isn't configured for Enterprise, so the change wasn't made."
+            : "Enterprise isn't configured for billing",
+      },
+      { status: 500 },
+    );
   }
+  const priceId = price.priceId;
 
   /**
    * A consolidation already in flight is resumed, not restarted.

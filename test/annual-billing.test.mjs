@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 import {
   addMonthsUtc,
   billingIntervalOf,
+  consolidationPrice,
   meteringWindows,
   planChangeProration,
 } from "../app/lib/billing-periods.mjs";
@@ -86,4 +87,34 @@ test("only a yearly Stripe price counts as annual", () => {
   assert.equal(billingIntervalOf({ interval: "year" }), "year");
   assert.equal(billingIntervalOf({ interval: "month" }), "month");
   assert.equal(billingIntervalOf(null), "month");
+});
+
+// Growth → Enterprise consolidation checked out on the Enterprise MONTHLY price for everyone,
+// so a client prepaying Growth annually was moved to monthly billing by upgrading. On that code
+// there was no period-aware rule at all: every case below got the monthly price.
+const ENTERPRISE = { monthly: "price_ent_m", annual: "price_ent_y" };
+
+test("an annual Growth client consolidates onto Enterprise annual", () => {
+  assert.deepEqual(consolidationPrice({ intervals: ["year", "year"], prices: ENTERPRISE }), {
+    ok: true,
+    interval: "year",
+    priceId: "price_ent_y",
+  });
+  // Monthly stays monthly, as before.
+  assert.deepEqual(consolidationPrice({ intervals: ["month", "month"], prices: ENTERPRISE }), {
+    ok: true,
+    interval: "month",
+    priceId: "price_ent_m",
+  });
+});
+
+test("consolidation refuses rather than changing how often the client pays", () => {
+  // No Enterprise annual price: refused, the same as changeSubscriptionPlan, never monthly.
+  assert.deepEqual(consolidationPrice({ intervals: ["year"], prices: { monthly: "price_ent_m" } }), {
+    ok: false,
+    code: "no-price",
+    interval: "year",
+  });
+  // One site monthly, one annual: there is no single period to keep.
+  assert.equal(consolidationPrice({ intervals: ["month", "year"], prices: ENTERPRISE }).ok, false);
 });
