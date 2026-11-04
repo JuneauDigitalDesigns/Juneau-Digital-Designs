@@ -61,14 +61,14 @@ const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roof
 export type ScreenCopy = { q: string; help: string };
 
 /**
- * DRAFT, awaiting Xander's word-for-word approval (prefill, 2026-11-04). Shown under a field we
+ * Approved word for word by Xander, 2026-11-04. Shown under a field we
  * filled in from records we already hold, for as long as the client hasn't changed it.
  */
 export const PREFILL_NOTE: Record<WizardPrefill["source"], string> = {
     call: "From your call with us. Check it's right.",
     agreement: "From your agreement. Check it's right.",
 };
-/** DRAFT, awaiting approval. Added to the welcome box when anything was prefilled. */
+/** Approved word for word by Xander, 2026-11-04. Added to the welcome box when anything was prefilled. */
 export const PREFILL_WELCOME = "We've filled in what you've already told us. Just check it as you go.";
 
 /** The question and the line under it, per screen. */
