@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { defaultReviewMessage } from "@/app/lib/review-message";
 import Drawer from "./ui/Drawer";
 import { CardLabel } from "./ui/Card";
 
@@ -19,12 +20,6 @@ interface ContactLike {
     phone: string | null;
     phoneDisplay: string;
     reviewSent: { sentAt: string; deliveryStatus: string; optedOut: boolean } | null;
-}
-
-function firstName(name: string | null): string {
-    if (!name) return "there";
-    const f = name.trim().split(/\s+/)[0];
-    return f || "there";
 }
 
 function fmtDate(iso: string): string {
@@ -52,14 +47,10 @@ export default function ReviewRequestDialog({
     siteSlug: string;
     onSent: (contactId: string) => void;
 }) {
-    const defaultBody = useMemo(() => {
-        if (!contact) return "";
-        return (
-            `Hi ${firstName(contact.displayName)}, thanks for choosing ${businessName}! ` +
-            `If we did a great job, would you leave us a quick Google review? It really helps us out.\n\n` +
-            `As a thank-you, show us your review for 10% off your next service.`
-        );
-    }, [contact, businessName]);
+    const defaultBody = useMemo(
+        () => (contact ? defaultReviewMessage(contact.displayName, businessName) : ""),
+        [contact, businessName],
+    );
 
     const [body, setBody] = useState(defaultBody);
     const [sending, setSending] = useState(false);
@@ -123,7 +114,7 @@ export default function ReviewRequestDialog({
                         <LockedNote>
                             {messagingState === "not-on-plan"
                                 ? "Review requests come with Growth."
-                                : "Review requests turn on once the carriers approve your business registration — usually about two more weeks."}
+                                : "Review requests turn on once the carriers approve your business registration."}
                         </LockedNote>
                     ) : !reviewLinkConfigured ? (
                         <LockedNote>

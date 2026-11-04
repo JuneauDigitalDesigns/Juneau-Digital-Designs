@@ -137,14 +137,22 @@ export function FeatureState({
     }
 
     // Messaging's `connecting` is a different wait from everyone else's. It is the client's own
-    // A2P 10DLC registration sitting with the carriers — 13–20 business days, not "a day or two"
-    // — so quoting the generic timescale would turn a normal wait into a support ticket on day
-    // three. Calls, leads and the CRM are all unaffected, and saying so is the point.
+    /**
+     * A2P 10DLC registration sitting with the carriers. No timeframe, deliberately.
+     *
+     * This used to say "about two more weeks", which is the honest average and still the wrong
+     * thing to print: the decision is the carriers' to make and ours to wait on, so a date from
+     * us is a promise we cannot keep, and a client who reads it is owed an explanation on day
+     * fifteen. The marketing side settled this first — `homepageclient.tsx` carries the note
+     * that a timeframe here would be ours promising theirs — and the portal now matches.
+     *
+     * What does belong here is that nothing else is blocked, which is the actual worry.
+     */
     if (availability.state === "connecting" && feature === "messaging") {
         return (
             <Panel
                 title="Texting turns on soon"
-                body="Your business registration is with the phone carriers — it usually takes about two more weeks. Your calls, leads and customers are all unaffected, and we'll switch this on automatically."
+                body="Your business registration is with the phone carriers. Your calls, leads and customers are all unaffected, and we'll switch this on automatically as soon as it clears."
             />
         );
     }
