@@ -1,0 +1,3 @@
+# Font files are binary. core.autocrlf on a Windows checkout would corrupt a woff2 it misjudged,
+# and the build would still pass: only the browser notices, by rejecting the font.
+*.woff2 binary
