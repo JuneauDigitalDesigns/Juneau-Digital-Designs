@@ -9,6 +9,8 @@ import { EMAIL } from "./email-tokens";
 import { listAccounts } from "./account-store";
 import { resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import type { PortalAccount } from "@jdd/schema";
+import type Stripe from "stripe";
+import { billingIntervalOf, meteringWindows } from "./billing-periods.mjs";
 
 // $0.20/min = 20 cents/min in Stripe's integer-cents currency
 const OVERAGE_CENTS_PER_MINUTE = 20;
@@ -41,10 +43,12 @@ export interface CycleResult {
  * Main entry point for the billing cron.
  *
  * For every **allowance** on every account:
- *   1. Pulls Retell usage for that allowance's billing period (its Stripe subscription window).
+ *   1. Pulls Retell usage for that allowance's current MONTH: the subscription's billing period
+ *      on monthly billing, one of twelve monthly windows on annual (`billing-periods.mjs`).
  *   2. Sends email warnings at 80% and 100% of the included minutes (deduplicated in KV).
- *   3. Once the period has closed, creates a Stripe pending invoice item for any overage —
- *      collected automatically on the next renewal of that same subscription.
+ *   3. For each month that has closed and isn't billed yet, bills any overage: on monthly, a
+ *      pending invoice item collected with that subscription's next invoice; on annual, its own
+ *      invoice charged now, since the subscription's next invoice is a year away.
  *
  * An allowance is not an account. Starter and Growth are each sold per site with their own
  * 100 and 350 minutes; only Enterprise pools, across the sites of its one bundle. See
@@ -123,13 +127,30 @@ async function processGroup(
     console.warn(`[usage-billing] ${email}/${groupRef}: subscription has no billing period — skipping`);
     return { accountEmail: email, groupRef, plan, secondsUsed: 0, minutesCap: cap, overageSeconds: 0, warned80: false, warned100: false, billed: false, skipped: true };
   }
-  const periodStartMs = period.start * 1000;
-  const periodEndMs = period.end * 1000;
   const now = Date.now();
 
-  // Usage for THIS allowance only — one site on Growth, the whole bundle on Enterprise.
-  const queryEnd = Math.min(periodEndMs, now);
-  const secondsUsed = await sumAgentSeconds(retellApiKey, voiceSites, periodStartMs, queryEnd);
+  /**
+   * The monthly allowance windows to meter (billing-periods.mjs). A monthly subscription's
+   * window is its billing period, as before. An ANNUAL one is cut into twelve monthly windows:
+   * the allowance is per month in the contract, and metering against the subscription period
+   * gave an annual client one month's minutes for the whole year, warned them in week two, and
+   * billed overage only at renewal. `closed` also includes the month just before the current
+   * period, because Stripe moves the subscription on the moment it renews.
+   */
+  const recurringItem = subscription.items.data.find((i) => i.price.recurring !== null);
+  const interval = billingIntervalOf(recurringItem?.price.recurring);
+  const { current, closed } = meteringWindows({
+    periodStartMs: period.start * 1000,
+    periodEndMs: period.end * 1000,
+    interval,
+    nowMs: now,
+    subscriptionStartMs: subscription.start_date * 1000,
+  });
+
+  // Usage for THIS allowance in THIS month — one site on Growth, the whole bundle on Enterprise.
+  const secondsUsed = current
+    ? await sumAgentSeconds(retellApiKey, voiceSites, current.startMs, now)
+    : 0;
   const capSeconds = cap * 60;
   const pct = capSeconds > 0 ? secondsUsed / capSeconds : 0;
 
@@ -144,16 +165,19 @@ async function processGroup(
       ? "your Enterprise sites"
       : billedSite.name ?? billedSite.slug;
 
-  // --- Warning emails (once per threshold per billing period, per allowance) ---
-  // Keyed on the exact period start, matching billKey below. This used to key on the calendar
+  // --- Warning emails (once per threshold per allowance month, per allowance) ---
+  // Keyed on the exact window start, matching billKey below. This used to key on the calendar
   // month, so a mid-cycle plan change starting two periods inside one month would silently
-  // suppress the second period's warnings entirely.
-  const warnKey = `jdd:usage-warn:${email}:${groupRef}:${periodStartMs}`;
+  // suppress the second period's warnings entirely. On monthly billing the window start is the
+  // period start, so existing keys still match.
+  const warnKey = `jdd:usage-warn:${email}:${groupRef}:${current?.startMs ?? "none"}`;
   const warnFlags = (await getRedis().get<{ sent80?: boolean; sent100?: boolean }>(warnKey)) ?? {};
   let warned80 = false;
   let warned100 = false;
 
-  if (pct >= 1.0 && !warnFlags.sent100) {
+  if (!current) {
+    // Between windows (a period boundary): nothing to warn about until the next month opens.
+  } else if (pct >= 1.0 && !warnFlags.sent100) {
     await sendUsageWarning(email, "100pct", secondsUsed, cap, groupLabel);
     await getRedis().set(warnKey, { sent80: true, sent100: true });
     warned80 = true;
@@ -164,9 +188,11 @@ async function processGroup(
     warned80 = true;
   }
 
-  // --- Overage billing (only once the billing period has fully closed) ---
+  // --- Overage billing (each allowance month once it has fully closed) ---
   let billed = false;
-  if (now >= periodEndMs) {
+  for (const window of closed) {
+    const periodStartMs = window.startMs;
+    const periodEndMs = window.endMs;
     const billKey = `jdd:usage-billed:${email}:${groupRef}:${periodStartMs}`;
 
     /**
@@ -204,16 +230,24 @@ async function processGroup(
       const amount = Math.round((overageSeconds / 60) * OVERAGE_CENTS_PER_MINUTE);
 
       if (amount > 0) {
-        await stripe.invoiceItems.create({
-          // This allowance's own customer and subscription, so a Growth site's overage lands
-          // on that site's next invoice rather than a sibling's.
-          customer: customerId,
-          amount,
-          currency: "usd",
-          description: `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`,
-          subscription: subscriptionId,
-        });
-        console.log(`[usage-billing] created invoice item for ${email}/${groupRef}: ${duration(overageSeconds)} overage, ${amount}c`);
+        const description = `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`;
+        if (interval === "year") {
+          // An annual subscription's next invoice is its renewal, up to a year away, so a
+          // pending item attached to it would collect this month's overage next year. Annual
+          // overage is invoiced monthly on its own invoice (approved 2026-11-04).
+          await invoiceOverageNow({ customerId, subscription, amount, description });
+        } else {
+          await stripe.invoiceItems.create({
+            // This allowance's own customer and subscription, so a Growth site's overage lands
+            // on that site's next invoice rather than a sibling's.
+            customer: customerId,
+            amount,
+            currency: "usd",
+            description,
+            subscription: subscriptionId,
+          });
+        }
+        console.log(`[usage-billing] billed overage for ${email}/${groupRef} (${interval}): ${duration(overageSeconds)}, ${amount}c`);
       } else {
         console.log(`[usage-billing] ${email}/${groupRef}: period closed, no billable overage (${duration(closedSeconds)} of ${cap} min)`);
       }
@@ -235,6 +269,43 @@ async function processGroup(
     warned100,
     billed,
   };
+}
+
+/**
+ * Invoice one closed month's overage on its own invoice, charged now to the payment method the
+ * subscription bills. Only the item created here goes on it (`pending_invoice_items_behavior:
+ * exclude`), so nothing else pending on the customer is swept in early.
+ *
+ * The subscription's default payment method is set explicitly: Checkout stores the card on the
+ * subscription, not on the customer, and a standalone invoice otherwise looks only at the
+ * customer and would fail to charge.
+ */
+async function invoiceOverageNow(input: {
+  customerId: string;
+  subscription: Stripe.Subscription;
+  amount: number;
+  description: string;
+}): Promise<void> {
+  const { customerId, subscription, amount, description } = input;
+  const pm = subscription.default_payment_method;
+  const defaultPaymentMethod = typeof pm === "string" ? pm : pm?.id;
+  const invoice = await stripe.invoices.create({
+    customer: customerId,
+    collection_method: "charge_automatically",
+    auto_advance: true,
+    pending_invoice_items_behavior: "exclude",
+    description,
+    metadata: { kind: "voice-overage", subscription_id: subscription.id },
+    ...(defaultPaymentMethod ? { default_payment_method: defaultPaymentMethod } : {}),
+  });
+  await stripe.invoiceItems.create({
+    customer: customerId,
+    invoice: invoice.id,
+    amount,
+    currency: "usd",
+    description,
+  });
+  await stripe.invoices.finalizeInvoice(invoice.id!, { auto_advance: true });
 }
 
 async function sendUsageWarning(
