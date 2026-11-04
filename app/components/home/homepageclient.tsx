@@ -807,11 +807,10 @@ function StraightAnswers() {
 }
 
 /* ── Every plan starts here ─────────────────────────────────────
-   The shared base, stated once, directly above the price cards. The intro's last sentence
-   ("The plans differ in what happens after a lead lands") hands off to the cards, which are
-   the next thing on screen, so this and <PricingSection> read as one block: what every
-   plan gets, then what each plan adds. That is also why the Starter card below opens with
-   "Everything you see above" rather than restating these three rows.
+   The shared base, stated once, directly above the price cards, so this and
+   <PricingSection> read as one block: what every plan gets, then what each plan adds. That
+   is also why the Starter card below opens with "Everything you see above" rather than
+   restating these three rows.
 
    Moved here from the /pricing redesign's "Option 1 · Lead-in". The rows reuse the
    journey's teal bar (`.journey-outcome`) so they read as the same kind of fact list. */
@@ -840,12 +839,11 @@ function EveryPlanSection() {
   return (
     <section className="every-section">
       <div className="every-grid">
+        {/* Heading only. The kicker and intro paragraph from the /pricing mockup went: the
+            intro compared Starter with Growth before the reader has seen either plan, since
+            on this page the cards come after this section, not before it. */}
         <JourneyReveal delay={0}>
-          <div className="kicker">On every plan</div>
           <h2 className="every-heading">Every plan starts here.</h2>
-          <p className="every-intro">
-            Starter isn&apos;t a cut-down Growth. Every plan gets the same site, the same receptionist, and the same inbox for every lead. The plans differ in what happens after a lead lands.
-          </p>
         </JourneyReveal>
 
         <JourneyReveal delay={1}>
@@ -1002,8 +1000,8 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
           it makes the ask. `RailCTA` used to be a fourth section here, repeating the two
           buttons the pricing column had already shown. */}
       <StraightAnswers />
-      {/* The shared base, then the plans. Kept as a pair: the lead-in's last line and the
-          Starter card's first both point at each other. */}
+      {/* The shared base, then the plans. Kept as a pair: the Starter card's first line
+          points up at this section. */}
       <EveryPlanSection />
       <PricingSection onOpenForm={openForm} />
 

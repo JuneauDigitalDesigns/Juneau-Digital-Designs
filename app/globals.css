@@ -1722,7 +1722,7 @@ select option {
 }
 
 /* ── Every plan starts here (homepage, directly above the price cards) ──
-   Copy left, three ruled rows right from 900px; one column below it. Each row carries the
+   Heading left, three ruled rows right from 900px; one column below it. Each row carries the
    journey's teal bar so the three facts read as the same kind of list as the outcomes
    above. Bottom padding is short because <PricingSection> follows as part of the same
    argument; see the note on its own top padding. */
@@ -1755,15 +1755,6 @@ select option {
   letter-spacing: 0.01em;
   text-transform: uppercase;
   max-width: 12ch;
-  margin-top: 12px;
-}
-
-.every-intro {
-  font-size: 16.5px;
-  line-height: 1.6;
-  color: var(--fg-2);
-  max-width: 42ch;
-  margin-top: 18px;
 }
 
 .every-rows { border-top: 1px solid var(--rule); }
