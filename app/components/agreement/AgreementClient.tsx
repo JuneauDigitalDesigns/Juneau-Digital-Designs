@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
+import { makeSessionFetch } from "@/app/lib/session-fetch";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
 import PlanChip from "./PlanChip";
 import TermsReader from "./TermsReader";
@@ -198,6 +200,14 @@ export default function AgreementClient({
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    /**
+     * Every API call below goes through this: it carries a fresh Clerk session token, so a
+     * buyer who spent minutes reading the terms is not answered "Sign in to continue". The
+     * layout mounts Clerk for this page; see `app/agreement/layout.tsx` and `session-fetch.ts`.
+     */
+    const { getToken } = useAuth();
+    const sessionFetch = useMemo(() => makeSessionFetch(getToken), [getToken]);
+
     function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
         setForm((f) => ({ ...f, [key]: value }));
     }
@@ -256,7 +266,7 @@ export default function AgreementClient({
         setSubmitting(true);
         try {
             // 1. Record the agreement (accepted by the ticked box)
-            const sigRes = await fetch("/api/agreement", {
+            const sigRes = await sessionFetch("/api/agreement", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -302,7 +312,7 @@ export default function AgreementClient({
             //    one that replaces several, and a new site adds one. Opening a plain checkout
             //    for either of the first two would leave them paying for both old and new.
             if (consolidate) {
-                const conRes = await fetch("/api/portal/consolidate", {
+                const conRes = await sessionFetch("/api/portal/consolidate", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ agreement_id: sigData.agreement_id }),
@@ -327,7 +337,7 @@ export default function AgreementClient({
                 // Slug goes in the query string, not the body: that is where
                 // resolvePortalRequest looks for it, and it re-resolves it against the
                 // signed-in account rather than trusting what we send.
-                const upRes = await fetch(
+                const upRes = await sessionFetch(
                     `/api/portal/upgrade?site=${encodeURIComponent(upgradeSlug!)}`,
                     {
                         method: "POST",
@@ -352,7 +362,7 @@ export default function AgreementClient({
                 return;
             }
 
-            const ckRes = await fetch("/api/checkout", {
+            const ckRes = await sessionFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ plan, agreement_id: sigData.agreement_id, period: billingPeriod }),

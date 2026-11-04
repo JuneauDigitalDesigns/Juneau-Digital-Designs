@@ -6,7 +6,15 @@ import { auth } from "@clerk/nextjs/server";
 import type { MasterAgreementRef } from "@jdd/schema";
 import { hashAddendumForPlan, hashTermsForPlan } from "@/app/lib/legal/hash";
 import { ADDENDUM_VERSION, TERMS_VERSION } from "@/app/lib/legal";
-import { saveAgreement } from "@/app/lib/kv";
+import {
+  agreementIsPaid,
+  claimAgreementSlot,
+  getAgreement,
+  releaseAgreementSlot,
+  saveAgreement,
+  takeAgreementSlot,
+} from "@/app/lib/kv";
+import { agreementIdempotencyKey } from "@/app/lib/agreement-idempotency";
 import { saveAccount } from "@/app/lib/account-store";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
@@ -107,11 +115,46 @@ export async function POST(req: Request) {
       : hashTermsForPlan(body.plan, { webOnly: isWebOnlyMaster(body) }),
   };
 
+  /**
+   * Accepting the same agreement twice returns the first one.
+   *
+   * A retry used to file a second record and email a second copy: on the 2026-11-04 Stripe test
+   * run, a checkout that failed after signing sent the client back through the funnel, and they
+   * ended up holding two agreements for one purchase. Now the same account accepting the same
+   * document with the same details (`agreementIdempotencyKey` says exactly what counts) within a
+   * day gets the first agreement's id back. No new PDF, record, master update, consent or email.
+   *
+   * Not once that agreement has been paid for: a paid agreement belongs to the purchase it
+   * completed, and buying again is a new acceptance.
+   */
+  const idempotencyKey = agreementIdempotencyKey(account.email, body, {
+    version: isAddendum ? ADDENDUM_VERSION : TERMS_VERSION,
+    termsHash: audit.termsHash,
+  });
+  let prior: AgreementRecord | null;
+  try {
+    prior = await priorAcceptance(idempotencyKey, id);
+  } catch (e) {
+    console.error("[/api/agreement] idempotency check failed", e);
+    return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
+  }
+  if (prior) {
+    console.log(`[/api/agreement] repeat acceptance, returning ${prior.id} (${account.email}, ${prior.plan})`);
+    return NextResponse.json({ agreement_id: prior.id, pdf_url: prior.pdfUrl });
+  }
+  // From here a failure gives the slot back, so the client's retry signs afresh rather than
+  // being handed an agreement that was never saved.
+  const releaseSlot = () =>
+    releaseAgreementSlot(idempotencyKey, id).catch((e) =>
+      console.error(`[/api/agreement] ${id} could not release idempotency slot`, e),
+    );
+
   let pdfBytes: Uint8Array;
   try {
     pdfBytes = await generateSignedPdf(body, audit, id, acceptance);
   } catch (e) {
     console.error("[/api/agreement] pdf generation failed", e);
+    await releaseSlot();
     return NextResponse.json({ error: "Could not generate signed PDF" }, { status: 500 });
   }
 
@@ -125,6 +168,7 @@ export async function POST(req: Request) {
     pdfUrl = uploaded.url;
   } catch (e) {
     console.error("[/api/agreement] blob upload failed", e);
+    await releaseSlot();
     return NextResponse.json({ error: "Could not store signed PDF" }, { status: 500 });
   }
 
@@ -163,6 +207,7 @@ export async function POST(req: Request) {
     await saveAgreement(record);
   } catch (e) {
     console.error("[/api/agreement] KV save failed", e);
+    await releaseSlot();
     return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
   }
 
@@ -246,6 +291,44 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
+}
+
+/**
+ * How long a repeat waits for the first acceptance to finish saving. The first one claims the
+ * slot before it renders the PDF and uploads it, which takes a few seconds, so a double press
+ * finds the slot taken and the record not there yet.
+ */
+const IN_FLIGHT_WAIT_MS = 10_000;
+const IN_FLIGHT_POLL_MS = 500;
+
+/**
+ * The unpaid agreement this acceptance repeats, or null after claiming the slot for `id`.
+ *
+ * The slot is taken over when its holder was paid for, or when it never appears: the request
+ * that claimed it died without saving or releasing it, and leaving the slot to it would leave
+ * the client unable to sign at all for a day.
+ */
+async function priorAcceptance(key: string, id: string): Promise<AgreementRecord | null> {
+  const deadline = Date.now() + IN_FLIGHT_WAIT_MS;
+  for (;;) {
+    const holder = await claimAgreementSlot(key, id);
+    if (holder === null || holder === id) return null;
+
+    const prior = await getAgreement(holder);
+    if (prior) {
+      if (await agreementIsPaid(holder)) {
+        await takeAgreementSlot(key, id);
+        return null;
+      }
+      return prior;
+    }
+    if (Date.now() >= deadline) {
+      console.warn(`[/api/agreement] slot held by ${holder}, never saved; ${id} takes it over`);
+      await takeAgreementSlot(key, id);
+      return null;
+    }
+    await new Promise((r) => setTimeout(r, IN_FLIGHT_POLL_MS));
+  }
 }
 
 function clientIp(req: Request): string {

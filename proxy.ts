@@ -11,7 +11,13 @@ const isPortalRoute = createRouteMatcher(["/portal(.*)", "/api/portal/(.*)", "/a
 // The sign-in AND sign-up pages live under /portal, so they must be excluded from
 // protection — otherwise auth.protect() redirects the unauthenticated visitor from
 // the auth page back to sign-in, looping until the URL overflows (HTTP 431).
-const isAuthRoute = createRouteMatcher(["/portal/sign-in(.*)", "/portal/sign-up(.*)"]);
+// `/portal/continue` is the stop Clerk routes to as sign-up completes (see `postAuthRedirect`).
+// It shows nothing private, and it sends a signed-out visitor to sign-in itself.
+const isAuthRoute = createRouteMatcher([
+    "/portal/sign-in(.*)",
+    "/portal/sign-up(.*)",
+    "/portal/continue(.*)",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
     if (isPortalRoute(req) && !isAuthRoute(req)) {

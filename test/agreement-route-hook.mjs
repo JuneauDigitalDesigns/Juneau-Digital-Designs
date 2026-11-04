@@ -3,7 +3,9 @@
  * see exactly which of them it reached.
  *
  * Replaced: Clerk (`auth`), the account lookup and save, PDF rendering, the Blob upload, the
- * KV save, the client email, and `next/server` (whose `after()` needs a live request scope).
+ * agreement store and its idempotency slots (in memory), the client email, and `next/server`
+ * (whose `after()` needs a live request scope). `failPut` and `failSave` make the upload or the
+ * save throw.
  * Everything else is the real module. Each stub reads and writes `globalThis.__agreementRoute`,
  * which the test sets up; the stubs run in the test's own thread, so they share that object.
  *
@@ -24,6 +26,7 @@ const STUBS = {
     "@vercel/blob": `
         export const put = async (pathname) => {
             ${STATE}.calls.push("put");
+            if (${STATE}.failPut) { ${STATE}.failPut -= 1; throw new Error("blob down"); }
             return { url: "https://blob.test/" + pathname };
         };
     `,
@@ -36,8 +39,24 @@ const STUBS = {
     "@/app/lib/account-store": `
         export const saveAccount = async (account) => { ${STATE}.calls.push("saveAccount"); ${STATE}.savedAccounts.push(account); };
     `,
+    // The agreement store and the idempotency slots, in memory. `slots` and `paid` are created on
+    // first use, so a test that never repeats an acceptance need not set them up.
     "@/app/lib/kv": `
-        export const saveAgreement = async (record) => { ${STATE}.calls.push("saveAgreement"); ${STATE}.savedAgreements.push(record); };
+        const slots = () => (${STATE}.slots ??= new Map());
+        const paid = () => (${STATE}.paid ??= new Set());
+        export const saveAgreement = async (record) => {
+            ${STATE}.calls.push("saveAgreement");
+            if (${STATE}.failSave) throw new Error("kv down");
+            ${STATE}.savedAgreements.push(record);
+        };
+        export const getAgreement = async (id) => ${STATE}.savedAgreements.find((r) => r.id === id) ?? null;
+        export const agreementIsPaid = async (id) => paid().has(id);
+        export const claimAgreementSlot = async (key, id) => {
+            if (!slots().has(key)) { slots().set(key, id); return null; }
+            return slots().get(key);
+        };
+        export const takeAgreementSlot = async (key, id) => { slots().set(key, id); };
+        export const releaseAgreementSlot = async (key, id) => { if (slots().get(key) === id) slots().delete(key); };
     `,
     "@/app/lib/pdf-signer": `
         export const hashSubmission = () => "hash";
