@@ -51,8 +51,8 @@ import s from "./PortalDemo.module.css";
  * The portal section's visual: a short film of the real client portal.
  *
  * A lead lands in the Inbox and is opened, promoted to a customer, moved down the pipeline,
- * texted, and asked for a review. It sits under the phone film (`SiteToCallPanel`) and picks up
- * its story: same business, same 2 AM call.
+ * texted, and asked for a review. It sits under the phone film (`SiteToCallPanel`), whose 2 AM
+ * no-heat call it echoes with its own sample shop (`app/data/portal-demo.ts`).
  *
  * One-to-one with the product, not nicer than it:
  *   - The markup is copied from the live components (InboxSection as merged in #52 with grouped
@@ -192,8 +192,19 @@ const STEP_START: World[] = [BASE, AFTER_INBOX, { ...AFTER_PROMOTE, view: "board
 /** An element by its `data-f`, optionally cropped to a width or height (from its top-left, or
  *  from its top-right with `right`). */
 type Focus = { f: string; w?: number; h?: number; right?: boolean };
-/** What to frame: one list for a normal frame, one for a narrow (<480px) frame. */
-type Shot = "all" | { wide: Focus[]; narrow?: Focus[]; pad?: number };
+/**
+ * What to frame: one list for a normal frame, one for a narrow (<480px) frame. `anchor` is the
+ * edge kept in view when the shot is taller than the frame at the zoom floor: the camera never
+ * pulls back to fit, it crops from the other end instead.
+ */
+type Shot = "all" | { wide: Focus[]; narrow?: Focus[]; pad?: number; anchor?: "top" | "bottom" };
+
+/**
+ * The least the camera zooms to once the film is running. Below this the portal reads as a
+ * thumbnail, and every drop to it from a closer shot reads as the camera backing away for no
+ * reason. Only the poster frame behind Start demo shows the whole canvas.
+ */
+const ZOOM_FLOOR = { wide: 0.9, narrow: 0.62 };
 
 /* 1060 tall so the whole customer record fits, composer included: at 820 the text box sat
    past the canvas edge and the typing in step 4 happened out of sight. */
@@ -223,29 +234,32 @@ const SHOT = {
     leadPromote: { wide: [{ f: "leadbody" }], narrow: [{ f: "said" }, { f: "promote-wrap" }], pad: 10 },
     recordTop: { wide: [{ f: "rhead" }, { f: "origin" }], narrow: [{ f: "rhead", w: 390 }, { f: "origin", w: 390 }], pad: 14 },
     board: { wide: [{ f: "board" }], narrow: [{ f: "col-lead" }, { f: "col-contacted" }], pad: 16 },
-    recordStage: { wide: [{ f: "rhead" }, { f: "timeline" }], narrow: [{ f: "timeline", w: 400 }], pad: 14 },
-    composer: { wide: [{ f: "timeline" }, { f: "composer" }], narrow: [{ f: "timeline", w: 410 }, { f: "composer", w: 410 }], pad: 12 },
+    /* The stage picker and the top of the timeline, which is where a move or a new row shows. */
+    recordStage: { wide: [{ f: "stagerow" }, { f: "timeline", h: 280 }], narrow: [{ f: "timeline", w: 400, h: 330 }], pad: 14, anchor: "top" },
+    composer: { wide: [{ f: "timeline" }, { f: "composer" }], narrow: [{ f: "timeline", w: 410 }, { f: "composer", w: 410 }], pad: 12, anchor: "bottom" },
+    /* Promote and what sits just above it, rather than the whole drawer. */
+    promote: { wide: [{ f: "promote-wrap" }], narrow: [{ f: "promote-wrap" }], pad: 90, anchor: "bottom" },
     /* A narrow frame cannot hold the whole composer: pan right to Send before it is tapped. */
-    composerSend: { wide: [{ f: "timeline" }, { f: "composer" }], narrow: [{ f: "timeline", w: 410, right: true }, { f: "composer", w: 410, right: true }], pad: 12 },
+    composerSend: { wide: [{ f: "timeline" }, { f: "composer" }], narrow: [{ f: "timeline", w: 410, right: true }, { f: "composer", w: 410, right: true }], pad: 12, anchor: "bottom" },
     recordHead: { wide: [{ f: "rhead" }], narrow: [{ f: "rhead", w: 400, right: true }], pad: 14 },
     review: { wide: [{ f: "reviewbody" }], narrow: [{ f: "reviewbody" }], pad: 12 },
 } satisfies Record<string, Shot>;
 
 /** Where the camera is when a step is started on its own, so it never opens on a shot meant
  *  for another page (a record shot over the board is the whole canvas, zoomed right out). */
-const START_SHOT: Shot[] = ["all", SHOT.leadPromote, SHOT.board, SHOT.recordStage, SHOT.recordHead];
+const START_SHOT: Shot[] = [SHOT.inboxList, SHOT.leadPromote, SHOT.board, SHOT.recordStage, SHOT.recordHead];
 
 /**
  * A step's finished frame: what reduced motion shows, and what a card points at there. Step 2
  * shows the drawer with Promote, as its card is about the button, not about the record after.
  */
 const STATIC_WORLD: World[] = [AFTER_INBOX, AFTER_INBOX, AFTER_PIPELINE, AFTER_MESSAGE, AFTER_REVIEW];
-const STATIC_SHOT: Shot[] = [SHOT.leadBody, SHOT.leadPromote, SHOT.recordStage, SHOT.composer, SHOT.recordStage];
+const STATIC_SHOT: Shot[] = [SHOT.leadBody, SHOT.promote, SHOT.recordStage, SHOT.composer, SHOT.recordStage];
 
 /** Where each step stops while playing, and what the camera frames when it does. */
 const BEAT: { f: string; shot: Shot }[] = [
     { f: "row-robert", shot: SHOT.inboxList },
-    { f: "promote", shot: SHOT.leadPromote },
+    { f: "promote", shot: SHOT.promote },
     { f: "card-robert", shot: SHOT.board },
     { f: "composer", shot: SHOT.composer },
     { f: "reviewbtn", shot: SHOT.recordHead },
@@ -370,14 +384,22 @@ export default function PortalDemo() {
                 }
                 pad = shot.pad ?? 24;
             }
-            const maxZoom = F.w < NARROW ? 0.92 : 1;
-            const k =
-                shot === "all"
-                    ? fit
-                    : Math.max(Math.min(fit, H / V.h), Math.min(F.w / (R.w + pad * 2), H / (R.h + pad * 2), maxZoom));
+            const isNarrow = F.w < NARROW;
+            const maxZoom = isNarrow ? 0.92 : 1;
+            const floor = Math.min(maxZoom, isNarrow ? ZOOM_FLOOR.narrow : ZOOM_FLOOR.wide);
+            const k = shot === "all" ? fit : Math.max(floor, Math.min(F.w / (R.w + pad * 2), H / (R.h + pad * 2), maxZoom));
 
             let x = F.w / 2 - (R.x + R.w / 2) * k;
             let y = H / 2 - (R.y + R.h / 2) * k;
+            // Too big for the frame at this zoom: keep the anchored edge, crop the other.
+            if (shot !== "all") {
+                // Across: centre whatever fits; only a subject wider than the frame itself is
+                // pinned to its left edge, where a row starts and a name is.
+                if (R.w * k > F.w - 16) x = 12 - R.x * k;
+                if ((R.h + pad * 2) * k > H) {
+                    y = shot.anchor === "bottom" ? H - pad * k - (R.y + R.h) * k : pad * k - R.y * k;
+                }
+            }
             x = V.w * k < F.w ? (F.w - V.w * k) / 2 : Math.min(0, Math.max(F.w - V.w * k, x));
             y = V.h * k < F.h ? (F.h - V.h * k) / 2 : Math.min(0, Math.max(F.h - V.h * k - reserve, y));
             canvas.style.transform = `translate(${x}px, ${y}px) scale(${k})`;
@@ -562,7 +584,7 @@ export default function PortalDemo() {
             const SCRIPT: (() => Promise<void>)[] = [
                 // 1 · a new lead lands, and is opened
                 async () => {
-                    look("all");
+                    look(SHOT.inboxList);
                     hideCursor();
                     await wait(900);
                     commit({ leadIn: true });
@@ -581,7 +603,7 @@ export default function PortalDemo() {
                 // 2 · promoted: the record opens with the call pinned, then back to the board
                 async () => {
                     await beat(1);
-                    look(SHOT.leadPromote);
+                    look(SHOT.promote);
                     pointAt("promote");
                     await wait(900);
                     await click();

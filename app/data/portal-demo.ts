@@ -1,10 +1,10 @@
 /**
  * Script and sample data for the homepage portal demo (`PortalDemo.tsx`).
  *
- * Everything here is fictional. The business and the lead are the same ones the phone film in
- * the section above ends on (`switchboard-calls.ts`, the "hvac" scenario): Peak Comfort HVAC,
- * Robert Ochoa, no heat at 2:13 AM. So this section picks up exactly where that one stops. Every
- * number is in the 555-01XX range reserved for fiction, so nothing on the page dials anyone.
+ * Everything here is fictional: one small HVAC shop and its customers. Written to read like a
+ * real owner's week rather than a template, so specific jobs, ordinary names and texts in the
+ * owner's own voice. Every number is in the 555-01XX range reserved for fiction, so nothing on
+ * the page dials anyone.
  *
  * The captions are client-facing copy, approved by Xander word for word on 4 Nov 2026. Do not
  * edit them without a fresh approval, and keep em dashes out of them.
@@ -69,25 +69,25 @@ export const DEMO_STEPS: DemoStep[] = [
 /** Same wording and same rule as the section's third outcome: what it waits on, never how long. */
 export const CARRIER_LINE = "Switches on once the carriers approve your business registration.";
 
-export const DEMO_BUSINESS = { name: "Peak Comfort HVAC", host: "peakcomforthvac.com" };
+export const DEMO_BUSINESS = { name: "Brannock Heating & Air", host: "brannockheating.com" };
 
-/** The lead the film delivered. */
+/** The new lead: a 2 AM no-heat call the receptionist took. */
 export const DEMO_LEAD = {
-    name: "Robert Ochoa",
-    initials: "RO",
+    name: "Dave Kowalski",
+    initials: "DK",
     phone: "(512) 555-0129",
-    address: "847 Elm Street",
+    address: "2210 Wren Hollow Rd",
     /** What the Inbox row and the drawer's "What was said" show. */
-    preview: "No heat, kids home. Furnace went out around 2 AM at 847 Elm Street. Wants a callback first thing.",
+    preview: "Furnace quit overnight and the house is down to 58°. Two kids at home. Wants someone out first thing.",
     /** The call summary the customer record pins open as the call that started it. */
     summary:
-        "Robert Ochoa called at 2:13 AM. The heat went out and he has kids at home. Address is 847 Elm Street. He asked for a callback as soon as possible, so this was flagged urgent.",
-    /** ~2 minutes, matching the film's call (`CALL_REPRESENTS_SEC` there is 118). */
+        "Dave called at 2:13 AM. His furnace shut off sometime overnight and the house is down to 58 degrees, with two kids at home. He's at 2210 Wren Hollow Rd and asked for a call back as early as possible, so it's marked urgent.",
+    /** About two minutes, like the call in the phone film above. */
     duration: "1m 58s",
     recording: "0:00 / 1:58",
     receivedAt: "11/4/2026, 2:13:40 AM",
     /** The Airtable outcome, which promotion carries over as a starting tag. */
-    tag: "Urgent callback needed",
+    tag: "Urgent",
 };
 
 export interface DemoInboxRow {
@@ -102,11 +102,11 @@ export interface DemoInboxRow {
     time: string;
 }
 
-/** What was already in the inbox before the new call landed. Marcus is a repeat caller (#52 grouping). */
+/** What was already in the inbox before the new call landed. Jim is a repeat caller (#52 grouping). */
 export const DEMO_INBOX: DemoInboxRow[] = [
-    { id: "linda", name: "Linda Park", web: true, unread: true, preview: "Quote for a heat pump to replace an old oil furnace, 1,800 sq ft house.", tag: "Web form", time: "3 hours" },
-    { id: "marcus", name: "Marcus Bell", count: 2, preview: "Furnace tune-up before winter. Flexible on days, prefers mornings.", time: "Yesterday" },
-    { id: "ana", name: "Ana Reyes", preview: "Thermostat went blank after a power cut. Asked if it is covered.", tag: "Call · 48s", time: "2 days" },
+    { id: "carol", name: "Carol Ostrander", web: true, unread: true, preview: "We'd like a quote on swapping our old oil furnace for a heat pump. Ranch house, about 1,800 sq ft.", tag: "Web form", time: "3 hours" },
+    { id: "jim", name: "Jim Petrakis", count: 2, preview: "Wants his yearly furnace tune-up booked. Mornings work best, any day but Friday.", time: "Yesterday" },
+    { id: "tammy", name: "Tammy Reynolds", preview: "Thermostat screen went blank after the power flickered. Asked if that's covered.", tag: "Call · 48s", time: "2 days" },
 ];
 /** The live inbox only shows the archived tab once something has been put away. */
 export const DEMO_ARCHIVED_COUNT = 2;
@@ -124,20 +124,20 @@ export type WorkingStage = "lead" | "contacted" | "quoted" | "scheduled";
 
 /** The rest of the board. Won and Lost are collapsed, as they are by default in the portal. */
 export const DEMO_BOARD: Record<WorkingStage, DemoCard[]> = {
-    lead: [{ id: "grace", name: "Grace Liu", phone: "(512) 555-0144", tags: ["Heat pump"], note: "Wants two quotes before deciding" }],
-    contacted: [{ id: "dev", name: "Dev Patel", phone: "(512) 555-0186", tags: ["Duct cleaning"], stale: true }],
-    quoted: [{ id: "hannah", name: "Hannah Cole", phone: "(512) 555-0152", tags: ["AC replacement"], note: "$6,400 system quote sent" }],
-    scheduled: [{ id: "sam", name: "Sam Ortiz", phone: "(512) 555-0117", tags: ["Tune-up"], note: "Thu 9:00 AM" }],
+    lead: [{ id: "luis", name: "Luis Arredondo", phone: "(512) 555-0144", tags: ["Heat pump"], note: "Getting two other quotes first" }],
+    contacted: [{ id: "kyle", name: "Kyle Dunbar", phone: "(512) 555-0186", tags: ["Duct cleaning"], stale: true }],
+    quoted: [{ id: "brenda", name: "Brenda Huff", phone: "(512) 555-0152", tags: ["AC replacement"], note: "$6,400 quote sent Monday" }],
+    scheduled: [{ id: "gary", name: "Gary Novak", phone: "(512) 555-0117", tags: ["Tune-up"], note: "Thu 9:00 AM" }],
 };
 export const DEMO_COLLAPSED = { won: 6, lost: 1 };
 
-/**
- * When each move happened, as the timeline shows it. The owner rang Robert back straight after
- * the 2:16 AM promotion, quoted and booked him in the morning, then texted to confirm.
- */
 /** The timeline's day heading beside "Today": the weekday and date, as the record prints them. */
 export const DEMO_TODAY = "Wednesday November 4";
 
+/**
+ * When each move happened, as the timeline shows it. Tom, the owner, saw the alert, added Dave
+ * and rang him back at 2 AM, quoted and booked him in the morning, then texted to confirm.
+ */
 export const DEMO_TIMES = {
     added: "2:16 AM",
     contacted: "2:18 AM",
@@ -148,8 +148,8 @@ export const DEMO_TIMES = {
     reviewed: "1:20 PM",
 };
 
-export const DEMO_SMS =
-    "Hi Robert, this is Peak Comfort HVAC. Mike is booked to come out at 11 AM today. Reply here if anything changes.";
+/** Written the way an owner texts from the truck: short, first names, no sign-off. */
+export const DEMO_SMS = "Hi Dave, it's Tom with Brannock. You're down for 11 this morning. I'll text when I'm on my way.";
 
 /**
  * The review request as the composer pre-fills it: `defaultReviewMessage` in
@@ -158,4 +158,4 @@ export const DEMO_SMS =
  * so they are not shown here.
  */
 export const DEMO_REVIEW =
-    "Hi Robert, thanks for choosing Peak Comfort HVAC! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";
+    "Hi Dave, thanks for choosing Brannock Heating & Air! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";
