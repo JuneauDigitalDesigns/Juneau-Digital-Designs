@@ -135,6 +135,9 @@ export const DEMO_COLLAPSED = { won: 6, lost: 1 };
  * When each move happened, as the timeline shows it. The owner rang Robert back straight after
  * the 2:16 AM promotion, quoted and booked him in the morning, then texted to confirm.
  */
+/** The timeline's day heading beside "Today": the weekday and date, as the record prints them. */
+export const DEMO_TODAY = "Wednesday November 4";
+
 export const DEMO_TIMES = {
     added: "2:16 AM",
     contacted: "2:18 AM",
@@ -147,9 +150,10 @@ export const DEMO_SMS =
     "Hi Robert, this is Peak Comfort HVAC. Mike is booked to come out at 11 AM today. Reply here if anything changes.";
 
 /**
- * The review request as the composer pre-fills it, minus the discount line the live default
- * still carries: offering anything for a review breaks Google's rules, and the homepage should
- * not show it. The review link and the STOP line are appended by the server, so not shown here.
+ * The review request as the composer pre-fills it: `defaultReviewMessage` in
+ * `app/lib/review-message.ts` (agency #53), which offers nothing in return because Google
+ * prohibits incentivised reviews. The review link and the STOP line are appended by the server,
+ * so they are not shown here.
  */
 export const DEMO_REVIEW =
-    "Hi Robert, thanks for choosing Peak Comfort HVAC! If we did a great job, would you leave us a quick Google review? It really helps us out.";
+    "Hi Robert, thanks for choosing Peak Comfort HVAC! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";

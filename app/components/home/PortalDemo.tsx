@@ -41,6 +41,7 @@ import {
     DEMO_SMS,
     DEMO_STEPS,
     DEMO_TIMES,
+    DEMO_TODAY,
     type DemoCard,
     type WorkingStage,
 } from "@/app/data/portal-demo";
@@ -80,11 +81,22 @@ import s from "./PortalDemo.module.css";
 
 type Stage = WorkingStage | "won" | "lost";
 
+/**
+ * One row of the customer timeline, already titled the way `app/lib/timeline.ts`
+ * (`buildTimeline`, the redesign in agency #54) titles it: a sentence naming the actor, a
+ * one-word type, and whether the customer did it (a filled marker) or the client did (outlined).
+ * Every row the demo writes is the client's doing, so every marker is outlined.
+ */
 interface Ev {
     id: string;
-    kind: "call" | "sms" | "stage";
-    summary: string;
-    detail?: string;
+    /** What the marker draws: #54's `markerKind`, decided with the title and chip, never apart. */
+    kind: "call" | "sms" | "stage" | "record";
+    title: string;
+    chip: "Added" | "Texts" | "Stage";
+    /** A stage move's "From …" line: the raw stage key, as the record prints it. */
+    from?: string;
+    /** A text's body, shown as a bubble. */
+    body?: string;
     time: string;
 }
 
@@ -141,9 +153,20 @@ type Move = "contacted" | "quoted" | "scheduled";
 const MOVES: Move[] = ["contacted", "quoted", "scheduled"];
 const label = (k: Stage) => STAGES.find((x) => x.key === k)!.label;
 
-const EV_ADDED: Ev = { id: "added", kind: "call", summary: "Added to your customers from your inbox", time: DEMO_TIMES.added };
-const evMove = (k: Move): Ev => ({ id: `m-${k}`, kind: "stage", summary: `Moved to ${label(k)}`, time: DEMO_TIMES[k] });
-const EV_SMS: Ev = { id: "sms", kind: "sms", summary: "You texted them", detail: DEMO_SMS, time: DEMO_TIMES.texted };
+/* Promotion is stored with the source's kind ("call") but the client as its actor, so #54
+   treats it as a record entry: its stored summary, an "Added" chip, and a neutral plus marker
+   (`kindMatchesActor` and `markerKind` in app/lib/timeline.ts, 0653870 and 7971cdd). */
+const EV_ADDED: Ev = { id: "added", kind: "record", title: "Added to your customers from your inbox", chip: "Added", time: DEMO_TIMES.added };
+const PREV: Record<Move, Stage> = { contacted: "lead", quoted: "contacted", scheduled: "quoted" };
+const evMove = (k: Move): Ev => ({
+    id: `m-${k}`,
+    kind: "stage",
+    title: `You moved ${DEMO_LEAD.name} to ${label(k)}`,
+    chip: "Stage",
+    from: PREV[k],
+    time: DEMO_TIMES[k],
+});
+const EV_SMS: Ev = { id: "sms", kind: "sms", title: `You texted ${DEMO_LEAD.name}`, chip: "Texts", body: DEMO_SMS, time: DEMO_TIMES.texted };
 
 /* Where each step begins, and where it ends. Built from one another so they cannot drift. */
 const AFTER_INBOX: World = { ...BASE, leadIn: true, leadRead: true, drawer: "lead" };
@@ -1117,12 +1140,37 @@ function BoardView({ w }: { w: World }) {
     );
 }
 
-/* CustomerRecord's own tints: messages blue, calls green, everything else neutral. */
+/* The pinned origin call keeps CustomerRecord's tinted icon. */
 const TINT = {
-    sms: { bg: "rgba(37,99,235,0.1)", fg: "var(--accent)", Icon: ChatCircle },
-    call: { bg: "rgba(22,163,74,0.1)", fg: "var(--chart-pos)", Icon: PhoneCall },
-    stage: { bg: "var(--surface)", fg: "var(--fg-2)", Icon: CaretRight },
+    call: { bg: "rgba(22,163,74,0.1)", fg: "var(--chart-pos)" },
 };
+
+/* The timeline's markers: one hue per kind from the chart tokens, as `markerHue` sets them. */
+const MARKER = {
+    call: { hue: "var(--chart-pos)", Icon: PhoneCall },
+    sms: { hue: "var(--accent)", Icon: ChatCircle },
+    stage: { hue: "var(--fg-3)", Icon: CaretRight },
+    record: { hue: "var(--fg-3)", Icon: Plus },
+};
+
+/** Outlined, because the client did it. A neutral hue takes the strong rule as its ring. */
+function Marker({ kind }: { kind: Ev["kind"] }) {
+    const { hue, Icon } = MARKER[kind];
+    return (
+        <span
+            className="relative z-[1] shrink-0 w-[27px] h-[27px] rounded-full flex items-center justify-center"
+            style={{
+                background: "var(--elev-1)",
+                borderWidth: 1.5,
+                borderStyle: "solid",
+                borderColor: hue === "var(--fg-3)" ? "var(--rule-strong)" : hue,
+                color: hue,
+            }}
+        >
+            <Icon size={13} />
+        </span>
+    );
+}
 
 function SmallLabel({ children }: { children: React.ReactNode }) {
     return (
@@ -1282,15 +1330,15 @@ function RecordView({ w }: { w: World }) {
                     </article>
 
                     <div className="flex items-center gap-1.5 px-7 py-3.5 border-b flex-wrap" style={{ borderColor: "var(--rule)" }}>
-                        {["all", "messages", "calls", "notes"].map((f) => (
+                        {["Everything", "Texts", "Calls", "Your notes"].map((f, i) => (
                             <span
                                 key={f}
-                                className="px-2.5 py-1 rounded-full text-[11px] border capitalize"
+                                className="px-2.5 py-1 rounded-lg text-[12.5px] border"
                                 style={{
-                                    fontFamily: "var(--font-mono)",
-                                    background: f === "all" ? "var(--fg)" : "var(--elev-1)",
-                                    color: f === "all" ? "var(--elev-1)" : "var(--fg-2)",
-                                    borderColor: f === "all" ? "var(--fg)" : "var(--rule-strong)",
+                                    fontWeight: i === 0 ? 600 : 400,
+                                    background: i === 0 ? "var(--fg)" : "var(--elev-1)",
+                                    color: i === 0 ? "var(--elev-1)" : "var(--fg-2)",
+                                    borderColor: i === 0 ? "var(--fg)" : "var(--rule-strong)",
                                 }}
                             >
                                 {f}
@@ -1302,33 +1350,64 @@ function RecordView({ w }: { w: World }) {
                     </div>
 
                     <div className="px-7 pb-5 flex-1 min-w-0" data-f="timeline">
-                        <div className="flex items-center gap-2.5 mt-5 mb-2.5 text-[10px] uppercase tracking-wider" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>
-                            Today
-                            <span className="flex-1 h-px" style={{ background: "var(--rule)" }} />
+                        <div className="pt-4 min-w-0">
+                            <div className="flex items-baseline gap-2.5 mb-1">
+                                <b className="text-[13px] font-bold" style={{ color: "var(--fg)" }}>
+                                    Today
+                                </b>
+                                <span className="text-[12px]" style={{ color: "var(--fg-3)" }}>
+                                    {DEMO_TODAY}
+                                </span>
+                            </div>
+                            {w.timeline.map((ev, i) => {
+                                const first = i === 0;
+                                const last = i === w.timeline.length - 1;
+                                return (
+                                    <div key={ev.id} className={`relative flex gap-3 py-2.5 min-w-0 ${w.enterEv === ev.id ? s.evEnter : ""}`}>
+                                        {/* The spine, trimmed at the first and last marker. Its colour is copied from
+                                            CustomerRecord, not inherited: `--rule` is the portal's every-border hairline,
+                                            so if the spine is ever darkened it will change on the spine itself, and
+                                            this value has to be changed by hand to match. */}
+                                        <span
+                                            className="absolute w-px"
+                                            style={{ left: 13, top: first ? 20 : 0, bottom: last ? "calc(100% - 20px)" : 0, background: "var(--rule)" }}
+                                        />
+                                        <Marker kind={ev.kind} />
+                                        <div className="flex-1 min-w-0 pt-px">
+                                            <div className="flex items-baseline gap-2.5 flex-wrap">
+                                                <span className="text-[13.5px] font-semibold" style={{ color: "var(--fg)" }}>
+                                                    {ev.title}
+                                                </span>
+                                                <span
+                                                    className="text-[9.5px] uppercase px-1.5 py-0.5 rounded"
+                                                    style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.09em", background: "var(--surface)", color: "var(--fg-2)" }}
+                                                >
+                                                    {ev.chip}
+                                                </span>
+                                                <span className="ml-auto shrink-0 text-[10.5px] whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}>
+                                                    {ev.time}
+                                                </span>
+                                            </div>
+                                            {ev.body && (
+                                                <div className="flex flex-col gap-1.5 mt-1.5 min-w-0">
+                                                    <p
+                                                        className="m-0 text-[13px] leading-snug rounded-xl px-3 py-2"
+                                                        style={{ maxWidth: "min(46ch, 100%)", marginLeft: "auto", background: "rgba(37,99,235,0.08)", color: "var(--fg-2)" }}
+                                                    >
+                                                        {ev.body}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            {ev.from && (
+                                                <p className="m-0 mt-1 text-[10.5px]" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}>
+                                                    From {ev.from}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        {w.timeline.map((ev) => {
-                            const t = TINT[ev.kind];
-                            return (
-                                <div key={ev.id} className={`w-full flex gap-3 items-start py-2.5 min-w-0 ${w.enterEv === ev.id ? s.evEnter : ""}`}>
-                                    <span className="shrink-0 w-[26px] h-[26px] rounded-full flex items-center justify-center" style={{ background: t.bg, color: t.fg }}>
-                                        <t.Icon size={13} />
-                                    </span>
-                                    <span className="flex-1 min-w-0 pt-0.5">
-                                        <span className="block text-[13.5px]" style={{ color: "var(--fg)" }}>
-                                            {ev.summary}
-                                        </span>
-                                        {ev.detail && (
-                                            <span className="block text-[12.5px] mt-1 truncate" style={{ color: "var(--fg-2)" }}>
-                                                {ev.detail}
-                                            </span>
-                                        )}
-                                    </span>
-                                    <span className="shrink-0 text-[10.5px] pt-1" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>
-                                        {ev.time}
-                                    </span>
-                                </div>
-                            );
-                        })}
                     </div>
 
                     <div className="px-7 py-4 border-t min-w-0" style={{ borderColor: "var(--rule)" }} data-f="composer">
