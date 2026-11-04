@@ -451,8 +451,12 @@ export default function CustomerRecord({
                     <Pending>Texting your customers comes with Growth.</Pending>
                 ) : (
                     <Pending>
+                        {/* No timeframe. Carrier approval is not ours to promise, and the
+                            marketing side already holds that line — see the note in
+                            `homepageclient.tsx` on a timeframe here being ours promising
+                            theirs. */}
                         <b>Texting turns on soon.</b> Your business registration is with the
-                        carriers — usually about two more weeks. Calls and leads are unaffected.
+                        carriers. Calls and leads are unaffected.
                     </Pending>
                 )}
             </div>
