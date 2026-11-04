@@ -79,6 +79,37 @@ export function kindLabel(kind: TimelineEventLike["kind"]): string {
     return KIND_LABEL[kind] ?? "Event";
 }
 
+/**
+ * Does this event's kind describe something the customer did?
+ *
+ * A call and a web enquiry are things that happen *to* the business, so the stored kind
+ * normally implies a customer actor. It does not always: promotion writes the **source's**
+ * kind onto a bookkeeping entry — `customers/route.ts` stores `kind: "call"`, `actor: "client"`,
+ * summary "Added to your customers from your inbox" — which records where the customer came
+ * from rather than another phone call.
+ *
+ * So the actor is the authority, not the kind. Without this check the row claimed "Robert
+ * Ochoa called you", chipped it "Call", and drew it outlined as something the client did: a
+ * sentence and a marker contradicting each other, with the real wording thrown away.
+ */
+function kindMatchesActor(event: TimelineEventLike): boolean {
+    if (event.kind === "call" || event.kind === "web-form") return event.actor === "customer";
+    return true;
+}
+
+/**
+ * The word beside the title.
+ *
+ * Takes the event rather than the kind, for the same reason as above: "Call" on an entry that
+ * says "Added to your customers from your inbox" is worse than no chip at all. Promotion is
+ * the only writer that stores a contact kind against a client actor today, so "Added" is the
+ * honest word for it; should another appear, its own summary still carries the row.
+ */
+export function entryKindLabel(event: TimelineEventLike): string {
+    if (!kindMatchesActor(event)) return "Added";
+    return kindLabel(event.kind);
+}
+
 function isSms(kind: TimelineEventLike["kind"]): boolean {
     return kind === "sms-in" || kind === "sms-out";
 }
@@ -148,6 +179,10 @@ export function entryTitle(
         return outbound ? `You texted ${who}` : `${Who} texted you`;
     }
 
+    // A contact kind recorded against the client is bookkeeping, not contact: its own summary
+    // is the only honest thing to show. See `kindMatchesActor`.
+    if (!kindMatchesActor(lead)) return lead.summary;
+
     switch (lead.kind) {
         case "call":
             return `${Who} called you`;
@@ -211,7 +246,7 @@ function entryFor(event: TimelineEventLike, customerName: string | null | undefi
         lead: event,
         run,
         title: entryTitle(event, run, customerName),
-        kindLabel: kindLabel(event.kind),
+        kindLabel: entryKindLabel(event),
         inbound: event.actor === "customer",
         at: event.at,
         timeLabel: clockTime(event.at),

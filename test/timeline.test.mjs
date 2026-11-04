@@ -14,7 +14,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildTimeline, dayHeading, entryTitle, kindLabel } from "../app/lib/timeline.ts";
+import {
+    buildTimeline,
+    dayHeading,
+    entryKindLabel,
+    entryTitle,
+    kindLabel,
+} from "../app/lib/timeline.ts";
 
 const NAME = "Rosalind Mackay";
 /** A Tuesday, so the weekday assertions mean something. */
@@ -227,4 +233,61 @@ test("a single event shows one time, not a span of itself", () => {
 test("an empty history is an empty timeline, not a crash", () => {
     assert.deepEqual(buildTimeline([], NAME, NOW), []);
     assert.deepEqual(buildTimeline([], null, NOW), []);
+});
+
+/* ── the actor decides, not the kind ──────────────────────────────────────── */
+
+/**
+ * Exactly what `customers/route.ts` writes when an inbox item is promoted: the **source's**
+ * kind on a bookkeeping entry, with the client as the actor. Transcribed from that route, not
+ * invented — the first version of this test suite used `kind: "note"` here, which is why the
+ * bug below survived a browser check.
+ */
+const promotionEvent = (source) =>
+    ev({
+        id: "promo",
+        kind: source,
+        actor: "client",
+        summary: "Added to your customers from your inbox",
+        at: "2026-11-03T14:52:00Z",
+    });
+
+test("promotion keeps its own wording instead of claiming the customer called", () => {
+    /**
+     * Found by the session mirroring the portal for the homepage, in review of this change.
+     *
+     * `entryTitle` switched on kind before anything else, so an entry stored as `kind: "call"`
+     * with `actor: "client"` rendered as "Robert Ochoa called you", chipped "Call", and drawn
+     * outlined as something the client did — a sentence and a marker contradicting each other,
+     * with "Added to your customers from your inbox" thrown away.
+     */
+    const call = promotionEvent("call");
+    const form = promotionEvent("web-form");
+
+    assert.equal(entryTitle(call, [call], NAME), "Added to your customers from your inbox");
+    assert.equal(entryTitle(form, [form], NAME), "Added to your customers from your inbox");
+});
+
+test("a promotion is chipped Added, never Call", () => {
+    // "Call" beside "Added to your customers from your inbox" is worse than no chip.
+    assert.equal(entryKindLabel(promotionEvent("call")), "Added");
+    assert.equal(entryKindLabel(promotionEvent("web-form")), "Added");
+});
+
+test("a real call is still a call, and still reads as inbound", () => {
+    // The guard must not swallow the thing it is guarding: the actor is what differs.
+    const real = ev({ kind: "call", actor: "customer" });
+
+    assert.equal(entryTitle(real, [real], NAME), "Rosalind Mackay called you");
+    assert.equal(entryKindLabel(real), "Call");
+});
+
+test("the promotion row's title and its marker agree", () => {
+    // The marker is outlined because the client acted. The title has to say so too.
+    const days = buildTimeline([promotionEvent("call")], NAME, NOW);
+    const [entry] = days[0].entries;
+
+    assert.equal(entry.inbound, false, "the client did this");
+    assert.equal(entry.title, "Added to your customers from your inbox");
+    assert.equal(entry.kindLabel, "Added");
 });
