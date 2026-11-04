@@ -3,6 +3,7 @@ import { Redis } from "@upstash/redis";
 import { stripe } from "./stripe";
 import { getPlan } from "./plans";
 import { resolveSubscriptionId } from "./plan-billing";
+import { billingIntervalOf, consolidationPrice } from "./billing-periods.mjs";
 import { getAccount, saveAccount } from "./account-store";
 import { upsertSite, growthSitesForConsolidation, type PortalAccount } from "@jdd/schema";
 
@@ -182,7 +183,34 @@ export async function completeConsolidation(
   return current;
 }
 
-/** The Enterprise recurring price, or null when it isn't configured. */
-export function enterprisePriceId(): string | null {
-  return getPlan("enterprise")?.monthlyPriceId ?? null;
+export type EnterprisePrice =
+  | { ok: true; interval: "month" | "year"; priceId: string }
+  | { ok: false; code: "mixed-periods" | "no-price" | "unreadable"; interval?: "month" | "year" };
+
+/**
+ * The Enterprise recurring price for this consolidation, on the period the absorbed Growth
+ * subscriptions bill on: an annual client moves to Enterprise ANNUAL. The rule itself is
+ * `consolidationPrice` in billing-periods.mjs, where the test runs it.
+ *
+ * A subscription that can't be read is refused, not assumed monthly: guessing wrong moves an
+ * annual client to monthly billing, or a monthly one to a year's charge.
+ */
+export async function enterprisePriceFor(account: PortalAccount): Promise<EnterprisePrice> {
+  const intervals: ("month" | "year")[] = [];
+  for (const site of growthSitesForConsolidation(account)) {
+    const subId = await resolveSubscriptionId(site);
+    if (!subId) continue;
+    try {
+      const sub = await stripe.subscriptions.retrieve(subId);
+      intervals.push(billingIntervalOf(sub.items.data[0]?.price?.recurring));
+    } catch (e) {
+      console.error("[consolidation] could not read billing period for", site.slug, e);
+      return { ok: false, code: "unreadable" };
+    }
+  }
+  const cfg = getPlan("enterprise");
+  return consolidationPrice({
+    intervals,
+    prices: { monthly: cfg?.monthlyPriceId, annual: cfg?.annualPriceId },
+  });
 }
