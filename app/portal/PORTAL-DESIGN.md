@@ -115,22 +115,27 @@ Two consequences worth knowing before you touch the palette:
   would need roughly `0.45` alpha. That is a visible weight change on every control in the
   portal, so it is **not** fixed here — it is a deliberate open item, not an oversight.
 
-### Three files mirror these tokens in literal hex
+### Some files mirror these tokens in literal hex
 
-Anything that renders through a React portal into `<body>` escapes `.portal-scope`, so a
-`var()` there would resolve against `:root` and come back wearing the agency cream and coral.
-Three files therefore hand-copy the portal values, and **a token change is not finished until
-all three are checked**:
+Anything rendering outside `.portal-scope` — a React portal into `<body>`, or UI that sits over
+the portal rather than inside it — cannot use `var()`: it would resolve against `:root` and come
+back wearing the agency cream and coral. Those files hand-copy the portal values instead, and
+**a token change is not finished until every file in this table has been checked.**
 
-| File | Mirrors | Renders outside the scope because |
+| File | Mirrors | Why it cannot use `var()` |
 |---|---|---|
 | `app/globals.css` → `.portal-scope` | the source of truth | — |
 | `app/portal/clerkAppearance.ts` | `--fg`, `--fg-3`, `--accent`, `--online` … | Clerk's `<UserButton/>` popover portals into `<body>` |
 | `app/components/portal/tour/tour-theme.css` | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--rule-strong` | driver.js popovers render into `<body>` |
 
+**Adding a mirror? Add a row here in the same PR**, so the table arrives true rather than
+aspirational. Keep it to files that genuinely hand-copy values: anything rendered inside a real
+`.portal-scope` reads `var()` and is not a mirror, however portal-like it looks.
+
 The tour file was missed on the first pass of the AA work and shipped the old `#767c85` on
-11px mono progress text for a while — the first screen a new client sees. `grep -rn "#767c85"`
-style sweeps over `app/` are the cheap way to catch the next one.
+11px mono progress text for a while — the first screen a new client sees. The table exists
+because that miss was invisible until someone grepped for it; `grep -rn "#767c85"` style sweeps
+over `app/` remain the cheap way to catch the next one.
 
 **Charts fail silently.** `ui/chartTheme.ts` reads `--chart-series-1` through `-4` by name.
 Leave any of them undefined in the scope and the charts render agency teal and coral on
