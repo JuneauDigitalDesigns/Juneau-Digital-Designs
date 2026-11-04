@@ -13,9 +13,11 @@ import { fulfilOperatorPayment } from "./checkout-fulfillment";
 import {
     chargeGate,
     chargeIdempotencyKey,
+    chargeReceipt,
     classifyChargeError,
     dashboardCustomerUrl,
     motoRef,
+    nextPaymentAt,
     pickMotoCard,
 } from "./moto-charge.mjs";
 
@@ -179,6 +181,26 @@ export interface ChargePreview {
     period: OperatorOrder["period"];
     /** Stripe's own figure for the first invoice. Charging is refused unless it equals `amountCents`. */
     stripeAmountCents: number | null;
+    /** When the next charge falls if the card is charged now: a month or a year on, same day. */
+    nextPaymentAt: number;
+    /** What the client's bank statement will show, from the Stripe account's settings. */
+    statementDescriptor: string | null;
+}
+
+export type ChargeReceipt = ReturnType<typeof chargeReceipt>;
+
+let _descriptor: { value: string | null } | null = null;
+/** The account's statement descriptor, read once per instance; null when it can't be read. */
+async function statementDescriptor(): Promise<string | null> {
+    if (_descriptor) return _descriptor.value;
+    try {
+        const account = await stripe.accounts.retrieveCurrent();
+        _descriptor = { value: account.settings?.payments?.statement_descriptor || null };
+    } catch (e) {
+        console.error("[moto] could not read the statement descriptor", e);
+        return null; // not cached: try again next time
+    }
+    return _descriptor.value;
 }
 
 async function findCard(order: OperatorOrder, state: MotoState) {
@@ -202,13 +224,30 @@ async function stripePreviewCents(order: OperatorOrder): Promise<number | null> 
     }
 }
 
-/** The card to be charged and the amount, for the operator to confirm and read aloud. */
+/**
+ * Has a card been added to the Customer since "Enter card" was chosen? Yes or no, and nothing
+ * else: the console polls this while the operator types the card into Stripe, so it is one
+ * Stripe read and returns no detail about the card.
+ */
+export async function detectMotoCard(order: OperatorOrder): Promise<{ cardAdded: boolean }> {
+    const state = await readState(order.id);
+    if (order.payment?.method !== "dashboard-moto" || !state) {
+        throw new MotoError("Choose Enter card first.", "not-card", 409);
+    }
+    return { cardAdded: Boolean(await findCard(order, state)) };
+}
+
+/** The checkout: the card that will be charged, the amount, and when it renews. */
 export async function previewMotoCharge(order: OperatorOrder): Promise<ChargePreview> {
     const state = await readState(order.id);
     if (order.payment?.method !== "dashboard-moto" || !state) {
         throw new MotoError("Choose Enter card first.", "not-card", 409);
     }
-    const [pm, stripeAmountCents] = await Promise.all([findCard(order, state), stripePreviewCents(order)]);
+    const [pm, stripeAmountCents, descriptor] = await Promise.all([
+        findCard(order, state),
+        stripePreviewCents(order),
+        statementDescriptor(),
+    ]);
     const { todayCents, recurringCents } = orderAmountCents(order);
     return {
         card: pm
@@ -224,11 +263,13 @@ export async function previewMotoCharge(order: OperatorOrder): Promise<ChargePre
         recurringCents,
         period: order.period,
         stripeAmountCents,
+        nextPaymentAt: nextPaymentAt(Date.now(), order.period),
+        statementDescriptor: descriptor,
     };
 }
 
 export type ChargeOutcome =
-    | { outcome: "paid"; order: OperatorOrder }
+    | { outcome: "paid"; order: OperatorOrder; receipt: ChargeReceipt | null; statementDescriptor: string | null }
     | { outcome: "requires_action" | "declined"; message: string };
 
 /**
@@ -247,9 +288,16 @@ export type ChargeOutcome =
  * Secure, which can't be done on a phone call) Stripe creates no subscription and charges nothing.
  */
 export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unknown): Promise<ChargeOutcome> {
-    if (order.status === "paid" || order.status === "fulfilled") return { outcome: "paid", order };
-
     const state = await readState(order.id);
+    if (order.status === "paid" || order.status === "fulfilled") {
+        // Already charged (a repeat request, a reopened wizard): the receipt again, never a charge.
+        const sub = state?.subscriptionId
+            ? await stripe.subscriptions
+                  .retrieve(state.subscriptionId, { expand: ["latest_invoice", "default_payment_method"] })
+                  .catch(() => null)
+            : null;
+        return paid(order, sub);
+    }
     if (!state) throw new MotoError("Choose Enter card first.", "not-card", 409);
 
     const locked = await getRedis().set(lockKey(order.id), Date.now(), { nx: true, ex: LOCK_TTL_SECONDS });
@@ -259,7 +307,7 @@ export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unkn
         const customerId = order.payment?.stripeCustomerId ?? "";
 
         const existing = await existingSubscription(order, customerId);
-        if (existing) return { outcome: "paid", order: await fulfil(order, existing, state) };
+        if (existing) return paid(await fulfil(order, existing, state), existing);
 
         const { todayCents } = orderAmountCents(order);
         const previewCents = await stripePreviewCents(order);
@@ -294,7 +342,7 @@ export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unkn
                         site_slug: order.siteSlug,
                         payment_method: "dashboard-moto",
                     },
-                    expand: ["latest_invoice"],
+                    expand: ["latest_invoice", "default_payment_method"],
                 },
                 { idempotencyKey: chargeIdempotencyKey(order.id, state.attempt) },
             );
@@ -311,10 +359,19 @@ export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unkn
                 ? { outcome: "requires_action", message: "This card needs bank verification. Use a payment link instead. Nothing was charged." }
                 : { outcome: "declined", message: `The card was declined. Nothing was charged.${declineDetail(e)}` };
         }
-        return { outcome: "paid", order: await fulfil(order, sub, state) };
+        return paid(await fulfil(order, sub, state), sub);
     } finally {
         await getRedis().del(lockKey(order.id)).catch(() => {});
     }
+}
+
+async function paid(order: OperatorOrder, sub: Stripe.Subscription | null): Promise<ChargeOutcome> {
+    return {
+        outcome: "paid",
+        order,
+        receipt: sub ? chargeReceipt(sub) : null,
+        statementDescriptor: await statementDescriptor(),
+    };
 }
 
 function declineDetail(e: unknown): string {
@@ -324,7 +381,7 @@ function declineDetail(e: unknown): string {
 
 /** A live subscription this order already made: the charge went through before. */
 async function existingSubscription(order: OperatorOrder, customerId: string): Promise<Stripe.Subscription | null> {
-    const list = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20, expand: ["data.latest_invoice"] });
+    const list = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20, expand: ["data.latest_invoice", "data.default_payment_method"] });
     return (
         list.data.find(
             (s) => s.metadata?.order_id === order.id && (s.status === "active" || s.status === "trialing" || s.status === "past_due"),

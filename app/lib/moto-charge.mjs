@@ -1,3 +1,5 @@
+import { addMonthsUtc } from "./billing-periods.mjs";
+
 /**
  * The rules of the card path ("Enter card", Stripe's phone-payment MOTO entry), kept pure so the
  * test runs the same code the routes do.
@@ -146,4 +148,39 @@ export function motoInvoiceOrder(invoice) {
 export function dashboardCustomerUrl(customerId, secretKey) {
   const test = /^(sk|rk)_test_/.test(secretKey ?? "");
   return `https://dashboard.stripe.com/${test ? "test/" : ""}customers/${encodeURIComponent(customerId)}`;
+}
+
+/**
+ * When the second payment falls, for the checkout's "Then $497.00 per month, starting …".
+ * Stripe anchors a new subscription's cycle at the moment it is created, so the next charge is
+ * one month (or one year) on from the charge, on the same day: v5.3 §3.1.
+ *
+ * @param {number} chargeMs
+ * @param {"monthly" | "annual"} period
+ */
+export function nextPaymentAt(chargeMs, period) {
+  return addMonthsUtc(chargeMs, period === "annual" ? 12 : 1);
+}
+
+/**
+ * The receipt the confirmation screen shows, read from the subscription Stripe returned
+ * (`latest_invoice` and `default_payment_method` expanded). Every figure is Stripe's: what was
+ * actually paid, the invoice number the emailed receipt carries, and the next charge as the
+ * subscription itself has it.
+ *
+ * @param {Record<string, any>} sub
+ */
+export function chargeReceipt(sub) {
+  const invoice = sub?.latest_invoice && typeof sub.latest_invoice === "object" ? sub.latest_invoice : null;
+  const pm = sub?.default_payment_method && typeof sub.default_payment_method === "object" ? sub.default_payment_method : null;
+  const item = sub?.items?.data?.[0];
+  const paidSeconds = invoice?.status_transitions?.paid_at ?? invoice?.created ?? null;
+  return {
+    amountPaidCents: typeof invoice?.amount_paid === "number" ? invoice.amount_paid : null,
+    paidAt: paidSeconds ? paidSeconds * 1000 : null,
+    invoiceNumber: invoice?.number ?? null,
+    card: pm?.card ? { brand: pm.card.brand ?? "card", last4: pm.card.last4 ?? "" } : null,
+    nextPaymentAt: item?.current_period_end ? item.current_period_end * 1000 : null,
+    nextAmountCents: typeof item?.price?.unit_amount === "number" ? item.price.unit_amount : null,
+  };
 }

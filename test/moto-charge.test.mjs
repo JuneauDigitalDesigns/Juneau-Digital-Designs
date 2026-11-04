@@ -27,6 +27,8 @@ import {
     motoInvoiceOrder,
     motoRef,
     pickMotoCard,
+    nextPaymentAt,
+    chargeReceipt,
 } from "../app/lib/moto-charge.mjs";
 
 register("./server-only-hook.mjs", import.meta.url);
@@ -46,7 +48,7 @@ Object.assign(process.env, {
 });
 
 // Dynamic, so the hooks above are in place first.
-const { chargeMotoOrder, MotoError } = await import("../app/lib/moto-payment.ts");
+const { chargeMotoOrder, detectMotoCard, MotoError } = await import("../app/lib/moto-payment.ts");
 
 /* ── the rules, pure ──────────────────────────────────────────────────────── */
 
@@ -168,6 +170,7 @@ async function stripeFetch(url, init) {
     const json = (status, body) =>
         new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "request-id": "req_test" } });
     if (u.pathname === "/v1/subscriptions" && init.method === "GET") return json(200, list([]));
+    if (u.pathname === "/v1/account") return json(200, { object: "account", settings: { payments: { statement_descriptor: "JUNEAU DIGITAL" } } });
     if (u.pathname === "/v1/invoices/create_preview") return json(200, { object: "invoice", amount_due: previewCents });
     if (u.pathname === "/v1/customers/cus_moto/payment_methods") return json(200, list(cards));
     if (u.pathname === "/v1/subscriptions" && init.method === "POST") {
@@ -302,5 +305,48 @@ test("bank verification charges nothing, and the retry gets a new idempotency ke
 test("a paid order is not charged again", async () => {
     const r = await chargeMotoOrder(order({ status: "paid" }), 79400);
     assert.equal(r.outcome, "paid");
-    assert.equal(stripeCalls.length, 0);
+    assert.equal(stripeCalls.filter((c) => c.method === "POST").length, 0, "a paid order sends nothing that could charge");
+});
+
+/* ── the checkout and the receipt ─────────────────────────────────────────── */
+
+test("detecting the card answers yes or no, in one read, and says nothing about the card", async () => {
+    assert.deepEqual(await detectMotoCard(order()), { cardAdded: true });
+    assert.deepEqual(stripeCalls.map((c) => c.path), ["/v1/customers/cus_moto/payment_methods"]);
+    cards = [card("pm_on_file", "2026-10-01T00:00:00Z")];
+    assert.deepEqual(await detectMotoCard(order()), { cardAdded: false }, "a card already on file isn't the card for this order");
+});
+
+test("the next payment is a month or a year on, the same day, as Stripe anchors it", () => {
+    const signed = Date.parse("2026-11-04T15:00:00Z");
+    assert.equal(new Date(nextPaymentAt(signed, "monthly")).toISOString(), "2026-12-04T15:00:00.000Z");
+    assert.equal(new Date(nextPaymentAt(signed, "annual")).toISOString(), "2027-11-04T15:00:00.000Z");
+    // The 31st clamps to the end of a shorter month rather than spilling into the next.
+    assert.equal(new Date(nextPaymentAt(Date.parse("2027-01-31T15:00:00Z"), "monthly")).toISOString(), "2027-02-28T15:00:00.000Z");
+});
+
+test("the receipt shows what Stripe charged, not what we expected", () => {
+    const receipt = chargeReceipt({
+        id: "sub_1",
+        latest_invoice: { object: "invoice", number: "A1B2C3-0001", amount_paid: 79400, created: 1793800000, status_transitions: { paid_at: 1793800005 } },
+        default_payment_method: { object: "payment_method", card: { brand: "visa", last4: "4242" } },
+        items: { data: [{ current_period_end: 1796478405, price: { unit_amount: 49700 } }] },
+    });
+    assert.deepEqual(receipt, {
+        amountPaidCents: 79400,
+        paidAt: 1793800005000,
+        invoiceNumber: "A1B2C3-0001",
+        card: { brand: "visa", last4: "4242" },
+        nextPaymentAt: 1796478405000,
+        nextAmountCents: 49700,
+    });
+    // Unexpanded ids give an honest blank, not a guess.
+    assert.deepEqual(chargeReceipt({ latest_invoice: "in_1", default_payment_method: "pm_1", items: { data: [] } }), {
+        amountPaidCents: null,
+        paidAt: null,
+        invoiceNumber: null,
+        card: null,
+        nextPaymentAt: null,
+        nextAmountCents: null,
+    });
 });
