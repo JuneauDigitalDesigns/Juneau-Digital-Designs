@@ -374,7 +374,7 @@ export default function AgreementClient({
             if (isAddingReceptionist) {
                 // Nothing is charged: same plan, same price. Records the phone choice and asks
                 // Xander to provision. Same session-expiry trap as the upgrade below.
-                const rcRes = await fetch(
+                const rcRes = await sessionFetch(
                     `/api/portal/receptionist?site=${encodeURIComponent(receptionistSlug!)}`,
                     {
                         method: "POST",
@@ -394,7 +394,7 @@ export default function AgreementClient({
             if (isDowngrade) {
                 // Nothing is charged: this schedules the change for the end of the paid period.
                 // Same session-expiry trap as the upgrade below.
-                const dnRes = await fetch(
+                const dnRes = await sessionFetch(
                     `/api/portal/downgrade?site=${encodeURIComponent(downgradeSlug!)}`,
                     {
                         method: "POST",
