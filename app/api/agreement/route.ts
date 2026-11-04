@@ -9,6 +9,7 @@ import { ADDENDUM_VERSION, TERMS_VERSION } from "@/app/lib/legal";
 import { saveAgreement } from "@/app/lib/kv";
 import { saveAccount } from "@/app/lib/account-store";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
+import { isHeldForPlanChange } from "@/app/lib/held-agreement";
 import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
 import { SMS_CONSENT_TEXT_VERSION } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
@@ -131,6 +132,9 @@ export async function POST(req: Request) {
   const record: AgreementRecord = {
     id,
     plan: body.plan,
+    // The signed-in account (resolved at the top), taken from the session rather than the form.
+    // Plan-change routes bind a held agreement on it, since it isn't the account's master yet.
+    accountEmail: account.email,
     clientLegalName: body.clientLegalName,
     clientEntityType: body.clientEntityType,
     clientAddress: body.clientAddress,
@@ -185,8 +189,12 @@ export async function POST(req: Request) {
    *
    * Best effort: the agreement itself is already stored, which is the artefact that must
    * survive. Losing this costs one extra full signature later, not the signature just given.
+   *
+   * NOT for an agreement held for an in-place plan change (`isHeldForPlanChange`). A refused or
+   * failed change must leave the master the client actually holds, so the plan-change route
+   * records it, and persists it, only once the change has gone through.
    */
-  if (!isAddendum) {
+  if (!isAddendum && !isHeldForPlanChange(record)) {
     try {
       const master: MasterAgreementRef = {
         agreementId: id,

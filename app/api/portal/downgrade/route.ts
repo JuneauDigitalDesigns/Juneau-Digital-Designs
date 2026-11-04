@@ -6,6 +6,7 @@ import { scheduleDowngrade } from "@/app/lib/plan-billing";
 import { getPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { sendDowngradeConfirmedEmail } from "@/app/lib/plan-change-email";
 import { DOWNGRADE_FAILED } from "@/app/lib/plan-change-copy";
+import { acceptedBy } from "@/app/lib/held-agreement";
 import { dropBillingCache } from "@/app/lib/portal-kv";
 
 export const runtime = "nodejs";
@@ -41,15 +42,17 @@ export async function POST(request: Request) {
     const agreementId = body.agreement_id?.trim();
     if (!agreementId) return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
 
-    // The agreement has to be for the plan being moved to, and has to be this account's own:
-    // `/api/agreement` records the master on the signed-in account as it is accepted. Without
-    // that check an agreement id is a bearer token for someone else's plan change.
+    // The agreement has to be for the plan being moved to, and has to be this account's own
+    // (accepted while it was signed in). Without that check an agreement id is a bearer token
+    // for someone else's plan change. It is NOT the account's master yet, and won't be until the
+    // downgrade lands at the period end: the webhook records it then, so a downgrade withdrawn in
+    // the meantime leaves the Growth master the client still holds.
     const agreement = await getAgreement(agreementId);
     if (
         !agreement ||
         agreement.plan !== pending.toPlan ||
         agreement.kind === "addendum" ||
-        account.masterAgreement?.agreementId !== agreementId
+        !acceptedBy(agreement, account)
     ) {
         return NextResponse.json({ error: "That agreement isn't for this change." }, { status: 400 });
     }

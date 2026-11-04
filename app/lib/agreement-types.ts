@@ -198,4 +198,10 @@ export interface AgreementRecord {
   pendingDowngrade?: boolean;
   /** Slug the downgrade is for. Only meaningful alongside `pendingDowngrade`. */
   downgradeSlug?: string;
+  /**
+   * The portal account that was signed in when this was accepted, taken from the session, not
+   * the form. Plan-change routes bind on it (`acceptedBy`), since a held agreement isn't recorded
+   * as the account's master until the change goes through.
+   */
+  accountEmail?: string;
 }

@@ -5,7 +5,8 @@ import { completeConsolidation, getConsolidation } from "@/app/lib/consolidation
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
-import { claimWelcomeEmailSend, clearWelcomeEmailMark } from "@/app/lib/kv";
+import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement } from "@/app/lib/kv";
+import { masterRefFor } from "@/app/lib/held-agreement";
 import { sendWelcomeEmail } from "@/app/lib/welcome-email";
 import { deletePayCode, getOrder, transitionOrder } from "@/app/lib/operator-orders";
 import { planOfSubscription } from "@/app/lib/plan-billing";
@@ -109,6 +110,14 @@ export async function POST(req: Request) {
         if (plan) {
           const pending = await getPlanChange(email, slug);
           if (pending?.status === "scheduled" && pending.toPlan === plan) {
+            // The Starter agreement the client accepted governs from now, so it becomes the
+            // account's master here: not when it was accepted, nor when it was scheduled, so a
+            // downgrade that is withdrawn first leaves the master the client still holds.
+            const accepted = pending.agreementId ? await getAgreement(pending.agreementId) : null;
+            const latest = accepted ? await getAccount(email) : null;
+            if (accepted && latest) {
+              await saveAccount({ ...latest, masterAgreement: masterRefFor(accepted), updatedAt: Date.now() });
+            }
             await savePlanChange({ ...pending, status: "done" });
             console.log("[stripe webhook] scheduled plan change complete", slug, plan);
           }

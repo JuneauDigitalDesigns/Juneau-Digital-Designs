@@ -120,13 +120,13 @@ test("downgrades are scheduled, not applied: the console request emails a link, 
   assert.doesNotMatch(ops, /changeSubscriptionPlan/);
   const portal = read("app/api/portal/downgrade/route.ts");
   assert.match(portal, /scheduleDowngrade\(/);
-  assert.match(portal, /account\.masterAgreement\?\.agreementId !== agreementId/);
+  assert.match(portal, /!acceptedBy\(agreement, account\)/);
 });
 
 test("an upgrade keeps its agreement, binds it to the account, and words a declined card plainly", () => {
   const src = read("app/api/portal/upgrade/route.ts");
   assert.match(src, /persistAgreement\(agreementId\)/);
-  assert.match(src, /account\.masterAgreement\?\.agreementId !== agreementId/);
+  assert.match(src, /!acceptedBy\(agreement, account\)/);
   assert.match(src, /CARD_DECLINED/);
   assert.match(src, /upgradeCancelPending\(/);
 });
@@ -184,4 +184,43 @@ test("the downgrade emails say exactly what Xander approved", async () => {
     ),
   );
   assert.equal(email.pricePerPeriod("starter", "month"), "$197 a month");
+});
+
+/**
+ * Stripe test run F1 (2026-11-04): a declined upgrade left `account.masterAgreement` pointing at
+ * the Growth agreement, which was never persisted, while the client stayed on Starter. A held
+ * plan-change agreement now leaves the master alone until the change succeeds.
+ */
+test("a held plan-change agreement does not become the account's master at acceptance", async () => {
+  const held = await import("../app/lib/held-agreement.ts");
+  const base = {
+    id: "a1",
+    plan: "growth",
+    agreementVersion: "v5.3",
+    audit: { signedAt: "2026-11-04T10:00:00.000Z" },
+    accountEmail: "Ann@Acme.test",
+  };
+  assert.equal(held.isHeldForPlanChange({ ...base, pendingUpgrade: true }), true);
+  assert.equal(held.isHeldForPlanChange({ ...base, pendingDowngrade: true }), true);
+  assert.equal(held.isHeldForPlanChange(base), false);
+  assert.equal(held.acceptedBy(base, { email: "ann@acme.test" }), true);
+  assert.equal(held.acceptedBy(base, { email: "someone@else.test" }), false);
+  assert.equal(held.acceptedBy({ ...base, accountEmail: undefined }, { email: "ann@acme.test" }), false);
+  assert.deepEqual(held.masterRefFor(base), {
+    agreementId: "a1",
+    version: "v5.3",
+    tierCeiling: "growth",
+    signedAt: Date.parse("2026-11-04T10:00:00.000Z"),
+  });
+
+  const route = read("app/api/agreement/route.ts");
+  assert.match(route, /if \(!isAddendum && !isHeldForPlanChange\(record\)\)/);
+  assert.match(route, /accountEmail: account\.email/);
+});
+
+test("the upgrade records the new master only after Stripe accepts the change", () => {
+  const src = read("app/api/portal/upgrade/route.ts");
+  assert.ok(src.indexOf("changeSubscriptionPlan(") < src.indexOf("masterAgreement: masterRefFor(agreement)"));
+  const hook = read("app/api/webhooks/stripe/route.ts");
+  assert.match(hook, /masterAgreement: masterRefFor\(accepted\)/);
 });

@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { getAgreement, persistAgreement, saveAgreement } from "@/app/lib/kv";
 import { CARD_DECLINED, upgradeCancelPending } from "@/app/lib/plan-change-copy";
+import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
 import { dropBillingCache } from "@/app/lib/portal-kv";
 import { sendStoredAgreementEmail } from "@/app/lib/agreement-email";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
@@ -122,10 +123,10 @@ export async function POST(request: Request) {
             { status: 400 },
         );
     }
-    // And it has to be this account's own. An upgrade is always accepted on the full master,
-    // which `/api/agreement` records on the signed-in account as it is accepted, so any other id
-    // is someone else's agreement being replayed.
-    if (account.masterAgreement?.agreementId !== agreementId) {
+    // And it has to be this account's own: accepted while this account was signed in. Anything
+    // else is someone else's agreement being replayed. (Not `account.masterAgreement`: a held
+    // upgrade agreement is only recorded there once the upgrade below succeeds.)
+    if (!acceptedBy(agreement, account)) {
         return NextResponse.json({ error: "That agreement isn't for this account." }, { status: 403 });
     }
 
@@ -172,15 +173,20 @@ export async function POST(request: Request) {
     //
     // The webhook still runs and still reconciles; it no-ops when the plan already matches,
     // and remains the path for changes made outside the portal.
+    //
+    // The Growth agreement becomes the account's master here, and only here. It used to be
+    // recorded the moment it was accepted, so a declined upgrade left a Growth master (on a
+    // 30-day TTL) over a client still on Starter.
     const subscriptionId = result.subscriptionId;
     const now = Date.now();
-    await saveAccount(
-        upsertSite(
+    await saveAccount({
+        ...upsertSite(
             account,
             { slug: site.slug, plan: "growth", stripeSubscriptionId: subscriptionId },
             now,
         ),
-    );
+        masterAgreement: masterRefFor(agreement),
+    });
 
     await dropBillingCache(account.email, site.slug);
 
