@@ -3,7 +3,7 @@ import { siteFeature } from "@jdd/schema";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { fetchCalls, type CallsFailure } from "@/app/lib/airtable-calls";
 import { accountScope } from "@/app/lib/portal-kv";
-import { promotedRefs } from "@/app/lib/portal-crm";
+import { archivedRefs, promotedRefs } from "@/app/lib/portal-crm";
 import { listLeads } from "@/app/lib/portal-leads";
 import { buildInbox } from "@/app/lib/crm-contacts";
 
@@ -73,18 +73,23 @@ export async function GET(request: Request) {
         }
     }
 
-    const [promoted, leads] = await Promise.all([
+    const [promoted, archived, leads] = await Promise.all([
         promotedRefs(acct, ctx.site.slug),
+        archivedRefs(acct, ctx.site.slug),
         listLeads(acct, ctx.site.slug).catch((e) => {
             console.error(`[portal/inbox] lead read failed for ${ctx.site.slug}`, e);
             return [];
         }),
     ]);
 
+    // Archived items stay in the payload, flagged, exactly as promoted ones do: `filterInbox`
+    // keeps them out of the worklist, the archived view needs them, and a deep link from an
+    // owner's text has to open one that has since been put away.
     const items = buildInbox({
         calls: calls?.ok ? calls.calls : [],
         leads,
         promoted,
+        archived,
     });
 
     return NextResponse.json({

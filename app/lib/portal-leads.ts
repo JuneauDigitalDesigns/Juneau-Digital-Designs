@@ -223,6 +223,32 @@ export async function markLeadRead(
 }
 
 /**
+ * Delete one lead, for good.
+ *
+ * The only destructive action the Inbox offers, and only for a web enquiry: a call is a row in
+ * the client's own Airtable log with a recording hanging off it, which this portal reads and
+ * has no business deleting.
+ *
+ * Takes the record and the index entry together. Leaving the id in the index would keep it in
+ * the archived count and in `listLeads`, pointing at a key that no longer resolves.
+ *
+ * Touches nothing in `sms-consent.ts`. Those records are keyed by phone number, append-only and
+ * deliberately without a TTL, because they answer "prove this person asked for these texts"
+ * years after the enquiry itself stopped mattering. A lead is not their system of record, and
+ * no inbox action may make it one.
+ */
+export async function deleteLead(
+    acctScope: string,
+    slug: string,
+    leadId: string,
+): Promise<boolean> {
+    const redis = getRedis();
+    const existed = (await redis.del(leadKey(acctScope, slug, leadId))) > 0;
+    await redis.zrem(leadIndexKey(acctScope, slug), leadId);
+    return existed;
+}
+
+/**
  * Delete every lead and the index for one site. For teardown.
  *
  * Takes the ingest token so the token index goes with it — a token that outlives the client is a
