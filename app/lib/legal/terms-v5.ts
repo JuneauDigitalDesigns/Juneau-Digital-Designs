@@ -2,6 +2,16 @@ import { ref, type PlanSchedule, type SectionDef } from "./types";
 import { ANNUAL } from "./schedules";
 
 /**
+ * v5.2 → v5.3 on 2026-11-04 (Xander approved). An annual-coverage sweep: every clause an annual
+ * client would hit now reads correctly for both periods — fees due, allowances resetting
+ * monthly, overage invoiced monthly, price changes at renewal, plan changes (upgrade now and
+ * prorated, downgrade at period end), termination and Schedule A. Also two corrections that were
+ * wrong for everyone: monthly billing starts on the day of signing, as Stripe actually bills (not
+ * "the first calendar day", with a first month prorated from deployment); and the website-only
+ * option is offered only in the Starter agreement, priced as Starter, since Growth and
+ * Enterprise cannot decline the receptionist. v5.2 was live under a day with no clients, so the
+ * bump costs nothing; it keeps one version string to one text.
+ *
  * v5.1 → v5.2 on 2026-11-03 (Xander approved the wording word for word): the agreement now
  * covers annual prepay, which self-serve already sold. Until then every billing clause — the
  * term, termination for convenience, the no-refund rule — read month-to-month only, so an annual
@@ -21,7 +31,7 @@ import { ANNUAL } from "./schedules";
  * so stored agreements stay identifiable. Nothing had been signed when this shipped, so there
  * is no migration and no re-papering.
  */
-export const TERMS_VERSION = "v5.2";
+export const TERMS_VERSION = "v5.3";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -171,21 +181,26 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                     items: [
                       "Forward the existing business line to the Provider-supplied number, so calls Client does not answer reach the receptionist",
                       "Publish the Provider-supplied number as the business number, so calls arrive on it directly",
-                      // Not "described below": in a Starter/Growth/Enterprise agreement there
-                      // is nothing below to describe it, since the website-only paragraph in
-                      // the scope section only renders for the web-only schedule. The
-                      // arrangement is stated in full two paragraphs down instead.
-                      "Decline the AI receptionist, which moves Client to a website-only arrangement",
+                      // Starter only (v5.3). Website-only is a Starter arrangement: Growth and
+                      // Enterprise cannot decline the receptionist (/api/agreement refuses it),
+                      // and their agreements used to offer it anyway, priced as their own plan.
+                      ...(s.slug === "starter"
+                        ? ["Decline the AI receptionist, which moves Client to a website-only arrangement"]
+                        : []),
                     ],
                   },
                   {
                     kind: "para" as const,
                     text: "Calls ring Client's own line first. The AI receptionist answers only when that line is not picked up, so it replaces voicemail rather than answering ahead of Client.",
                   },
-                  {
-                    kind: "para" as const,
-                    text: `If Client declines the AI receptionist, Provider will not purchase a phone number and will not configure a receptionist for Client, and the call-handling provisions of this Agreement do not apply. The monthly fee is unchanged: the website-only arrangement is priced the same as the ${s.name} plan. Client may activate the receptionist later at no additional onboarding charge.`,
-                  },
+                  ...(s.slug === "starter"
+                    ? [
+                        {
+                          kind: "para" as const,
+                          text: `If Client declines the AI receptionist, Provider will not purchase a phone number and will not configure a receptionist for Client, and the call-handling provisions of this Agreement do not apply. The fee is unchanged: the website-only arrangement is priced the same as the Starter plan, ${money(s.monthlyPrice)} per month or ${money(s.annualPrice)} per year. Client may activate the receptionist later at no additional onboarding charge.`,
+                        },
+                      ]
+                    : []),
                   {
                     kind: "para" as const,
                     text: "Client is responsible for completing the forwarding or publication step. Provider will supply instructions and assist on request, but cannot make the change on Client's behalf with Client's telephone carrier.",
@@ -216,7 +231,10 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: `Client agrees to pay the monthly fee of ${money(s.monthlyPrice)} for the ${s.name} plan, billed in advance on the first calendar day of each service month. The first month's fee is prorated from the date the site is deployed to its domain.`,
+              // v5.3: as Stripe actually bills — from the day of signing, then monthly on that
+              // day. The old "first calendar day of each service month", with a first month
+              // prorated from deployment, described a billing setup that never existed.
+              text: `Client agrees to pay the monthly fee of ${money(s.monthlyPrice)} for the ${s.name} plan, billed in advance. The first month's fee is charged at signing, and each later monthly fee is charged on the same day of the month as that first payment.`,
             },
             ...(s.onboardingFee > 0
               ? [
@@ -228,7 +246,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               : []),
             {
               kind: "para",
-              text: "Monthly fees are due for each service month regardless of how much Client engages with the Services, including months in which Client provides no content, requests no edits, or does not respond to Provider's requests.",
+              text: "Fees are due for each service month, or for each paid year on annual billing, regardless of how much Client engages with the Services, including months in which Client provides no content, requests no edits, or does not respond to Provider's requests.",
             },
           ],
         },
@@ -255,11 +273,15 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               : []),
             {
               kind: "para",
-              text: `Annual billing renews automatically for successive ${count(12)} month periods until cancelled. Client may cancel at any time. Cancellation takes effect at the end of the then-current paid year, and Provider will continue to deliver the Services until then.`,
+              text: `Annual billing renews automatically for successive ${count(12)} month periods until cancelled. Client may cancel at any time. Cancellation takes effect at the end of the then-current paid year, and Provider will continue to deliver the Services until then. Provider will email Client a reminder before each annual renewal.`,
             },
             {
               kind: "para",
               text: "Annual fees are non-refundable, including for any unused months remaining in the paid year when Client cancels.",
+            },
+            {
+              kind: "para",
+              text: "The monthly allowances in this Agreement and Schedule A, including content edits and call-minutes, apply to each month of the paid year, reset every month, and do not accumulate across the year.",
             },
           ],
         },
@@ -277,7 +299,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: "Provider will provide at least thirty (30) days written notice of any price increase. Client may cancel within that notice period without penalty if Client does not accept the new rate.",
+              text: "Provider will provide at least thirty (30) days written notice of any price increase. Client may cancel within that notice period without penalty if Client does not accept the new rate. On annual billing, a price increase takes effect only at Client's next annual renewal.",
             },
           ],
         },
@@ -414,7 +436,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               : [
                   {
                     kind: "para" as const,
-                    text: `The ${s.name} plan is a website-only plan. It does not include an AI receptionist, a dedicated business phone number, call recording, call transcription, or any call handling. Lead capture on the ${s.name} plan is by website form submission delivered to Client by email. Client may add the AI receptionist at any time at no additional onboarding charge.`,
+                    text: `The ${s.name} plan is a website-only plan. It does not include an AI receptionist, a dedicated business phone number, call recording, call transcription, or any call handling. Leads submitted through the website form are delivered to Client's inbox in the client portal. Client may add the AI receptionist at any time at no additional onboarding charge.`,
                   },
                 ]),
           ],
@@ -466,7 +488,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                 blocks: [
                   {
                     kind: "para" as const,
-                    text: `Call-minutes exceeding the monthly allotment are billed at ${perMinute(s.overagePerMinute)} per minute on the next monthly invoice. Provider may, as a courtesy, notify Client when usage reaches approximately 80% of the monthly allotment, but is under no contractual obligation to do so.`,
+                    text: `Call-minutes exceeding the monthly allotment are billed at ${perMinute(s.overagePerMinute)} per minute after each month closes: on monthly billing, on the next monthly invoice; on annual billing, on a separate invoice for that month. Provider may, as a courtesy, notify Client when usage reaches approximately 80% of the monthly allotment, but is under no contractual obligation to do so.`,
                   },
                 ],
               },
@@ -528,7 +550,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: "Client may request to permanently remove a site without replacement. Provider will decommission the site and its associated infrastructure on thirty (30) days' notice, but the monthly fee remains unchanged. The Enterprise fee is structured as a flat bundle, not a per-site fee.",
+              text: "Client may request to permanently remove a site without replacement. Provider will decommission the site and its associated infrastructure on thirty (30) days' notice, but the fee remains unchanged. The Enterprise fee is structured as a flat bundle, not a per-site fee.",
             },
           ],
         },
@@ -1213,7 +1235,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               kind: "bullets",
               items: [
                 "Fees already paid for the current billing period remain payable and are not refunded in part",
-                "Provider will continue the Services through the end of that paid month",
+                "Provider will continue the Services through the end of that paid period",
                 `Client's portal access is deactivated as described in Section ${ref("portal")}`,
                 ...(s.hasVoiceAgent ? [`Phone number disposition follows Section ${ref("phone")}`] : []),
                 `Data export follows the exit data package terms in Section ${ref("ip")}`,
@@ -1254,7 +1276,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               kind: "bullets",
               items: [
                 "Client notifies Provider in writing of the plan they wish to move to. No notice period applies",
-                "This Agreement terminates at the end of the current monthly billing cycle",
+                "This Agreement terminates on the change effective date: immediately for a change to a higher-priced plan, and at the end of the current billing period for a change to a lower-priced plan",
                 "Client will sign a new Service Agreement for the selected plan",
                 "The new Agreement will amend and restate this Agreement as of the change effective date",
                 "Any sites, phone numbers, or AI receptionists not covered under the new plan will be decommissioned",
@@ -1297,9 +1319,13 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
               items: [
                 "A change into a different plan carries that plan's one-time onboarding fee, as stated in that plan's Schedule A, because moving a client to a different plan means provisioning it",
                 "No onboarding fee applies where Client is already on the target plan's fee tier and no new provisioning is required. Provider will confirm in writing before charging one",
-                "Client's billing cycle resets to the new plan's pricing on the first day of the next monthly billing period after the change effective date",
-                "Any unused portion of the current month's fee is forfeited and is not credited or refunded toward the new plan",
-                `Adding the AI receptionist to a website-only arrangement carries no onboarding fee, as described in Section ${ref("onboarding")}`,
+                "A change to a higher-priced plan takes effect immediately, and Client is charged the difference between the two plans' prices for the remainder of the current billing period (the paid month on monthly billing, or the paid year on annual billing)",
+                "A change to a lower-priced plan takes effect at the end of the current billing period, and fees already paid for that period are not credited or refunded",
+                "Client's billing period, monthly or annual, carries over to the new plan unless Client asks to change it",
+                // Starter only, like the Section 2 paragraph it points at (v5.3).
+                ...(s.slug === "starter"
+                  ? [`Adding the AI receptionist to a website-only arrangement carries no onboarding fee, as described in Section ${ref("onboarding")}`]
+                  : []),
               ],
             },
           ],

@@ -97,6 +97,10 @@ export function validateAgreementSubmission(body) {
   // per-site choice is deferred to the onboarding form). The UI enforces this too; the server
   // must not trust it to.
   const needsPhoneChoice = !body.upgradeSlug && (body.plan === "starter" || body.plan === "growth");
+  // Optional: the cover states the period when it is known, and both prices when it is not.
+  if (body.billingPeriod && body.billingPeriod !== "monthly" && body.billingPeriod !== "annual") {
+    return "Invalid billing period";
+  }
   if (body.receptionistMode && !VALID_RECEPTIONIST_MODES.includes(body.receptionistMode)) {
     return "Invalid phone option";
   }

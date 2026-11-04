@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { getAddendumForPlan, getSchedule, getTermsForPlan, PROVIDER, WEB_ONLY_SCHEDULE } from "./legal";
 import { PdfDoc, renderSections } from "./legal/pdf-renderer";
+import { coverPrice } from "./legal/cover";
 import type {
   AgreementAcceptance,
   AgreementSubmission,
@@ -98,7 +99,7 @@ export async function generateSignedPdf(
   doc.text(`Effective Date: ${today}`, { size: 9.5, bold: true, after: 14 });
 
   doc.callout(
-    `PLAN SELECTED: ${schedule.name.toUpperCase()} — $${schedule.monthlyPrice.toLocaleString("en-US")} PER MONTH. ` +
+    `PLAN SELECTED: ${schedule.name.toUpperCase()} — ${coverPrice(schedule, submission.billingPeriod)}. ` +
       `THIS ${isAddendum ? "ADDENDUM" : "AGREEMENT"} COVERS ${schedule.siteLabel.toUpperCase()}. ` +
       `IF YOU INTENDED TO SIGN UP FOR A DIFFERENT PLAN, DO NOT SIGN THIS DOCUMENT — CONTACT PROVIDER FOR THE CORRECT ONE.`,
   );

@@ -1,7 +1,11 @@
 import { PROVIDER, TERMS_VERSION } from "./terms-v5";
 import type { PlanSchedule, Section } from "./types";
 
-export const ADDENDUM_VERSION = "addendum-v1";
+/**
+ * addendum-v2 (2026-11-04, with MSA v5.3): the plan line, billing and cancellation read
+ * correctly for annual prepay. The file keeps its v1 name so every import stays put.
+ */
+export const ADDENDUM_VERSION = "addendum-v2";
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 
@@ -94,7 +98,7 @@ export function buildAddendumSections(
           kind: "para",
           text:
             `This site is provided on the ${s.name} plan at ${money(s.monthlyPrice)} per ` +
-            `month, covering ${s.siteLabel}.` +
+            `month, or ${money(s.annualPrice)} per year on annual prepay, covering ${s.siteLabel}.` +
             // True for every tier since 2026-10-12, where previously only Starter reached it.
             (s.onboardingFee > 0
               ? ` A one-time onboarding fee of ${money(s.onboardingFee)} applies to this site and is charged when this Addendum is signed.`
@@ -111,8 +115,8 @@ export function buildAddendumSections(
               text:
                 "Fees for this site are billed to the Client's existing payment method on " +
                 "the same account, beginning on the date payment for this Addendum is " +
-                "captured, and recur monthly until cancelled under the Master Services " +
-                "Agreement.",
+                "captured, and recur monthly, or yearly on annual prepay, until cancelled " +
+                "under the Master Services Agreement.",
             },
             { kind: "table", rows: s.feeTable },
           ],
@@ -173,7 +177,8 @@ export function buildAddendumSections(
               // `cancellationNoticeDays`, which now renders as "0 days" and reads as nonsense.
               text:
                 `Either party may cancel this site at any time, effective at the end of the ` +
-                `then-current monthly billing cycle. No notice period applies and no ` +
+                `then-current billing period (the paid month, or the paid year on annual ` +
+                `prepay). No notice period applies and no ` +
                 `early-termination charge is payable. Cancelling this site does not cancel ` +
                 `any other site on the Client's account, and does not terminate the Master ` +
                 `Services Agreement.`,

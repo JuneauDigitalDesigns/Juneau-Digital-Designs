@@ -119,6 +119,7 @@ export async function POST(req: Request) {
     // rather than written as undefined when absent (Enterprise, upgrades, legacy links).
     ...(body.receptionistMode ? { receptionistMode: body.receptionistMode } : {}),
     ...(body.forwardingNumber ? { forwardingNumber: body.forwardingNumber.trim() } : {}),
+    ...(body.billingPeriod ? { billingPeriod: body.billingPeriod } : {}),
     pdfUrl,
     audit,
     acceptance,
