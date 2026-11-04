@@ -115,6 +115,23 @@ Two consequences worth knowing before you touch the palette:
   would need roughly `0.45` alpha. That is a visible weight change on every control in the
   portal, so it is **not** fixed here — it is a deliberate open item, not an oversight.
 
+### Three files mirror these tokens in literal hex
+
+Anything that renders through a React portal into `<body>` escapes `.portal-scope`, so a
+`var()` there would resolve against `:root` and come back wearing the agency cream and coral.
+Three files therefore hand-copy the portal values, and **a token change is not finished until
+all three are checked**:
+
+| File | Mirrors | Renders outside the scope because |
+|---|---|---|
+| `app/globals.css` → `.portal-scope` | the source of truth | — |
+| `app/portal/clerkAppearance.ts` | `--fg`, `--fg-3`, `--accent`, `--online` … | Clerk's `<UserButton/>` popover portals into `<body>` |
+| `app/components/portal/tour/tour-theme.css` | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--rule-strong` | driver.js popovers render into `<body>` |
+
+The tour file was missed on the first pass of the AA work and shipped the old `#767c85` on
+11px mono progress text for a while — the first screen a new client sees. `grep -rn "#767c85"`
+style sweeps over `app/` are the cheap way to catch the next one.
+
 **Charts fail silently.** `ui/chartTheme.ts` reads `--chart-series-1` through `-4` by name.
 Leave any of them undefined in the scope and the charts render agency teal and coral on
 white cards with nothing erroring. Same trap applies to `--glass-shadow`, `--leading-*`,
