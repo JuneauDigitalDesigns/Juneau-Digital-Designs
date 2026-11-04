@@ -77,7 +77,9 @@
   .viewport { aspect-ratio: 100 / 72; }
 }
 @media (max-width: 520px) {
-  .viewport { aspect-ratio: 100 / 105; }
+  /* Tall on a phone: the tour card needs its own band under the subject, and a short frame
+     would shrink the subject to make room. */
+  .viewport { aspect-ratio: 100 / 150; max-height: 78vh; }
 }
 
 /* Holds the window and, before the first play, the start button over it. */
@@ -115,11 +117,11 @@
 .reduced .canvas,
 .reduced .cursor { transition: none !important; }
 
-/* The fixed desktop portal the camera moves over. 1160 × 820 holds the rail, a 4-column board
+/* The fixed desktop portal the camera moves over. 1160 × 1060 holds the rail, a 4-column board
    and the two-column customer record without anything scrolling sideways. */
 .portal {
   width: 1160px;
-  height: 820px;
+  height: 1060px;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
   position: relative;
@@ -279,40 +281,133 @@
 .cursor[data-click="true"] .ring { animation: ring 0.5s ease-out; }
 
 /* ── caption and controls (marketing tokens) ────────────────── */
-/* The narration under the window. Centred under a full-width film, and its height held from
-   the start so the page does not move when the first line arrives. */
-.caption {
-  min-height: 84px;
-  max-width: 64ch;
-  margin: 0 auto;
-  text-align: center;
+/* ── the tour card ──────────────────────────────────────────────
+   The portal's first-run tour, redrawn: driver.js's dim-with-a-cutout spotlight and its
+   popover, themed as `portal/tour/tour-theme.css` themes it. Literal portal values for the
+   same reason that file uses them: this sits outside `.portal-scope`. */
+
+/* Exactly over the window's viewport, clipping the spotlight's dim to it. */
+.tourLayer {
+  position: absolute;
+  z-index: 3;
+  overflow: hidden;
+  pointer-events: none;
 }
-.line {
-  margin: 0;
+.spot {
+  position: absolute;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(13, 17, 23, 0.42);
+  outline: 2px solid rgba(37, 99, 235, 0.55);
+  outline-offset: 0;
+  animation: tourIn 0.35s ease both;
+}
+.pop {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 320px;
+  padding: 18px 18px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0d1117;
+  box-shadow: 0 1px 2px rgba(13, 17, 23, 0.05), 0 12px 32px -8px rgba(13, 17, 23, 0.32);
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  text-align: left;
+  pointer-events: auto;
+  animation: tourIn 0.35s 0.1s ease both;
+}
+@keyframes tourIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* The arrow points at the subject: up from below it, down from above it. */
+.pop::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--ax, 24px) - 6px);
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  transform: rotate(45deg);
+}
+.pop[data-side="below"]::before { top: -6px; }
+.pop[data-side="above"]::before { bottom: -6px; }
+.pop[data-side="over"]::before { display: none; }
+.popTitle {
+  margin: 0 0 6px;
+  font-family: var(--font-cabinet), "Cabinet Grotesk", "Inter", system-ui, sans-serif;
   font-size: 18px;
-  line-height: 1.45;
-  color: var(--fg);
+  font-weight: 800;
+  line-height: 1.2;
+  color: #0d1117;
 }
-/* The dashed ring is the same signal the old static preview used for the two carrier-gated
-   actions: switched off for now, not missing. */
-/* Inline rather than flex: centred text that wraps must keep the dot beside its first word,
-   not stranded at the left edge of the box. */
-.gate {
-  margin: 8px 0 0;
+.popBody {
+  margin: 0;
   font-size: 14px;
-  line-height: 1.45;
-  color: var(--fg-2);
+  line-height: 1.55;
+  color: #4a5058;
 }
-.gate::before {
+/* The carrier line, under the caption on the two steps that wait on it. */
+.popGate {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #767c85;
+}
+.popGate::before {
   content: "";
   display: inline-block;
   width: 7px;
   height: 7px;
-  margin-right: 8px;
+  margin-right: 7px;
   vertical-align: 1px;
   border-radius: 50%;
-  border: 1.5px dashed var(--accent-2);
+  border: 1.5px dashed #d97706;
 }
+.popFoot {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.popCount {
+  font-family: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
+  font-size: 11px;
+  color: #767c85;
+}
+.popNext {
+  min-height: 32px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.popNext:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.popNext:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+/* How long until the film moves on by itself. Only while playing. */
+.popTimer {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(37, 99, 235, 0.35);
+  transform-origin: left center;
+  animation: popTimer linear forwards;
+}
+@keyframes popTimer {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.reduced .spot,
+.reduced .pop { animation: none; }
 
 .controls { display: flex; gap: 8px; align-items: stretch; }
 .play {
@@ -368,6 +463,8 @@
 .bar[data-state="full"] { width: 100%; }
 @keyframes fill { from { width: 0; } to { width: 100%; } }
 .bar[data-state="running"] { animation: fill linear forwards; }
+/* A tour card is up: the step waits, so its bar does too. */
+.bar[data-held="true"] { animation-play-state: paused; }
 @media (max-width: 520px) {
   .stepName { display: none; }
   .step { text-align: center; }
