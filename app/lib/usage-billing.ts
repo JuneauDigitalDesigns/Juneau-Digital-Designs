@@ -178,12 +178,12 @@ async function processGroup(
   if (!current) {
     // Between windows (a period boundary): nothing to warn about until the next month opens.
   } else if (pct >= 1.0 && !warnFlags.sent100) {
-    await sendUsageWarning(email, "100pct", secondsUsed, cap, groupLabel);
+    await sendUsageWarning(email, "100pct", secondsUsed, cap, groupLabel, current.endMs);
     await getRedis().set(warnKey, { sent80: true, sent100: true });
     warned80 = true;
     warned100 = true;
   } else if (pct >= 0.8 && !warnFlags.sent80) {
-    await sendUsageWarning(email, "80pct", secondsUsed, cap, groupLabel);
+    await sendUsageWarning(email, "80pct", secondsUsed, cap, groupLabel, current.endMs);
     await getRedis().set(warnKey, { ...warnFlags, sent80: true });
     warned80 = true;
   }
@@ -231,10 +231,14 @@ async function processGroup(
 
       if (amount > 0) {
         const description = `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`;
-        if (interval === "year") {
+        if (interval === "year" || subscription.status === "canceled") {
           // An annual subscription's next invoice is its renewal, up to a year away, so a
           // pending item attached to it would collect this month's overage next year. Annual
           // overage is invoiced monthly on its own invoice (approved 2026-11-04).
+          //
+          // A cancelled subscription has no next invoice at all. Its final month only closes
+          // once it has ended, so that month's overage goes on its own invoice too, rather than
+          // on an invoice item for a subscription Stripe will never bill again.
           await invoiceOverageNow({ customerId, subscription, amount, description });
         } else {
           await stripe.invoiceItems.create({
@@ -319,7 +323,19 @@ async function sendUsageWarning(
    * name they are indistinguishable and neither is actionable.
    */
   groupLabel: string,
+  /**
+   * When this month's allowance ends and the next one starts, epoch ms. The email used to say
+   * minutes reset at the start of the next billing period, which on annual billing reads as next
+   * year; allowances are monthly on both periods (contract v5.3 §3).
+   */
+  resetAt: number,
 ): Promise<void> {
+  const resetDate = new Date(resetAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.warn("[usage-billing] RESEND_API_KEY not set — skipping warning email to", email);
@@ -346,21 +362,21 @@ async function sendUsageWarning(
 
   const bodyHtml = is100
     ? `<p style="color:${EMAIL.fg3};font-size:15px;line-height:1.6;margin:0 0 18px;">
-        <strong>${groupLabel}</strong> has used <strong>${usedLabel} of ${minutesCap.toLocaleString()} included call-minutes</strong> this billing period.
+        <strong>${groupLabel}</strong> has used <strong>${usedLabel} of ${minutesCap.toLocaleString()} included call-minutes</strong> this month.
         Additional usage is charged at <strong>$0.20 per minute</strong> and will appear on your next invoice.
         The current projected overage is <strong>${overageLabel} ($${overageCost})</strong>.
       </p>
       <p style="color:${EMAIL.fg3};font-size:14px;margin:0;">
-        Your included minutes reset at the start of your next billing period.
+        Your included minutes reset on ${resetDate}.
         If you expect to consistently exceed your limit, reply to this email to discuss your options.
       </p>`
     : `<p style="color:${EMAIL.fg3};font-size:15px;line-height:1.6;margin:0 0 18px;">
-        <strong>${groupLabel}</strong> has used <strong>${usedLabel} of ${minutesCap.toLocaleString()} included call-minutes</strong> this billing period,
+        <strong>${groupLabel}</strong> has used <strong>${usedLabel} of ${minutesCap.toLocaleString()} included call-minutes</strong> this month,
         with <strong>${remaining}</strong> remaining before overage charges apply.
         Additional minutes are billed at <strong>$0.20/min</strong> on your next invoice.
       </p>
       <p style="color:${EMAIL.fg3};font-size:14px;margin:0;">
-        Your included minutes reset at the start of your next billing period.
+        Your included minutes reset on ${resetDate}.
         Reply to this email with any questions.
       </p>`;
 
