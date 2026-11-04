@@ -81,6 +81,11 @@ export async function claimAgreementSlot(k: string, id: string): Promise<string 
   return null;
 }
 
+/** Which agreement holds the slot, without claiming it. */
+export async function peekAgreementSlot(k: string): Promise<string | null> {
+  return getRedis().get<string>(idemKey(k));
+}
+
 /** Take the slot over unconditionally, when its holder was paid for or never got saved. */
 export async function takeAgreementSlot(k: string, id: string): Promise<void> {
   await getRedis().set(idemKey(k), id, { ex: IDEMPOTENCY_TTL_SECONDS });

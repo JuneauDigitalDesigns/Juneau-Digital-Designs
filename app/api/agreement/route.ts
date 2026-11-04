@@ -10,6 +10,7 @@ import {
   agreementIsPaid,
   claimAgreementSlot,
   getAgreement,
+  peekAgreementSlot,
   releaseAgreementSlot,
   saveAgreement,
   takeAgreementSlot,
@@ -133,7 +134,7 @@ export async function POST(req: Request) {
   });
   let prior: AgreementRecord | null;
   try {
-    prior = await priorAcceptance(idempotencyKey, id);
+    prior = (await unpaidMasterRepeated(account, body)) ?? (await priorAcceptance(idempotencyKey, id));
   } catch (e) {
     console.error("[/api/agreement] idempotency check failed", e);
     return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
@@ -291,6 +292,42 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
+}
+
+/**
+ * The unpaid master an addendum repeats, if it does.
+ *
+ * The master is recorded on the account when it is signed, not when it is paid. A client whose
+ * checkout failed and who comes back through `/pricing` is therefore offered the short addendum
+ * against that master, for the purchase the master was signed for. Filing it would give them a
+ * second agreement and a second email for one purchase: the duplicate from the 2026-11-04
+ * Stripe test run (F2).
+ *
+ * So an addendum whose parent is this account's master, while that master is still unpaid, is
+ * checked against the master as if the master had been signed again. Same plan, same details,
+ * same phone choice and opt-in: the master is returned, and checkout takes it, since a master
+ * authorises a purchase of its own plan. Anything different, or a master that has been paid
+ * for, means a genuine addendum, and the ordinary path files it.
+ *
+ * Read-only: it looks at the master's slot and claims nothing, so an addendum can never take
+ * over the slot a master signing will look for later.
+ */
+async function unpaidMasterRepeated(
+  account: { email: string; masterAgreement?: MasterAgreementRef | null },
+  body: AgreementSubmission,
+): Promise<AgreementRecord | null> {
+  const master = account.masterAgreement;
+  if (body.kind !== "addendum" || !master?.agreementId) return null;
+  if (body.parentAgreementId !== master.agreementId) return null;
+  if (await agreementIsPaid(master.agreementId)) return null;
+
+  const asMaster: AgreementSubmission = { ...body, kind: undefined, parentAgreementId: undefined };
+  const masterKey = agreementIdempotencyKey(account.email, asMaster, {
+    version: master.version,
+    termsHash: hashTermsForPlan(body.plan, { webOnly: isWebOnlyMaster(asMaster) }),
+  });
+  if ((await peekAgreementSlot(masterKey)) !== master.agreementId) return null;
+  return getAgreement(master.agreementId);
 }
 
 /**
