@@ -40,6 +40,14 @@ export interface InboxItem {
     at: string | null;
     read: boolean;
     promoted: boolean;
+    /**
+     * Put away by the client, and out of the worklist until they restore it.
+     *
+     * Portal-side state for both sources, including calls: the row a call comes from is the
+     * client's own Airtable log and is not ours to change, so archiving hides it here and
+     * leaves the log alone.
+     */
+    archived: boolean;
     durationSeconds: number | null;
     recordingUrl: string | null;
     /**
@@ -104,11 +112,13 @@ export function buildInbox({
     calls,
     leads = [],
     promoted = new Set<string>(),
+    archived = new Set<string>(),
     readCallIds = new Set<string>(),
 }: {
     calls: CallRecord[];
     leads?: WebLeadLike[];
     promoted?: Set<string>;
+    archived?: Set<string>;
     readCallIds?: Set<string>;
 }): InboxItem[] {
     // Index leads by number so pairing only ever considers rows that share a contact identity.
@@ -185,6 +195,7 @@ export function buildInbox({
             at: lead.createdAt,
             read: lead.readAt !== null,
             promoted: promoted.has(id),
+            archived: archived.has(id),
             durationSeconds: null,
             recordingUrl: null,
             address: null,
@@ -215,6 +226,7 @@ export function buildInbox({
             at: call.date,
             read: readCallIds.has(call.id),
             promoted: promoted.has(call.id),
+            archived: archived.has(call.id),
             durationSeconds: call.durationSeconds,
             recordingUrl: call.recordingUrl,
             address: call.address,
@@ -229,7 +241,7 @@ export function buildInbox({
 
 /* ── what the inbox shows ─────────────────────────────────────────────────── */
 
-export type InboxFilter = "all" | "unread" | "calls" | "forms" | "promoted";
+export type InboxFilter = "all" | "unread" | "calls" | "forms" | "promoted" | "archived";
 
 /**
  * The inbox is a worklist, so a promoted lead leaves it.
@@ -250,10 +262,15 @@ export function filterInbox(
 ): InboxItem[] {
     const q = search.trim().toLowerCase();
     return items.filter((i) => {
+        // Two views of what has left the worklist, and four slices of what is still in it.
+        // Promoted wins over archived when an item is somehow both, because "it became a
+        // customer" is the more useful thing to be told.
         if (filter === "promoted") {
             if (!i.promoted) return false;
+        } else if (filter === "archived") {
+            if (!i.archived || i.promoted) return false;
         } else {
-            if (i.promoted) return false;
+            if (i.promoted || i.archived) return false;
             if (filter === "unread" && i.read) return false;
             if (filter === "calls" && i.source !== "call") return false;
             if (filter === "forms" && i.source !== "web-form") return false;
@@ -406,4 +423,115 @@ export function classifyDeepLink(
  */
 export function isDeepLinkId(id: string): boolean {
     return /^lead:[A-Za-z0-9_-]{1,64}$/.test(id) || /^rec[A-Za-z0-9]{14}$/.test(id);
+}
+
+/* ── one person, one row ──────────────────────────────────────────────────── */
+
+/**
+ * An inbox row: usually one item, sometimes every call one person made.
+ *
+ * `lead` is the item the row renders — the newest — and `items` holds the whole run, newest
+ * first, so opening the row can list each call with its own time, length, summary and recording.
+ * Nothing is merged away; the grouping is a way of reading the list, not a change to it.
+ */
+export interface InboxGroup {
+    /** `contact:<e164>` for a real group, otherwise the single item's own id. Stable per view. */
+    id: string;
+    /** E.164 when these rows are grouped on a number; null for a row that could not group. */
+    contact: string | null;
+    lead: InboxItem;
+    items: InboxItem[];
+    /** `items.length`. A row is drawn as a group only when this is above one. */
+    count: number;
+    /** Any member unread — one unopened call in a run still wants the client's attention. */
+    unread: boolean;
+    at: string | null;
+}
+
+/**
+ * Collapse repeat callers into one row.
+ *
+ * A person who rings three times is one person with one problem, and three rows of them is the
+ * crowding this was asked for. The key is `normalizeE164(phone)`, which is already the contact
+ * identity the CRM groups on — `portal-leads.ts` calls it "deliberate and load-bearing" and says
+ * not to invent a second one — so a grouped row and the customer it would be promoted to resolve
+ * to the same person by construction.
+ *
+ * **Apply this after filtering, never before.** Grouping the filtered list is what makes the
+ * archived view accumulate: archive three calls today and a fourth next week, and the archived
+ * view shows one row of four, because it groups whatever that view holds. Grouping first and
+ * filtering after would split the same number across two rows.
+ *
+ * Only calls group. A web enquiry stays its own row: on Starter it is a different channel with
+ * different content, and on Growth it never reaches the inbox at all — the form triggers a
+ * receptionist callback, so the enquiry arrives as the resulting call. A call with no usable
+ * number cannot be grouped either, which is most of what a client actually wants rid of:
+ * withheld and spoofed numbers are each their own row, cleared by hand.
+ */
+export function groupInbox(items: InboxItem[]): InboxGroup[] {
+    const byContact = new Map<string, InboxItem[]>();
+    const groups: InboxGroup[] = [];
+
+    /** Placeholders in `groups`, so a group keeps the position of its newest member. */
+    const slotFor = new Map<string, number>();
+
+    for (const item of items) {
+        const key = item.source === "call" && item.phone ? item.phone : null;
+        if (!key) {
+            groups.push(singleton(item));
+            continue;
+        }
+        const run = byContact.get(key);
+        if (run) {
+            run.push(item);
+            continue;
+        }
+        byContact.set(key, [item]);
+        slotFor.set(key, groups.length);
+        // Reserved now and filled in below, once the whole run is known.
+        groups.push(singleton(item));
+    }
+
+    for (const [e164, run] of byContact) {
+        const slot = slotFor.get(e164) ?? 0;
+        // `items` arrives newest first, so the run is already in order and its head is the row.
+        groups[slot] = {
+            id: `contact:${e164}`,
+            contact: e164,
+            lead: run[0],
+            items: run,
+            count: run.length,
+            unread: run.some((i) => !i.read),
+            at: run[0].at,
+        };
+    }
+
+    return groups;
+}
+
+function singleton(item: InboxItem): InboxGroup {
+    return {
+        id: item.id,
+        contact: item.source === "call" ? item.phone : null,
+        lead: item,
+        items: [item],
+        count: 1,
+        unread: !item.read,
+        at: item.at,
+    };
+}
+
+/** Every item id a row stands for — what an archive or restore acts on. */
+export function groupItemIds(group: InboxGroup): string[] {
+    return group.items.map((i) => i.id);
+}
+
+/** The row holding a given item, for opening a deep link on the grouped list. */
+export function groupForItem(groups: InboxGroup[], id: string | null): InboxGroup | null {
+    if (!id) return null;
+    return (
+        groups.find((g) => g.items.some((i) => i.id === id)) ??
+        groups.find((g) => g.items.some((i) => i.callback?.id === id)) ??
+        null
+    );
 }

@@ -2,7 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Envelope, MagnifyingGlass, PhoneCall, Plus } from "@phosphor-icons/react";
+import {
+    Archive,
+    ArrowCounterClockwise,
+    CaretDown,
+    CaretUp,
+    Envelope,
+    MagnifyingGlass,
+    PhoneCall,
+    Plus,
+    Trash,
+} from "@phosphor-icons/react";
 import type { PortalSiteProps } from "@/app/portal/types";
 import { SectionHeader, Card, CardLabel } from "./ui/Card";
 import { FeatureState, FeatureError } from "./ui/FeatureState";
@@ -12,9 +22,13 @@ import { freshness } from "./ui/format";
 import { duration } from "@/app/lib/duration";
 import {
     filterInbox,
+    groupForItem,
+    groupInbox,
+    groupItemIds,
     inboxItemForDeepLink,
     promotionInput,
     type InboxFilter,
+    type InboxGroup,
     type InboxItem,
 } from "@/app/lib/crm-contacts";
 
@@ -38,7 +52,7 @@ interface InboxData {
  * `promoted` is a view of what has already left, not another slice of the worklist — see
  * `filterInbox`, which owns the rule that the other four hide promoted leads entirely.
  */
-const FILTERS = ["all", "unread", "calls", "forms", "promoted"] as const;
+const FILTERS = ["all", "unread", "calls", "forms", "promoted", "archived"] as const;
 
 /** Compact relative time — the list has one column of room for it. */
 function shortAgo(iso: string | null): string {
@@ -77,6 +91,18 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const [openId, setOpenId] = useState<string | null>(params.get("open"));
     const [promoting, setPromoting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    /** Which grouped rows are showing their individual calls. Keyed by group id. */
+    const [expanded, setExpanded] = useState<Set<string>>(new Set());
+    /**
+     * Archive state applied before the server has caught up.
+     *
+     * The row has to leave the instant it is archived — waiting on a round trip to put
+     * something away feels like the click missed. Reverted if the write fails.
+     */
+    const [pending, setPending] = useState<Record<string, boolean>>({});
+    const [undo, setUndo] = useState<{ ids: string[]; label: string } | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<InboxItem | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const { data, isLoading, fetchedAt, refresh } = useCachedFetch<InboxData>(
         `inbox:${site.slug}`,
@@ -100,8 +126,34 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
         setParam("open", id ?? "");
     };
 
-    const all = useMemo(() => data?.items ?? [], [data]);
+    const all = useMemo(() => {
+        const base = data?.items ?? [];
+        const keys = Object.keys(pending);
+        if (keys.length === 0) return base;
+        return base.map((i) => (i.id in pending ? { ...i, archived: pending[i.id] } : i));
+    }, [data, pending]);
+
+    /**
+     * Filter, then group — never the other way round.
+     *
+     * Grouping what the current view holds is what lets the archived view accumulate: archive
+     * three calls today and a fourth next week and it reads as one row of four, because the
+     * archived view groups the archived items. Grouping first would split that number across
+     * two rows the moment one of its calls was put away.
+     */
     const items = useMemo(() => filterInbox(all, filter, search), [all, filter, search]);
+    const groups = useMemo(() => groupInbox(items), [items]);
+
+    /**
+     * The row a deep link landed in, when the link named something other than its newest call.
+     *
+     * An owner's text points at one particular call. If that call is the third in a run, the
+     * row above the drawer shows the *newest* one, and closing the drawer would leave them
+     * looking at a summary they never asked about. Expanding that row shows where the call
+     * they tapped actually sits. Derived rather than stored, so it collapses again on close.
+     */
+    const linked = openId ? groupForItem(groups, openId) : null;
+    const linkedRun = linked && linked.count > 1 && linked.lead.id !== openId ? linked.id : null;
 
     /**
      * Resolves a nested callback to the enquiry it was folded into, so a link to the call the
@@ -113,10 +165,93 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
      * sends promoted ids to the customer record anyway; this is the direct-link case.
      */
     const open = inboxItemForDeepLink(all, openId);
-    // Both counts are of the worklist, so neither includes what has been promoted away.
-    const working = useMemo(() => all.filter((i) => !i.promoted), [all]);
+    // Every count is of the worklist, so none includes what has left it.
+    const working = useMemo(() => all.filter((i) => !i.promoted && !i.archived), [all]);
     const unreadCount = working.filter((i) => !i.read).length;
-    const promotedCount = all.length - working.length;
+    const promotedCount = all.filter((i) => i.promoted).length;
+    const archivedCount = all.filter((i) => i.archived && !i.promoted).length;
+    const viewingArchive = filter === "archived";
+
+    /**
+     * Put a row away, or bring it back.
+     *
+     * Takes every id the row stands for, because a grouped row is one person's whole run of
+     * calls and archiving it has to be one action and one undo. Archiving records the ids that
+     * exist now rather than the number: the next call from someone who rang three times last
+     * week is new work, not something already dealt with.
+     */
+    async function archiveIds(ids: string[], archived: boolean, label: string) {
+        if (ids.length === 0) return;
+        setError(null);
+        setPending((p) => ({ ...p, ...Object.fromEntries(ids.map((id) => [id, archived])) }));
+        setUndo(archived ? { ids, label } : null);
+
+        const res = await fetch(
+            `/api/portal/inbox/archive?site=${encodeURIComponent(site.slug)}`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids, archived }),
+            },
+        ).catch(() => null);
+
+        if (!res?.ok) {
+            setPending((p) => {
+                const next = { ...p };
+                for (const id of ids) delete next[id];
+                return next;
+            });
+            setUndo(null);
+            setError(
+                archived
+                    ? "We couldn't put that away. Please try again."
+                    : "We couldn't bring that back. Please try again.",
+            );
+            return;
+        }
+        refresh();
+    }
+
+    async function deleteLead(item: InboxItem) {
+        setDeleting(true);
+        setError(null);
+        try {
+            const res = await fetch(
+                `/api/portal/inbox/delete?site=${encodeURIComponent(site.slug)}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id: item.id }),
+                },
+            );
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setError(json?.error ?? "We couldn't delete that. Please try again.");
+                return;
+            }
+            setConfirmDelete(null);
+            refresh();
+        } catch {
+            setError("We couldn't delete that. Please try again.");
+        } finally {
+            setDeleting(false);
+        }
+    }
+
+    function toggleGroup(id: string) {
+        setExpanded((s) => {
+            const n = new Set(s);
+            if (n.has(id)) n.delete(id);
+            else n.add(id);
+            return n;
+        });
+    }
+
+    /** "3 calls from Dale Whitcombe", or just the name — what the undo toast says. */
+    function groupLabel(g: InboxGroup): string {
+        const who = g.lead.name ?? g.lead.phoneDisplay;
+        return g.count > 1 ? `${g.count} calls from ${who}` : who;
+    }
 
     async function promote() {
         if (!open) return;
@@ -211,6 +346,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                         // Nothing has been promoted yet: the tab would only ever open an empty
                         // list, and on a new account it is a word the client has no use for.
                         if (f === "promoted" && promotedCount === 0) return null;
+                        if (f === "archived" && archivedCount === 0) return null;
                         return (
                             <button
                                 key={f}
@@ -225,7 +361,11 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                                     color: filter === f ? "var(--on-accent)" : "var(--fg-3)",
                                 }}
                             >
-                                {f === "promoted" ? `promoted · ${promotedCount}` : f}
+                                {f === "promoted"
+                                    ? `promoted · ${promotedCount}`
+                                    : f === "archived"
+                                      ? `archived · ${archivedCount}`
+                                      : f}
                             </button>
                         );
                     })}
@@ -252,70 +392,253 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 </p>
             )}
 
-            <Card density="none" className="overflow-hidden" data-tour="inbox-list">
-                {items.map((item, i) => (
+            {undo && (
+                <div
+                    role="status"
+                    className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm max-w-md"
+                    style={{ background: "var(--fg)", color: "var(--elev-1)" }}
+                >
+                    <span className="min-w-0 truncate">Archived {undo.label}.</span>
                     <button
-                        key={item.id}
                         type="button"
-                        onClick={() => openItem(item.id)}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left cursor-pointer transition-colors"
-                        style={{
-                            borderTop: i === 0 ? undefined : "1px solid var(--rule)",
-                            background: item.read ? undefined : "rgba(37,99,235,0.025)",
-                        }}
+                        onClick={() => archiveIds(undo.ids, false, undo.label)}
+                        className="ml-auto shrink-0 font-semibold underline underline-offset-2 cursor-pointer"
+                        style={{ color: "#9dc0ff" }}
                     >
-                        <span
-                            className="shrink-0 rounded-full"
-                            style={{
-                                width: 7,
-                                height: 7,
-                                background: item.read ? "transparent" : "var(--accent)",
-                            }}
-                            aria-hidden="true"
-                        />
-                        <span
-                            className="shrink-0 w-[30px] h-[30px] rounded-lg flex items-center justify-center"
-                            style={{
-                                background:
-                                    item.source === "web-form"
-                                        ? "rgba(37,99,235,0.1)"
-                                        : "var(--surface)",
-                                color: item.source === "web-form" ? "var(--accent)" : "var(--fg-3)",
-                            }}
-                        >
-                            {item.source === "web-form" ? <Envelope size={15} /> : <PhoneCall size={15} />}
-                        </span>
-                        <span
-                            className="shrink-0 w-[132px] truncate text-sm"
-                            style={{
-                                color: item.name ? "var(--fg)" : "var(--fg-3)",
-                                fontWeight: item.read ? 600 : 700,
-                            }}
-                        >
-                            {item.name ?? "Unknown caller"}
-                        </span>
-                        <span
-                            className="flex-1 min-w-0 truncate text-[13px]"
-                            style={{ color: item.read ? "var(--fg-3)" : "var(--fg-2)" }}
-                        >
-                            {item.preview ?? "No message"}
-                        </span>
-                        <span className="shrink-0 flex gap-1.5">
-                            <Tag>{item.source === "web-form" ? "Web form" : `Call · ${duration(item.durationSeconds) ?? "—"}`}</Tag>
-                            {item.callback && <Tag tone="pos">☎ {duration(item.callback.durationSeconds) ?? "—"}</Tag>}
-                            {item.promoted && <Tag tone="pos">✓ Promoted</Tag>}
-                        </span>
-                        <span
-                            className="shrink-0 w-[72px] text-right text-xs"
-                            style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}
-                        >
-                            {shortAgo(item.at)}
-                        </span>
+                        Undo
                     </button>
-                ))}
-                {items.length === 0 && (
+                </div>
+            )}
+
+            <Card density="none" className="overflow-hidden" data-tour="inbox-list">
+                {groups.map((g, i) => {
+                    const item = g.lead;
+                    const isOpen = expanded.has(g.id) || g.id === linkedRun;
+                    const ids = groupItemIds(g);
+                    return (
+                        <div
+                            key={g.id}
+                            style={{ borderTop: i === 0 ? undefined : "1px solid var(--rule)" }}
+                        >
+                            <div
+                                className="flex items-center"
+                                style={{ background: g.unread ? "rgba(37,99,235,0.025)" : undefined }}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => openItem(item.id)}
+                                    className="flex-1 min-w-0 flex flex-wrap md:flex-nowrap items-center gap-x-3 gap-y-1 px-4 py-3.5 text-left cursor-pointer transition-colors"
+                                >
+                                    <span
+                                        className="shrink-0 rounded-full"
+                                        style={{
+                                            width: 7,
+                                            height: 7,
+                                            background: g.unread ? "var(--accent)" : "transparent",
+                                        }}
+                                        aria-hidden="true"
+                                    />
+                                    <span
+                                        className="shrink-0 w-[30px] h-[30px] rounded-lg flex items-center justify-center"
+                                        style={{
+                                            background:
+                                                item.source === "web-form"
+                                                    ? "rgba(37,99,235,0.1)"
+                                                    : "var(--surface)",
+                                            color:
+                                                item.source === "web-form"
+                                                    ? "var(--accent)"
+                                                    : "var(--fg-3)",
+                                        }}
+                                    >
+                                        {item.source === "web-form" ? (
+                                            <Envelope size={15} />
+                                        ) : (
+                                            <PhoneCall size={15} />
+                                        )}
+                                    </span>
+                                    <span
+                                        className="shrink-0 max-w-[132px] truncate text-sm"
+                                        style={{
+                                            color: item.name ? "var(--fg)" : "var(--fg-3)",
+                                            fontWeight: g.unread ? 700 : 600,
+                                        }}
+                                    >
+                                        {item.name ?? "Unknown caller"}
+                                    </span>
+                                    {/* The count is what makes a row a group. Only shown when
+                                        there is more than one, so a single call reads exactly
+                                        as it did before. */}
+                                    {g.count > 1 && (
+                                        <span
+                                            className="shrink-0 text-[10.5px] px-2 py-0.5 rounded-full whitespace-nowrap"
+                                            style={{
+                                                fontFamily: "var(--font-mono)",
+                                                background: "rgba(22,163,74,0.12)",
+                                                color: "var(--chart-pos)",
+                                            }}
+                                        >
+                                            {g.count} calls
+                                        </span>
+                                    )}
+                                    {/* On a phone the name, the count and the time already fill
+                                        the line, and a message squeezed into what is left reads
+                                        as one or two characters. It wraps to its own line below
+                                        them instead, and sits inline again from `md` up. */}
+                                    <span
+                                        className="basis-full order-last pl-10 truncate text-[13px] md:basis-0 md:flex-1 md:order-none md:pl-0 min-w-0"
+                                        style={{ color: g.unread ? "var(--fg-2)" : "var(--fg-3)" }}
+                                    >
+                                        {item.preview ?? "No message"}
+                                    </span>
+                                    <span className="shrink-0 hidden md:flex gap-1.5">
+                                        {g.count === 1 && (
+                                            <Tag>
+                                                {item.source === "web-form"
+                                                    ? "Web form"
+                                                    : `Call · ${duration(item.durationSeconds) ?? "—"}`}
+                                            </Tag>
+                                        )}
+                                        {item.callback && (
+                                            <Tag tone="pos">
+                                                ☎ {duration(item.callback.durationSeconds) ?? "—"}
+                                            </Tag>
+                                        )}
+                                        {item.promoted && <Tag tone="pos">✓ Promoted</Tag>}
+                                    </span>
+                                    <span
+                                        className="shrink-0 w-[72px] text-right text-xs"
+                                        style={{
+                                            fontFamily: "var(--font-mono)",
+                                            color: "var(--fg-3)",
+                                        }}
+                                    >
+                                        {shortAgo(g.at)}
+                                    </span>
+                                </button>
+
+                                <span className="shrink-0 flex items-center gap-1 pr-3 pl-1">
+                                    {viewingArchive ? (
+                                        <>
+                                            <RowButton
+                                                label="Restore"
+                                                onClick={() =>
+                                                    archiveIds(ids, false, groupLabel(g))
+                                                }
+                                            >
+                                                <ArrowCounterClockwise size={14} />
+                                            </RowButton>
+                                            {/* Only a web enquiry is ours to destroy. A call is
+                                                a row in the client's own Airtable log with a
+                                                recording on it. */}
+                                            {item.source === "web-form" ? (
+                                                <RowButton
+                                                    label="Delete"
+                                                    danger
+                                                    onClick={() => setConfirmDelete(item)}
+                                                >
+                                                    <Trash size={14} />
+                                                </RowButton>
+                                            ) : (
+                                                <span
+                                                    className="hidden lg:inline text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
+                                                    style={{
+                                                        fontFamily: "var(--font-mono)",
+                                                        background: "var(--surface)",
+                                                        color: "var(--fg-3)",
+                                                    }}
+                                                >
+                                                    stays in your call log
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <RowButton
+                                            label={g.count > 1 ? `Archive all ${g.count}` : "Archive"}
+                                            onClick={() => archiveIds(ids, true, groupLabel(g))}
+                                        >
+                                            <Archive size={14} />
+                                        </RowButton>
+                                    )}
+                                    {g.count > 1 && (
+                                        <RowButton
+                                            label={isOpen ? "Hide calls" : `Show all ${g.count} calls`}
+                                            onClick={() => toggleGroup(g.id)}
+                                        >
+                                            {isOpen ? <CaretUp size={14} /> : <CaretDown size={14} />}
+                                        </RowButton>
+                                    )}
+                                </span>
+                            </div>
+
+                            {/* Each call keeps its own time, length and summary. Nothing is
+                                merged away; the row is a way of reading the list. */}
+                            {isOpen &&
+                                g.items.map((sub) => (
+                                    <div
+                                        key={sub.id}
+                                        className="flex items-center gap-3 py-2.5 pr-3 pl-6 md:pl-14"
+                                        style={{
+                                            background: "var(--bg)",
+                                            borderTop: "1px solid var(--rule-weak)",
+                                        }}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => openItem(sub.id)}
+                                            className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer"
+                                        >
+                                            <span
+                                                className="shrink-0 text-[10.5px] w-[108px]"
+                                                style={{
+                                                    fontFamily: "var(--font-mono)",
+                                                    color: "var(--fg-3)",
+                                                }}
+                                            >
+                                                {shortAgo(sub.at)}
+                                            </span>
+                                            <span
+                                                className="shrink-0 text-[10.5px] w-[52px]"
+                                                style={{
+                                                    fontFamily: "var(--font-mono)",
+                                                    color: "var(--fg-3)",
+                                                }}
+                                            >
+                                                {duration(sub.durationSeconds) ?? "—"}
+                                            </span>
+                                            <span
+                                                className="flex-1 min-w-0 truncate text-[12.5px]"
+                                                style={{ color: "var(--fg-2)" }}
+                                            >
+                                                {sub.preview ?? "No message"}
+                                            </span>
+                                        </button>
+                                        <RowButton
+                                            label={viewingArchive ? "Restore this call" : "Archive this call"}
+                                            onClick={() =>
+                                                archiveIds(
+                                                    [sub.id],
+                                                    !viewingArchive,
+                                                    sub.name ?? sub.phoneDisplay,
+                                                )
+                                            }
+                                        >
+                                            {viewingArchive ? (
+                                                <ArrowCounterClockwise size={13} />
+                                            ) : (
+                                                <Archive size={13} />
+                                            )}
+                                        </RowButton>
+                                    </div>
+                                ))}
+                        </div>
+                    );
+                })}
+                {groups.length === 0 && (
                     <div className="px-4 py-10 text-center text-sm" style={{ color: "var(--fg-3)" }}>
-                        Nothing matches that.
+                        {viewingArchive
+                            ? "Nothing archived yet. Anything you put away waits here."
+                            : "Nothing matches that."}
                     </div>
                 )}
             </Card>
@@ -447,10 +770,105 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                                 </>
                             )}
                         </div>
+
+                        <div className="pt-1">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const label = open.name ?? open.phoneDisplay;
+                                    archiveIds([open.id], !open.archived, label);
+                                    openItem(null);
+                                }}
+                                className="w-full rounded-lg border px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer"
+                                style={{ borderColor: "var(--rule-strong)", color: "var(--fg-2)" }}
+                            >
+                                {open.archived ? (
+                                    <>
+                                        <ArrowCounterClockwise size={15} /> Restore to inbox
+                                    </>
+                                ) : (
+                                    <>
+                                        <Archive size={15} /> Archive
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </Drawer>
+
+            {/* The one destructive path in the inbox, and the only one with a confirmation:
+                archive is reversible and a dialog on a reversible action teaches people to
+                dismiss dialogs. This says what survives, because a client deleting an enquiry
+                is entitled to know the call log and the consent record are not going with it. */}
+            <Drawer
+                open={confirmDelete !== null}
+                onClose={() => setConfirmDelete(null)}
+                title="Delete this enquiry?"
+                width="md"
+                surface="raised"
+            >
+                {confirmDelete && (
+                    <div className="space-y-5">
+                        <p className="text-sm leading-relaxed" style={{ color: "var(--fg-2)" }}>
+                            This removes {confirmDelete.name ?? "this"}&rsquo;s enquiry for good,
+                            including their message and contact details. You cannot undo it. Your
+                            call log and recordings are not affected.
+                        </p>
+                        <div className="flex flex-wrap gap-2 justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setConfirmDelete(null)}
+                                className="rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer"
+                                style={{ borderColor: "var(--rule-strong)", color: "var(--fg)" }}
+                            >
+                                Keep it
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => deleteLead(confirmDelete)}
+                                disabled={deleting}
+                                className="rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer disabled:opacity-60"
+                                style={{ background: "var(--chart-neg)", color: "#ffffff" }}
+                            >
+                                {deleting ? "Deleting…" : "Delete permanently"}
+                            </button>
+                        </div>
                     </div>
                 )}
             </Drawer>
         </div>
+    );
+}
+
+/**
+ * A small, square-ish action on a row.
+ *
+ * Icon-only so a row of three does not crowd out the message, with the words on the tooltip
+ * and on the accessible name — the two places that still have room for them.
+ */
+function RowButton({
+    label,
+    onClick,
+    danger,
+    children,
+}: {
+    label: string;
+    onClick: () => void;
+    danger?: boolean;
+    children: React.ReactNode;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            title={label}
+            aria-label={label}
+            className="portal-hit shrink-0 w-8 h-8 rounded-lg inline-flex items-center justify-center cursor-pointer transition-colors"
+            style={{ color: danger ? "var(--chart-neg)" : "var(--fg-3)" }}
+        >
+            {children}
+        </button>
     );
 }
 
