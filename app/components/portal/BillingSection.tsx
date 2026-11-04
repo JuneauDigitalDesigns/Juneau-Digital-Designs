@@ -9,6 +9,7 @@ import { SectionCard, FieldRow, StaticField, inputStyle } from "./ui/FormPrimiti
 import { StatRowSkeleton, TableSkeleton } from "./ui/Skeleton";
 import { useCachedFetch, useInvalidate, CLIENT_TTL } from "./PortalDataProvider";
 import { freshness } from "./ui/format";
+import { downgradeTile } from "@/app/lib/plan-change-copy";
 
 interface Invoice {
     id: string;
@@ -30,6 +31,8 @@ interface BillingData {
     interval?: string | null;
     currentPeriodEnd?: number;
     cancelAt?: number | null;
+    /** A downgrade the client accepted, waiting for the end of the paid period. */
+    pendingPlanChange?: { fromPlan: string; toPlan: string; effectiveAt: number } | null;
     paymentMethod?: { brand: string; last4: string; expMonth: number; expYear: number } | null;
     invoices?: Invoice[];
     error?: string;
@@ -147,6 +150,19 @@ export default function BillingSection({
                     size="sm"
                 />
             </div>
+
+            {data.pendingPlanChange && (
+                <p
+                    className="text-sm rounded-md px-3.5 py-2.5 border"
+                    style={{ color: "var(--fg-2)", background: "var(--surface)", borderColor: "var(--rule)" }}
+                >
+                    {downgradeTile({
+                        toName: planLabel[data.pendingPlanChange.toPlan] ?? data.pendingPlanChange.toPlan,
+                        fromName: planLabel[data.pendingPlanChange.fromPlan] ?? data.pendingPlanChange.fromPlan,
+                        date: date(data.pendingPlanChange.effectiveAt),
+                    })}
+                </p>
+            )}
 
             <SectionCard title="Payment method">
                 {data.paymentMethod ? (

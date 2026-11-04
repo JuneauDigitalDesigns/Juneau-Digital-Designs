@@ -96,7 +96,9 @@ export function validateAgreementSubmission(body) {
   // Skipped for upgrades (the client already has a phone setup) and for Enterprise (the
   // per-site choice is deferred to the onboarding form). The UI enforces this too; the server
   // must not trust it to.
-  const needsPhoneChoice = !body.upgradeSlug && (body.plan === "starter" || body.plan === "growth");
+  // A downgrade keeps the phone setup the client already has, so it is skipped there too.
+  const needsPhoneChoice =
+    !body.upgradeSlug && !body.downgradeSlug && (body.plan === "starter" || body.plan === "growth");
   // Optional: the cover states the period when it is known, and both prices when it is not.
   if (body.billingPeriod && body.billingPeriod !== "monthly" && body.billingPeriod !== "annual") {
     return "Invalid billing period";

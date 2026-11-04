@@ -157,6 +157,9 @@ export async function POST(req: Request) {
     ...(body.upgradeSlug
       ? { pendingUpgrade: true, upgradeSlug: body.upgradeSlug.trim() }
       : {}),
+    ...(body.downgradeSlug
+      ? { pendingDowngrade: true, downgradeSlug: body.downgradeSlug.trim() }
+      : {}),
   };
 
   try {
@@ -237,6 +240,9 @@ export async function POST(req: Request) {
   // flagged is an orphan for ops to chase.
   if (record.pendingUpgrade) {
     console.log(`[/api/agreement] ${id} held for upgrade confirmation (${record.upgradeSlug})`);
+  } else if (record.pendingDowngrade) {
+    // Same reason: the client gets the Starter agreement once the downgrade is scheduled.
+    console.log(`[/api/agreement] ${id} held for downgrade confirmation (${record.downgradeSlug})`);
   } else {
     after(() =>
       stripLastPage(pdfBytes)

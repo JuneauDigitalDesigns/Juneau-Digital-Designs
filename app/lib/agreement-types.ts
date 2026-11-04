@@ -62,6 +62,12 @@ export interface AgreementSubmission {
    */
   upgradeSlug?: string;
   /**
+   * Set when an existing client is accepting a lower plan's terms for a scheduled downgrade.
+   * Like `upgradeSlug`, not an authorization claim: `/api/portal/downgrade` re-resolves the slug
+   * against the signed-in account. It holds the client email until the change is scheduled.
+   */
+  downgradeSlug?: string;
+  /**
    * Optional opt-in to post-call summary texts. Deliberately separate from the agreement
    * acceptance: the service is sold, delivered, and billed identically whether this is
    * checked or not, which is what "consent is not a condition of purchase" has to mean in
@@ -185,4 +191,11 @@ export interface AgreementRecord {
   pendingUpgrade?: boolean;
   /** Slug the upgrade was for. Only meaningful alongside `pendingUpgrade`. */
   upgradeSlug?: string;
+  /**
+   * The same hold for a downgrade: accepted from the link the console request emailed, and
+   * emailed to the client only once `/api/portal/downgrade` has scheduled the change.
+   */
+  pendingDowngrade?: boolean;
+  /** Slug the downgrade is for. Only meaningful alongside `pendingDowngrade`. */
+  downgradeSlug?: string;
 }
