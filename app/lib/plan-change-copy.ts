@@ -81,5 +81,25 @@ export function consolidationRefusal(code: string, cancelDate?: string): string 
     return CONSOLIDATION_UNAVAILABLE;
 }
 
+/* ── Cancellation ─────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The portal cancellation card. Replaces "Cancellations require 30 days written notice", which
+ * v5.3 dropped on 2026-10-12: cancellation takes effect at the end of the period already paid for.
+ */
+export function cancellationCardText(input: { interval: "month" | "year"; periodEnd: string }): string {
+    const base = `You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the ${input.interval} you've already paid for, on ${input.periodEnd}.`;
+    return input.interval === "year" ? `${base} Annual fees aren't refunded for the months left in the year.` : base;
+}
+
+/** The cancellation confirmation email. */
+export const CANCEL_EMAIL_ACCESS =
+    "You keep full access until that date, and you won't be charged again for this site apart from any call-minute overage from your final month.";
+export const CANCEL_EMAIL_NOTICE =
+    "This email is your written confirmation of cancellation under your service agreement. No notice period applies. If you have questions, reply to this email.";
+export function cancelEmailFooter(submittedOn: string): string {
+    return `This email confirms cancellation under the Juneau Digital Designs Master Services Agreement. Cancellation request submitted ${submittedOn}.`;
+}
+
 /** A downgrade the client accepted that could not be scheduled, or a stale accept link. */
 export const DOWNGRADE_FAILED = `We couldn't schedule your plan change, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;
