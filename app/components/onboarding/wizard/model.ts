@@ -460,12 +460,27 @@ export function buildPayload(state: WizardState, ctx: WizardContext, now: Date =
 
 // ── Drafts ───────────────────────────────────────────────────────────────────
 
-export function initialState(email: string, signedMode?: ReceptionistMode): WizardState {
+/**
+ * Facts we already hold for this client (from their agreement, and from the order when they
+ * closed on a call), used to seed a blank wizard. Built by `app/lib/onboarding-prefill.ts`.
+ * Only ever seeds a fresh start: a saved draft replaces the whole state, prefill included.
+ */
+export type WizardPrefill = {
+    source: "call" | "agreement";
+    name?: string;
+    address?: string;
+    phone?: string;
+    trade?: string;
+    owner?: string;
+};
+
+export function initialState(email: string, signedMode?: ReceptionistMode, prefill?: WizardPrefill | null): WizardState {
     return {
         v: 2, screen: "welcome", visited: ["welcome"], skipped: [],
-        trade: "", name: "", phone: "", email, address: "", towns: [], website: "",
+        trade: prefill?.trade ?? "", name: prefill?.name ?? "", phone: prefill?.phone ?? "", email,
+        address: prefill?.address ?? "", towns: [], website: "",
         services: [], diffs: [], customers: [],
-        established: "", license: "", owner: "", response: "", brands: [], certs: [],
+        established: "", license: "", owner: prefill?.owner ?? "", response: "", brands: [], certs: [],
         rating: "", reviewCount: "", reviewUrl: "", statValues: {}, servicePrices: {}, seasonBodies: {}, serviceRadiusMiles: "", offerBadge: "",
         logoChoice: "", images: { heroSlides: [] }, voice: [], avoid: "",
         receptionistMode: signedMode ?? "", hours: "", customHours: "", emergency: false, agentName: "",

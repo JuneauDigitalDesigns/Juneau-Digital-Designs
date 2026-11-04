@@ -37,6 +37,7 @@ import {
     screensFor,
     type PlanSlug,
     type ReceptionistMode,
+    type WizardPrefill,
     type WizardState,
 } from "./wizard/model";
 import { ScreenBody, copyFor } from "./wizard/screens";
@@ -77,6 +78,7 @@ export default function OnboardingPageClient({
     prefillEmail = "",
     signedReceptionistMode,
     signerName = "",
+    prefill = null,
     clerkUserId = "",
     siteRef = "",
 }: {
@@ -89,6 +91,11 @@ export default function OnboardingPageClient({
     signedReceptionistMode?: ReceptionistMode;
     /** The agreement signer, for the welcome line. Blank means no name in the greeting. */
     signerName?: string;
+    /**
+     * What we already hold (agreement, and the order for a sales-call close), to seed a blank
+     * start so the client only checks it. A saved draft always wins over it.
+     */
+    prefill?: WizardPrefill | null;
     /** Part of the draft's localStorage key. */
     clerkUserId?: string;
     /** Which site this wizard fills in. Scopes the draft and is sent with the submission. */
@@ -96,7 +103,7 @@ export default function OnboardingPageClient({
 }) {
     const ctx = useMemo(() => ({ plan, signedMode: signedReceptionistMode }), [plan, signedReceptionistMode]);
     // The server render and first client render must match, so the draft is read in an effect.
-    const [state, setState] = useState<WizardState>(() => initialState(prefillEmail, signedReceptionistMode));
+    const [state, setState] = useState<WizardState>(() => initialState(prefillEmail, signedReceptionistMode, prefill));
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [dir, setDir] = useState<"f" | "b">("f");
     const [savedOnce, setSavedOnce] = useState(false);
@@ -163,7 +170,7 @@ export default function OnboardingPageClient({
             } catch {
                 /* server draft unavailable: use local */
             }
-            const startAt = chosen ? restoreDraft(chosen, initialState(prefillEmail, signedReceptionistMode)) : null;
+            const startAt = chosen ? restoreDraft(chosen, initialState(prefillEmail, signedReceptionistMode, prefill)) : null;
             window.history.replaceState({ ...(window.history.state ?? {}), wiz: startAt?.screen ?? "welcome" }, "");
             if (chosen && startAt) {
                 const restored = startAt;
@@ -444,6 +451,7 @@ export default function OnboardingPageClient({
                                 goTo={goTo}
                                 uploads={uploads}
                                 extra={extra}
+                                prefill={prefill}
                             />
                             {def.id === "review" && submitError ? <p className={s.err} role="alert" style={{ marginTop: 12 }}>{submitError}</p> : null}
                         </div>
