@@ -16,6 +16,22 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Working in git worktrees (Windows)
+
+- **Run `npm ci` in every worktree before `npm test`, `tsc`, `next build` or `next dev`.** Don't
+  borrow the main checkout's `node_modules`, and don't junction or symlink `node_modules`
+  between checkouts. `next.config.ts` refuses to start if you do (`scripts/node-modules-guard.cjs`).
+- **Why:** Next links sharp as `.next/node_modules/sharp-<hash>`, an NTFS junction to wherever
+  sharp resolved. `git worktree remove` follows junctions while deleting, so removing a
+  worktree that borrowed the main checkout's packages empties the main checkout's
+  `node_modules/sharp`.
+- **To remove a worktree that may hold a junction**, delete it with something that unlinks
+  junctions instead of following them, then prune:
+
+  ```bash
+  node -e "require('fs').rmSync(process.argv[1],{recursive:true,force:true})" .claude/worktrees/<name> && git worktree prune
+  ```
+
 ## Quote Form Email Setup (Resend)
 
 Create a `.env.local` file in the project root and configure:

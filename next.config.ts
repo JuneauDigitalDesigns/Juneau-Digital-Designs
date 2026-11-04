@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import { assertOwnNodeModules } from "./scripts/node-modules-guard.cjs";
+
+// Every checkout builds against its own node_modules, never a parent's or a linked one.
+// Otherwise `.next/node_modules/sharp-*` becomes a junction into the other checkout, and
+// `git worktree remove` empties that checkout's sharp. See scripts/node-modules-guard.cjs.
+assertOwnNodeModules(typeof __dirname === "string" ? __dirname : process.cwd());
 
 const nextConfig: NextConfig = {
   images: {
