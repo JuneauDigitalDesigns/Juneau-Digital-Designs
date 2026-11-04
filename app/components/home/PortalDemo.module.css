@@ -284,7 +284,11 @@
 /* ── the tour card ──────────────────────────────────────────────
    The portal's first-run tour, redrawn: driver.js's dim-with-a-cutout spotlight and its
    popover, themed as `portal/tour/tour-theme.css` themes it. Literal portal values for the
-   same reason that file uses them: this sits outside `.portal-scope`. */
+   same reason that file uses them: this sits outside `.portal-scope`.
+
+   This makes it a mirror of the portal tokens (see the table in PORTAL-DESIGN.md): a token
+   change there is not finished until this is checked too. Values as of #56 / #59:
+   #0d1117 --fg, #4a5058 --fg-2, #656b73 --fg-3, #2563eb --accent, #9a4d04 --chart-warn. */
 
 /* Exactly over the window's viewport, clipping the spotlight's dim to it. */
 .tourLayer {
@@ -352,7 +356,7 @@
   margin: 8px 0 0;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #767c85;
+  color: #656b73;
 }
 .popGate::before {
   content: "";
@@ -362,7 +366,7 @@
   margin-right: 7px;
   vertical-align: 1px;
   border-radius: 50%;
-  border: 1.5px dashed #d97706;
+  border: 1.5px dashed #9a4d04;
 }
 .popFoot {
   margin-top: 14px;
@@ -374,7 +378,7 @@
 .popCount {
   font-family: var(--font-jetbrains), "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
-  color: #767c85;
+  color: #656b73;
 }
 .popNext {
   min-height: 32px;
