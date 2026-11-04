@@ -1,7 +1,6 @@
 import { NextResponse, after } from "next/server";
 import { stripe } from "@/app/lib/stripe";
 import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
-import { completeConsolidation, getConsolidation } from "@/app/lib/consolidation";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
@@ -59,7 +58,9 @@ export async function POST(req: Request) {
   if (event.type === "customer.subscription.deleted") {
     const sub = event.data.object as Stripe.Subscription;
     try {
-      const slug = await getSlugBySubscription(sub.id);
+      // Cancelled because its site moved onto Enterprise: the site lives on, so it keeps its
+      // place on the homepage.
+      const slug = sub.metadata?.consolidated_into ? null : await getSlugBySubscription(sub.id);
       if (slug) {
         await removePublishedFeaturedSite(slug);
         console.log("[stripe webhook] removed featured site on subscription delete", slug, sub.id);
@@ -143,17 +144,18 @@ export async function POST(req: Request) {
      * session that was already provisioned would be noise.
      */
     /**
-     * A consolidation pays for a bundle that replaces subscriptions the client already has —
-     * it does not add a site. Provisioning one here would leave them with an extra
-     * `pending-onboarding` record and a wizard to fill in for a site that already exists.
+     * A Growth → Enterprise move no longer goes through Checkout: it upgrades a subscription in
+     * place (`/api/portal/consolidate`). A session still carrying `consolidation_id` is one
+     * opened by the old flow. It must never provision a pending site (it does not add one), so
+     * it is logged for a person to look at rather than fulfilled.
      */
     const consolidationId = session.metadata?.consolidation_id;
     if (consolidationId) {
-      try {
-        await finishConsolidation(session, consolidationId);
-      } catch (e) {
-        console.error("[stripe webhook] consolidation failed", consolidationId, session.id, e);
-      }
+      console.error(
+        "[stripe webhook] Checkout session from the retired consolidation flow, not fulfilled",
+        consolidationId,
+        session.id,
+      );
     } else {
       try {
         const fulfilled = await provisionPaidSession(session);
@@ -211,45 +213,3 @@ export async function POST(req: Request) {
   return NextResponse.json({ received: true });
 }
 
-/**
- * Payment for an Enterprise bundle has cleared — now close the Growth subscriptions it
- * replaces and repoint the sites.
- *
- * Guarded against redelivery on two levels: a record already `done` is left alone, and
- * `completeConsolidation` tracks each cancellation individually so a partial run resumes
- * instead of re-issuing cancels.
- */
-async function finishConsolidation(
-  session: Stripe.Checkout.Session,
-  consolidationId: string,
-): Promise<void> {
-  if (session.payment_status !== "paid") {
-    console.warn("[stripe webhook] consolidation session not paid", consolidationId, session.id);
-    return;
-  }
-
-  const email = session.metadata?.account_email;
-  if (!email) {
-    console.error("[stripe webhook] consolidation has no account_email", consolidationId);
-    return;
-  }
-
-  const record = await getConsolidation(email);
-  if (!record || record.id !== consolidationId) {
-    console.error("[stripe webhook] no matching consolidation record", consolidationId, email);
-    return;
-  }
-  if (record.status === "done") {
-    console.log("[stripe webhook] consolidation already applied, replay", consolidationId);
-    return;
-  }
-
-  const subscriptionId =
-    typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
-  if (!subscriptionId) {
-    console.error("[stripe webhook] consolidation session has no subscription", session.id);
-    return;
-  }
-
-  await completeConsolidation(record, subscriptionId);
-}

@@ -10,6 +10,7 @@ import { legacyMasterFrom } from "@jdd/schema";
 import { resolveAccountForUser } from "../lib/portal-account";
 import { billingPeriodOfSite, upgradeBlockReason } from "../lib/plan-billing";
 import { getPlanChange } from "../lib/plan-change";
+import { planConsolidation } from "../lib/consolidation";
 import type { PlanSlug } from "../lib/agreement-types";
 
 const SIGNING_METADATA: Metadata = {
@@ -83,6 +84,19 @@ export default async function AgreementPage({
             redirect(`/portal/sign-in?redirect_url=${encodeURIComponent(back)}`);
         }
         redirect(`/start?plan=${selectedPlan}&period=${billingPeriod}`);
+    }
+
+    // A Growth → Enterprise move: the period is the one the Growth sites bill on, and the site
+    // list starts with them. A move that can't be done here goes back to its page, which says
+    // why, so nothing is accepted for a move that would then be refused.
+    let prefillSites: string[] | undefined;
+    if (consolidate === "1") {
+        const account = await resolveAccountForUser(userId);
+        const move = account ? await planConsolidation(account) : null;
+        if (!move?.ok) redirect("/portal/consolidate");
+        selectedPlan = "enterprise";
+        billingPeriod = move.interval === "year" ? "annual" : "monthly";
+        prefillSites = [move.host, ...move.others].map(({ site }) => site.name ?? site.slug);
     }
 
     if (downgradeSlug) {
@@ -174,6 +188,7 @@ export default async function AgreementPage({
             downgradeSlug={downgradeSlug}
             kind={isAddendum ? "addendum" : "master"}
             consolidate={consolidate === "1"}
+            prefillSites={prefillSites}
             parentAgreementId={isAddendum ? master?.agreementId ?? undefined : undefined}
             /*
              * Prefilled, not fixed. A returning client usually contracts as the same entity,

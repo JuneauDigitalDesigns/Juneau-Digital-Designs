@@ -50,10 +50,15 @@ interface Props {
     parentAgreementId?: string;
     /**
      * This signature authorises a Growth → Enterprise consolidation rather than a new site.
-     * Same document, same signature; the step after it opens a Checkout Session that replaces
-     * their existing subscriptions instead of adding one.
+     * Same document, same signature; the step after it upgrades one of their Growth
+     * subscriptions to Enterprise in place and cancels the rest, instead of adding one.
      */
     consolidate?: boolean;
+    /**
+     * Site names to start the Enterprise site list with: the Growth sites a consolidation moves.
+     * Editable, like every other prefilled field.
+     */
+    prefillSites?: string[];
     /**
      * Contracting details carried over from the master, so a returning client isn't retyping
      * their own address. Every field stays editable — a second site bought by a different
@@ -117,6 +122,7 @@ export default function AgreementClient({
     kind = "master",
     parentAgreementId,
     consolidate = false,
+    prefillSites,
     prefill,
 }: Props) {
     const isUpgrade = upgradeSlug !== null;
@@ -196,9 +202,9 @@ export default function AgreementClient({
         signerTitle: prefill?.signerTitle ?? "",
         signerEmail: prefill?.signerEmail ?? "",
         alertPhone: "",
-        site1: "",
-        site2: "",
-        site3: "",
+        site1: prefillSites?.[0] ?? "",
+        site2: prefillSites?.[1] ?? "",
+        site3: prefillSites?.[2] ?? "",
     });
     const [agreed, setAgreed] = useState(false);
     // Separate from `agreed` in every sense: its own state, its own box, its own place in
@@ -296,6 +302,8 @@ export default function AgreementClient({
                     // endpoint re-resolves this slug against the signed-in account.
                     ...(isUpgrade ? { upgradeSlug } : {}),
                     ...(isDowngrade ? { downgradeSlug } : {}),
+                    // Holds the client email until the move to Enterprise has gone through.
+                    ...(consolidate ? { consolidate: true } : {}),
                     // Which document was on screen. The route hashes the text it is told was
                     // shown, so this has to match what the server rendered — it does, because
                     // the server decided it and passed it down as a prop.
@@ -307,10 +315,11 @@ export default function AgreementClient({
                 throw new Error(sigData.error || `Signing failed (${sigRes.status})`);
             }
 
-            // 2. Charge. Three endings, and picking the wrong one costs the client money:
-            //    an upgrade edits the subscription they already pay for, a consolidation opens
-            //    one that replaces several, and a new site adds one. Opening a plain checkout
-            //    for either of the first two would leave them paying for both old and new.
+            // 2. Charge. The endings differ, and picking the wrong one costs the client money:
+            //    an upgrade edits the subscription they already pay for, a consolidation upgrades
+            //    one and cancels the others, a downgrade schedules a change, and a new site adds
+            //    a subscription. A plain checkout for any of the first three would leave them
+            //    paying for both old and new.
             if (consolidate) {
                 const conRes = await fetch("/api/portal/consolidate", {
                     method: "POST",
@@ -325,11 +334,11 @@ export default function AgreementClient({
                         "Your session expired while signing. Your agreement is saved. Please sign in and start the move again.",
                     );
                 }
-                const conData = (await conRes.json()) as { url?: string; error?: string };
-                if (!conRes.ok || !conData.url) {
+                const conData = (await conRes.json()) as { ok?: boolean; error?: string };
+                if (!conRes.ok || !conData.ok) {
                     throw new Error(conData.error || `Could not start the move (${conRes.status})`);
                 }
-                window.location.href = conData.url;
+                window.location.href = "/portal?consolidated=1";
                 return;
             }
 

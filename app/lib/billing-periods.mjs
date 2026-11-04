@@ -220,7 +220,7 @@ export function billingIntervalOf(recurring) {
 }
 
 /**
- * The Enterprise price a Growth → Enterprise consolidation checks out on: the period the
+ * The Enterprise price a Growth → Enterprise consolidation moves the host subscription to: the period the
  * absorbed Growth subscriptions already bill on. This used to be the Enterprise MONTHLY price
  * unconditionally, so a client prepaying Growth annually was moved onto monthly billing (with
  * the unused year credited back) by the act of upgrading.

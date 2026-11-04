@@ -68,6 +68,11 @@ export interface AgreementSubmission {
    */
   downgradeSlug?: string;
   /**
+   * Set when this Enterprise agreement authorises moving the account's Growth sites onto
+   * Enterprise. Holds the client email until `/api/portal/consolidate` has made the move.
+   */
+  consolidate?: boolean;
+  /**
    * Optional opt-in to post-call summary texts. Deliberately separate from the agreement
    * acceptance: the service is sold, delivered, and billed identically whether this is
    * checked or not, which is what "consent is not a condition of purchase" has to mean in
@@ -204,4 +209,9 @@ export interface AgreementRecord {
    * as the account's master until the change goes through.
    */
   accountEmail?: string;
+  /**
+   * The same hold for a Growth → Enterprise move. The client used to be emailed the Enterprise
+   * agreement the moment they accepted it, before the move was known to be possible or paid for.
+   */
+  pendingConsolidation?: boolean;
 }
