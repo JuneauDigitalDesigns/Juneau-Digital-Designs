@@ -1,6 +1,7 @@
 import { SignUp } from "@clerk/nextjs";
 import PortalScope from "@/app/components/portal/PortalScope";
 import { safeRedirectPath } from "@/app/lib/safe-redirect";
+import { postAuthRedirect } from "@/app/lib/post-auth-redirect";
 import { portalClerkAppearance } from "../../clerkAppearance";
 
 export default async function PortalSignUpPage({
@@ -66,7 +67,7 @@ export default async function PortalSignUpPage({
                             path="/portal/sign-up"
                             routing="path"
                             signInUrl={`/portal/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`}
-                            forceRedirectUrl={redirectUrl}
+                            forceRedirectUrl={postAuthRedirect(redirectUrl)}
                             appearance={portalClerkAppearance}
                         />
                     </div>
