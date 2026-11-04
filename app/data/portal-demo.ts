@@ -67,8 +67,8 @@ export const DEMO_STEPS: DemoStep[] = [
 ];
 
 /**
- * The closing screen once the film ends. DRAFT, awaiting Xander's word-for-word approval like
- * the captions. It names nothing carrier-gated: texting and review requests carry their own
+ * The closing screen once the film ends. Approved by Xander word for word, like the captions;
+ * do not edit without a fresh approval. It names nothing carrier-gated: texting and review requests carry their own
  * line on their steps, and a closing claim about them would have to repeat it.
  */
 export const DEMO_CLOSING = {

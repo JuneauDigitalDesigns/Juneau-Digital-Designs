@@ -239,6 +239,8 @@ const SHOT = {
     /* The stage picker and the top of the timeline, which is where a move or a new row shows. */
     recordStage: { wide: [{ f: "stagerow" }, { f: "timeline", h: 280 }], narrow: [{ f: "timeline", w: 400, h: 330 }], pad: 14, anchor: "top" },
     composer: { wide: [{ f: "timeline" }, { f: "composer" }], narrow: [{ f: "timeline", w: 410 }, { f: "composer", w: 410 }], pad: 12, anchor: "bottom" },
+    /* After the review request: the button that now says so, over the row it added. */
+    reviewDone: { wide: [{ f: "rhead" }, { f: "timeline", h: 150 }], narrow: [{ f: "rhead", w: 400, right: true }, { f: "timeline", w: 400, h: 130 }], pad: 14, anchor: "top" },
     /* Promote and what sits just above it, rather than the whole drawer. */
     promote: { wide: [{ f: "promote-wrap" }], narrow: [{ f: "promote-wrap" }], pad: 90, anchor: "bottom" },
     /* A narrow frame cannot hold the whole composer: pan right to Send before it is tapped. */
@@ -256,7 +258,7 @@ const START_SHOT: Shot[] = [SHOT.inboxList, SHOT.leadPromote, SHOT.board, SHOT.r
  * shows the drawer with Promote, as its card is about the button, not about the record after.
  */
 const STATIC_WORLD: World[] = [AFTER_INBOX, AFTER_INBOX, AFTER_PIPELINE, AFTER_MESSAGE, AFTER_REVIEW];
-const STATIC_SHOT: Shot[] = [SHOT.leadBody, SHOT.promote, SHOT.recordStage, SHOT.composer, SHOT.recordStage];
+const STATIC_SHOT: Shot[] = [SHOT.leadBody, SHOT.promote, SHOT.recordStage, SHOT.composer, SHOT.reviewDone];
 
 /** Where each step stops while playing, and what the camera frames when it does. */
 const BEAT: { f: string; shot: Shot }[] = [
@@ -707,7 +709,7 @@ export default function PortalDemo() {
                     }));
                     await wait(250);
                     // The button and the new row together: what was sent, and where it is kept.
-                    look(SHOT.recordStage);
+                    look(SHOT.reviewDone);
                     pointAt("reviewbtn", 0.5, 1.7);
                     await wait(2600);
                 },
@@ -812,7 +814,7 @@ export default function PortalDemo() {
         start(i + 1);
     }
     function onPlayButton() {
-        if (run === "idle") return start(0);
+        if (run === "idle" || closing) return start(0);
         if (reduce) return show(Math.min(step + 1, DEMO_STEPS.length - 1));
         if (run === "playing") {
             token.current++;
@@ -825,7 +827,9 @@ export default function PortalDemo() {
     const idle = run === "idle";
     const playLabel = idle
         ? "Start demo"
-        : reduce
+        : closing
+          ? "Replay"
+          : reduce
           ? "Next step"
           : run === "playing"
             ? "Pause"
@@ -840,6 +844,8 @@ export default function PortalDemo() {
                 <button type="button" className={s.play} onClick={onPlayButton} aria-label={playLabel} title={playLabel}>
                     {idle ? (
                         <Play size={16} weight="fill" />
+                    ) : closing ? (
+                        <ArrowCounterClockwise size={16} weight="bold" />
                     ) : reduce ? (
                         <CaretRight size={16} weight="bold" />
                     ) : run === "playing" ? (
