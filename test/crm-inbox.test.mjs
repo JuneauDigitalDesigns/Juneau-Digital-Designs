@@ -25,6 +25,9 @@ import { randomUUID } from "node:crypto";
 import {
     buildInbox,
     callContactId,
+    groupForItem,
+    groupInbox,
+    groupItemIds,
     classifyDeepLink,
     filterInbox,
     inboxItemForDeepLink,
@@ -625,4 +628,207 @@ test("a real leadId is a valid deep-link id", () => {
     // `portal-leads.ts` creates these with `randomUUID()`, so the shape is a canonical v4:
     // hex and hyphens, 36 characters. The guard has to admit it.
     assert.equal(isDeepLinkId(`lead:${randomUUID()}`), true);
+});
+
+/* ── one person, one row ──────────────────────────────────────────────────── */
+
+const gids = (groups) => groups.map((g) => g.id);
+
+test("repeat calls from one number become a single row", () => {
+    // The crowding this was asked for: a person who rings three times is one person with one
+    // problem, and three rows of them is three times the list for no extra information.
+    const groups = groupInbox(
+        buildInbox({
+            calls: [
+                call({ id: "recNew", date: at(0) }),
+                call({ id: "recMid", date: at(-70 * MIN) }),
+                call({ id: "recOld", date: at(-200 * MIN) }),
+            ],
+        }),
+    );
+
+    assert.equal(groups.length, 1);
+    const [g] = groups;
+    assert.equal(g.id, `contact:${NUMBER}`);
+    assert.equal(g.contact, NUMBER);
+    assert.equal(g.count, 3);
+    assert.equal(g.lead.id, "recNew", "the row renders the newest call");
+    assert.deepEqual(groupItemIds(g), ["recNew", "recMid", "recOld"], "newest first");
+    assert.equal(g.at, at(0));
+});
+
+test("different numbers stay different rows, newest run first", () => {
+    const groups = groupInbox(
+        buildInbox({
+            calls: [
+                call({ id: "recB1", date: at(-5 * MIN), callerNumber: "+19305552222" }),
+                call({ id: "recA1", date: at(-30 * MIN) }),
+                call({ id: "recA2", date: at(-90 * MIN) }),
+            ],
+        }),
+    );
+
+    assert.deepEqual(gids(groups), ["contact:+19305552222", `contact:${NUMBER}`]);
+    assert.deepEqual(
+        groups.map((g) => g.count),
+        [1, 2],
+    );
+});
+
+test("a web enquiry never joins a caller's run", () => {
+    /**
+     * Different channel, different content. It also cannot arise on Growth, where a form
+     * triggers a receptionist callback and the enquiry reaches the inbox as the resulting
+     * call — so a lead sitting beside calls from the same number means a Starter site, where
+     * the person filled the form *and* rang, and the two are worth seeing separately.
+     */
+    const groups = groupInbox(
+        buildInbox({
+            calls: [call({ id: "recLate", date: at(0) })],
+            // Well outside the callback window, so `buildInbox` does not collapse them.
+            leads: [lead({ createdAt: at(-500 * MIN) })],
+        }),
+    );
+
+    assert.equal(groups.length, 2);
+    assert.deepEqual(new Set(gids(groups)), new Set([`contact:${NUMBER}`, "lead:L1"]));
+});
+
+test("calls with no usable number are each their own row", () => {
+    // Withheld and spoofed numbers cannot be grouped, and they are most of what a client wants
+    // rid of — which is why Archive carries more weight for them than grouping ever could.
+    const groups = groupInbox(
+        buildInbox({
+            calls: [
+                call({ id: "recX", date: at(0), callerNumber: null }),
+                call({ id: "recY", date: at(-10 * MIN), callerNumber: "withheld" }),
+            ],
+        }),
+    );
+
+    assert.deepEqual(gids(groups), ["recX", "recY"]);
+    assert.deepEqual(
+        groups.map((g) => g.count),
+        [1, 1],
+    );
+    assert.equal(groups[0].contact, null);
+});
+
+test("a run is unread when any call in it is", () => {
+    const groups = groupInbox(
+        buildInbox({
+            calls: [call({ id: "recSeen", date: at(0) }), call({ id: "recNew", date: at(-MIN) })],
+            readCallIds: new Set(["recSeen"]),
+        }),
+    );
+
+    assert.equal(groups.length, 1);
+    assert.equal(groups[0].unread, true, "one unopened call still wants attention");
+    assert.equal(groups[0].lead.read, true, "even though the row renders the one already read");
+});
+
+test("a deep link finds the row holding its call, nested callbacks included", () => {
+    const groups = groupInbox(
+        buildInbox({
+            calls: [
+                call({ id: "recNew", date: at(0) }),
+                call({ id: "recOld", date: at(-80 * MIN) }),
+            ],
+        }),
+    );
+
+    assert.equal(groupForItem(groups, "recOld").id, `contact:${NUMBER}`);
+    assert.equal(groupForItem(groups, "recNew").id, `contact:${NUMBER}`);
+    assert.equal(groupForItem(groups, "recGone00000000000"), null);
+    assert.equal(groupForItem(groups, null), null);
+
+    // A call folded under an enquiry is reachable through the row that swallowed it.
+    const withCallback = groupInbox(
+        buildInbox({
+            calls: [call({ id: "recCallback", date: at(0) })],
+            leads: [lead({ createdAt: at(-10 * MIN) })],
+        }),
+    );
+    assert.equal(groupForItem(withCallback, "recCallback").id, "lead:L1");
+});
+
+test("grouping runs after filtering, which is what makes the archive accumulate", () => {
+    /**
+     * Three calls archived today and a fourth next week must read as one row of four, not as a
+     * row of three beside a row of one. Grouping the *filtered* list gives that for free and
+     * needs no stored notion of a group; grouping first and filtering after would split the
+     * same number across two rows the moment one call was archived.
+     */
+    const items = buildInbox({
+        calls: [
+            call({ id: "recFourth", date: at(0) }),
+            call({ id: "recThird", date: at(-100 * MIN) }),
+            call({ id: "recSecond", date: at(-200 * MIN) }),
+            call({ id: "recFirst", date: at(-300 * MIN) }),
+        ],
+        archived: new Set(["recFirst", "recSecond", "recThird", "recFourth"]),
+    });
+
+    const archivedView = groupInbox(filterInbox(items, "archived"));
+    assert.equal(archivedView.length, 1);
+    assert.equal(archivedView[0].count, 4);
+
+    // And the worklist is empty, rather than showing a row of nothing.
+    assert.deepEqual(groupInbox(filterInbox(items, "all")), []);
+});
+
+test("a partly archived run splits between the two views", () => {
+    const items = buildInbox({
+        calls: [
+            call({ id: "recKeep", date: at(0) }),
+            call({ id: "recGone", date: at(-60 * MIN) }),
+        ],
+        archived: new Set(["recGone"]),
+    });
+
+    const working = groupInbox(filterInbox(items, "all"));
+    const archived = groupInbox(filterInbox(items, "archived"));
+
+    assert.deepEqual(groupItemIds(working[0]), ["recKeep"]);
+    assert.deepEqual(groupItemIds(archived[0]), ["recGone"]);
+});
+
+/* ── archived ─────────────────────────────────────────────────────────────── */
+
+test("every ordinary filter hides an archived item", () => {
+    const items = buildInbox({
+        calls: [call({ id: "recOpen", date: at(0), callerNumber: "+19305551111" })],
+        leads: [lead({ leadId: "Lgone", phone: "+19305552222", phoneRaw: null })],
+        archived: new Set(["lead:Lgone"]),
+    });
+
+    for (const f of ["all", "unread", "calls", "forms"]) {
+        assert.ok(
+            !filterInbox(items, f).some((i) => i.id === "lead:Lgone"),
+            `the "${f}" filter still showed an archived item`,
+        );
+    }
+    assert.deepEqual(ids(filterInbox(items, "archived")), ["lead:Lgone"]);
+});
+
+test("an item that is both promoted and archived reads as promoted", () => {
+    // Being told it became a customer is more use than being told it was put away.
+    const items = buildInbox({
+        calls: [call()],
+        promoted: new Set(["recCall"]),
+        archived: new Set(["recCall"]),
+    });
+
+    assert.deepEqual(ids(filterInbox(items, "promoted")), ["recCall"]);
+    assert.deepEqual(ids(filterInbox(items, "archived")), []);
+});
+
+test("an archived item is still reachable by deep link", () => {
+    // An owner's text links to one enquiry. Archiving it later must not turn that link into a
+    // dead end — the item is out of the worklist, not gone.
+    const items = buildInbox({ calls: [call()], archived: new Set(["recCall"]) });
+
+    assert.deepEqual(ids(filterInbox(items, "all")), [], "hidden from the worklist");
+    assert.equal(inboxItemForDeepLink(items, "recCall").id, "recCall", "still reachable");
+    assert.equal(items[0].archived, true);
 });

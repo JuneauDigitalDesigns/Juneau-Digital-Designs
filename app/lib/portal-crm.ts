@@ -190,6 +190,11 @@ const taskKey = (a: string, s: string, id: string) => `portal:crm:v2:task:${a}:$
 const taskIndex = (a: string, s: string) => `portal:crm:v2:tasks:${a}:${s}`;
 /** Source ids (Airtable record / leadId) already promoted, so the Inbox can mark them. */
 const promotedIndex = (a: string, s: string) => `portal:crm:v2:promoted:${a}:${s}`;
+/** Source ids the client has put away. Same id space as `promotedIndex` and the deep links. */
+const archivedIndex = (a: string, s: string) => `portal:crm:v2:archived:${a}:${s}`;
+/** When and by whom, one small record per archived id. `reason` is room for a later "spam". */
+const archivedAtKey = (a: string, s: string, id: string) =>
+    `portal:crm:v2:archived-at:${a}:${s}:${id}`;
 const reviewSentKey = (a: string, e164: string) => `portal:review:sent:v1:${a}:${e164}`;
 
 /**
@@ -431,6 +436,76 @@ export async function markPromoted(acct: string, slug: string, sourceRef: string
 export async function promotedRefs(acct: string, slug: string): Promise<Set<string>> {
     const refs = (await getRedis().smembers<string[]>(promotedIndex(acct, slug))) ?? [];
     return new Set(refs);
+}
+
+/* ── archiving ────────────────────────────────────────────────────────────── */
+
+export interface ArchiveRecord {
+    at: string;
+    by: string;
+    /** Unused today. Here so "not a lead" can be recorded later without a migration. */
+    reason?: string;
+}
+
+/**
+ * Put inbox items away, or bring them back.
+ *
+ * Takes a list because the Inbox archives a whole row at once, and a row is usually every call
+ * one person made. Archiving records **the ids that exist now**, never the phone number: a
+ * number would be a mute, and the next call from a customer who rang three times last week is
+ * new work, not something already dealt with.
+ *
+ * Portal-side for calls as well as leads. A call's row belongs to the client's own Airtable log,
+ * which this portal reads and does not write, so putting one away is our state about their
+ * record rather than a change to it.
+ */
+export async function setArchived(
+    acct: string,
+    slug: string,
+    ids: string[],
+    archived: boolean,
+    byUser: string,
+): Promise<void> {
+    if (ids.length === 0) return;
+    const redis = getRedis();
+
+    if (archived) {
+        await redis.sadd(archivedIndex(acct, slug), ids[0], ...ids.slice(1));
+        await redis.expire(archivedIndex(acct, slug), STATE_TTL);
+        const record: ArchiveRecord = { at: new Date().toISOString(), by: byUser };
+        await Promise.all(
+            ids.map((id) =>
+                redis.set(archivedAtKey(acct, slug, id), record, { ex: STATE_TTL }),
+            ),
+        );
+        return;
+    }
+
+    await redis.srem(archivedIndex(acct, slug), ids[0], ...ids.slice(1));
+    await Promise.all(ids.map((id) => redis.del(archivedAtKey(acct, slug, id))));
+}
+
+/** Which inbox ids are put away, so the list can hide them from the worklist. */
+export async function archivedRefs(acct: string, slug: string): Promise<Set<string>> {
+    const refs = (await getRedis().smembers<string[]>(archivedIndex(acct, slug))) ?? [];
+    return new Set(refs);
+}
+
+/**
+ * Delete every archive key for one site. **For teardown.**
+ *
+ * `purgeLeads` in `portal-leads.ts` is the other half and has no caller in this repository —
+ * teardown runs from the ops console. This has to be called beside it, or a torn-down account
+ * leaves a set of its callers' Airtable record ids behind for the full 400-day backstop.
+ */
+export async function purgeArchive(acct: string, slug: string): Promise<number> {
+    const redis = getRedis();
+    const ids = (await redis.smembers<string[]>(archivedIndex(acct, slug))) ?? [];
+    if (ids.length > 0) {
+        await redis.del(...ids.map((id) => archivedAtKey(acct, slug, id)));
+    }
+    await redis.del(archivedIndex(acct, slug));
+    return ids.length;
 }
 
 /* ── activity timeline ────────────────────────────────────────────────────── */

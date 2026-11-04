@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Mono, Hanken_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import MarketingChrome from "./components/MarketingChrome";
@@ -33,40 +32,69 @@ const bigShoulders = localFont({
   display: "swap",
 });
 
-const dmMono = DM_Mono({
+/**
+ * DM Mono, Hanken Grotesk, Inter and JetBrains Mono are self-hosted for the same reason, so
+ * nothing in this app fetches a font at build time.
+ *
+ * As next/font/google they were the last build-time dependency on Google. On 2026-11-04 a
+ * production build failed with module-not-found on the Hanken Grotesk font CSS, and a retry
+ * built. That was the download itself failing. No loader fix can prevent that; only removing
+ * the download can. test/self-hosted-fonts.test.mjs fails if a next/font/google import returns.
+ *
+ * Each file is exactly what next/font/google downloaded: the latin subset from the css2 API
+ * with a Chrome user agent, fetched 2026-11-04 for the queries the old calls made
+ * (DM+Mono:wght@400;500, Hanken+Grotesk:wght@400;500;600, Inter:wght@100..900,
+ * JetBrains+Mono:wght@100..800). Licences are in ./fonts/LICENSES.txt (SIL OFL 1.1).
+ *
+ * The faces are declared the way next/font/google generated them, so rendering is unchanged:
+ * - DM Mono is static, one file per weight.
+ * - Hanken Grotesk is one variable file that Google listed once per requested weight. Three
+ *   faces at 400/500/600 all point at that file, so a 700 still renders at 600 as before
+ *   instead of becoming a weight the brand never used.
+ * - Inter and JetBrains Mono were requested as the whole axis, so each is one face with a
+ *   weight range.
+ */
+const dmMono = localFont({
+  src: [
+    { path: "./fonts/DMMono-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/DMMono-Medium.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--font-dm-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
   display: "swap",
 });
 
-const hankenGrotesk = Hanken_Grotesk({
+const hankenGrotesk = localFont({
+  src: [
+    { path: "./fonts/HankenGrotesk-Variable.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/HankenGrotesk-Variable.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/HankenGrotesk-Variable.woff2", weight: "600", style: "normal" },
+  ],
   variable: "--font-hanken",
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
   display: "swap",
 });
 
 /* Portal-only faces. The three above dress the marketing brand; these three dress the
    product UI inside `.portal-scope` and are referenced nowhere else.
 
-   No `weight` array on the Google two: both are variable fonts, and naming weights opts
-   into static instances — three separate files instead of one axis.
+   Inter and JetBrains Mono are variable fonts, loaded as one file each over the whole
+   weight axis rather than as static instances per weight.
 
    `preload: false` on all three because they are portal-only. Preloading is per-document,
    so leaving it on would push these onto every marketing page for visitors who will never
    see the portal. The trade is a brief FOUT on the first portal paint, which is the right
    side of that bargain. */
-const inter = Inter({
+const inter = localFont({
+  src: "./fonts/Inter-Variable.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
+  weight: "100 900",
   display: "swap",
   preload: false,
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const jetbrainsMono = localFont({
+  src: "./fonts/JetBrainsMono-Variable.woff2",
   variable: "--font-jetbrains",
-  subsets: ["latin"],
+  weight: "100 800",
   display: "swap",
   preload: false,
 });
