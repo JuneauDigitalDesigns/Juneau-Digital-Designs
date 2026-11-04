@@ -79,14 +79,41 @@ styles in a real browser.
 |---|---|---|
 | Page | `--bg`, `--elev-0` | `#f6f7f9` |
 | Card | `--elev-1`, `--elev-2`, `--panel` | `#ffffff` |
-| Ink | `--fg` / `--fg-2` / `--fg-3` | `#0d1117` / `#4a5058` / `#767c85` |
+| Ink | `--fg` / `--fg-2` / `--fg-3` | `#0d1117` / `#4a5058` / `#656b73` |
 | Accent | `--accent`, `--accent-2` | `#2563eb` |
-| Positive | `--online`, `--chart-pos` | `#16a34a` |
+| Positive | `--online`, `--chart-pos` | `#136f32` |
 | Series | `--chart-series-1…4` | `#2563eb` `#7c3aed` `#0891b2` `#64748b` |
 | Brand band | `--brand-band` | `#f8ebd5` |
 
 `--accent-2` is an **alias** onto `--accent`, not a second hue. The portal has one accent;
 the alias exists so the pre-existing `--accent-2` references keep working.
+
+### Contrast is a floor, not a preference
+
+**Every token the portal uses as text clears WCAG AA (4.5:1) on every portal surface.** Clients
+are tradespeople reading this on a phone, often outdoors, often not young — so this is a
+constraint on the palette, not a lint rule to satisfy later. Worst measured case per token,
+across `#ffffff`, `#f6f7f9`, `--surface` over `--bg`, and `--brand-band`:
+
+| Token | Worst ratio | Was |
+|---|---|---|
+| `--fg-3` | 4.57:1 | 3.57:1 |
+| `--fg-2` | 6.91:1 | unchanged |
+| `--chart-pos` / `--online` | 5.34:1 | 2.88:1 |
+| `--chart-neg` | 5.19:1 | 4.14:1 |
+| `--chart-warn` | 5.70:1 | 2.97:1 |
+| `--chart-neutral` | 5.08:1 | 2.39:1 |
+| `--chart-axis` (10px ticks) | 5.55:1 | 2.95:1 |
+
+Two consequences worth knowing before you touch the palette:
+
+- **Do not lighten any of these back** to hit a visual target. The `--fg-2`→`--fg-3` step is
+  deliberately only 11 L* points; hierarchy in the portal is carried by size and family as
+  much as by colour, because `--fg-3` type is almost always 10–13px and often mono.
+- **`--rule-strong` (`rgba(13,17,23,0.18)`) is 1.48:1 and is still the border on inputs,
+  buttons and chips.** WCAG 1.4.11 wants 3:1 for a border that identifies a control; this one
+  would need roughly `0.45` alpha. That is a visible weight change on every control in the
+  portal, so it is **not** fixed here — it is a deliberate open item, not an oversight.
 
 **Charts fail silently.** `ui/chartTheme.ts` reads `--chart-series-1` through `-4` by name.
 Leave any of them undefined in the scope and the charts render agency teal and coral on
