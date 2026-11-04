@@ -295,24 +295,23 @@
 }
 /* The dashed ring is the same signal the old static preview used for the two carrier-gated
    actions: switched off for now, not missing. */
+/* Inline rather than flex: centred text that wraps must keep the dot beside its first word,
+   not stranded at the left edge of the box. */
 .gate {
   margin: 8px 0 0;
-  display: flex;
-  justify-content: center;
-  align-items: baseline;
-  gap: 8px;
   font-size: 14px;
   line-height: 1.45;
   color: var(--fg-2);
 }
 .gate::before {
   content: "";
-  flex: none;
+  display: inline-block;
   width: 7px;
   height: 7px;
+  margin-right: 8px;
+  vertical-align: 1px;
   border-radius: 50%;
   border: 1.5px dashed var(--accent-2);
-  transform: translateY(1px);
 }
 
 .controls { display: flex; gap: 8px; align-items: stretch; }
