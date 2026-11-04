@@ -46,6 +46,16 @@ export interface TimelineEntry {
     title: string;
     /** One word for the type. Shown beside the title so an icon is never load-bearing. */
     kindLabel: string;
+    /**
+     * What the marker should depict — which is not always `lead.kind`.
+     *
+     * `"record"` is a bookkeeping entry wearing a contact kind, and it has to be decided here
+     * rather than in the component: the first fix for that case corrected the title and the
+     * chip and left the marker reading `lead.kind`, so a row saying "Added to your customers
+     * from your inbox" still drew a green phone. Two places deciding the same thing is how
+     * they came to disagree; now there is one, and it is tested.
+     */
+    markerKind: TimelineEventLike["kind"] | "record";
     /** The customer did this, rather than the client. Drives the filled marker. */
     inbound: boolean;
     at: string;
@@ -247,6 +257,7 @@ function entryFor(event: TimelineEventLike, customerName: string | null | undefi
         run,
         title: entryTitle(event, run, customerName),
         kindLabel: entryKindLabel(event),
+        markerKind: kindMatchesActor(event) ? event.kind : "record",
         inbound: event.actor === "customer",
         at: event.at,
         timeLabel: clockTime(event.at),

@@ -1087,8 +1087,10 @@ function EditableField({
  * are a legend nobody was given.
  */
 function Marker({ entry }: { entry: TimelineEntry }) {
-    const Icon = KIND_ICON[entry.lead.kind];
-    const hue = markerHue(entry.lead.kind);
+    // `markerKind`, never `lead.kind`: a promotion is stored wearing the source's kind, and
+    // reading it raw here drew a green phone beside "Added to your customers from your inbox".
+    const Icon = entry.markerKind === "record" ? Plus : KIND_ICON[entry.markerKind];
+    const hue = markerHue(entry.markerKind);
     const filled = entry.inbound;
 
     return (
@@ -1109,11 +1111,13 @@ function Marker({ entry }: { entry: TimelineEntry }) {
 }
 
 /** One colour per kind, from the portal's chart tokens. The CRM gets no palette of its own. */
-function markerHue(kind: TimelineEvent["kind"]): string {
+function markerHue(kind: TimelineEntry["markerKind"]): string {
     if (kind === "call") return "var(--chart-pos)";
-    if (isSms(kind)) return "var(--accent)";
+    if (kind === "sms-in" || kind === "sms-out") return "var(--accent)";
     if (kind === "web-form") return "var(--chart-series-2)";
     if (kind === "review-request") return "var(--chart-warn)";
+    // `record` lands here with every other bookkeeping entry: neutral, because nothing
+    // happened between the client and the customer.
     return "var(--fg-3)";
 }
 

@@ -291,3 +291,30 @@ test("the promotion row's title and its marker agree", () => {
     assert.equal(entry.title, "Added to your customers from your inbox");
     assert.equal(entry.kindLabel, "Added");
 });
+
+test("a promotion's marker is a record, not a phone", () => {
+    /**
+     * The second half of the same bug, and found the same way — by the session mirroring this
+     * code rather than by me. Correcting the title and the chip left `Marker` reading
+     * `lead.kind` directly, so the row still drew an outlined green phone beside "Added to
+     * your customers from your inbox".
+     *
+     * The marker's subject is decided here now. Two places deciding it is how they came to
+     * disagree in the first place.
+     */
+    const promoted = buildTimeline([promotionEvent("call")], NAME, NOW)[0].entries[0];
+    assert.equal(promoted.markerKind, "record");
+
+    const fromForm = buildTimeline([promotionEvent("web-form")], NAME, NOW)[0].entries[0];
+    assert.equal(fromForm.markerKind, "record");
+});
+
+test("a real contact still depicts itself", () => {
+    const call = buildTimeline([ev({ kind: "call", actor: "customer" })], NAME, NOW)[0].entries[0];
+    const form = buildTimeline([ev({ kind: "web-form", actor: "customer" })], NAME, NOW)[0].entries[0];
+    const text = buildTimeline([ev({ kind: "sms-out", actor: "client" })], NAME, NOW)[0].entries[0];
+
+    assert.equal(call.markerKind, "call");
+    assert.equal(form.markerKind, "web-form");
+    assert.equal(text.markerKind, "sms-out");
+});
