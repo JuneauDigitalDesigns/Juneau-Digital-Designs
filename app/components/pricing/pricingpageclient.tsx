@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Microphone } from "@phosphor-icons/react";
+import {
+    Browser,
+    ChatCircleText,
+    Check,
+    Kanban,
+    Phone,
+    PhoneOutgoing,
+    Star,
+    Tray,
+    type Icon,
+} from "@phosphor-icons/react";
 import { SCHEDULES, ANNUAL } from "@/app/lib/legal/schedules";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
@@ -22,7 +32,10 @@ type PricingTier = {
     slug: PlanSlug;
     name: string;
     tagline: string;
-    /** Capability, in the order a buyer should read it. Minutes are appended separately. */
+    /** "Everything in X, plus", set as a quiet label above the list rather than as a bullet. */
+    leadIn?: string;
+    /** Capability, in the order a buyer should read it. Minutes are appended separately.
+     *  Growth's list is empty: its card renders GROWTH_SYSTEM instead. */
     features: string[];
     highlighted: boolean;
 };
@@ -35,9 +48,10 @@ type PricingTier = {
  *  - **Minutes are never a headline.** They are appended last, as a footnote, because tiers
  *    are differentiated by capability now. Leading with minutes invites a buyer to pick the
  *    cheapest number that clears their call volume, which is the wrong question.
- *  - **Growth leads with the 60-second callback**, not with its larger allowance. That
- *    callback is the entire reason Growth costs $300 more than Starter: Starter tells you a
- *    lead came in, Growth acts on it.
+ *  - **Growth leads with the customer system**, not with its larger allowance. The pipeline,
+ *    customer texts and review requests are the headline (GROWTH_SYSTEM); the 60-second
+ *    callback is the secondary highlight under them. Starter reports a lead, Growth gives
+ *    you the system to work it.
  */
 const TIERS: PricingTier[] = [
     {
@@ -59,29 +73,22 @@ const TIERS: PricingTier[] = [
     {
         slug: "growth",
         name: "Growth",
-        tagline: "Growth works them like a team would. It calls web leads back for you, and gives you a pipeline to run the rest.",
-        /* The callback and the pipeline are the headline pair, in that order. The last
-           bullet waits on the client's own carrier registration, so it says what it waits
-           on and never how long. */
-        features: [
-            "Everything in Starter, plus:",
-            "60-second callback: a web form lead gets called back automatically within about a minute, and the result lands in your inbox",
-            "Customer pipeline: move every lead from Lead to Won, with notes, job value, and tags",
-            "AI qualifies the lead and answers common questions",
-            "Searchable call log with full transcripts",
-            "Urgency and caller-name extraction on every call",
-            "Text customers back from your business number, and ask for Google reviews in one tap, once the carriers approve your business registration",
-        ],
+        /* The approved tier line on its own. Its old second sentence ("It calls web leads
+           back for you, and gives you a pipeline to run the rest.") is what the card body
+           now shows, so it was saying everything twice. */
+        tagline: "Growth works them like a team would.",
+        leadIn: "Everything in Starter, plus",
+        features: [],
         highlighted: true,
     },
     {
         slug: "enterprise",
         name: "Enterprise",
         tagline: "For people running more than one shop. Separate sites and receptionists, one portal, one bill.",
+        leadIn: "Everything in Growth, plus",
         /* "One portal and call log", not "one pipeline": the contract promises a
            consolidated portal view across sites; a pipeline spanning sites is not verified. */
         features: [
-            "Everything in Growth, plus:",
             "2 to 3 websites, for example a service site and an e-commerce site",
             "A dedicated AI receptionist and phone number per site",
             "One portal and call log covering every site",
@@ -100,16 +107,45 @@ const TIERS: PricingTier[] = [
  *
  * "Every call and web enquiry lands in your portal" replaced the old "Lead email" bullet:
  * no plan delivers leads by email any more.
+ *
+ * Set as a spec line in the page header (three facts between hairlines), not a box: the
+ * boxed checklist read as something dropped onto the page. The seven facts the box listed
+ * are all here, grouped by what they're about: the site, the phone, the leads.
  */
-const EVERY_PLAN = [
-    "A custom four-page website: Home, Services, About, Contact",
-    "Hosting, SSL, and maintenance included",
-    "Your number rings you first. If you don't pick up, the AI receptionist does, 24/7, in English or Spanish",
-    "Every call and web enquiry lands in your portal",
-    "A text when a new lead arrives",
-    "A summary of every call",
-    "2 content edits per month",
+const EVERY_PLAN: { Icon: Icon; title: string; detail: string }[] = [
+    {
+        Icon: Browser,
+        title: "A custom four-page site",
+        detail: "Home, Services, About and Contact. Hosting, SSL and maintenance included, plus 2 content edits a month.",
+    },
+    {
+        Icon: Phone,
+        title: "It rings you first",
+        detail: "If you don't pick up, the AI receptionist answers, 24/7, in English or Spanish. You get a summary of every call.",
+    },
+    {
+        // The new-lead text comes from JDD's own number, so it is live on every plan and
+        // carries no carrier-approval tag.
+        Icon: Tray,
+        title: "One inbox for every lead",
+        detail: "Every call and web enquiry lands in your portal, and you get a text the moment a new one arrives.",
+    },
 ];
+
+/**
+ * Growth's headline: the customer system. The callback follows it as a secondary strip.
+ *
+ * `gated` items send from the client's own business number, so they wait on that client's
+ * A2P brand and campaign approval. Their tag says what they wait on, never how long, and
+ * links to the FAQ answer that explains it.
+ */
+const GROWTH_SYSTEM: { Icon: Icon; title: string; line: string; gated: boolean }[] = [
+    { Icon: Kanban, title: "Customer pipeline", line: "Move every lead from Lead to Won, with notes, job value and tags.", gated: false },
+    { Icon: ChatCircleText, title: "Customer texts", line: "Text customers back from your business number, right in your portal.", gated: true },
+    { Icon: Star, title: "Google reviews", line: "Ask for a Google review in one tap when the job is done.", gated: true },
+];
+const GROWTH_ALSO = "AI lead qualification, searchable call transcripts, and urgency and caller names pulled from every call.";
+const LIVE_FAQ_ID = "how-fast-live";
 
 /** The minutes footnote, appended last so it reads as a line item rather than a selling point. */
 function minutesLine(slug: PlanSlug): string {
@@ -120,7 +156,7 @@ function minutesLine(slug: PlanSlug): string {
 
 /* Answers are sourced from the Master Services Agreement so the marketing copy and
    the contract can't drift apart. Section refs noted per answer. */
-const FAQS: { q: string; a: string }[] = [
+const FAQS: { q: string; a: string | string[]; id?: string }[] = [
     {
         /**
          * Leads the section on purpose, and replaced "What's the catch?".
@@ -161,8 +197,16 @@ const FAQS: { q: string; a: string }[] = [
         a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If it's still not working after a fair run, there is no commitment holding you here. Month to month means you can leave at the end of any month.",
     },
     {
+        /* MSA delivery targets. The second paragraph is the carrier step for Growth's
+           customer-facing texts: what it waits on, who handles it, and no timeframe, because
+           approval is the carriers' to grant. The owner's own lead texts come from JDD's
+           number and are live from the start, so the first paragraph says so. */
+        id: LIVE_FAQ_ID,
         q: "How fast can I be live?",
-        a: "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week.", // MSA delivery targets
+        a: [
+            "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week. That covers your site, your receptionist, your portal, and the texts we send you about new leads.",
+            "On Growth, two features wait on one more step: texting your customers and asking for reviews. Those messages come from your own business number, so the carriers have to approve your business's text-messaging registration first. We file it for you, handle the back and forth, and switch both on as soon as it clears. The approval is the carriers' call, so we can't put a date on it. The callback and the pipeline work from day one.",
+        ],
     },
     {
         q: "Do I have to forward my phone?",
@@ -235,36 +279,47 @@ export default function PricingPageClient() {
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, ease: "easeOut" }}
-                    style={{ marginBottom: 40, textAlign: "center" }}
+                    style={{ marginBottom: 32, textAlign: "center" }}
                 >
-                    <h1
-                        style={{
-                            fontSize: "clamp(24px, 8vw, 88px)",
-                            marginTop: 16,
-                            marginBottom: 16,
-                            textTransform: "uppercase",
-                            overflowWrap: "break-word",
-                        }}
-                    >
-                        {/* Colour-only emphasis, same display face — the convention the homepage
-                            already sets with "Do Business." and "costing you?". The previous
-                            treatment set this word in the body font at italic 900, but neither an
-                            italic nor a 900 Hanken Grotesk is loaded, so the browser synthesised
-                            both — a sheared, smeared word at 88px. */}
-                        What it <span style={{ color: "var(--accent-2)" }}>costs</span>. All of it.
+                    {/* Approved 2026-11-04. Was "What it costs. All of it." plus a sub-line: the page
+                        opened by announcing the price. It now opens on what the owner gets, hands
+                        straight to the "On every plan" spec line below, and lets the cards show the
+                        cost a scroll later. Two beats, stacked: the first at full display size, the
+                        second as a smaller display line (`.pricing-hero-beat`), so the longer
+                        sentence doesn't run four lines deep at 88px.
+
+                        Colour-only emphasis, same display face: the convention the homepage sets
+                        with "Do Business." and "costing you?". Neither an italic nor a 900 Hanken
+                        Grotesk is loaded, so a body-font emphasis would be synthesised. */}
+                    <h1 className="pricing-hero-h1">
+                        Putting the system in your <span style={{ color: "var(--accent-2)" }}>hands</span>.{" "}
+                        <span className="pricing-hero-beat">The big shops have run on one for years. Now you do too.</span>
                     </h1>
-                    <p
-                        style={{
-                            maxWidth: "52ch",
-                            margin: "0 auto",
-                            fontSize: 16,
-                            color: "var(--fg-2)",
-                            lineHeight: 1.6,
-                        }}
-                    >
-                        Every plan is a real website, an AI receptionist that only answers when you
-                        can&apos;t, and a portal where every lead lands. Month to month, cancel anytime.
-                    </p>
+                </motion.div>
+
+                {/* ── On every plan ── see EVERY_PLAN. Part of the header, not a box: three
+                    facts held by hairlines, with the kicker set into the top rule. Layout and
+                    the phone stack are `.pricing-spec*` in globals.css. */}
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+                    className="pricing-spec"
+                >
+                    <p className="kicker pricing-spec-legend">On every plan</p>
+                    <ul className="pricing-spec-cols">
+                        {EVERY_PLAN.map(({ Icon, title, detail }) => (
+                            <li key={title} className="pricing-spec-col">
+                                <span className="pricing-spec-ico" aria-hidden="true">
+                                    <Icon size={18} weight="regular" />
+                                </span>
+                                <div>
+                                    <p className="pricing-spec-title">{title}</p>
+                                    <p className="pricing-spec-detail">{detail}</p>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
                 </motion.div>
 
                 {/* ── Billing period ──
@@ -320,39 +375,6 @@ export default function PricingPageClient() {
                             );
                         })}
                     </div>
-                </motion.div>
-
-                {/* ── On every plan ── see EVERY_PLAN */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-                    style={{
-                        marginBottom: 24,
-                        padding: "clamp(20px, 2.5vw, 28px)",
-                        borderRadius: 16,
-                        border: "1px solid var(--rule)",
-                        background: "var(--surface)",
-                    }}
-                >
-                    <p className="kicker" style={{ marginBottom: 14, color: "var(--fg-2)" }}>On every plan</p>
-                    <ul
-                        style={{
-                            listStyle: "none",
-                            padding: 0,
-                            margin: 0,
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
-                            gap: "10px 28px",
-                        }}
-                    >
-                        {EVERY_PLAN.map((item) => (
-                            <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14.5, color: "var(--fg-2)" }}>
-                                <Check weight="bold" size={14} style={{ color: "var(--online)", marginTop: 3, flexShrink: 0 }} />
-                                <span>{item}</span>
-                            </li>
-                        ))}
-                    </ul>
                 </motion.div>
 
                 {/* Pricing Cards */}
@@ -522,54 +544,68 @@ export default function PricingPageClient() {
                                 </p>
                             </div>
 
-                            {/* Growth's actual differentiator, called out.
-                                Was a generic "24/7 AI Voice Receptionist" badge, which is true of
-                                every tier now and so said nothing about why Growth costs more. */}
-                            {tier.slug === "growth" && (
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 12,
-                                        marginBottom: 20,
-                                        padding: "14px 16px",
-                                        borderRadius: 14,
-                                        background: "var(--surface)",
-                                        border: "1px solid var(--rule)",
-                                    }}
-                                >
-                                    <Microphone
-                                        weight="duotone"
-                                        size={18}
-                                        style={{ color: "var(--accent)", flexShrink: 0 }}
-                                    />
-                                    <div>
-                                        <p style={{ margin: 0, fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--accent)", letterSpacing: "-0.01em" }}>
-                                            The 60-second callback
-                                        </p>
-                                        <p style={{ margin: 0, marginTop: 2, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)", letterSpacing: "0.04em" }}>
-                                            Web leads get called back while they're still looking
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
+                            <div style={{ flex: 1 }}>
+                                {tier.leadIn && <p className="pricing-lead-in">{tier.leadIn}</p>}
 
-                            {/* Feature list */}
-                            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
-                                {tier.features.map((feature) => (
-                                    <li
-                                        key={feature}
-                                        style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg-2)" }}
-                                    >
-                                        <Check
-                                            weight="bold"
-                                            size={14}
-                                            style={{ color: "var(--online)", marginTop: 2, flexShrink: 0 }}
-                                        />
-                                        <span>{feature}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                                {tier.slug === "growth" ? (
+                                    <>
+                                        {/* The star of Growth: the customer system, as three tiles on
+                                            a raised panel. See GROWTH_SYSTEM. */}
+                                        <div className="pricing-system">
+                                            <p className="pricing-system-h">Your customer system</p>
+                                            {GROWTH_SYSTEM.map(({ Icon, title, line, gated }) => (
+                                                <div key={title} className="pricing-system-row">
+                                                    <span className="pricing-system-ico" aria-hidden="true">
+                                                        <Icon size={20} weight="duotone" />
+                                                    </span>
+                                                    <div>
+                                                        <p className="pricing-system-title">
+                                                            {title}
+                                                            {gated && (
+                                                                <a href={`#${LIVE_FAQ_ID}`} className="pricing-gate-tag" title="How that works">
+                                                                    After carrier approval
+                                                                </a>
+                                                            )}
+                                                        </p>
+                                                        <p className="pricing-system-line">{line}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* The highlight, under the star. "Within about a minute"
+                                            matches the contract's "typically within sixty (60)
+                                            seconds". */}
+                                        <div className="pricing-callback">
+                                            <PhoneOutgoing size={18} weight="bold" aria-hidden="true" style={{ color: "var(--accent-2)", flexShrink: 0, marginTop: 1 }} />
+                                            <div>
+                                                <p className="pricing-callback-title">The 60-second callback</p>
+                                                <p className="pricing-callback-line">Web form leads get a call back automatically, within about a minute.</p>
+                                            </div>
+                                        </div>
+
+                                        <p className="pricing-also">
+                                            <strong>Also on Growth:</strong> {GROWTH_ALSO}
+                                        </p>
+                                    </>
+                                ) : (
+                                    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {tier.features.map((feature) => (
+                                            <li
+                                                key={feature}
+                                                style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg-2)" }}
+                                            >
+                                                <Check
+                                                    weight="bold"
+                                                    size={14}
+                                                    style={{ color: "var(--online)", marginTop: 2, flexShrink: 0 }}
+                                                />
+                                                <span>{feature}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
 
                             {/* Minutes, as a line item under a rule rather than a bullet among the
                                 capabilities. Deliberately the least prominent thing on the card. */}
@@ -639,11 +675,13 @@ export default function PricingPageClient() {
                         }}
                     >
                         {FAQS.map((item) => (
-                            <div key={item.q} style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px" }}>
+                            <div key={item.q} id={item.id} style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px", scrollMarginTop: 96 }}>
                                 <h3 style={{ fontWeight: 700, fontSize: "clamp(18px,1.9vw,22px)", lineHeight: 1.15, textTransform: "uppercase", marginBottom: 10 }}>
                                     {item.q}
                                 </h3>
-                                <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "46ch" }}>{item.a}</p>
+                                {(Array.isArray(item.a) ? item.a : [item.a]).map((para, i) => (
+                                    <p key={i} style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: i ? "12px 0 0" : 0, maxWidth: "46ch" }}>{para}</p>
+                                ))}
                             </div>
                         ))}
                     </div>
