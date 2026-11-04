@@ -3,6 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { linkClerkUser } from "@/app/lib/account-store";
 import OnboardingPageClient from "@/app/components/onboarding/onboardingpageclient";
+import { getAgreement } from "@/app/lib/kv";
+import { getOrder } from "@/app/lib/operator-orders";
+import { buildPrefill } from "@/app/lib/onboarding-prefill";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +57,29 @@ export default async function PortalOnboardingPage({
         await linkClerkUser(account, userId);
     }
 
+    /**
+     * What we already hold for this client, so the wizard opens with it filled in to check.
+     *
+     * The agreement covers both paths (self-serve signing and a sales-call close); the order adds
+     * what only the call collected. Each lookup is best-effort: a miss just means the client types
+     * that field, exactly as before. The wizard ignores all of this once a draft exists.
+     */
+    const [agreement, order] = await Promise.all([
+        pendingSite.agreementId
+            ? getAgreement(pendingSite.agreementId).catch((e) => {
+                  console.error("[portal/onboarding] prefill: agreement lookup failed", pendingSite.agreementId, e);
+                  return null;
+              })
+            : null,
+        pendingSite.orderId
+            ? getOrder(pendingSite.orderId).catch((e) => {
+                  console.error("[portal/onboarding] prefill: order lookup failed", pendingSite.orderId, e);
+                  return null;
+              })
+            : null,
+    ]);
+    const prefill = buildPrefill({ agreement, order });
+
     return (
         <OnboardingPageClient
             plan={pendingSite.plan}
@@ -62,6 +88,7 @@ export default async function PortalOnboardingPage({
             // boundary: switching into or out of website-only is a terms change, not an edit.
             signedReceptionistMode={pendingSite.receptionistMode}
             signerName={pendingSite.signerName ?? ""}
+            prefill={prefill}
             clerkUserId={userId}
             siteRef={pendingSite.slug}
         />

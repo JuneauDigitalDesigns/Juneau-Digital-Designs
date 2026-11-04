@@ -31,6 +31,7 @@ import {
     type ReceptionistMode,
     type ScreenDef,
     type WizardContext,
+    type WizardPrefill,
     type WizardState,
 } from "./model";
 import { VOICE_OPTIONS } from "@jdd/schema";
@@ -58,6 +59,17 @@ export const RECEPTIONIST_OPTIONS: { id: ReceptionistMode; label: string; detail
 const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roofing: "⌂", "lawn-care": "✿", "car-detailing": "◆", health: "✚" };
 
 export type ScreenCopy = { q: string; help: string };
+
+/**
+ * DRAFT, awaiting Xander's word-for-word approval (prefill, 2026-11-04). Shown under a field we
+ * filled in from records we already hold, for as long as the client hasn't changed it.
+ */
+export const PREFILL_NOTE: Record<WizardPrefill["source"], string> = {
+    call: "From your call with us. Check it's right.",
+    agreement: "From your agreement. Check it's right.",
+};
+/** DRAFT, awaiting approval. Added to the welcome box when anything was prefilled. */
+export const PREFILL_WELCOME = "We've filled in what you've already told us. Just check it as you go.";
 
 /** The question and the line under it, per screen. */
 export function copyFor(id: string, state: WizardState, extra: { firstName: string; planLabel: string; maxSites: number }): ScreenCopy {
@@ -114,7 +126,23 @@ export type ScreenProps = {
         team: (files: File[]) => void;
     };
     extra: { firstName: string; planLabel: string; maxSites: number };
+    /** What was prefilled, so a field can say where its value came from. */
+    prefill?: WizardPrefill | null;
 };
+
+/** The "from your call / agreement" note, while the field still holds the prefilled value. */
+function prefillNote(p: ScreenProps, field: "name" | "address" | "phone" | "trade" | "owner"): string | null {
+    const v = p.prefill?.[field];
+    if (!p.prefill || !v) return null;
+    return p.state[field].trim() === v.trim() ? PREFILL_NOTE[p.prefill.source] : null;
+}
+
+/** A prefill note above a field's usual note, when both apply. */
+function notes(...lines: (ReactNode | null | undefined)[]): ReactNode | undefined {
+    const kept = lines.filter(Boolean);
+    if (!kept.length) return undefined;
+    return kept.length === 1 ? kept[0] : <>{kept.map((l, i) => <span key={i} style={{ display: "block" }}>{l}</span>)}</>;
+}
 
 // ── Small building blocks ────────────────────────────────────────────────────
 
@@ -263,6 +291,7 @@ export function ScreenBody(p: ScreenProps) {
                     <b>Good to have nearby</b>
                     <br />
                     Your logo and a few photos of your work. No logo or photos yet? That&apos;s fine, we&apos;ll sort it.
+                    {p.prefill ? <><br /><br />{PREFILL_WELCOME}</> : null}
                 </div>
             );
 
@@ -277,14 +306,18 @@ export function ScreenBody(p: ScreenProps) {
                             </button>
                         ))}
                     </div>
-                    {errors.trade ? <p className={s.err} role="alert">{errors.trade}</p> : null}
+                    {errors.trade ? (
+                        <p className={s.err} role="alert">{errors.trade}</p>
+                    ) : prefillNote(p, "trade") ? (
+                        <p className={s.note} style={{ marginTop: 8 }}>{prefillNote(p, "trade")}</p>
+                    ) : null}
                 </>
             );
 
         case "name":
             return (
                 <div className={s.narrow}>
-                    <Field label="Business name" error={errors.name}>
+                    <Field label="Business name" error={errors.name} note={notes(prefillNote(p, "name"))}>
                         <Text value={state.name} onChange={(v) => update({ name: v })} placeholder="Ridgeline Heating & Air" autoComplete="organization" />
                     </Field>
                 </div>
@@ -294,14 +327,14 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <>
                     <div className={s.row2}>
-                        <Field label="Business phone" error={errors.phone}>
+                        <Field label="Business phone" error={errors.phone} note={notes(prefillNote(p, "phone"))}>
                             <Text value={state.phone} onChange={(v) => update({ phone: v })} placeholder="(407) 555-0142" type="tel" inputMode="tel" autoComplete="tel" />
                         </Field>
                         <Field label="Business email" error={errors.email} note="From your agreement. Change it if leads should go somewhere else.">
                             <Text value={state.email} onChange={(v) => update({ email: v })} placeholder="you@yourbusiness.com" type="email" inputMode="email" autoComplete="email" />
                         </Field>
                     </div>
-                    <Field label="Business address" error={errors.address} note="Used to find your local area and shown on your site.">
+                    <Field label="Business address" error={errors.address} note={notes(prefillNote(p, "address"), "Used to find your local area and shown on your site.")}>
                         <Text value={state.address} onChange={(v) => update({ address: v })} placeholder="Street, city, state, ZIP" autoComplete="street-address" />
                     </Field>
                 </>
@@ -377,7 +410,7 @@ export function ScreenBody(p: ScreenProps) {
         case "people":
             return (
                 <div className={s.row2}>
-                    <Field label="Owner's name" optional note="Appears on your About page.">
+                    <Field label="Owner's name" optional note={notes(prefillNote(p, "owner"), "Appears on your About page.")}>
                         <Text value={state.owner} onChange={(v) => update({ owner: v })} placeholder="Marcus Bell" autoComplete="name" />
                     </Field>
                     <Field label="How fast do you respond?" optional note="In your own words. It goes next to your call button.">
