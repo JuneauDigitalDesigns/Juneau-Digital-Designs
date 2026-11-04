@@ -8,6 +8,7 @@ import { saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan } from "@/app/lib/plan-billing";
 import { dropBillingCache } from "@/app/lib/portal-kv";
+import { sendOpsNotice } from "@/app/lib/ops-notice";
 import { CARD_DECLINED, consolidationRefusal } from "@/app/lib/plan-change-copy";
 import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
 import {
@@ -181,6 +182,15 @@ export async function POST(request: Request) {
     console.error("[consolidate] could not persist agreement", agreementId, e),
   );
   after(() => sendStoredAgreementEmail(settled));
+  after(() =>
+    sendOpsNotice(`[JDD] Consolidated: ${account.email} → Enterprise (${record.absorbing.length} sites)`, [
+      `${account.email} moved ${record.absorbing.map((s) => `<strong>${s}</strong>`).join(", ")} onto Enterprise in the portal.`,
+      `The Enterprise subscription is ${plan.host.subscription.id} (was ${plan.host.site.slug}'s Growth one). ${
+        plan.others.length
+      } other Growth subscription${plan.others.length === 1 ? " was" : "s were"} cancelled and credited.`,
+      `In the console, the sites now read Enterprise in KV; site.ts and onboarding are yours to bring in line.`,
+    ]),
+  );
 
   return NextResponse.json({ ok: true });
 }
