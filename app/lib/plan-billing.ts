@@ -3,7 +3,25 @@ import type Stripe from "stripe";
 import type { PortalAccount } from "@jdd/schema";
 import { stripe } from "./stripe";
 import { saveAccount } from "./account-store";
-import { getPlan, type PlanSlug } from "./plans";
+import { getPlan, priceIdFor, type PlanSlug } from "./plans";
+import { billingIntervalOf, planChangeProration } from "./billing-periods.mjs";
+
+const PLAN_SLUGS: PlanSlug[] = ["starter", "growth", "enterprise"];
+
+/** The price a plan bills at on a given period, or null when that price isn't configured. */
+function expectedPriceIdFor(plan: PlanSlug, interval: "month" | "year"): string | null {
+    const cfg = getPlan(plan);
+    return cfg ? priceIdFor(cfg, interval === "year" ? "annual" : "monthly") : null;
+}
+
+/** Which plan a recurring price belongs to, monthly or annual. Null for a price we don't sell. */
+function planForPriceId(priceId: string): PlanSlug | null {
+    for (const slug of PLAN_SLUGS) {
+        const cfg = getPlan(slug);
+        if (cfg && (cfg.monthlyPriceId === priceId || cfg.annualPriceId === priceId)) return slug;
+    }
+    return null;
+}
 
 /**
  * The one place a subscription's plan changes.
@@ -257,7 +275,8 @@ export async function inspectSubscriptionPlan(
     site: { stripeSubscriptionId?: string; sessionId?: string },
     recordPlan: PlanSlug,
 ): Promise<PlanInspection> {
-    const expectedPriceId = getPlan(recordPlan)?.monthlyPriceId ?? null;
+    // Before the subscription is read, the expectation can only be the monthly price.
+    let expectedPriceId = getPlan(recordPlan)?.monthlyPriceId ?? null;
     const empty: PlanInspection = {
         subscriptionId: null,
         subscriptionStatus: null,
@@ -275,6 +294,10 @@ export async function inspectSubscriptionPlan(
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
         const price = recurring.length === 1 ? recurring[0].price : null;
+        // The right price for this plan depends on the period the client bills on. Comparing
+        // every subscription to the MONTHLY price flagged every annual client as drift — paying
+        // for one tier and using another — when they were billed exactly right.
+        expectedPriceId = expectedPriceIdFor(recordPlan, billingIntervalOf(price?.recurring));
 
         return {
             subscriptionId,
@@ -295,8 +318,8 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
     const { slug, accountEmail, site, targetPlan, agreementId, initiatedBy } = input;
 
     const plan = getPlan(targetPlan);
-    if (!plan?.monthlyPriceId) {
-        console.error("[plan-billing] no monthly price configured for", targetPlan);
+    if (!plan) {
+        console.error("[plan-billing] unknown plan", targetPlan);
         return { ok: false, code: "no-price", message: "That plan isn't configured for billing." };
     }
 
@@ -339,18 +362,51 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
             };
         }
 
+        /**
+         * Stay on the period the client bills on. This used to swap to the target plan's
+         * MONTHLY price unconditionally, so an annual client who upgraded was silently moved to
+         * monthly billing with the unused year credited back. An annual client moves to the
+         * target plan's ANNUAL price; if that isn't configured the change is refused rather
+         * than quietly changing how often they pay.
+         */
+        const interval = billingIntervalOf(recurring[0].price.recurring);
+        const targetPriceId = expectedPriceIdFor(targetPlan, interval);
+        if (!targetPriceId) {
+            console.error("[plan-billing] no", interval, "price configured for", targetPlan);
+            return {
+                ok: false,
+                code: "no-price",
+                message:
+                    interval === "year"
+                        ? "Annual billing isn't configured for that plan, so the change wasn't made."
+                        : "That plan isn't configured for billing.",
+            };
+        }
+
         // Already there. Report success without touching Stripe, so a retry, a double click or
         // an operator syncing an already-correct subscription cannot raise a second invoice.
-        if (recurring[0].price.id === plan.monthlyPriceId) {
+        if (recurring[0].price.id === targetPriceId) {
             return { ok: true, subscriptionId, changed: false };
         }
 
         await stripe.subscriptions.update(subscriptionId, {
-            items: [{ id: recurring[0].id, price: plan.monthlyPriceId }],
-            // Bill the difference now rather than at the next cycle. For a client, they have
-            // just signed and clicked upgrade; for an operator, the whole point is that the
-            // billing is currently wrong and every day it stays wrong costs money.
-            proration_behavior: "always_invoice",
+            items: [{ id: recurring[0].id, price: targetPriceId }],
+            /**
+             * Monthly, either direction: bill the difference now rather than at the next cycle.
+             * For a client, they have just signed and clicked upgrade; for an operator, the
+             * whole point is that the billing is currently wrong and every day it stays wrong
+             * costs money.
+             *
+             * Annual (approved 2026-11-04): an upgrade also prorates now, so the client pays the
+             * difference for the rest of the paid year; a downgrade gives no credit for the year
+             * already paid, and the lower price starts at renewal (`none`). See
+             * `planChangeProration`.
+             */
+            proration_behavior: planChangeProration({
+                interval,
+                fromPlan: planForPriceId(recurring[0].price.id),
+                toPlan: targetPlan,
+            }),
             // The webhook has only a subscription to work from, and the sub→slug index is
             // written on cancellation rather than purchase. Carrying the slug and email here
             // is what lets `customer.subscription.updated` find the record to write. Requiring
