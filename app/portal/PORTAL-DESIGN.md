@@ -127,6 +127,7 @@ back wearing the agency cream and coral. Those files hand-copy the portal values
 | `app/globals.css` → `.portal-scope` | the source of truth | — |
 | `app/portal/clerkAppearance.ts` | `--fg`, `--fg-3`, `--accent`, `--online` … | Clerk's `<UserButton/>` popover portals into `<body>` |
 | `app/components/portal/tour/tour-theme.css` | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--rule-strong` | driver.js popovers render into `<body>` |
+| `app/components/home/PortalDemo.module.css` (the `.pop*` tour-card rules) | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--chart-warn` | the homepage demo's tour card sits over the window, outside `.portal-scope` |
 
 **Adding a mirror? Add a row here in the same PR**, so the table arrives true rather than
 aspirational. Keep it to files that genuinely hand-copy values: anything rendered inside a real
