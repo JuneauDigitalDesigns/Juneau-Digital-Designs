@@ -1721,6 +1721,114 @@ select option {
   border-radius: 1px;
 }
 
+/* ── Every plan starts here (homepage, directly above the price cards) ──
+   Copy left, three ruled rows right from 900px; one column below it. Each row carries the
+   journey's teal bar so the three facts read as the same kind of list as the outcomes
+   above. Bottom padding is short because <PricingSection> follows as part of the same
+   argument; see the note on its own top padding. */
+.every-section {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: clamp(64px, 7vw, 120px) clamp(18px, 4vw, 56px) clamp(40px, 5vw, 72px);
+}
+
+.every-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.every-grid > * { min-width: 0; }
+
+@media (min-width: 900px) {
+  .every-grid {
+    grid-template-columns: 5fr 7fr;
+    gap: clamp(40px, 5vw, 80px);
+  }
+}
+
+/* Same scale as the journey headings, narrower measure so it breaks after "plan". */
+.every-heading {
+  font-size: clamp(30px, 4.2vw, 54px);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  max-width: 12ch;
+  margin-top: 12px;
+}
+
+.every-intro {
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  max-width: 42ch;
+  margin-top: 18px;
+}
+
+.every-rows { border-top: 1px solid var(--rule); }
+
+/* Phone: bar down the left, label stacked over the title and detail. From 560px the
+   label takes its own fixed column, so the three titles line up. */
+.every-row {
+  display: grid;
+  grid-template-columns: 2px 1fr;
+  grid-template-areas: "bar label" "bar body";
+  column-gap: 16px;
+  row-gap: 8px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.every-row::before {
+  content: "";
+  grid-area: bar;
+  align-self: stretch;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
+.every-label {
+  grid-area: label;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.every-label svg { flex-shrink: 0; }
+
+.every-body { grid-area: body; }
+
+.every-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.every-detail {
+  margin-top: 6px;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: var(--fg-2);
+  max-width: 52ch;
+}
+
+@media (min-width: 560px) {
+  .every-row {
+    grid-template-columns: 2px 150px 1fr;
+    grid-template-areas: "bar label body";
+    padding: 20px 0;
+  }
+  .every-label { align-self: start; margin-top: 3px; }
+  .every-body { margin-left: 8px; }
+  .every-title { font-size: 26px; }
+}
+
 /* ── Portal preview (homepage section 03) ─────────────────────
    A drawing of the portal in the agency palette — see PortalPreview.tsx for what each part
    is held to. Kept to the elevation and chart tokens the rest of the page uses, so the
