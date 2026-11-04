@@ -279,36 +279,22 @@ export default function PricingPageClient() {
                     initial={{ opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.55, ease: "easeOut" }}
-                    style={{ marginBottom: 40, textAlign: "center" }}
+                    style={{ marginBottom: 32, textAlign: "center" }}
                 >
-                    <h1
-                        style={{
-                            fontSize: "clamp(24px, 8vw, 88px)",
-                            marginTop: 16,
-                            marginBottom: 16,
-                            textTransform: "uppercase",
-                            overflowWrap: "break-word",
-                        }}
-                    >
-                        {/* Colour-only emphasis, same display face — the convention the homepage
-                            already sets with "Do Business." and "costing you?". The previous
-                            treatment set this word in the body font at italic 900, but neither an
-                            italic nor a 900 Hanken Grotesk is loaded, so the browser synthesised
-                            both — a sheared, smeared word at 88px. */}
-                        What it <span style={{ color: "var(--accent-2)" }}>costs</span>. All of it.
+                    {/* Approved 2026-11-04. Was "What it costs. All of it." plus a sub-line: the page
+                        opened by announcing the price. It now opens on what the owner gets, hands
+                        straight to the "On every plan" spec line below, and lets the cards show the
+                        cost a scroll later. Two beats, stacked: the first at full display size, the
+                        second as a smaller display line (`.pricing-hero-beat`), so the longer
+                        sentence doesn't run four lines deep at 88px.
+
+                        Colour-only emphasis, same display face: the convention the homepage sets
+                        with "Do Business." and "costing you?". Neither an italic nor a 900 Hanken
+                        Grotesk is loaded, so a body-font emphasis would be synthesised. */}
+                    <h1 className="pricing-hero-h1">
+                        Putting the system in your <span style={{ color: "var(--accent-2)" }}>hands</span>.{" "}
+                        <span className="pricing-hero-beat">The big shops have run on one for years. Now you do too.</span>
                     </h1>
-                    <p
-                        style={{
-                            maxWidth: "52ch",
-                            margin: "0 auto",
-                            fontSize: 16,
-                            color: "var(--fg-2)",
-                            lineHeight: 1.6,
-                        }}
-                    >
-                        Every plan is a real website, an AI receptionist that only answers when you
-                        can&apos;t, and a portal where every lead lands. Month to month, cancel anytime.
-                    </p>
                 </motion.div>
 
                 {/* ── On every plan ── see EVERY_PLAN. Part of the header, not a box: three
