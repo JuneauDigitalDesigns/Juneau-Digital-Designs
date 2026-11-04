@@ -97,6 +97,15 @@ export async function POST(req: Request) {
           console.warn("[stripe webhook] subscription price is not a plan we sell", slug, sub.id);
         } else if (!account || !current) {
           console.warn("[stripe webhook] no site for plan change", email, slug, sub.id);
+        } else if (
+          sub.status === "canceled" ||
+          (current.stripeSubscriptionId && current.stripeSubscriptionId !== sub.id)
+        ) {
+          // Not the subscription this site is billed on now. A move to Enterprise updates and
+          // then cancels each absorbed Growth subscription, and their events can arrive after
+          // the site has been repointed at the Enterprise one: taking the plan from them would
+          // put the site back on Growth.
+          console.log("[stripe webhook] event for a subscription the site no longer bills on", slug, sub.id);
         } else if (current.plan === plan) {
           // Replayed event, or an update about something else entirely: this handler runs on
           // every subscription edit, including cancellations.

@@ -33,6 +33,12 @@ test("absorbed Growth subscriptions are cancelled with the credit invoiced to th
   assert.match(lib, /consolidated_into/);
 });
 
+test("a late event from an absorbed Growth subscription can't put its site back on Growth", () => {
+  const src = read("app/api/webhooks/stripe/route.ts");
+  assert.match(src, /current\.stripeSubscriptionId && current\.stripeSubscriptionId !== sub\.id/);
+  assert.match(src, /sub\.status === "canceled"/);
+});
+
 test("refusals are decided before the client is offered the agreement", () => {
   const page = read("app/portal/consolidate/page.tsx");
   assert.match(page, /await planConsolidation\(account\)/);
