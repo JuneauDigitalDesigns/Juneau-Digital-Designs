@@ -3,9 +3,6 @@ import {
     mapBrandIntakeToIntake,
     uniqueSlug,
     zBrandIntakeSubmission,
-    type BrandIntakeSubmission,
-    type PalettePick,
-    type ServiceEntry,
     type Intake,
 } from "@/app/lib/site-schema";
 import { sendClientCompleteNotification } from "@/app/lib/notification-email";
@@ -15,7 +12,7 @@ import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
-import { isValidBlobUrl } from "@/app/lib/blob-url";
+import { buildSubmission, markPaletteNotClientChosen } from "@/app/lib/onboarding-submission";
 
 /** Deep-clone replacing every empty string with null. */
 function normalizeEmpties(value: unknown): unknown {
@@ -27,78 +24,6 @@ function normalizeEmpties(value: unknown): unknown {
         );
     }
     return value;
-}
-
-type PlanSlug = "starter" | "growth" | "enterprise";
-
-const maxFieldLength = 2000;
-
-function sanitize(value: unknown, limit = maxFieldLength): string {
-    if (typeof value !== "string") return "";
-    return value.trim().slice(0, limit);
-}
-
-function sanitizeStringArray(value: unknown, maxItems: number, itemLimit: number): string[] {
-    if (!Array.isArray(value)) return [];
-    return value.slice(0, maxItems).map((v) => sanitize(v, itemLimit)).filter(Boolean);
-}
-
-function isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function sanitizeFilename(value: unknown): string {
-    if (typeof value !== "string") return "";
-    const base = value.replace(/\\/g, "/").split("/").pop() ?? "";
-    return base.replace(/\.\./g, "").replace(/\0/g, "").trim().slice(0, 200);
-}
-
-function sanitizeImageMeta(item: unknown): { url: string; filename: string; alt: string } | null {
-    if (!item || typeof item !== "object") return null;
-    const obj = item as Record<string, unknown>;
-    const url = sanitize(obj.url, 500);
-    if (!url || !isValidBlobUrl(url)) return null;
-    return { url, filename: sanitizeFilename(obj.filename), alt: sanitize(obj.alt, 200) };
-}
-
-const BG_MOODS = ["white", "warm", "cool", "soft-dark", "deep-dark"] as const;
-const PALETTE_SLOTS = ["accent", "accentFg", "bg", "bgSoft", "ink", "inkSoft", "rule"] as const;
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
-
-function sanitizeOverrides(raw: unknown): PalettePick["overrides"] {
-    if (!raw || typeof raw !== "object") return undefined;
-    const obj = raw as Record<string, unknown>;
-    const out: Record<string, string> = {};
-    for (const slot of PALETTE_SLOTS) {
-        const v = obj[slot];
-        if (typeof v === "string" && HEX_RE.test(v.trim())) out[slot] = v.trim().toUpperCase();
-    }
-    return Object.keys(out).length ? out : undefined;
-}
-
-function sanitizePalette(raw: unknown): PalettePick {
-    const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-    const overrides = sanitizeOverrides(obj.overrides);
-    if (sanitize(obj.mode, 10) !== "custom") {
-        return { mode: "preset", presetId: sanitize(obj.presetId, 60), overrides };
-    }
-    const mood = sanitize(obj.bgMood, 20);
-    return {
-        mode: "custom",
-        presetId: sanitize(obj.presetId, 60),
-        baseColor: sanitize(obj.baseColor, 20),
-        accentColor: sanitize(obj.accentColor, 20),
-        bgMood: (BG_MOODS as readonly string[]).includes(mood) ? (mood as PalettePick["bgMood"]) : undefined,
-        overrides,
-    };
-}
-
-function sanitizeServiceList(raw: unknown): ServiceEntry[] {
-    if (!Array.isArray(raw)) return [];
-    return raw
-        .slice(0, 8)
-        .map((s) => ({ name: sanitize((s as Record<string, unknown>)?.name, 120), tag: sanitize((s as Record<string, unknown>)?.tag, 80) }))
-        .filter((s) => s.name);
 }
 
 export async function POST(request: Request) {
@@ -114,121 +39,18 @@ export async function POST(request: Request) {
 
         const body = (await request.json()) as Partial<Record<string, unknown>>;
 
-        const validPlans: PlanSlug[] = ["starter", "growth", "enterprise"];
-        const rawPlan = sanitize(body.selectedPlan, 20);
-        const selectedPlan: PlanSlug = validPlans.includes(rawPlan as PlanSlug)
-            ? (rawPlan as PlanSlug)
-            : site.plan;
-
-        /**
-         * The activation choice, narrowed against the three valid values.
-         *
-         * Anything unrecognised becomes `undefined`, meaning "not asked", rather than being
-         * coerced to one of the options. That is the safe direction: provisioning refuses to
-         * run without a stated choice, so a bad value stalls a build and gets noticed, whereas
-         * a coerced one silently either buys a phone number nobody wanted or withholds one the
-         * client paid for.
-         */
-        const rawReceptionist = sanitize(body.receptionistMode, 20);
-        const receptionistMode =
-            rawReceptionist === "forwarded" || rawReceptionist === "published" || rawReceptionist === "declined"
-                ? rawReceptionist
-                : undefined;
-
-        const brandName = sanitize(body.brandName, 160);
-        const brandShort = sanitize(body.brandShort, 80);
-        const email = sanitize(body.email, 160) || site.signerEmail || "";
-        const phone = sanitize(body.phone, 60);
-        const address = sanitize(body.address, 300);
-        const license = sanitize(body.license, 200);
-        const industry = sanitize(body.industry, 120);
-        const established = sanitize(body.established, 40);
-        const notableClients = sanitize(body.notableClients, 500);
-        const certifications = sanitize(body.certifications, 300);
-        const businessHours = sanitize(body.businessHours, 300);
-        const serviceArea = sanitize(body.serviceArea, 400);
-        const agentName = sanitize(body.agentName, 80);
-        const existingWebsiteUrl = sanitize(body.existingWebsiteUrl, 500);
-        const announcement = sanitize(body.announcement, 300);
-        const hasLogo = Boolean(body.hasLogo);
-
-        if (email && !isValidEmail(email)) {
-            return NextResponse.json({ message: "Please provide a valid email address." }, { status: 400 });
+        // Field by field in app/lib/onboarding-submission.ts, which is tested. It used to be inline
+        // here and dropped nine answers the wizard collected.
+        const built = buildSubmission(body, site);
+        if (!built.ok) {
+            const message =
+                built.reason === "invalid-email"
+                    ? "Please provide a valid email address."
+                    : "Your submission could not be processed. Please try again.";
+            return NextResponse.json({ message }, { status: 400 });
         }
-
-        const serviceList = sanitizeServiceList(body.serviceList);
-        const bd = body.brandDirection && typeof body.brandDirection === "object" ? (body.brandDirection as Record<string, unknown>) : {};
-        const brandDirection = {
-            differentiators: sanitize(bd.differentiators, 800),
-            targetCustomer: sanitize(bd.targetCustomer, 300),
-            vibe: sanitizeStringArray(bd.vibe, 12, 40),
-            tone: sanitizeStringArray(bd.tone, 12, 40),
-            adjectives: sanitizeStringArray(bd.adjectives, 12, 40),
-            references: sanitize(bd.references, 500),
-            forbidden: sanitize(bd.forbidden, 500),
-        };
-
-        const palette = sanitizePalette(body.palette);
-        const rawImages = body.images && typeof body.images === "object" ? (body.images as Record<string, unknown>) : {};
-        const heroSlides = Array.isArray(rawImages.heroSlides)
-            ? rawImages.heroSlides.slice(0, 10).map(sanitizeImageMeta).filter((x): x is { url: string; filename: string; alt: string } => x !== null)
-            : [];
-        const logo = rawImages.logo ? sanitizeImageMeta(rawImages.logo) ?? undefined : undefined;
-        const aboutFeature = rawImages.aboutFeature ? sanitizeImageMeta(rawImages.aboutFeature) ?? undefined : undefined;
-
-        const additionalSites = Array.isArray(body.additionalSites)
-            ? body.additionalSites.slice(0, 2).map((s) => {
-                const site = s as Record<string, unknown>;
-                const sbd = site.brandDirection && typeof site.brandDirection === "object" ? (site.brandDirection as Record<string, unknown>) : {};
-                return {
-                    brandName: sanitize(site.brandName, 160),
-                    brandShort: sanitize(site.brandShort, 80),
-                    email: sanitize(site.email, 160),
-                    phone: sanitize(site.phone, 60),
-                    address: sanitize(site.address, 300),
-                    businessHours: sanitize(site.businessHours, 300),
-                    serviceList: sanitizeServiceList(site.serviceList),
-                    palette: sanitizePalette(site.palette),
-                    brandDirection: {
-                        differentiators: sanitize(sbd.differentiators, 800),
-                        targetCustomer: "",
-                        vibe: [],
-                        tone: [],
-                        adjectives: [],
-                        references: "",
-                        forbidden: "",
-                    },
-                };
-            }).filter((s) => s.brandName)
-            : [];
-
-        const submission: BrandIntakeSubmission = {
-            selectedPlan,
-            // Carried onto the Intake envelope by the mapper, which is what onboard.js reads to
-            // decide whether this client gets a phone number and an agent at all.
-            ...(receptionistMode ? { receptionistMode } : {}),
-            brandName,
-            brandShort,
-            email,
-            phone,
-            address,
-            license,
-            industry,
-            established,
-            notableClients,
-            certifications,
-            businessHours,
-            serviceArea,
-            agentName,
-            serviceList,
-            brandDirection,
-            palette,
-            hasLogo,
-            images: { logo, heroSlides, aboutFeature },
-            existingWebsiteUrl,
-            announcement,
-            additionalSites: selectedPlan === "enterprise" ? additionalSites : undefined,
-        };
+        const { submission } = built;
+        const { selectedPlan, receptionistMode, brandName, brandShort, email, phone, industry, serviceList } = submission;
 
         const parsed = zBrandIntakeSubmission.safeParse(submission);
         if (!parsed.success) {
@@ -245,10 +67,12 @@ export async function POST(request: Request) {
             return null;
         });
 
-        const intake: Intake = {
+        // The client no longer chooses colors (JDD does, in the console), so the default palette
+        // the wizard sends is recorded as not client-supplied.
+        const intake: Intake = markPaletteNotClientChosen({
             ...mapBrandIntakeToIntake(submission),
             smsAlerts: smsAlertsSnapshot(consent),
-        };
+        });
         const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
         const slugSource = brandShort || brandName || "client";
         // Suffixed against the account's other sites. Nothing checked this before, so two
