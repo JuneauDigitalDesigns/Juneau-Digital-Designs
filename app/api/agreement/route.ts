@@ -32,6 +32,30 @@ function isWebOnlyMaster(body: AgreementSubmission): boolean {
 }
 
 export async function POST(req: Request) {
+  /**
+   * Signed-in clients only, checked before anything else.
+   *
+   * Everything below renders a branded agreement, stores it, and emails it to whatever address
+   * the body names. Without this, a signed-out caller could make JDD do all three for anyone.
+   * `/start` and `/agreement` already turn signed-out visitors away; this closes the API behind
+   * them. `/start` creates the account before sending anyone to sign, so a login with no
+   * account skipped the funnel and is refused here the same way `/api/checkout` refuses it.
+   */
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Sign in to continue" }, { status: 401 });
+  }
+  let account: Awaited<ReturnType<typeof resolveAccountForUser>>;
+  try {
+    account = await resolveAccountForUser(userId);
+  } catch (e) {
+    console.error("[/api/agreement] account lookup failed", e);
+    return NextResponse.json({ error: "Could not look up your account" }, { status: 500 });
+  }
+  if (!account) {
+    return NextResponse.json({ error: "No account for this login" }, { status: 403 });
+  }
+
   let body: AgreementSubmission;
   try {
     body = (await req.json()) as AgreementSubmission;
@@ -161,17 +185,13 @@ export async function POST(req: Request) {
    */
   if (!isAddendum) {
     try {
-      const { userId } = await auth();
-      const account = userId ? await resolveAccountForUser(userId) : null;
-      if (account) {
-        const master: MasterAgreementRef = {
-          agreementId: id,
-          version: TERMS_VERSION,
-          tierCeiling: body.plan,
-          signedAt: signedAt.getTime(),
-        };
-        await saveAccount({ ...account, masterAgreement: master, updatedAt: Date.now() });
-      }
+      const master: MasterAgreementRef = {
+        agreementId: id,
+        version: TERMS_VERSION,
+        tierCeiling: body.plan,
+        signedAt: signedAt.getTime(),
+      };
+      await saveAccount({ ...account, masterAgreement: master, updatedAt: Date.now() });
     } catch (e) {
       console.error(`[/api/agreement] ${id} could not record master on account`, e);
     }
