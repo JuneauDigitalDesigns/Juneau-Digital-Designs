@@ -55,7 +55,8 @@ const STUBS = {
             if (!slots().has(key)) { slots().set(key, id); return null; }
             return slots().get(key);
         };
-        export const takeAgreementSlot = async (key, id) => { slots().set(key, id); };
+        export const peekAgreementSlot = async (key) => slots().get(key) ?? null;
+        export const takeAgreementSlot =async (key, id) => { slots().set(key, id); };
         export const releaseAgreementSlot = async (key, id) => { if (slots().get(key) === id) slots().delete(key); };
     `,
     "@/app/lib/pdf-signer": `

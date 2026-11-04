@@ -164,3 +164,53 @@ test("a failed acceptance does not block the retry: it signs afresh and is saved
   assert.equal(state.savedAgreements[0].id, retry.agreement_id);
   assert.deepEqual(state.emailsTo, ["marisol@riverapd.example"]);
 });
+
+/**
+ * The retry the test run actually took. The master is recorded on the account when it is
+ * signed, so the client who comes back through `/pricing` after a failed checkout is offered
+ * the short addendum against it. Submitting that used to file a second agreement and send a
+ * second email for the same purchase.
+ */
+async function signMasterThenReturn() {
+  const master = await accept(submission({}, "2026-11-04T18:00:00.000Z"));
+  // What /start and /agreement see next time: the account with that master on it.
+  state.accounts.user_rivera = state.savedAccounts.at(-1);
+  assert.equal(state.accounts.user_rivera.masterAgreement.agreementId, master.agreement_id);
+  return master;
+}
+const addendumFor = (masterId, overrides = {}) =>
+  submission({ kind: "addendum", parentAgreementId: masterId, ...overrides }, "2026-11-04T18:09:00.000Z");
+
+test("coming back after a failed checkout: the addendum against the unpaid master returns the master", async () => {
+  const master = await signMasterThenReturn();
+
+  const again = await accept(addendumFor(master.agreement_id));
+  assert.equal(again.status, 200);
+  assert.equal(again.agreement_id, master.agreement_id);
+  assert.equal(state.savedAgreements.length, 1);
+  assert.deepEqual(state.emailsTo, ["marisol@riverapd.example"]);
+});
+
+test("an addendum against a master that has been paid for is a real addendum", async () => {
+  const master = await signMasterThenReturn();
+  state.paid = new Set([master.agreement_id]);
+
+  const addendum = await accept(addendumFor(master.agreement_id));
+  assert.equal(addendum.status, 200);
+  assert.notEqual(addendum.agreement_id, master.agreement_id);
+  assert.equal(state.savedAgreements.at(-1).kind, "addendum");
+  assert.equal(state.emailsTo.length, 2);
+
+  // And repeating that addendum returns it, not a third agreement.
+  const again = await accept(addendumFor(master.agreement_id));
+  assert.equal(again.agreement_id, addendum.agreement_id);
+  assert.equal(state.savedAgreements.length, 2);
+});
+
+test("an addendum with different details from the unpaid master is filed as its own agreement", async () => {
+  const master = await signMasterThenReturn();
+
+  const other = await accept(addendumFor(master.agreement_id, { clientLegalName: "Rivera Drain East LLC" }));
+  assert.notEqual(other.agreement_id, master.agreement_id);
+  assert.equal(state.savedAgreements.length, 2);
+});
