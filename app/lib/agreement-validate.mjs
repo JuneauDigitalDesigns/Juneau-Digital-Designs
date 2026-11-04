@@ -114,6 +114,10 @@ export function validateAgreementSubmission(body) {
   if (body.receptionistMode === "declined" && body.plan !== "starter") {
     return "Website-only is only available on the Starter plan";
   }
+  // Switching the receptionist on is, by definition, not choosing website-only again.
+  if (body.receptionistSlug && body.receptionistMode === "declined") {
+    return "Please choose how your phone should be handled";
+  }
   // Forwarding needs a number to forward from. A choice of "forward" with nothing to forward
   // is not a usable instruction.
   if (body.receptionistMode === "forwarded" && !normalizeE164(body.forwardingNumber)) {

@@ -6,6 +6,7 @@ import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreem
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
+import { RECEPTIONIST_FAILED, RECEPTIONIST_SESSION_EXPIRED } from "@/app/lib/plan-change-copy";
 import PlanChip from "./PlanChip";
 import TermsReader from "./TermsReader";
 
@@ -41,6 +42,16 @@ interface Props {
      * for the end of their paid period instead of charging anything.
      */
     downgradeSlug?: string | null;
+    /**
+     * Set when a website-only Starter client is switching the AI receptionist on: the standard
+     * Starter terms with a phone choice, then `/api/portal/receptionist` instead of a checkout.
+     */
+    receptionistSlug?: string | null;
+    /**
+     * Ask the phone choice even though this is an in-place change: switching the receptionist
+     * on, or a website-only site upgrading to Growth, has no phone setup to keep.
+     */
+    askPhoneChoice?: boolean;
     /**
      * Which instrument is on screen. `addendum` is the one-page Site Addendum a returning
      * client signs for a later site; it adopts their master by reference.
@@ -119,6 +130,8 @@ export default function AgreementClient({
     webOnlyVersion,
     upgradeSlug = null,
     downgradeSlug = null,
+    receptionistSlug = null,
+    askPhoneChoice = false,
     kind = "master",
     parentAgreementId,
     consolidate = false,
@@ -127,6 +140,7 @@ export default function AgreementClient({
 }: Props) {
     const isUpgrade = upgradeSlug !== null;
     const isDowngrade = downgradeSlug !== null;
+    const isAddingReceptionist = receptionistSlug !== null;
     const isAddendum = kind === "addendum";
     const isEnterprise = plan === "enterprise";
     /**
@@ -147,9 +161,13 @@ export default function AgreementClient({
      * to onboarding) and for upgrades (the client already has a phone setup). Starter offers all
      * three options; Growth drops "website only", which is a Starter-only concession.
      */
-    // A downgrade keeps the phone setup the client already has, like an upgrade.
-    const showPhoneSection = !isEnterprise && !isUpgrade && !isDowngrade;
-    const phoneOptions = RECEPTIONIST_OPTIONS.filter((o) => plan === "starter" || o.id !== "declined");
+    // A downgrade keeps the phone setup the client already has, like an upgrade, unless there
+    // is none to keep (`askPhoneChoice`: switching the receptionist on, or a website-only
+    // upgrade). Website-only is never offered when the point is to switch the receptionist on.
+    const showPhoneSection = !isEnterprise && (askPhoneChoice || (!isUpgrade && !isDowngrade));
+    const phoneOptions = RECEPTIONIST_OPTIONS.filter(
+        (o) => (plan === "starter" && !isAddingReceptionist) || o.id !== "declined",
+    );
     const [receptionistMode, setReceptionistMode] = useState<ReceptionistMode | "">("");
     const [forwardingNumber, setForwardingNumber] = useState("");
 
@@ -302,6 +320,7 @@ export default function AgreementClient({
                     // endpoint re-resolves this slug against the signed-in account.
                     ...(isUpgrade ? { upgradeSlug } : {}),
                     ...(isDowngrade ? { downgradeSlug } : {}),
+                    ...(isAddingReceptionist ? { receptionistSlug } : {}),
                     // Holds the client email until the move to Enterprise has gone through.
                     ...(consolidate ? { consolidate: true } : {}),
                     // Which document was on screen. The route hashes the text it is told was
@@ -339,6 +358,26 @@ export default function AgreementClient({
                     throw new Error(conData.error || `Could not start the move (${conRes.status})`);
                 }
                 window.location.href = "/portal?consolidated=1";
+                return;
+            }
+
+            if (isAddingReceptionist) {
+                // Nothing is charged: same plan, same price. Records the phone choice and asks
+                // Xander to provision. Same session-expiry trap as the upgrade below.
+                const rcRes = await fetch(
+                    `/api/portal/receptionist?site=${encodeURIComponent(receptionistSlug!)}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ agreement_id: sigData.agreement_id }),
+                    },
+                );
+                if (!rcRes.headers.get("content-type")?.includes("application/json")) {
+                    throw new Error(RECEPTIONIST_SESSION_EXPIRED);
+                }
+                const rcData = (await rcRes.json()) as { ok?: boolean; error?: string };
+                if (!rcRes.ok || !rcData.ok) throw new Error(rcData.error || RECEPTIONIST_FAILED);
+                window.location.href = `/portal?site=${encodeURIComponent(receptionistSlug!)}`;
                 return;
             }
 

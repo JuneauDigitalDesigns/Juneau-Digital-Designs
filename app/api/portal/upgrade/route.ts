@@ -10,7 +10,7 @@ import { saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan, upgradeBlockReason } from "@/app/lib/plan-billing";
 import { planLimits } from "@/app/lib/plan-limits";
-import { canAddPlan, upsertSite } from "@jdd/schema";
+import { canAddPlan, isWebOnly, upsertSite } from "@jdd/schema";
 
 export const runtime = "nodejs";
 
@@ -130,6 +130,14 @@ export async function POST(request: Request) {
     if (!acceptedBy(agreement, account)) {
         return NextResponse.json({ error: "That agreement isn't for this account." }, { status: 403 });
     }
+    // A website-only site has no phone setup to carry onto Growth, so the agreement has to say
+    // how the phone is handled. Without it the site would be Growth with the receptionist still
+    // "declined", which onboard.js refuses to provision.
+    const webOnly = isWebOnly(site);
+    const phoneMode = agreement.receptionistMode;
+    if (webOnly && phoneMode !== "forwarded" && phoneMode !== "published") {
+        return NextResponse.json({ error: "Please choose how your phone should be handled" }, { status: 400 });
+    }
 
     const result = await changeSubscriptionPlan({
         slug: site.slug,
@@ -183,7 +191,12 @@ export async function POST(request: Request) {
     await saveAccount({
         ...upsertSite(
             account,
-            { slug: site.slug, plan: "growth", stripeSubscriptionId: subscriptionId },
+            {
+                slug: site.slug,
+                plan: "growth",
+                stripeSubscriptionId: subscriptionId,
+                ...(webOnly ? { receptionistMode: phoneMode } : {}),
+            },
             now,
         ),
         masterAgreement: masterRefFor(agreement),
@@ -213,6 +226,11 @@ export async function POST(request: Request) {
         sendOpsNotice(`[JDD] Upgrade: ${site.name ?? site.slug} → Growth`, [
             `${account.email} upgraded <strong>${site.slug}</strong> from Starter to Growth in the portal. Stripe is billing Growth now.`,
             `Run the console plan upgrade for this site: it turns LEAD_CALLBACK on and moves site.ts to growth.`,
+            ...(webOnly
+                ? [
+                      `This site was website-only. Phone choice: <strong>${phoneMode}</strong>${agreement.forwardingNumber ? `, forwarding ${agreement.forwardingNumber}` : ""}. The number and agent need provisioning with onboard.js (--receptionist ${phoneMode}).`,
+                  ]
+                : []),
         ]),
     );
 

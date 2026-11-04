@@ -165,6 +165,9 @@ export async function POST(req: Request) {
       ? { pendingDowngrade: true, downgradeSlug: body.downgradeSlug.trim() }
       : {}),
     ...(body.consolidate && body.plan === "enterprise" ? { pendingConsolidation: true } : {}),
+    ...(body.receptionistSlug
+      ? { pendingReceptionist: true, receptionistSlug: body.receptionistSlug.trim() }
+      : {}),
   };
 
   try {
@@ -255,6 +258,9 @@ export async function POST(req: Request) {
   } else if (record.pendingConsolidation) {
     // And the Enterprise agreement once the move to Enterprise has gone through.
     console.log(`[/api/agreement] ${id} held for consolidation`);
+  } else if (record.pendingReceptionist) {
+    // And the Starter agreement once the receptionist switch-on has been recorded.
+    console.log(`[/api/agreement] ${id} held for receptionist switch-on (${record.receptionistSlug})`);
   } else {
     after(() =>
       stripLastPage(pdfBytes)

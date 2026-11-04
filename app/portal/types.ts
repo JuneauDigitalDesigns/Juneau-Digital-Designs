@@ -140,3 +140,15 @@ export function tabHref(href: string, slug: string): string {
 export function upgradeHref(slug: string): string {
     return `/agreement?plan=growth&upgrade=${encodeURIComponent(slug)}`;
 }
+
+/**
+ * Where a website-only client switches the AI receptionist on (D7, 2026-11-04).
+ *
+ * The receptionist is part of Starter; website-only is the same price with it declined, signed
+ * against a different schedule. Switching it on is accepting the standard Starter terms with a
+ * phone choice, at no charge (contract v5.3 §15.4, Starter: no onboarding fee). Xander then
+ * provisions it with onboard.js.
+ */
+export function addReceptionistHref(slug: string): string {
+    return `/agreement?plan=starter&receptionist=${encodeURIComponent(slug)}`;
+}

@@ -101,5 +101,11 @@ export function cancelEmailFooter(submittedOn: string): string {
     return `This email confirms cancellation under the Juneau Digital Designs Master Services Agreement. Cancellation request submitted ${submittedOn}.`;
 }
 
+/* ── Website-only → receptionist (D7) ─────────────────────────────────────────────────── */
+
+export const RECEPTIONIST_FAILED = `We couldn't switch on your receptionist, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;
+export const RECEPTIONIST_SESSION_EXPIRED =
+    "Your session expired while signing. Your agreement is saved. Please sign in and try again.";
+
 /** A downgrade the client accepted that could not be scheduled, or a stale accept link. */
 export const DOWNGRADE_FAILED = `We couldn't schedule your plan change, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { FeatureAvailability, PortalFeature } from "@jdd/schema";
+import { addReceptionistHref } from "@/app/portal/types";
 
 /**
  * Explains why a panel has nothing to show.
@@ -77,11 +78,14 @@ export function FeatureState({
     feature,
     availability,
     ghost,
+    siteSlug,
 }: {
     feature: PortalFeature;
     availability: FeatureAvailability;
     /** Ghost preview to show under the message, when one fits the panel. */
     ghost?: ReactNode;
+    /** The site on screen. The web-only "Switch it on" action needs it. */
+    siteSlug?: string;
 }) {
     const copy = COPY[feature];
 
@@ -89,25 +93,27 @@ export function FeatureState({
         // Only a web-only site reaches this today — a Starter client who declined the
         // receptionist at signing. Every plan has included the receptionist since the
         // 2026-10-12 reprice, so this is "switch on a feature you skipped", not a paid tier
-        // upgrade: no plan name, no price, and a contact-us rather than the Starter→Growth
-        // flow, which would sell them a pricier plan to get something their own already
-        // includes. There is no self-serve toggle — enabling it is an ops action — so the
-        // one honest action is to reach us. traffic/performance ship on every tier and must
-        // never land here.
+        // upgrade: no plan name, no price, and not the Starter→Growth flow, which would sell
+        // them a pricier plan to get something their own already includes. Switching it on is
+        // accepting the standard Starter terms with a phone choice, at no charge (D7,
+        // 2026-11-04; wording approved by Xander). traffic/performance ship on every tier and
+        // must never land here.
         if (feature === "calls") {
             return (
                 <div className="space-y-6">
                     <Panel
                         title="Add your AI receptionist"
-                        body="Your plan includes an AI receptionist on a dedicated business number — it answers when you can't, and every call is logged here with who rang and what they wanted. You started website-only; just say the word and we'll switch it on."
+                        body="Your plan includes an AI receptionist on a dedicated business number — it answers when you can't, and every call is logged here with who rang and what they wanted. You started website-only, and you can switch it on here at no extra cost."
                         action={
-                            <a
-                                href="mailto:hello@juneaudigitaldesigns.com?subject=Add%20my%20AI%20receptionist"
-                                className="text-sm font-medium px-4 py-2.5 rounded-md transition-opacity hover:opacity-90"
-                                style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                            >
-                                Get in touch
-                            </a>
+                            siteSlug ? (
+                                <a
+                                    href={addReceptionistHref(siteSlug)}
+                                    className="text-sm font-medium px-4 py-2.5 rounded-md transition-opacity hover:opacity-90"
+                                    style={{ background: "var(--accent)", color: "var(--on-accent)" }}
+                                >
+                                    Switch it on
+                                </a>
+                            ) : undefined
                         }
                     />
                     {ghost}

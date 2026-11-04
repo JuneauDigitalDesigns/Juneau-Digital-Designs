@@ -179,7 +179,7 @@ async function MetricsBlock({
         getOverviewData(account, raw),
         getUsageSummary(account, raw),
     ]);
-    return <OverviewMetrics data={data} usage={usage} />;
+    return <OverviewMetrics data={data} usage={usage} siteSlug={raw.slug} />;
 }
 
 async function FeedBlock({

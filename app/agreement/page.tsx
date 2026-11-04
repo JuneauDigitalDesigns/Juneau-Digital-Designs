@@ -6,7 +6,7 @@ import AgreementClient from "../components/agreement/AgreementClient";
 import UpgradeUnavailable from "../components/agreement/UpgradeUnavailable";
 import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../lib/legal";
 import { getAgreement } from "../lib/kv";
-import { legacyMasterFrom } from "@jdd/schema";
+import { isWebOnly, legacyMasterFrom } from "@jdd/schema";
 import { resolveAccountForUser } from "../lib/portal-account";
 import { billingPeriodOfSite, upgradeBlockReason } from "../lib/plan-billing";
 import { getPlanChange } from "../lib/plan-change";
@@ -27,7 +27,7 @@ const SIGNING_METADATA: Metadata = {
 export async function generateMetadata({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string; receptionist?: string }>;
 }): Promise<Metadata> {
     const { upgrade } = await searchParams;
     const slug = upgrade?.trim();
@@ -42,10 +42,11 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string; receptionist?: string }>;
 }) {
-    const { plan, upgrade, kind, consolidate, period, downgrade } = await searchParams;
+    const { plan, upgrade, kind, consolidate, period, downgrade, receptionist } = await searchParams;
     const downgradeSlug = downgrade?.trim() || null;
+    const receptionistSlug = receptionist?.trim() || null;
     let selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
@@ -77,10 +78,12 @@ export default async function AgreementPage({
         // A plan change link (an upgrade CTA, or the downgrade email) belongs to an existing
         // client. Sending them into `/start` would put them in the purchase funnel; sign them
         // in and bring them straight back instead.
-        if (upgradeSlug || downgradeSlug) {
+        if (upgradeSlug || downgradeSlug || receptionistSlug) {
             const back = upgradeSlug
                 ? `/agreement?plan=growth&upgrade=${encodeURIComponent(upgradeSlug)}`
-                : `/agreement?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug!)}`;
+                : downgradeSlug
+                  ? `/agreement?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug)}`
+                  : `/agreement?plan=starter&receptionist=${encodeURIComponent(receptionistSlug!)}`;
             redirect(`/portal/sign-in?redirect_url=${encodeURIComponent(back)}`);
         }
         redirect(`/start?plan=${selectedPlan}&period=${billingPeriod}`);
@@ -106,6 +109,18 @@ export default async function AgreementPage({
         if (!change) redirect("/portal");
         selectedPlan = change.toPlan;
         billingPeriod = change.interval === "year" ? "annual" : "monthly";
+    }
+
+    // A website-only site switching the receptionist on: the standard Starter terms, on the
+    // period it already bills on. Any other site has nothing to switch on here.
+    if (receptionistSlug) {
+        const owner = await resolveAccountForUser(userId);
+        const site = owner?.sites.find((s) => s.slug === receptionistSlug);
+        if (!site || !isWebOnly(site)) redirect("/portal");
+        const sitePeriod = await billingPeriodOfSite(site);
+        if (!sitePeriod) redirect("/portal");
+        selectedPlan = "starter";
+        billingPeriod = sitePeriod;
     }
 
     /**
@@ -144,10 +159,10 @@ export default async function AgreementPage({
      * client swaps which one the reader shows. Only Starter has this variant, and only a master
      * can be signed web-only, so every other path sends `undefined`.
      */
-    // Not offered on a downgrade: the client keeps the receptionist they have, so the document
-    // is the standard Starter terms.
+    // Not offered on a downgrade (the client keeps the receptionist they have) or when switching
+    // the receptionist on: the document is the standard Starter terms.
     const webOnly =
-        selectedPlan === "starter" && !isAddendum && !downgradeSlug
+        selectedPlan === "starter" && !isAddendum && !downgradeSlug && !receptionistSlug
             ? getTermsForPlan("starter", { webOnly: true })
             : null;
 
@@ -163,9 +178,14 @@ export default async function AgreementPage({
     //
     // Only reached when `?upgrade=` is present, so an anonymous first-time buyer never hits
     // Clerk or KV and the purchase path is unchanged.
+    // A website-only site upgrading to Growth has no phone setup to keep, so the phone choice is
+    // asked for as on a first purchase. It used to be hidden on every upgrade, leaving the site on
+    // Growth with the receptionist still "declined", which onboard.js can't provision.
+    let askPhoneChoice = Boolean(receptionistSlug);
     if (upgradeSlug) {
         const site = await upgradableSite(upgradeSlug);
         if (!site) return <UpgradeUnavailable />;
+        askPhoneChoice = isWebOnly(site);
         // The period the upgrade keeps, read from the live subscription. Unreadable means we
         // can't say what they are agreeing to pay, so no form.
         const sitePeriod = await billingPeriodOfSite(site);
@@ -186,6 +206,8 @@ export default async function AgreementPage({
             webOnlyVersion={webOnly?.version}
             upgradeSlug={upgradeSlug}
             downgradeSlug={downgradeSlug}
+            receptionistSlug={receptionistSlug}
+            askPhoneChoice={askPhoneChoice}
             kind={isAddendum ? "addendum" : "master"}
             consolidate={consolidate === "1"}
             prefillSites={prefillSites}
