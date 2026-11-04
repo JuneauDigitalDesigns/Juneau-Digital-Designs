@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { stripe } from "@/app/lib/stripe";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { subscriptionPeriod } from "@/app/lib/plan-billing";
+import { getPlanChange } from "@/app/lib/plan-change";
 import { accountScope, billingKey, getCached, setCached, BILLING_TTL } from "@/app/lib/portal-kv";
 
 export const runtime = "nodejs";
@@ -95,6 +96,7 @@ export async function GET(request: Request) {
     const period = subscriptionPeriod(sub);
 
     const pm = sub.default_payment_method;
+    const planChange = await getPlanChange(ctx.account.email, ctx.site.slug);
     const card = pm && typeof pm === "object" && "card" in pm ? pm.card : null;
 
     let invoices: Array<{
@@ -134,6 +136,12 @@ export async function GET(request: Request) {
         interval: price?.recurring?.interval ?? null,
         currentPeriodEnd: period ? period.end * 1000 : null,
         cancelAt: sub.cancel_at ? sub.cancel_at * 1000 : null,
+        // Only once accepted and scheduled: a request still awaiting the client's acceptance
+        // is not a change they have agreed to.
+        pendingPlanChange:
+            planChange?.status === "scheduled"
+                ? { fromPlan: planChange.fromPlan, toPlan: planChange.toPlan, effectiveAt: planChange.effectiveAt }
+                : null,
         paymentMethod: card ? { brand: card.brand, last4: card.last4, expMonth: card.exp_month, expYear: card.exp_year } : null,
         invoices,
         fetchedAt: Date.now(),

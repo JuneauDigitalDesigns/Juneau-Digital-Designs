@@ -36,6 +36,12 @@ interface Props {
      */
     upgradeSlug?: string | null;
     /**
+     * Set when an existing client is accepting a lower plan's terms for a downgrade Xander has
+     * scheduled at their request. Signing is identical; the step after it schedules the change
+     * for the end of their paid period instead of charging anything.
+     */
+    downgradeSlug?: string | null;
+    /**
      * Which instrument is on screen. `addendum` is the one-page Site Addendum a returning
      * client signs for a later site; it adopts their master by reference.
      */
@@ -107,12 +113,14 @@ export default function AgreementClient({
     webOnlySections,
     webOnlyVersion,
     upgradeSlug = null,
+    downgradeSlug = null,
     kind = "master",
     parentAgreementId,
     consolidate = false,
     prefill,
 }: Props) {
     const isUpgrade = upgradeSlug !== null;
+    const isDowngrade = downgradeSlug !== null;
     const isAddendum = kind === "addendum";
     const isEnterprise = plan === "enterprise";
     /**
@@ -133,7 +141,8 @@ export default function AgreementClient({
      * to onboarding) and for upgrades (the client already has a phone setup). Starter offers all
      * three options; Growth drops "website only", which is a Starter-only concession.
      */
-    const showPhoneSection = !isEnterprise && !isUpgrade;
+    // A downgrade keeps the phone setup the client already has, like an upgrade.
+    const showPhoneSection = !isEnterprise && !isUpgrade && !isDowngrade;
     const phoneOptions = RECEPTIONIST_OPTIONS.filter((o) => plan === "starter" || o.id !== "declined");
     const [receptionistMode, setReceptionistMode] = useState<ReceptionistMode | "">("");
     const [forwardingNumber, setForwardingNumber] = useState("");
@@ -286,6 +295,7 @@ export default function AgreementClient({
                     // below actually goes through. Not an authorization claim — the upgrade
                     // endpoint re-resolves this slug against the signed-in account.
                     ...(isUpgrade ? { upgradeSlug } : {}),
+                    ...(isDowngrade ? { downgradeSlug } : {}),
                     // Which document was on screen. The route hashes the text it is told was
                     // shown, so this has to match what the server rendered — it does, because
                     // the server decided it and passed it down as a prop.
@@ -320,6 +330,30 @@ export default function AgreementClient({
                     throw new Error(conData.error || `Could not start the move (${conRes.status})`);
                 }
                 window.location.href = conData.url;
+                return;
+            }
+
+            if (isDowngrade) {
+                // Nothing is charged: this schedules the change for the end of the paid period.
+                // Same session-expiry trap as the upgrade below.
+                const dnRes = await fetch(
+                    `/api/portal/downgrade?site=${encodeURIComponent(downgradeSlug!)}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ agreement_id: sigData.agreement_id }),
+                    },
+                );
+                if (!dnRes.headers.get("content-type")?.includes("application/json")) {
+                    throw new Error(
+                        "Your session expired while signing. Your agreement is saved. Please sign in and open the link again.",
+                    );
+                }
+                const dnData = (await dnRes.json()) as { ok?: boolean; error?: string };
+                if (!dnRes.ok || !dnData.ok) {
+                    throw new Error(dnData.error || `Could not schedule the change (${dnRes.status})`);
+                }
+                window.location.href = `/portal/billing?site=${encodeURIComponent(downgradeSlug!)}`;
                 return;
             }
 

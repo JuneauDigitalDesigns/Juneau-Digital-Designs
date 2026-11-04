@@ -8,7 +8,8 @@ import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../lib/legal";
 import { getAgreement } from "../lib/kv";
 import { legacyMasterFrom } from "@jdd/schema";
 import { resolveAccountForUser } from "../lib/portal-account";
-import { upgradeBlockReason } from "../lib/plan-billing";
+import { billingPeriodOfSite, upgradeBlockReason } from "../lib/plan-billing";
+import { getPlanChange } from "../lib/plan-change";
 import type { PlanSlug } from "../lib/agreement-types";
 
 const SIGNING_METADATA: Metadata = {
@@ -25,7 +26,7 @@ const SIGNING_METADATA: Metadata = {
 export async function generateMetadata({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string }>;
 }): Promise<Metadata> {
     const { upgrade } = await searchParams;
     const slug = upgrade?.trim();
@@ -40,15 +41,21 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string }>;
 }) {
-    const { plan, upgrade, kind, consolidate, period } = await searchParams;
-    const selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
+    const { plan, upgrade, kind, consolidate, period, downgrade } = await searchParams;
+    const downgradeSlug = downgrade?.trim() || null;
+    let selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
     // Anything but an exact "annual" is monthly. Same reasoning as `/start`: a tampered or
     // stale link must not be able to escalate a monthly intent into a yearly charge.
-    const billingPeriod: "monthly" | "annual" = period === "annual" ? "annual" : "monthly";
+    //
+    // For a first purchase only. An in-place plan change (`?upgrade=`, `?downgrade=`) keeps the
+    // period the client already bills on, so it is read from their subscription below and the
+    // query string is ignored: the upgrade link never carried one, and every annual client who
+    // upgraded was shown, and accepted, the monthly price.
+    let billingPeriod: "monthly" | "annual" = period === "annual" ? "annual" : "monthly";
 
     /**
      * Nobody signs anonymously any more.
@@ -64,7 +71,28 @@ export default async function AgreementPage({
      * meet the upsell, not the signature form.
      */
     const { userId } = await auth();
-    if (!userId) redirect(`/start?plan=${selectedPlan}&period=${billingPeriod}`);
+    const upgradeSlug = upgrade?.trim() || null;
+    if (!userId) {
+        // A plan change link (an upgrade CTA, or the downgrade email) belongs to an existing
+        // client. Sending them into `/start` would put them in the purchase funnel; sign them
+        // in and bring them straight back instead.
+        if (upgradeSlug || downgradeSlug) {
+            const back = upgradeSlug
+                ? `/agreement?plan=growth&upgrade=${encodeURIComponent(upgradeSlug)}`
+                : `/agreement?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug!)}`;
+            redirect(`/portal/sign-in?redirect_url=${encodeURIComponent(back)}`);
+        }
+        redirect(`/start?plan=${selectedPlan}&period=${billingPeriod}`);
+    }
+
+    if (downgradeSlug) {
+        const change = await downgradeFor(downgradeSlug);
+        // No pending request for this site on this account: the link is stale, already used,
+        // or not theirs. Nothing to accept, so back to the portal.
+        if (!change) redirect("/portal");
+        selectedPlan = change.toPlan;
+        billingPeriod = change.interval === "year" ? "annual" : "monthly";
+    }
 
     /**
      * Master or addendum.
@@ -102,10 +130,12 @@ export default async function AgreementPage({
      * client swaps which one the reader shows. Only Starter has this variant, and only a master
      * can be signed web-only, so every other path sends `undefined`.
      */
+    // Not offered on a downgrade: the client keeps the receptionist they have, so the document
+    // is the standard Starter terms.
     const webOnly =
-        selectedPlan === "starter" && !isAddendum ? getTermsForPlan("starter", { webOnly: true }) : null;
-
-    const upgradeSlug = upgrade?.trim() || null;
+        selectedPlan === "starter" && !isAddendum && !downgradeSlug
+            ? getTermsForPlan("starter", { webOnly: true })
+            : null;
 
     // `?upgrade=<slug>` marks this as an existing client moving up a tier rather than a first
     // purchase. Same terms, same signature, different ending: the upgrade endpoint modifies
@@ -119,8 +149,17 @@ export default async function AgreementPage({
     //
     // Only reached when `?upgrade=` is present, so an anonymous first-time buyer never hits
     // Clerk or KV and the purchase path is unchanged.
-    if (upgradeSlug && !(await canUpgrade(upgradeSlug))) {
-        return <UpgradeUnavailable />;
+    if (upgradeSlug) {
+        const site = await upgradableSite(upgradeSlug);
+        if (!site) return <UpgradeUnavailable />;
+        // The period the upgrade keeps, read from the live subscription. Unreadable means we
+        // can't say what they are agreeing to pay, so no form.
+        const sitePeriod = await billingPeriodOfSite(site);
+        if (!sitePeriod) {
+            console.error(`[agreement] upgrade blocked: could not read the billing period for ${upgradeSlug}`);
+            return <UpgradeUnavailable />;
+        }
+        billingPeriod = sitePeriod;
     }
 
     return (
@@ -132,6 +171,7 @@ export default async function AgreementPage({
             webOnlySections={webOnly?.sections}
             webOnlyVersion={webOnly?.version}
             upgradeSlug={upgradeSlug}
+            downgradeSlug={downgradeSlug}
             kind={isAddendum ? "addendum" : "master"}
             consolidate={consolidate === "1"}
             parentAgreementId={isAddendum ? master?.agreementId ?? undefined : undefined}
@@ -185,12 +225,17 @@ async function masterPrefill(agreementId: string | null | undefined) {
  * than by the URL.
  */
 const canUpgrade = cache(async function canUpgrade(slug: string): Promise<boolean> {
+    return (await upgradableSite(slug)) !== null;
+});
+
+/** The site behind `canUpgrade`, or null. Cached, so the metadata and the page share one read. */
+const upgradableSite = cache(async function upgradableSite(slug: string) {
     const { userId } = await auth();
-    if (!userId) return false;
+    if (!userId) return null;
 
     const account = await resolveAccountForUser(userId);
     const site = account?.sites.find((s) => s.slug === slug);
-    if (!site) return false;
+    if (!site) return null;
 
     // Same predicate the CTA and the upgrade route use, so a link can never reach a signature
     // the endpoint would then refuse.
@@ -202,5 +247,21 @@ const canUpgrade = cache(async function canUpgrade(slug: string): Promise<boolea
                 `or sessionId. Client cannot self-serve upgrade.`,
         );
     }
-    return block === null;
+    return block === null ? site : null;
 });
+
+/**
+ * The downgrade this signed-in client has been asked to accept for `slug`, or null.
+ *
+ * Only a request still awaiting acceptance qualifies: one already scheduled, done or withdrawn
+ * has nothing left to sign. Read from the account the session resolves to, so a forwarded link
+ * opens nothing for anyone else.
+ */
+async function downgradeFor(slug: string) {
+    const { userId } = await auth();
+    if (!userId) return null;
+    const account = await resolveAccountForUser(userId);
+    if (!account?.sites.some((s) => s.slug === slug)) return null;
+    const change = await getPlanChange(account.email, slug);
+    return change?.status === "awaiting-acceptance" ? change : null;
+}

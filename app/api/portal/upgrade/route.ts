@@ -1,5 +1,8 @@
 import { NextResponse, after } from "next/server";
-import { getAgreement, saveAgreement } from "@/app/lib/kv";
+import { getAgreement, persistAgreement, saveAgreement } from "@/app/lib/kv";
+import { CARD_DECLINED, upgradeCancelPending } from "@/app/lib/plan-change-copy";
+import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
+import { dropBillingCache } from "@/app/lib/portal-kv";
 import { sendStoredAgreementEmail } from "@/app/lib/agreement-email";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
@@ -9,6 +12,15 @@ import { planLimits } from "@/app/lib/plan-limits";
 import { canAddPlan, upsertSite } from "@jdd/schema";
 
 export const runtime = "nodejs";
+
+function formatDate(ms: number): string {
+    return new Date(ms).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC",
+    });
+}
 
 /**
  * Client-initiated upgrade: a live Starter site moves to Growth.
@@ -81,6 +93,14 @@ export async function POST(request: Request) {
         );
     }
 
+    // A site set to cancel would take the upgrade charge and still end on its cancel date.
+    if (site.cancelRequestedAt && typeof site.cancelEffectiveAt === "number") {
+        return NextResponse.json(
+            { error: upgradeCancelPending(formatDate(site.cancelEffectiveAt)) },
+            { status: 409 },
+        );
+    }
+
     let body: { agreement_id?: string };
     try {
         body = await request.json();
@@ -103,6 +123,12 @@ export async function POST(request: Request) {
             { status: 400 },
         );
     }
+    // And it has to be this account's own: accepted while this account was signed in. Anything
+    // else is someone else's agreement being replayed. (Not `account.masterAgreement`: a held
+    // upgrade agreement is only recorded there once the upgrade below succeeds.)
+    if (!acceptedBy(agreement, account)) {
+        return NextResponse.json({ error: "That agreement isn't for this account." }, { status: 403 });
+    }
 
     const result = await changeSubscriptionPlan({
         slug: site.slug,
@@ -118,7 +144,9 @@ export async function POST(request: Request) {
         const message =
             result.code === "no-subscription"
                 ? "We couldn't find your subscription. Please contact us and we'll sort it out."
-                : "We couldn't complete the upgrade. You have not been charged.";
+                : result.code === "payment-failed"
+                  ? CARD_DECLINED
+                  : "We couldn't complete the upgrade. You have not been charged.";
 
         // The agreement stays saved and stays flagged `pendingUpgrade`, so `audit-billing`
         // surfaces it as an orphan. Deliberately no email: the client has signed, but their
@@ -127,7 +155,9 @@ export async function POST(request: Request) {
             `[portal/upgrade] ${site.slug} failed (${result.code}); agreement ${agreementId} ` +
                 `left pending. ${result.message}`,
         );
-        return NextResponse.json({ error: message }, { status: result.code === "stripe-error" ? 502 : 409 });
+        const status =
+            result.code === "stripe-error" ? 502 : result.code === "payment-failed" ? 402 : 409;
+        return NextResponse.json({ error: message }, { status });
     }
 
     // Write the plan and the subscription id together, now that Stripe has confirmed the
@@ -143,15 +173,22 @@ export async function POST(request: Request) {
     //
     // The webhook still runs and still reconciles; it no-ops when the plan already matches,
     // and remains the path for changes made outside the portal.
+    //
+    // The Growth agreement becomes the account's master here, and only here. It used to be
+    // recorded the moment it was accepted, so a declined upgrade left a Growth master (on a
+    // 30-day TTL) over a client still on Starter.
     const subscriptionId = result.subscriptionId;
     const now = Date.now();
-    await saveAccount(
-        upsertSite(
+    await saveAccount({
+        ...upsertSite(
             account,
             { slug: site.slug, plan: "growth", stripeSubscriptionId: subscriptionId },
             now,
         ),
-    );
+        masterAgreement: masterRefFor(agreement),
+    });
+
+    await dropBillingCache(account.email, site.slug);
 
     // Keep the reverse index in step with the cancel route's, so a subscription lookup by id
     // works for upgraded clients and not only cancelled ones.
@@ -169,6 +206,14 @@ export async function POST(request: Request) {
         await saveAgreement({ ...agreement, pendingUpgrade: false });
         after(() => sendStoredAgreementEmail({ ...agreement, pendingUpgrade: false }));
     }
+
+    // The agreement now governs a paid plan, and it is the account's master that later addenda
+    // hang off, so it must outlive the 30-day TTL `saveAgreement` gave it. Only first-purchase
+    // fulfilment used to do this, so every upgrade agreement quietly expired a month later.
+    // After the save above, which would otherwise set the TTL again.
+    await persistAgreement(agreementId).catch((e) =>
+        console.error("[portal/upgrade] could not persist agreement", agreementId, e),
+    );
 
     return NextResponse.json({ ok: true });
 }

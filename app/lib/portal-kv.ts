@@ -138,6 +138,15 @@ export const billingKey = (acctScope: string, siteSlug: string, variant: "full" 
     `portal:billing:v1:${variant}:${acctScope}:${siteSlug}`;
 
 /**
+ * Drop both billing variants for a site. Every path that changes what a client pays calls this:
+ * with a twelve-hour TTL, a plan change or cancellation otherwise reads as not having happened.
+ */
+export async function dropBillingCache(accountEmail: string, siteSlug: string): Promise<void> {
+    const scope = accountScope(accountEmail);
+    await dropCached(billingKey(scope, siteSlug), billingKey(scope, siteSlug, "summary"));
+}
+
+/**
  * Call-minute usage against the plan allowance.
  *
  * Ten minutes: short enough that a client who just hung up sees the call counted, long
