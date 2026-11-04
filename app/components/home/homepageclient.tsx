@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Info } from "@phosphor-icons/react";
+import { Info, Browser, Phone, Tray } from "@phosphor-icons/react";
 import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
@@ -806,6 +806,67 @@ function StraightAnswers() {
   );
 }
 
+/* ── Every plan starts here ─────────────────────────────────────
+   The shared base, stated once, directly above the price cards, so this and
+   <PricingSection> read as one block: what every plan gets, then what each plan adds. That
+   is also why the Starter card below opens with "Everything you see above" rather than
+   restating these three rows.
+
+   Moved here from the /pricing redesign's "Option 1 · Lead-in". The rows reuse the
+   journey's teal bar (`.journey-outcome`) so they read as the same kind of fact list. */
+const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: string }[] = [
+  {
+    Icon: Browser,
+    label: "Your website",
+    title: "A custom four-page site",
+    detail: "Home, Services, About and Contact. Hosting, SSL and maintenance included, plus 2 content edits a month.",
+  },
+  {
+    Icon: Phone,
+    label: "Your phone",
+    title: "It rings you first",
+    detail: "If you don’t pick up, the AI receptionist answers, 24/7, in English or Spanish. You get a summary of every call.",
+  },
+  {
+    Icon: Tray,
+    label: "Your leads",
+    title: "One inbox for every lead",
+    detail: "Every call and web enquiry lands in your portal, and you get a text the moment a new one arrives.",
+  },
+];
+
+function EveryPlanSection() {
+  return (
+    <section className="every-section">
+      <div className="every-grid">
+        {/* Heading only. The kicker and intro paragraph from the /pricing mockup went: the
+            intro compared Starter with Growth before the reader has seen either plan, since
+            on this page the cards come after this section, not before it. */}
+        <JourneyReveal delay={0}>
+          <h2 className="every-heading">Every plan starts here.</h2>
+        </JourneyReveal>
+
+        <JourneyReveal delay={1}>
+          <div className="every-rows">
+            {EVERY_PLAN.map(({ Icon, label, title, detail }) => (
+              <div key={label} className="every-row">
+                <p className="every-label">
+                  <Icon size={18} aria-hidden="true" />
+                  {label}
+                </p>
+                <div className="every-body">
+                  <h3 className="every-title">{title}</h3>
+                  <p className="every-detail">{detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </JourneyReveal>
+      </div>
+    </section>
+  );
+}
+
 /* ── 04 · The price ─────────────────────────────────────────────
    All three plans, as three cards, but not at equal volume. Growth is the one almost
    everyone should buy, so it is the loudest and sits centre; Starter is a real option at
@@ -824,7 +885,9 @@ function StraightAnswers() {
    contradict the signed agreement. */
 function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
   return (
-    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(64px,7vw,120px) clamp(18px,4vw,56px)" }}>
+    /* Short top padding: <EveryPlanSection> sits directly above and the two read as one
+       block, so the full section gap between them would split the hand-off. */
+    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(24px,3vw,48px) clamp(18px,4vw,56px) clamp(64px,7vw,120px)" }}>
       <JourneyReveal>
         {/* Was "Two tools, one monthly bill." — the old product's thesis in five words. */}
         <p style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-2)", marginBottom: "clamp(32px,3.5vw,52px)" }}>
@@ -835,7 +898,10 @@ function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
           <div className="home-pricing-card">
             <div className="kicker">Starter</div>
             <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-            <p>A four-page site and a receptionist on your line. Every call and web enquiry lands in your portal, and you get a text when one does. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
+            {/* Points up at <EveryPlanSection> rather than restating it: the card used to
+                list the site, the receptionist and the inbox, which the three rows directly
+                above now say in full. Pairs with Growth's "Everything in Starter" beside it. */}
+            <p>Everything you see above. This is where it starts. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
           </div>
 
           {/* "Within about a minute", matching /pricing and the contract's "typically within
@@ -910,7 +976,7 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
      take one part of the system and spend a screen proving it — the website that makes
      the phone ring, the receptionist that picks up, the portal where the lead lands.
      Then the calculator prices the cost of not having it, then the work we've shipped,
-     then the objections, then the price, then the ask.
+     then the objections, then what every plan gets, then the price, then the ask.
 
      The calculator follows the portal rather than the receptionist because it is the one
      section about the reader's business instead of the system; it reads as the bill for
@@ -934,6 +1000,9 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
           it makes the ask. `RailCTA` used to be a fourth section here, repeating the two
           buttons the pricing column had already shown. */}
       <StraightAnswers />
+      {/* The shared base, then the plans. Kept as a pair: the Starter card's first line
+          points up at this section. */}
+      <EveryPlanSection />
       <PricingSection onOpenForm={openForm} />
 
       {formOpen && <LeadPanel onClose={() => setFormOpen(false)} />}
