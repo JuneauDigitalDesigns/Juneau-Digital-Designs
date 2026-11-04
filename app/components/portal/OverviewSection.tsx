@@ -38,9 +38,12 @@ const PERIOD_INFO =
 export function OverviewMetrics({
     data,
     usage,
+    siteSlug,
 }: {
     data: OverviewData;
     usage: UsageSummary;
+    /** For the web-only "Switch it on" action. */
+    siteSlug?: string;
 }) {
     if (data.state === "error") {
         return <FeatureError message={data.error} />;
@@ -53,6 +56,7 @@ export function OverviewMetrics({
             <FeatureState
                 feature="calls"
                 availability={{ state: data.state }}
+                siteSlug={siteSlug}
             />
         );
     }

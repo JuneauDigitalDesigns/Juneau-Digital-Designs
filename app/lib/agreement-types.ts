@@ -73,6 +73,12 @@ export interface AgreementSubmission {
    */
   consolidate?: boolean;
   /**
+   * Set when a website-only Starter client is switching the AI receptionist on: the standard
+   * Starter terms with a phone choice. Holds the client email until `/api/portal/receptionist`
+   * has recorded the change. Like the slugs above, not an authorization claim.
+   */
+  receptionistSlug?: string;
+  /**
    * Optional opt-in to post-call summary texts. Deliberately separate from the agreement
    * acceptance: the service is sold, delivered, and billed identically whether this is
    * checked or not, which is what "consent is not a condition of purchase" has to mean in
@@ -214,4 +220,7 @@ export interface AgreementRecord {
    * agreement the moment they accepted it, before the move was known to be possible or paid for.
    */
   pendingConsolidation?: boolean;
+  /** The same hold for switching the receptionist on, and the site it is for. */
+  pendingReceptionist?: boolean;
+  receptionistSlug?: string;
 }

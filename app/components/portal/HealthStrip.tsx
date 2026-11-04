@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { FeatureAvailability } from "@jdd/schema";
 import type { InfraSnapshot, SegmentState } from "@/app/lib/portal-infra";
-import { tabHref } from "@/app/portal/types";
+import { addReceptionistHref, tabHref } from "@/app/portal/types";
 import { Card } from "./ui/Card";
 import { StatusDot, type Status } from "./ui/StatusDot";
 import { relativeTime } from "./ui/format";
@@ -82,11 +82,12 @@ export function HealthStrip({
                     value={receptionistValue(calls)}
                     detail={
                         // Web-only (receptionist declined). It's included in their plan, so
-                        // enabling it is a contact-us, not the Starter→Growth upgrade this used
-                        // to point at. The full message lives on the Call Log panel.
+                        // enabling it is accepting the standard Starter terms, not the
+                        // Starter→Growth upgrade this used to point at. The full message lives
+                        // on the Call Log panel.
                         calls.state === "not-on-plan" ? (
                             <a
-                                href="mailto:hello@juneaudigitaldesigns.com?subject=Add%20my%20AI%20receptionist"
+                                href={addReceptionistHref(slug)}
                                 className="underline underline-offset-2"
                                 style={{ color: "var(--accent)" }}
                             >
