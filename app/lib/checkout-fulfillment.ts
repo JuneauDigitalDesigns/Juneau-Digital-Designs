@@ -235,10 +235,50 @@ export async function provisionPaidSession(
  * status, and the welcome email's NX claim on the session id.
  */
 async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise<FulfilledSession | null> {
-  const orderId = session.metadata?.order_id ?? "";
+  return fulfilOperatorPayment(session.metadata?.order_id ?? "", {
+    ref: session.id,
+    checkoutSessionId: session.id,
+    ...(typeof session.customer === "string" ? { customerId: session.customer } : {}),
+    ...(typeof session.subscription === "string" ? { subscriptionId: session.subscription } : {}),
+    ...(session.amount_total != null ? { amountTotal: session.amount_total } : {}),
+    tosAcceptedOnStripe: session.consent?.terms_of_service === "accepted",
+  });
+}
+
+/**
+ * A payment that settles an operator order, from whichever path took it.
+ *
+ * `ref` is the idempotency key for everything fulfilment writes once: the pending site's
+ * `sessionId` (what `createPendingSite` short-circuits on) and the welcome-email claim. A
+ * payment link uses its Checkout Session id, as it always has. The card path has no session, so
+ * it uses `motoRef(subscriptionId)` (`moto:sub_…`): one subscription per order, and not shaped
+ * like anything Stripe could be asked to retrieve.
+ */
+export interface OperatorPayment {
+  ref: string;
+  checkoutSessionId?: string;
+  customerId?: string;
+  subscriptionId?: string;
+  amountTotal?: number;
+  /** Only a payment link has Stripe's own ToS tick; the card path relies on the verbal one. */
+  tosAcceptedOnStripe?: boolean;
+  /**
+   * Record the subscription on the site. The card path always knows it, and must: its `sessionId`
+   * is not a Checkout Session, so the session fallbacks (`resolveSubscriptionId` and friends)
+   * would find nothing. The link path is left as it was (plan O3).
+   */
+  recordSubscriptionOnSite?: boolean;
+}
+
+/**
+ * Fulfil an operator order once its payment has cleared. Called by the Checkout path above, by
+ * the card path's charge route, and by the `invoice.paid` webhook behind it; idempotent for all
+ * of them on `payment.ref` and on the order's own status.
+ */
+export async function fulfilOperatorPayment(orderId: string, payment: OperatorPayment): Promise<FulfilledSession | null> {
   const order = await getOrder(orderId);
   if (!order) {
-    console.error("[fulfillment] operator order not found", orderId, session.id);
+    console.error("[fulfillment] operator order not found", orderId, payment.ref);
     return null;
   }
   const email = order.client.email;
@@ -265,7 +305,7 @@ async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise
     name: order.client.dba || order.client.legalName,
     plan: order.plan,
     status: "pending-onboarding",
-    sessionId: session.id,
+    sessionId: payment.ref,
     signerEmail: email,
     signerName: order.client.contactName,
     onboardingCompletedAt: null,
@@ -273,7 +313,8 @@ async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise
     ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
     ...(order.agreementId ? { agreementId: order.agreementId } : {}),
     ...(agreement ? { agreementPdfUrl: agreement.pdfUrl, agreementVersion: agreement.agreementVersion } : {}),
-    ...(typeof session.customer === "string" ? { stripeCustomerId: session.customer } : {}),
+    ...(payment.customerId ? { stripeCustomerId: payment.customerId } : {}),
+    ...(payment.recordSubscriptionOnSite && payment.subscriptionId ? { stripeSubscriptionId: payment.subscriptionId } : {}),
   });
   console.log("[fulfillment] operator site created", email, order.siteSlug, order.plan);
 
@@ -306,16 +347,16 @@ async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise
   if (current.status === "awaiting-payment" || current.status === "expired") {
     current = await transitionOrder(current, "paid", { kind: "paid", text: "Payment received" }, {
       payment: {
-        ...(current.payment ?? { method: "link" as const, stripeCustomerId: String(session.customer ?? "") }),
-        checkoutSessionId: session.id,
-        ...(typeof session.subscription === "string" ? { subscriptionId: session.subscription } : {}),
-        ...(session.amount_total != null ? { amountTotal: session.amount_total } : {}),
+        ...(current.payment ?? { method: "link" as const, stripeCustomerId: payment.customerId ?? "" }),
+        ...(payment.checkoutSessionId ? { checkoutSessionId: payment.checkoutSessionId } : {}),
+        ...(payment.subscriptionId ? { subscriptionId: payment.subscriptionId } : {}),
+        ...(payment.amountTotal != null ? { amountTotal: payment.amountTotal } : {}),
         paidAt: Date.now(),
-        tosAcceptedOnStripe: session.consent?.terms_of_service === "accepted",
+        ...(payment.tosAcceptedOnStripe != null ? { tosAcceptedOnStripe: payment.tosAcceptedOnStripe } : {}),
       },
     });
   } else if (current.status !== "paid") {
-    console.error("[fulfillment] operator order paid while", current.status, "— needs a human", orderId, session.id);
+    console.error("[fulfillment] operator order paid while", current.status, "— needs a human", orderId, payment.ref);
     return result;
   }
 
@@ -333,7 +374,7 @@ async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise
     },
   );
 
-  if (await claimWelcomeEmailSend(session.id)) {
+  if (await claimWelcomeEmailSend(payment.ref)) {
     try {
       await sendWelcomeEmail({
         signerEmail: email,
@@ -347,7 +388,7 @@ async function provisionOperatorOrder(session: Stripe.Checkout.Session): Promise
       });
     } catch (e) {
       // Release the claim so a retry can send it; the console's Resend invite is the backstop.
-      await clearWelcomeEmailMark(session.id).catch(() => {});
+      await clearWelcomeEmailMark(payment.ref).catch(() => {});
       console.error("[fulfillment] operator welcome email failed", email, e);
     }
   }

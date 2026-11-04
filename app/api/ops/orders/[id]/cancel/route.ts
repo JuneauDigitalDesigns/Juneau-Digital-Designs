@@ -3,6 +3,7 @@ import { isOrderPaid } from "@jdd/schema";
 import { authorizeOps } from "@/app/lib/ops-auth";
 import { deletePayCode, getOrder, releaseSlug, transitionOrder } from "@/app/lib/operator-orders";
 import { stripe } from "@/app/lib/stripe";
+import { motoChargeInFlight } from "@/app/lib/moto-payment";
 
 export const runtime = "nodejs";
 
@@ -25,7 +26,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
         return NextResponse.json({ error: "This order is paid. Cancel the subscription instead." }, { status: 409 });
     }
 
-    const sessionId = order.payment?.checkoutSessionId;
+    // A card charge that is running (or already made a subscription) may still succeed.
+    if (order.payment?.method === "dashboard-moto" && (await motoChargeInFlight(order.id))) {
+        return NextResponse.json({ error: "A card charge is in progress, so this can't be cancelled yet.", order }, { status: 409 });
+    }
+
+    const sessionId = order.payment?.method === "link" ? order.payment.checkoutSessionId : undefined;
     if (sessionId) {
         try {
             const s = await stripe.checkout.sessions.retrieve(sessionId);

@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { stripe } from "@/app/lib/stripe";
-import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
+import { fulfilOperatorPayment, provisionPaidSession } from "@/app/lib/checkout-fulfillment";
+import { motoInvoiceOrder, motoRef } from "@/app/lib/moto-charge.mjs";
 import { completeConsolidation, getConsolidation } from "@/app/lib/consolidation";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { upsertSite } from "@jdd/schema";
@@ -48,6 +49,35 @@ export async function POST(req: Request) {
         }
       } catch (e) {
         console.error("[stripe webhook] could not expire order", orderId, session.id, e);
+      }
+    }
+  }
+
+  // The card path's first invoice was paid. The charge route fulfils the order itself the moment
+  // Stripe answers; this is the backstop for a charge whose response never made it back (a
+  // timeout, a closed console tab). Same idempotent fulfilment, same key (`moto:sub_…`), so
+  // whichever runs second changes nothing. Link payments carry no `dashboard-moto` marker and
+  // are left to `checkout.session.completed`.
+  if (event.type === "invoice.paid") {
+    const paid = motoInvoiceOrder(event.data.object);
+    if (paid) {
+      try {
+        const order = await getOrder(paid.orderId);
+        if (order?.payment?.method === "dashboard-moto") {
+          await fulfilOperatorPayment(paid.orderId, {
+            ref: motoRef(paid.subscriptionId),
+            ...(paid.customerId ? { customerId: paid.customerId } : {}),
+            subscriptionId: paid.subscriptionId,
+            ...(paid.amountPaid != null ? { amountTotal: paid.amountPaid } : {}),
+            recordSubscriptionOnSite: true,
+          });
+        } else {
+          console.warn("[stripe webhook] card-path invoice for an order not on the card path", paid.orderId, paid.subscriptionId);
+        }
+      } catch (e) {
+        console.error("[stripe webhook] card-path fulfilment failed", paid.orderId, paid.subscriptionId, e);
+        // A 500 makes Stripe retry, which is what a missed fulfilment needs.
+        return NextResponse.json({ error: "fulfilment failed" }, { status: 500 });
       }
     }
   }

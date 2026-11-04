@@ -35,6 +35,11 @@ function firstExisting(basePath) {
     for (const ext of EXTENSIONS) {
         if (existsSync(basePath + ext)) return basePath + ext;
     }
+    // A directory import (`./legal`) resolves to its index, as TypeScript and Next resolve it.
+    for (const ext of EXTENSIONS) {
+        const index = resolvePath(basePath, `index${ext}`);
+        if (existsSync(index)) return index;
+    }
     return null;
 }
 
