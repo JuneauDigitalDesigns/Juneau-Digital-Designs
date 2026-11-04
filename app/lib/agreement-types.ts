@@ -87,6 +87,11 @@ export interface AgreementSubmission {
    * console know which number the client intends to forward from.
    */
   forwardingNumber?: string;
+  /**
+   * The billing period the client chose, printed on the PDF cover. Absent (legacy links,
+   * upgrades) prints both prices: the cover must never state a period nobody picked.
+   */
+  billingPeriod?: "monthly" | "annual";
 }
 
 export interface AgreementAudit {
@@ -157,6 +162,8 @@ export interface AgreementRecord {
   receptionistMode?: ReceptionistMode;
   /** The existing line to forward, when `receptionistMode` is `forwarded`. */
   forwardingNumber?: string;
+  /** The billing period printed on the cover. See `AgreementSubmission.billingPeriod`. */
+  billingPeriod?: "monthly" | "annual";
   pdfUrl: string;
   audit: AgreementAudit;
   agreementVersion: string;

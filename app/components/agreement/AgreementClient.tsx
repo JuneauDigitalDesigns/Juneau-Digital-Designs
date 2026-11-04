@@ -269,6 +269,8 @@ export default function AgreementClient({
                     signerEmail: form.signerEmail.trim(),
                     additionalSites,
                     termsAccepted: true,
+                    // Printed on the PDF cover, so the signed copy names the period chosen here.
+                    billingPeriod,
                     pageOpenedAt,
                     scrollCompletedAt,
                     // The phone-handling choice and, for forwarding, the line to forward. Omitted

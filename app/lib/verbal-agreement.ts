@@ -88,6 +88,7 @@ export async function recordVerbalAcceptance(
         scrollCompletedAt: now,
         ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
+        billingPeriod: order.period,
     };
 
     const verbal: VerbalAcceptance = {
@@ -130,6 +131,7 @@ export async function recordVerbalAcceptance(
         additionalSites: [],
         ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber.trim() } : {}),
+        billingPeriod: order.period,
         pdfUrl: uploaded.url,
         audit,
         agreementVersion: input.kind === "addendum" ? ADDENDUM_VERSION : TERMS_VERSION,

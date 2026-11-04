@@ -57,6 +57,14 @@ const onboardingRow = (fee: number): [string, string] => [
   money(fee),
 ];
 
+/** v5.3: the annual price in every fee table, derived from the monthly one like `annualPrice`. */
+const annualRow = (monthly: number): [string, string] => [
+  "Annual prepay",
+  `${money(annual(monthly))} per year (12 months for the price of ${ANNUAL_MONTHS_CHARGED})`,
+];
+/** v5.3: true on both periods — no minimum term monthly, the paid year on annual. */
+const MINIMUM_TERM_ROW: [string, string] = ["Minimum term", "None on monthly billing. Annual prepay runs for the paid year."];
+
 /** Shared by every tier: the receptionist bullets, which no longer vary by plan. */
 const RECEPTIONIST_INCLUDED = [
   "One (1) dedicated business phone number",
@@ -96,6 +104,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     ],
     feeTable: [
       ["Monthly subscription", "$197 per month"],
+      annualRow(197),
       onboardingRow(297),
       ["Call-minutes included", `${mins(STARTER_MINUTES)} per month`],
       overageRow(),
@@ -105,7 +114,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
       ["Chargeback reimbursement", "$15-$25 per occurrence"],
       ["Phone number port-out (on termination)", "$50 per number"],
-      ["Minimum term", "None. Month to month."],
+      MINIMUM_TERM_ROW,
     ],
   },
 
@@ -136,6 +145,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     ],
     feeTable: [
       ["Monthly subscription", "$497 per month"],
+      annualRow(497),
       onboardingRow(297),
       ["Call-minutes included", `${mins(GROWTH_MINUTES)} per month`],
       overageRow(),
@@ -145,7 +155,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
       ["Chargeback reimbursement", "$15-$25 per occurrence"],
       ["Phone number port-out (on termination)", "$50 per number"],
-      ["Minimum term", "None. Month to month."],
+      MINIMUM_TERM_ROW,
     ],
   },
 
@@ -176,6 +186,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     ],
     feeTable: [
       ["Monthly subscription", "$1,097 per month"],
+      annualRow(1097),
       onboardingRow(697),
       ["Websites covered", "2 to 3"],
       ["Call-minutes included", `${mins(ENTERPRISE_MINUTES)} per month, pooled across all sites`],
@@ -186,7 +197,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
       ["Chargeback reimbursement", "$15-$25 per occurrence"],
       ["Phone number port-out (on termination)", "$50 per number (up to $150 for all three)"],
-      ["Minimum term", "None. Month to month."],
+      MINIMUM_TERM_ROW,
     ],
   },
 };
@@ -235,6 +246,7 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
   ],
   feeTable: [
     ["Monthly subscription", "$197 per month"],
+    annualRow(197),
     onboardingRow(297),
     ["AI receptionist", "Not included on this plan"],
     ["Content edits included", "2 per month (copy and colors only)"],
@@ -242,7 +254,7 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
     ["Additional pages beyond five", "Quoted per request"],
     ["Late fee (invoice unpaid more than 15 days)", "$25"],
     ["Chargeback reimbursement", "$15-$25 per occurrence"],
-    ["Minimum term", "None. Month to month."],
+    MINIMUM_TERM_ROW,
   ],
 };
 
