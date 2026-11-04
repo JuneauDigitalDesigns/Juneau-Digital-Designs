@@ -9,6 +9,7 @@ import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan } from "@/app/lib/plan-billing";
 import { dropBillingCache } from "@/app/lib/portal-kv";
 import { CARD_DECLINED, consolidationRefusal } from "@/app/lib/plan-change-copy";
+import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
 import {
   cancelAbsorbedSubscription,
   getConsolidation,
@@ -57,10 +58,12 @@ export async function POST(request: Request) {
   if (!agreement || agreement.plan !== "enterprise") {
     return NextResponse.json({ error: "Agreement not found or not for Enterprise" }, { status: 400 });
   }
+  // A master is bound by who accepted it (it is held, so it isn't the account's master until the
+  // move succeeds below); an addendum by the master it hangs off.
   const belongs =
     agreement.kind === "addendum"
       ? Boolean(account.masterAgreement?.agreementId) && agreement.parentAgreementId === account.masterAgreement?.agreementId
-      : account.masterAgreement?.agreementId === agreementId;
+      : acceptedBy(agreement, account);
   if (!belongs) {
     return NextResponse.json({ error: "Agreement does not belong to this account" }, { status: 403 });
   }
@@ -150,7 +153,14 @@ export async function POST(request: Request) {
       stripeCustomerId: plan.customerId,
     });
   }
-  await saveAccount({ ...next, stripeCustomerId: account.stripeCustomerId ?? plan.customerId, updatedAt: Date.now() });
+  // The Enterprise agreement becomes the account's master with the move, not when it was accepted:
+  // a refused or failed move leaves the master the client still holds.
+  await saveAccount({
+    ...next,
+    stripeCustomerId: account.stripeCustomerId ?? plan.customerId,
+    ...(agreement.kind === "addendum" ? {} : { masterAgreement: masterRefFor(agreement) }),
+    updatedAt: Date.now(),
+  });
   for (const slug of record.absorbing) {
     await dropBillingCache(account.email, slug);
   }

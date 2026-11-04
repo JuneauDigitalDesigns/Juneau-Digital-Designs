@@ -106,3 +106,11 @@ test("the Enterprise agreement is emailed only once the move has gone through", 
   assert.match(route, /sendStoredAgreementEmail\(settled\)/);
   assert.match(route, /persistAgreement\(agreementId\)/);
 });
+
+test("a move's Enterprise agreement is held: bound by who accepted it, recorded as master only on success", async () => {
+  const held = await import("../app/lib/held-agreement.ts");
+  assert.equal(held.isHeldForPlanChange({ pendingConsolidation: true }), true);
+  const route = read("app/api/portal/consolidate/route.ts");
+  assert.match(route, /: acceptedBy\(agreement, account\);/);
+  assert.ok(route.indexOf("changeSubscriptionPlan(") < route.indexOf("masterAgreement: masterRefFor(agreement)"));
+});
