@@ -375,6 +375,9 @@ const helpText = { fontSize: 13, color: "var(--fg-3)", lineHeight: 1.5 } as cons
 
 const STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** How long Send ignores clicks after Review appears, so a double-click on Next can't send. */
+const SEND_ARM_DELAY_MS = 600;
+
 function safeStorageKey(sessionId: string): string | null {
     return /^cs_[a-zA-Z0-9_]+$/.test(sessionId) ? `jdd-onboarding-${sessionId}` : null;
 }
@@ -652,6 +655,8 @@ export default function OnboardingPageClient({
     const turnstileWidgetIdRef = useRef<string | null>(null);
     /** Set once the draft-restore attempt has finished, so autosave can't clobber it. */
     const didRestoreRef = useRef(false);
+    /** When Review last appeared; Send ignores clicks for SEND_ARM_DELAY_MS after it. */
+    const reviewShownAtRef = useRef(0);
 
     const planMeta = PLAN_META[plan];
 
@@ -999,6 +1004,10 @@ export default function OnboardingPageClient({
     const lastStep = steps.length - 1;
     const step = Math.min(formData.currentStep, lastStep);
 
+    useEffect(() => {
+        if (step === lastStep) reviewShownAtRef.current = Date.now();
+    }, [step, lastStep]);
+
     const lookIndex = steps.findIndex((s) => s.key === "look");
     const onLook = steps[step].key === "look";
 
@@ -1190,8 +1199,26 @@ export default function OnboardingPageClient({
         };
     }
 
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
+    /**
+     * Sends the wizard. Called ONLY from the Send button's click, never from the form's submit event.
+     *
+     * The wizard used to submit through `<form onSubmit={handleSubmit}>`, and that let two things send
+     * it before the client ever reached Review:
+     *
+     * 1. The footer's Next and Submit were one unkeyed `<button>` whose `type` flipped from "button"
+     *    to "submit" on the last step. Clicking Next on the step before Review re-rendered the SAME
+     *    DOM node as type="submit" while the click was still being dispatched, and the browser's
+     *    activation behaviour, which runs after dispatch, then submitted the form. Every client was
+     *    sent to the portal from "Your phone" without seeing Review.
+     * 2. Enter in a step with a single text input ("Anything to avoid?", the website box) is an
+     *    implicit form submission.
+     *
+     * Now the form's own submit event is always cancelled, and the footer buttons are both
+     * type="button" with distinct keys, so nothing but an explicit click on Send can send.
+     * `test/onboarding-submit.test.mjs` holds the line.
+     */
+    const handleSubmit = async () => {
+        if (submitting) return;
 
         if (!portalMode) {
             if (!turnstileSiteKey) {
@@ -1364,7 +1391,9 @@ export default function OnboardingPageClient({
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} noValidate>
+                {/* Never submits natively: Enter in a lone text field would, so it is cancelled
+                    here. The Send button calls handleSubmit directly. */}
+                <form onSubmit={(e: FormEvent<HTMLFormElement>) => e.preventDefault()} noValidate>
                     {/* Honeypot */}
                     <label className="hidden" aria-hidden="true">
                         <input tabIndex={-1} autoComplete="off" type="text" value={formData.website} onChange={(e) => set("website", e.target.value)} />
@@ -2019,8 +2048,11 @@ export default function OnboardingPageClient({
                     {/* Nav controls */}
                     <div className="mt-6 flex items-center justify-between">
                         <button type="button" onClick={back} disabled={step === 0} className="btn ghost" style={{ opacity: step === 0 ? 0.4 : 1, cursor: step === 0 ? "not-allowed" : "pointer" }}>← Back</button>
+                        {/* Distinct keys and type="button" on both: React must never reuse the Next
+                            node as the Send node, and neither may ever be a native submit. */}
                         {step < lastStep ? (
                             <button
+                                key="next"
                                 type="button"
                                 onClick={next}
                                 disabled={activationBlocked}
@@ -2035,7 +2067,14 @@ export default function OnboardingPageClient({
                             </button>
                         ) : (
                             <button
-                                type="submit"
+                                key="send"
+                                type="button"
+                                onClick={() => {
+                                    // A double-click on Next lands its second click here, on the
+                                    // Send button that just replaced Next in the same spot.
+                                    if (Date.now() - reviewShownAtRef.current < SEND_ARM_DELAY_MS) return;
+                                    void handleSubmit();
+                                }}
                                 disabled={
                                     submitting ||
                                     uploadingSlots.size > 0 ||
