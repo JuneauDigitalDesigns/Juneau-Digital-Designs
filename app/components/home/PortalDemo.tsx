@@ -94,9 +94,9 @@ type Stage = WorkingStage | "won" | "lost";
 interface Ev {
     id: string;
     /** What the marker draws: #54's `markerKind`, decided with the title and chip, never apart. */
-    kind: "call" | "sms" | "stage" | "record";
+    kind: "call" | "sms" | "stage" | "record" | "review";
     title: string;
-    chip: "Added" | "Texts" | "Stage";
+    chip: "Added" | "Texts" | "Stage" | "Review";
     /** A stage move's "From …" line: the raw stage key, as the record prints it. */
     from?: string;
     /** A text's body, shown as a bubble. */
@@ -171,6 +171,8 @@ const evMove = (k: Move): Ev => ({
     time: DEMO_TIMES[k],
 });
 const EV_SMS: Ev = { id: "sms", kind: "sms", title: `You texted ${DEMO_LEAD.name}`, chip: "Texts", body: DEMO_SMS, time: DEMO_TIMES.texted };
+/* What the review route appends once the text has gone (`reviewRequestActivity`, #53). */
+const EV_REVIEW: Ev = { id: "review", kind: "review", title: `You asked ${DEMO_LEAD.name} for a Google review`, chip: "Review", time: DEMO_TIMES.reviewed };
 
 /* Where each step begins, and where it ends. Built from one another so they cannot drift. */
 const AFTER_INBOX: World = { ...BASE, leadIn: true, leadRead: true, drawer: "lead" };
@@ -181,10 +183,9 @@ const AFTER_PIPELINE: World = {
     timeline: [...MOVES.map(evMove).reverse(), EV_ADDED],
 };
 const AFTER_MESSAGE: World = { ...AFTER_PIPELINE, timeline: [EV_SMS, ...AFTER_PIPELINE.timeline] };
-const AFTER_REVIEW: World = { ...AFTER_MESSAGE, reviewSent: true };
+const AFTER_REVIEW: World = { ...AFTER_MESSAGE, reviewSent: true, timeline: [EV_REVIEW, ...AFTER_MESSAGE.timeline] };
 
 const STEP_START: World[] = [BASE, AFTER_INBOX, { ...AFTER_PROMOTE, view: "board" }, AFTER_PIPELINE, AFTER_MESSAGE];
-const STEP_END: World[] = [AFTER_INBOX, AFTER_PROMOTE, AFTER_PIPELINE, AFTER_MESSAGE, AFTER_REVIEW];
 
 /* ── camera framing ─────────────────────────────────────────────────────── */
 
@@ -206,7 +207,7 @@ const NARROW = 480;
    camera keeps a band free for the card, so the card never sits on the element it explains. */
 
 /** What the card points at on a step's finished frame (reduced motion, or a step picked). */
-const STATIC_TARGET = ["said", "origin", "stagerow", "ev-sms", "reviewbtn"];
+const STATIC_TARGET = ["said", "promote", "stagerow", "ev-sms", "reviewbtn"];
 /** Room the camera leaves below a beat's subject for the card. */
 const RESERVE = { wide: 190, narrow: 190 };
 /** How long a card stays before the film moves on by itself: long enough to read twice. */
@@ -230,12 +231,21 @@ const SHOT = {
     review: { wide: [{ f: "reviewbody" }], narrow: [{ f: "reviewbody" }], pad: 12 },
 } satisfies Record<string, Shot>;
 
-const END_SHOT: Shot[] = [SHOT.leadBody, SHOT.recordTop, SHOT.recordStage, SHOT.composer, SHOT.recordHead];
+/** Where the camera is when a step is started on its own, so it never opens on a shot meant
+ *  for another page (a record shot over the board is the whole canvas, zoomed right out). */
+const START_SHOT: Shot[] = ["all", SHOT.leadPromote, SHOT.board, SHOT.recordStage, SHOT.recordHead];
+
+/**
+ * A step's finished frame: what reduced motion shows, and what a card points at there. Step 2
+ * shows the drawer with Promote, as its card is about the button, not about the record after.
+ */
+const STATIC_WORLD: World[] = [AFTER_INBOX, AFTER_INBOX, AFTER_PIPELINE, AFTER_MESSAGE, AFTER_REVIEW];
+const STATIC_SHOT: Shot[] = [SHOT.leadBody, SHOT.leadPromote, SHOT.recordStage, SHOT.composer, SHOT.recordStage];
 
 /** Where each step stops while playing, and what the camera frames when it does. */
 const BEAT: { f: string; shot: Shot }[] = [
     { f: "row-robert", shot: SHOT.inboxList },
-    { f: "origin", shot: SHOT.recordTop },
+    { f: "promote", shot: SHOT.leadPromote },
     { f: "card-robert", shot: SHOT.board },
     { f: "composer", shot: SHOT.composer },
     { f: "reviewbtn", shot: SHOT.recordHead },
@@ -570,8 +580,8 @@ export default function PortalDemo() {
                 },
                 // 2 · promoted: the record opens with the call pinned, then back to the board
                 async () => {
+                    await beat(1);
                     look(SHOT.leadPromote);
-                    await wait(600);
                     pointAt("promote");
                     await wait(900);
                     await click();
@@ -579,12 +589,17 @@ export default function PortalDemo() {
                     await wait(700);
                     commit({ promoting: false, drawer: null, tab: "customers", view: "record", timeline: [EV_ADDED], enterEv: EV_ADDED.id });
                     await frame();
-                    await beat(1);
                     look(SHOT.recordTop);
-                    await wait(300);
+                    await wait(2400);
                     pointAt("back");
                     await wait(900);
                     await click();
+                    // Back to the board. This used to be left to the next step, which looked for
+                    // a card on a page still showing the record, found none, and pulled the
+                    // camera out to the whole canvas.
+                    commit({ view: "board", enterEv: null });
+                    await frame();
+                    look(SHOT.board);
                 },
                 // 3 · Lead → Contacted → Quoted → Scheduled on the board, then opened
                 async () => {
@@ -657,9 +672,16 @@ export default function PortalDemo() {
                     await click();
                     commit({ reviewSending: true });
                     await wait(700);
-                    commit({ reviewSending: false, drawer: null, reviewSent: true });
+                    commit((w) => ({
+                        reviewSending: false,
+                        drawer: null,
+                        reviewSent: true,
+                        timeline: [EV_REVIEW, ...w.timeline],
+                        enterEv: EV_REVIEW.id,
+                    }));
                     await wait(250);
-                    look(SHOT.recordHead);
+                    // The button and the new row together: what was sent, and where it is kept.
+                    look(SHOT.recordStage);
                     pointAt("reviewbtn", 0.5, 1.7);
                     await wait(2600);
                 },
@@ -674,7 +696,7 @@ export default function PortalDemo() {
                 cut(true);
                 commit({ ...STEP_START[from], enterEv: null });
                 settle();
-                look(from === 0 ? "all" : END_SHOT[from - 1]);
+                look(START_SHOT[from]);
                 await frame();
                 cut(false);
                 for (let i = from; i < SCRIPT.length; i++) {
@@ -696,11 +718,11 @@ export default function PortalDemo() {
             cut(true);
             setStep(i);
             setRun(i === DEMO_STEPS.length - 1 ? "done" : "paused");
-            commit({ ...STEP_END[i], enterEv: null });
+            commit({ ...STATIC_WORLD[i], enterEv: null });
             settle();
             hideCursor();
             setHeld(false);
-            look(END_SHOT[i], (viewportRef.current?.clientWidth ?? 999) < NARROW ? RESERVE.narrow : RESERVE.wide);
+            look(STATIC_SHOT[i], (viewportRef.current?.clientWidth ?? 999) < NARROW ? RESERVE.narrow : RESERVE.wide);
             // The finished frame still gets its card, pointed at what the step produced, and
             // waits for Next rather than timing out.
             afterFrame(() => {
@@ -1355,6 +1377,7 @@ const MARKER = {
     sms: { hue: "var(--accent)", Icon: ChatCircle },
     stage: { hue: "var(--fg-3)", Icon: CaretRight },
     record: { hue: "var(--fg-3)", Icon: Plus },
+    review: { hue: "var(--chart-warn)", Icon: Star },
 };
 
 /** Outlined, because the client did it. A neutral hue takes the strong rule as its ring. */

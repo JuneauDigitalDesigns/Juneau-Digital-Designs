@@ -144,6 +144,8 @@ export const DEMO_TIMES = {
     quoted: "9:30 AM",
     scheduled: "9:41 AM",
     texted: "9:42 AM",
+    /** After the 11 AM visit. */
+    reviewed: "1:20 PM",
 };
 
 export const DEMO_SMS =
