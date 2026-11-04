@@ -3,6 +3,7 @@ import { getAgreement, persistAgreement, saveAgreement } from "@/app/lib/kv";
 import { CARD_DECLINED, upgradeCancelPending } from "@/app/lib/plan-change-copy";
 import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
 import { dropBillingCache } from "@/app/lib/portal-kv";
+import { sendOpsNotice } from "@/app/lib/ops-notice";
 import { sendStoredAgreementEmail } from "@/app/lib/agreement-email";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
@@ -206,6 +207,14 @@ export async function POST(request: Request) {
         await saveAgreement({ ...agreement, pendingUpgrade: false });
         after(() => sendStoredAgreementEmail({ ...agreement, pendingUpgrade: false }));
     }
+
+    // Billing has moved, provisioning hasn't: Xander runs the console plan upgrade for this site.
+    after(() =>
+        sendOpsNotice(`[JDD] Upgrade: ${site.name ?? site.slug} → Growth`, [
+            `${account.email} upgraded <strong>${site.slug}</strong> from Starter to Growth in the portal. Stripe is billing Growth now.`,
+            `Run the console plan upgrade for this site: it turns LEAD_CALLBACK on and moves site.ts to growth.`,
+        ]),
+    );
 
     // The agreement now governs a paid plan, and it is the account's master that later addenda
     // hang off, so it must outlive the 30-day TTL `saveAgreement` gave it. Only first-purchase

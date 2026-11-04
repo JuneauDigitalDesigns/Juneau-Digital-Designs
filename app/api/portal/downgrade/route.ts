@@ -8,6 +8,7 @@ import { sendDowngradeConfirmedEmail } from "@/app/lib/plan-change-email";
 import { DOWNGRADE_FAILED } from "@/app/lib/plan-change-copy";
 import { acceptedBy } from "@/app/lib/held-agreement";
 import { dropBillingCache } from "@/app/lib/portal-kv";
+import { sendOpsNotice } from "@/app/lib/ops-notice";
 
 export const runtime = "nodejs";
 
@@ -100,6 +101,10 @@ export async function POST(request: Request) {
             effectiveAt: result.effectiveAt,
             interval: result.interval,
         });
+        await sendOpsNotice(`[JDD] Downgrade scheduled: ${site.name ?? site.slug} → Starter`, [
+            `${account.email} accepted the Starter terms for <strong>${site.slug}</strong>.`,
+            `Stripe moves the price on ${new Date(result.effectiveAt).toISOString().slice(0, 10)}, and the portal record follows by webhook. On or after that date, run the console downgrade to turn LEAD_CALLBACK off and move site.ts to starter.`,
+        ]);
     });
 
     return NextResponse.json({ ok: true, effectiveAt: result.effectiveAt });
