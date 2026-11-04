@@ -3371,10 +3371,34 @@ select option {
   --panel:         #ffffff;
   --panel-header:  #f6f7f9;
 
-  /* ── Ink ───────────────────────────────────────────────────────────────── */
+  /* ── Ink ─────────────────────────────────────────────────────────────────
+     Three steps, and all three clear WCAG AA (4.5:1) for normal-size text on every
+     portal surface. That is a hard floor, not a nicety: clients are tradespeople reading
+     this on a phone, often outdoors.
+
+     `--fg-3` was #767c85 — 4.21:1 on a white card and 3.92:1 on `--bg`, i.e. below AA on
+     both. It carries most of the portal's small type (table meta, hints, timestamps, day
+     headings, unit suffixes, empty-state copy), so the failure was everywhere at once.
+     #656b73 is the smallest step that clears 4.5:1 on all five portal surfaces with real
+     headroom; the worst case is the cream `--brand-band` at 4.57:1.
+
+     Measured, on #ffffff / #f6f7f9 / `--surface` over `--bg` / `--brand-band`:
+       --fg    18.92 / 17.65 / 16.27 / 16.07
+       --fg-2   8.14 /  7.59 /  7.00 /  6.91
+       --fg-3   5.38 /  5.02 /  4.62 /  4.57   (was 4.21 / 3.92 / 3.62 / 3.57)
+
+     Darkening the token rather than moving its ~115 call sites onto `--fg-2` is deliberate.
+     Nearly every one of those sites is text a client has to read, including the ones that
+     look merely recessive (a waiting build step, an "unknown" health state, an inactive
+     filter label, a caller with no name) — so there was almost nothing left to keep a
+     dimmer token for, and the honest version of the per-site route collapses to "use
+     `--fg-2`", which flattens three ink steps into two. This keeps three. The ramp
+     compresses from 18 to 11 L* points between `--fg-2` and `--fg-3`, which the portal can
+     afford because hierarchy here is carried by size and family as much as by colour:
+     `--fg-3` text is almost always 10–13px, often mono, against 14px+ above it. */
   --fg:    #0d1117;
   --fg-2:  #4a5058;
-  --fg-3:  #767c85;
+  --fg-3:  #656b73;
 
   /* ── Accent: one product blue. `--accent-2` aliases onto it rather than
         introducing a second hue, so the 14 existing `--accent-2` references
@@ -3384,7 +3408,9 @@ select option {
   --accent-glow:  rgba(37, 99, 235, 0.22);
   --on-accent:    #ffffff;
   --on-accent-2:  #ffffff;
-  --online:       #16a34a;
+  /* Kept byte-identical to `--chart-pos` — one green in the portal, not two. Both moved
+     off #16a34a (3.30:1) when that token had to clear AA as text; see the charts block. */
+  --online:       #136f32;
 
   /* ── Rules and washes ──────────────────────────────────────────────────── */
   --rule:         rgba(13, 17, 23, 0.09);
@@ -3461,17 +3487,34 @@ select option {
      position in the tree, i.e. inside this scope. No JS theme reading anywhere.
      The series names matter: leaving `--chart-series-*` undefined here would render
      agency teal and coral on the new cards with nothing erroring. */
-  --chart-pos:     #16a34a;
-  --chart-neg:     #dc2626;
-  --chart-warn:    #d97706;
-  --chart-neutral: #94a3b8;
+  /* These four are read as TEXT far more than they are used as paint — delta chips, score
+     labels, error messages, CRM stage labels, outcome tones — with only 7px dots, hairline
+     strokes and 10–12% washes on the other side. The actual chart series are
+     `--chart-series-*` below and are untouched, so darkening these to clear AA costs the
+     charts nothing. Every one of them failed as text at the old values; `--chart-warn` at
+     3.19:1 and `--chart-neutral` at 2.56:1 were worse than the `--fg-3` failure above.
+
+     Measured as text, on #ffffff / #f6f7f9, and on their own tinted wash where one sits
+     behind same-coloured text:
+       --chart-pos      6.27 / 5.85 / 5.34 on an 11% pos wash   (was 3.30 / 3.07 / 2.92)
+       --chart-neg      6.13 / 5.72 / 5.19 on a 10% neg wash    (was 4.83 / 4.51 / 4.14)
+       --chart-warn     6.11 / 5.70                             (was 3.19 / 2.97)
+       --chart-neutral  5.44 / 5.08                             (was 2.56 / 2.39)
+     Darker also helps the one reversed pairing — white on a `--chart-neg` fill, now 6.13:1. */
+  --chart-pos:     #136f32;
+  --chart-neg:     #c01c1c;
+  --chart-warn:    #9a4d04;
+  --chart-neutral: #5b6b80;
 
   --chart-series-1: #2563eb;
   --chart-series-2: #7c3aed;
   --chart-series-3: #0891b2;
   --chart-series-4: #64748b;
 
-  --chart-axis:           rgba(13, 17, 23, 0.45);
+  /* `chartTheme.ts` spends this on one thing: `axisTick`, the 10px axis labels. Nothing
+     draws a line with it (gridlines are `--chart-grid`), so it is pure text and the alpha
+     can rise freely. At 0.45 it measured 3.04:1 on white — rendered, barely readable. */
+  --chart-axis:           rgba(13, 17, 23, 0.65);
   --chart-grid:           rgba(13, 17, 23, 0.08);
   --chart-track:          rgba(13, 17, 23, 0.06);
   --chart-tooltip-bg:     #ffffff;
