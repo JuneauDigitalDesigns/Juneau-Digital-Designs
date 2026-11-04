@@ -96,6 +96,66 @@
   -webkit-backdrop-filter: blur(2px);
 }
 :global([data-theme="dark"]) .startGate { background: rgba(20, 18, 12, 0.35); }
+/* The closing beat: the portal dims under the page's own ground, and the film ends on a line in
+   the page's voice, not the portal's. Follows the page theme, like the start gate. */
+.endGate {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: endIn 0.6s ease both;
+}
+@keyframes endIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.endPanel {
+  max-width: 34rem;
+  text-align: center;
+  animation: endRise 0.7s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes endRise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.endTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  font-size: clamp(28px, 4.4vw, 52px);
+  line-height: 0.98;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+}
+.endBody {
+  margin: 16px auto 0;
+  max-width: 42ch;
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+.endActions {
+  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+.endBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.reduced .endGate,
+.reduced .endPanel { animation: none; }
+
 .startBtn {
   display: inline-flex;
   align-items: center;

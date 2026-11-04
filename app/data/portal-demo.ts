@@ -66,6 +66,18 @@ export const DEMO_STEPS: DemoStep[] = [
     },
 ];
 
+/**
+ * The closing screen once the film ends. DRAFT, awaiting Xander's word-for-word approval like
+ * the captions. It names nothing carrier-gated: texting and review requests carry their own
+ * line on their steps, and a closing claim about them would have to repeat it.
+ */
+export const DEMO_CLOSING = {
+    title: "One call. One customer. Nothing slipped.",
+    body: "Dave called at 2:13 AM. By the afternoon he was a booked customer, with every step kept in one place.",
+    replay: "Watch again",
+    next: { label: "See pricing", href: "/pricing" },
+};
+
 /** Same wording and same rule as the section's third outcome: what it waits on, never how long. */
 export const CARRIER_LINE = "Switches on once the carriers approve your business registration.";
 

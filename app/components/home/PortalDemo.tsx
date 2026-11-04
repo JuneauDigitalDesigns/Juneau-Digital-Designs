@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import Image from "next/image";
+import Link from "next/link";
 import { useReducedMotion } from "framer-motion";
 import {
     Archive,
@@ -34,6 +35,7 @@ import {
     DEMO_ARCHIVED_COUNT,
     DEMO_BOARD,
     DEMO_BUSINESS,
+    DEMO_CLOSING,
     DEMO_COLLAPSED,
     DEMO_INBOX,
     DEMO_LEAD,
@@ -315,6 +317,8 @@ export default function PortalDemo() {
     const [runId, setRunId] = useState(0);
     /** A card is up mid-film: the running step bar waits with it. */
     const [held, setHeld] = useState(false);
+    /** The closing screen, once the last step has finished. */
+    const [closing, setClosing] = useState(false);
 
     const token = useRef(0);
     const lastShot = useRef<Shot>("all");
@@ -712,6 +716,7 @@ export default function PortalDemo() {
             try {
                 setRunId(my);
                 setHeld(false);
+                setClosing(false);
                 hideTour();
                 setRun("playing");
                 setStep(from);
@@ -725,7 +730,11 @@ export default function PortalDemo() {
                     setStep(i);
                     await SCRIPT[i]();
                 }
+                // The beat: the last frame holds, the cursor leaves, then the close.
+                await wait(1200);
+                hideCursor();
                 setRun("done");
+                setClosing(true);
             } catch {
                 // Cancelled by a newer run, a pause or an unmount. Whoever cancelled owns the state.
             }
@@ -740,6 +749,7 @@ export default function PortalDemo() {
             cut(true);
             setStep(i);
             setRun(i === DEMO_STEPS.length - 1 ? "done" : "paused");
+            setClosing(false);
             commit({ ...STATIC_WORLD[i], enterEv: null });
             settle();
             hideCursor();
@@ -793,7 +803,12 @@ export default function PortalDemo() {
     function onTourNext() {
         if (tourNext.current) return tourNext.current();
         const i = tour?.i ?? step;
-        if (i >= DEMO_STEPS.length - 1) return hideTour();
+        if (i >= DEMO_STEPS.length - 1) {
+            hideTour();
+            setRun("done");
+            setClosing(true);
+            return;
+        }
         start(i + 1);
     }
     function onPlayButton() {
@@ -953,6 +968,23 @@ export default function PortalDemo() {
                         </>
                     )}
                 </div>
+                {closing && (
+                    <div className={s.endGate} role="status">
+                        <div className={s.endPanel}>
+                            <p className={s.endTitle}>{DEMO_CLOSING.title}</p>
+                            <p className={s.endBody}>{DEMO_CLOSING.body}</p>
+                            <div className={s.endActions}>
+                                <button type="button" className={`btn primary ${s.endBtn}`} onClick={() => start(0)}>
+                                    <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
+                                    {DEMO_CLOSING.replay}
+                                </button>
+                                <Link href={DEMO_CLOSING.next.href} className={`btn ghost ${s.endBtn}`}>
+                                    {DEMO_CLOSING.next.label}
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {idle && (
                     <div className={s.startGate}>
                         <button type="button" className={`btn primary lg ${s.startBtn}`} onClick={() => start(0)}>
