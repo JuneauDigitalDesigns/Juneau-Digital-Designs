@@ -38,7 +38,14 @@ export interface AgreementSubmission {
   signerEmail: string;
   launchDate?: string; // YYYY-MM-DD (optional — not collected on form)
   additionalSites: string[]; // for Enterprise
-  signatureDataUrl: string; // data:image/png;base64,...
+  /**
+   * data:image/png;base64,… — the drawn signature.
+   *
+   * Optional because an operator-closed client accepts by voice on a call and draws nothing.
+   * `/api/agreement` still requires it, so the self-serve form is unchanged; only
+   * `recordVerbalAcceptance` builds a submission without one.
+   */
+  signatureDataUrl?: string;
   pageOpenedAt: string; // ISO UTC — when the agreement page mounted
   scrollCompletedAt: string; // ISO UTC — when the reader reached the end of the terms
   /**
@@ -93,6 +100,26 @@ export interface AgreementAudit {
   termsHash: string;
 }
 
+/**
+ * Verbal acceptance on a sales call, recorded by the operator on the client's behalf.
+ *
+ * Carries what makes it evidence rather than an assertion: which order it authorised, who
+ * recorded it, the call it happened on, and the hash of the exact script that was read aloud
+ * (alongside `audit.termsHash` for the full terms the client was emailed).
+ */
+export interface VerbalAcceptance {
+  method: "verbal-operator";
+  orderId: string;
+  operator: string;
+  callRef: string;
+  scriptVersion: string;
+  scriptHash: string;
+  /** ISO UTC — when the operator recorded the client's yes. */
+  confirmedAt: string;
+}
+
+export type AgreementAcceptance = { method: "drawn-signature" } | VerbalAcceptance;
+
 export interface AgreementRecord {
   id: string;
   plan: PlanSlug;
@@ -115,6 +142,11 @@ export interface AgreementRecord {
   pdfUrl: string;
   audit: AgreementAudit;
   agreementVersion: string;
+  /**
+   * How the terms were accepted. Absent means a drawn signature — every record written before
+   * operator closes existed — so no stored agreement needs migrating to stay valid.
+   */
+  acceptance?: AgreementAcceptance;
   /**
    * Set when this agreement was signed to authorise an in-portal upgrade, and cleared once
    * Stripe confirms the plan actually changed.

@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { getAddendumForPlan, getSchedule, getTermsForPlan, PROVIDER, WEB_ONLY_SCHEDULE } from "./legal";
 import { PdfDoc, renderSections } from "./legal/pdf-renderer";
-import type { AgreementSubmission, AgreementAudit } from "./agreement-types";
+import type { AgreementSubmission, AgreementAudit, VerbalAcceptance } from "./agreement-types";
 
 const PROVIDER_SIG_PATH = resolve(process.cwd(), "public", "signature.png");
 
@@ -21,6 +21,12 @@ export async function generateSignedPdf(
   submission: AgreementSubmission,
   audit: AgreementAudit,
   agreementId: string,
+  /**
+   * Present when the client accepted by voice on a sales call. The client signature image is
+   * then replaced by an acceptance block, and the audit page records the call instead of a
+   * browser. Everything else, the terms included, is the same document.
+   */
+  verbal?: VerbalAcceptance,
 ): Promise<Uint8Array> {
   /**
    * Master or addendum, resolved once here.
@@ -115,9 +121,13 @@ export async function generateSignedPdf(
   doc.space(26);
 
   doc.text("CLIENT:", { size: 9.5, bold: true, after: 6 });
-  const sigBase64 = submission.signatureDataUrl.split(",")[1] ?? "";
-  const clientSig = await doc.pdf.embedPng(Buffer.from(sigBase64, "base64"));
-  doc.image(clientSig, 150, 46);
+  if (verbal) {
+    doc.text(verbalAcceptanceText(submission, verbal), { size: 9.5, after: 8 });
+  } else {
+    const sigBase64 = submission.signatureDataUrl?.split(",")[1] ?? "";
+    const clientSig = await doc.pdf.embedPng(Buffer.from(sigBase64, "base64"));
+    doc.image(clientSig, 150, 46);
+  }
   doc.rule();
   doc.labelValue("Name:", submission.signerName);
   doc.labelValue("Title:", submission.signerTitle);
@@ -129,10 +139,32 @@ export async function generateSignedPdf(
   doc.newPage();
   doc.text("AUDIT TRAIL", { size: 16, bold: true, after: 3 });
   doc.rule();
-  doc.text(`Electronic signature record for Service Agreement ${version}`, {
-    size: 9.5,
-    after: 16,
-  });
+  doc.text(
+    verbal
+      ? `Verbal acceptance record for Service Agreement ${version}`
+      : `Electronic signature record for Service Agreement ${version}`,
+    { size: 9.5, after: 16 },
+  );
+
+  // A verbal acceptance has no browser behind it, so the scroll, dwell, IP and user-agent rows
+  // would be blank at best and misleading at worst. It records the call instead.
+  const acceptanceRows: [string, string][] = verbal
+    ? [
+        ["Accepted", "Verbally, on a telephone call"],
+        ["Recorded at (UTC)", verbal.confirmedAt],
+        ["Recorded by (operator)", verbal.operator],
+        ["Call reference", verbal.callRef],
+        ["Order ID", verbal.orderId],
+        ["Script version", verbal.scriptVersion],
+        ["Script hash (SHA-256)", verbal.scriptHash],
+      ]
+    : [
+        ["Terms scrolled to end", audit.scrollCompletedAt],
+        ["Time on page", formatDuration(audit.dwellMs)],
+        ["Signed at (UTC)", audit.signedAt],
+        ["IP address", audit.ip],
+        ["User agent", audit.userAgent],
+      ];
 
   const rows: [string, string][] = [
     ["Agreement ID", agreementId],
@@ -147,11 +179,7 @@ export async function generateSignedPdf(
     ["Client entity type", submission.clientEntityType],
     ["Client address", submission.clientAddress],
     ["", ""],
-    ["Terms scrolled to end", audit.scrollCompletedAt],
-    ["Time on page", formatDuration(audit.dwellMs)],
-    ["Signed at (UTC)", audit.signedAt],
-    ["IP address", audit.ip],
-    ["User agent", audit.userAgent],
+    ...acceptanceRows,
     ["Payload hash (SHA-256)", audit.payloadHash],
   ];
 
@@ -165,14 +193,34 @@ export async function generateSignedPdf(
 
   doc.space(20);
   doc.text(
-    "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
-      "The signer affirmed intent to be bound by the agreement above by scrolling through the full terms, drawing their " +
-      "signature on a touch or pointer interface, and checking the acceptance box on juneaudigitaldesigns.com/agreement. " +
-      "The terms hash above identifies the exact text presented to the signer at the time of signing.",
+    verbal
+      ? // Legal wording approved by Xander, 2026-11-03 (PLAN §9.4).
+        "The client accepted this agreement verbally during a telephone call. The operator read the plan, price, " +
+          "billing period, automatic renewal and cancellation terms aloud from the script identified above, the client " +
+          "agreed, and the operator recorded that acceptance at the time shown. The full terms, identified by the terms " +
+          "hash above, were emailed to the client at the address shown immediately afterwards."
+      : "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
+          "The signer affirmed intent to be bound by the agreement above by scrolling through the full terms, drawing their " +
+          "signature on a touch or pointer interface, and checking the acceptance box on juneaudigitaldesigns.com/agreement. " +
+          "The terms hash above identifies the exact text presented to the signer at the time of signing.",
     { size: 8.5, after: 0 },
   );
 
   return doc.finish();
+}
+
+/** The block printed where a drawn signature would go. Wording approved 2026-11-03 (PLAN §9.4). */
+function verbalAcceptanceText(submission: AgreementSubmission, verbal: VerbalAcceptance): string {
+  const at = new Date(verbal.confirmedAt).toLocaleString("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "America/New_York",
+  });
+  return (
+    `Accepted by verbal consent during a telephone call on ${at} ET. The terms summarised above were read to ` +
+    `${submission.signerName} (${submission.signerEmail}), who agreed to them. Acceptance was recorded by ` +
+    `${PROVIDER.legalName} (operator: ${verbal.operator}). Call reference: ${verbal.callRef}.`
+  );
 }
 
 /** SHA-256 of the canonicalized submission, excluding the large signature blob. */

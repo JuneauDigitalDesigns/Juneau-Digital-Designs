@@ -255,7 +255,9 @@ export async function POST(request: Request) {
         // sites under one client could land on the same slug — after which `resolveSite` and
         // `upsertSite`, both slug-keyed, silently act on whichever came first. `site.slug` is
         // excluded so the placeholder this record still carries isn't treated as a rival.
-        const newSlug = uniqueSlug(slugifyBrand(slugSource), account, site.slug);
+        // A site closed on a sales call is never renamed: its slug was locked at order time, and
+        // its A2P registration and `clients/<slug>/` folder were keyed on it from the call on.
+        const newSlug = site.slugLocked ? site.slug : uniqueSlug(slugifyBrand(slugSource), account, site.slug);
         const sessionId = site.sessionId ?? "";
 
         // Enqueue intake for the console Build wizard.

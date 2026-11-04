@@ -6,6 +6,7 @@ import { SCHEDULES, WEB_ONLY_SCHEDULE } from "./legal";
 import type { PlanSlug } from "./agreement-types";
 import { brandedEmailHtml } from "./email-template";
 import { EMAIL, EMAIL_FONT } from "./email-tokens";
+import { formatUsPhone, normalizeE164 } from "./phone";
 
 const SITE_URL = "https://juneaudigitaldesigns.com";
 
@@ -22,6 +23,13 @@ export interface WelcomeEmailData {
   forwardingNumber?: string;
   /** The pending site's slug, for the onboarding deep link. */
   siteSlug: string;
+  /**
+   * A Clerk invitation link, for a client closed on a call who has never signed in. Becomes the
+   * first step. Never a password: portal access for these clients is invitation only.
+   */
+  inviteUrl?: string;
+  /** A client closed on a call who already has a portal login: "sign in as usual". */
+  existingLogin?: boolean;
 }
 
 /**
@@ -102,64 +110,7 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
   const replyTo = process.env.QUOTE_TO_EMAIL;
 
   const resend = new Resend(apiKey);
-
-  const webOnly = data.plan === "starter" && data.receptionistMode === "declined";
-  const isForwarding = data.receptionistMode === "forwarded";
-  const label = planLabel(data.plan, webOnly);
-
-  const onboardingUrl = `${SITE_URL}/portal/onboarding?site=${encodeURIComponent(data.siteSlug)}`;
-  const portalUrl = `${SITE_URL}/portal`;
-
-  // No em-dash in a subject line a client reads.
-  const subject = "Welcome to Juneau Digital Designs — let's get you set up";
-
-  const forwardingHeadsUp = isForwarding
-    ? `
-      <div style="background:${EMAIL.panelInset};border:1px dashed ${EMAIL.rule};border-radius:10px;padding:16px 18px;margin:22px 0 4px;">
-        <div style="font-family:${EMAIL_FONT.display};font-size:16px;font-weight:600;color:${EMAIL.ink};margin-bottom:6px;">Heads-up: you'll set up call forwarding</div>
-        <p style="margin:0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;">You chose to <strong style="color:${EMAIL.ink};">keep your existing number</strong> and forward calls to your new AI receptionist. Your phone carrier has to make that change — it's quick, but only you can authorize it on your line.</p>
-        <p style="margin:10px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;"><strong style="color:${EMAIL.ink};">Nothing to do yet.</strong> Once your site and receptionist are ready, we'll email you the exact number to forward to and step-by-step instructions for your carrier.</p>
-      </div>`
-    : "";
-
-  const innerHtml = `
-    <p style="margin:0 0 20px;">Thanks for signing on with Juneau Digital Designs. We've got your signed agreement and your first payment. Before we start building, here's what we need from you.</p>
-
-    ${step(
-      1,
-      "Finish your onboarding form",
-      "This is where you tell us about your business, services, and the look you want. It takes about 10 minutes and it's what we build your site from.",
-      onboardingUrl,
-      "Finish onboarding",
-      true,
-    )}
-
-    ${step(
-      2,
-      "Log into your client portal",
-      "Track your build progress, watch your call log, and see your site's health — all in one place. Use the email you signed up with.",
-      portalUrl,
-      "Open my portal",
-      false,
-    )}
-
-    ${forwardingHeadsUp}
-
-    <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:22px 0 4px;">
-      <div style="font-size:13px;line-height:1.85;color:${EMAIL.fg2};">
-        <strong style="color:${EMAIL.ink};">Plan:</strong> ${label}<br/>
-        ${phoneSummary(data.receptionistMode, data.forwardingNumber)}
-      </div>
-    </div>
-
-    <p style="margin:22px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;"><strong style="color:${EMAIL.ink};">What happens next:</strong> once your onboarding form is in, we start building. You'll see progress in your portal, and we'll reach out if we need anything. Questions? Just reply to this email.</p>
-  `;
-
-  const html = brandedEmailHtml({
-    title: `Welcome aboard, ${data.clientLegalName}.`,
-    subtitle: `Your ${webOnly ? "Starter" : SCHEDULES[data.plan as PlanSlug]?.name ?? data.plan} plan is active. Here's how to get set up.`,
-    body: innerHtml,
-  });
+  const { subject, html } = renderWelcomeEmail(data);
 
   try {
     const result = await resend.emails.send({
@@ -178,4 +129,134 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
     console.error("[welcome-email] send threw", data.signerEmail, err);
     throw err;
   }
+}
+
+/**
+ * The text-alerts setup step: turn alerts on in the portal, then save the sender as a contact.
+ *
+ * Deliberately an instruction, never a consent capture. Opt-in to the account-lane texts happens
+ * only where the client ticks it themselves (portal Settings, or the self-serve agreement page),
+ * which is what the carrier registration describes. The consent wording is not quoted here.
+ *
+ * Saving the number is not decoration: unknown senders get filtered on many phones, so a client
+ * who opts in and never saves it can miss every alert. The number is the account-lane sender
+ * (`TWILIO_NOTIFICATION_NUMBER`), read rather than typed; when it isn't set, that sentence is
+ * left out instead of guessed.
+ */
+function textAlertsPanel(webOnly: boolean): string {
+  const raw = process.env.TWILIO_NOTIFICATION_NUMBER?.trim();
+  const e164 = raw ? normalizeE164(raw) : null;
+  const number = e164 ? formatUsPhone(e164) : null;
+  const whatYouGet = webOnly
+    ? "You'll get a text when a new lead comes in."
+    : "You'll get a text when a new lead comes in, and a short summary at the end of each call.";
+  return `
+      <div style="background:${EMAIL.panelInset};border:1px dashed ${EMAIL.rule};border-radius:10px;padding:16px 18px;margin:22px 0 4px;">
+        <div style="font-family:${EMAIL_FONT.display};font-size:16px;font-weight:600;color:${EMAIL.ink};margin-bottom:6px;">Get a text for every new lead</div>
+        <p style="margin:0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;">In your client portal, go to <strong style="color:${EMAIL.ink};">Settings &rarr; Text alerts</strong> and turn them on. ${whatYouGet}</p>
+        ${
+          number
+            ? `<p style="margin:10px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;">Then save <strong style="color:${EMAIL.ink};">${number}</strong> to your contacts as <strong style="color:${EMAIL.ink};">JDD Notifications</strong>, so our texts don't get filtered into an unknown-senders folder.</p>`
+            : ""
+        }
+      </div>`;
+}
+
+/**
+ * The welcome email, as a subject and HTML. Pure (no send), so it can be previewed and checked
+ * without Resend. `sendWelcomeEmail` is the only caller that mails it.
+ */
+export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; html: string } {
+  const webOnly =data.plan === "starter" && data.receptionistMode === "declined";
+  const isForwarding = data.receptionistMode === "forwarded";
+  const label = planLabel(data.plan, webOnly);
+
+  const onboardingUrl = `${SITE_URL}/portal/onboarding?site=${encodeURIComponent(data.siteSlug)}`;
+  const portalUrl = `${SITE_URL}/portal`;
+
+  // No em-dash in a subject line a client reads.
+  const subject = "Welcome to Juneau Digital Designs: let's get you set up";
+
+  const forwardingHeadsUp = isForwarding
+    ? `
+      <div style="background:${EMAIL.panelInset};border:1px dashed ${EMAIL.rule};border-radius:10px;padding:16px 18px;margin:22px 0 4px;">
+        <div style="font-family:${EMAIL_FONT.display};font-size:16px;font-weight:600;color:${EMAIL.ink};margin-bottom:6px;">Heads-up: you'll set up call forwarding</div>
+        <p style="margin:0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;">You chose to <strong style="color:${EMAIL.ink};">keep your existing number</strong> and forward calls to your new AI receptionist. Your phone carrier has to make that change — it's quick, but only you can authorize it on your line.</p>
+        <p style="margin:10px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;"><strong style="color:${EMAIL.ink};">Nothing to do yet.</strong> Once your site and receptionist are ready, we'll email you the exact number to forward to and step-by-step instructions for your carrier.</p>
+      </div>`
+    : "";
+
+  // A client closed on a call never signed in, so their first step is the portal login the
+  // invite sets up (never a password we chose). A returning client signs in as usual. Neither
+  // flag set is the self-serve email, unchanged.
+  const operatorClose = Boolean(data.inviteUrl || data.existingLogin);
+  const stepsHtml = data.inviteUrl
+    ? `
+    ${step(
+      1,
+      "Set up your portal login",
+      "Choose how you'll sign in: a password, an email code, or Google. The link takes you straight to your onboarding form.",
+      data.inviteUrl,
+      "Set up my login",
+      true,
+    )}
+
+    ${step(
+      2,
+      "Finish your onboarding form",
+      "This is where you tell us about your business, services, and the look you want. It takes about 10 minutes and it's what we build your site from.",
+      onboardingUrl,
+      "Finish onboarding",
+      false,
+    )}`
+    : `
+    ${step(
+      1,
+      "Finish your onboarding form",
+      "This is where you tell us about your business, services, and the look you want. It takes about 10 minutes and it's what we build your site from.",
+      onboardingUrl,
+      "Finish onboarding",
+      true,
+    )}
+
+    ${step(
+      2,
+      data.existingLogin ? "Sign in as usual" : "Log into your client portal",
+      data.existingLogin
+        ? "Your new site is on the portal login you already have. Track your build progress and see your site's health there."
+        : "Track your build progress, watch your call log, and see your site's health — all in one place. Use the email you signed up with.",
+      portalUrl,
+      "Open my portal",
+      false,
+    )}`;
+
+  const innerHtml = `
+    <p style="margin:0 0 20px;">${
+      operatorClose
+        ? "Thanks for joining Juneau Digital Designs. We've got your agreement and your first payment. Before we start building, here's what we need from you."
+        : "Thanks for signing on with Juneau Digital Designs. We've got your signed agreement and your first payment. Before we start building, here's what we need from you."
+    }</p>
+${stepsHtml}
+
+    ${forwardingHeadsUp}
+
+    <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:22px 0 4px;">
+      <div style="font-size:13px;line-height:1.85;color:${EMAIL.fg2};">
+        <strong style="color:${EMAIL.ink};">Plan:</strong> ${label}<br/>
+        ${phoneSummary(data.receptionistMode, data.forwardingNumber)}
+      </div>
+    </div>
+
+    ${textAlertsPanel(webOnly)}
+
+    <p style="margin:22px 0 0;color:${EMAIL.fg2};font-size:13.5px;line-height:1.6;"><strong style="color:${EMAIL.ink};">What happens next:</strong> once your onboarding form is in, we start building. You'll see progress in your portal, and we'll reach out if we need anything. Questions? Just reply to this email.</p>
+  `;
+
+  const html = brandedEmailHtml({
+    title: `Welcome aboard, ${data.clientLegalName}.`,
+    subtitle: `Your ${webOnly ? "Starter" : SCHEDULES[data.plan as PlanSlug]?.name ?? data.plan} plan is active. Here's how to get set up.`,
+    body: innerHtml,
+  });
+
+  return { subject, html };
 }

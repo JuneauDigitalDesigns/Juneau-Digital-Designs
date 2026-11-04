@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { authorizeOps } from "@/app/lib/ops-auth";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan, inspectSubscriptionPlan } from "@/app/lib/plan-billing";
@@ -129,28 +129,12 @@ export async function POST(request: Request) {
     });
 }
 
-/** Returns a response to send when the caller is not authorised, or null to continue. */
+/**
+ * Fails closed: an unset secret must never mean "no check required" on a route that can
+ * re-price a subscription. The check itself is shared with the other ops routes.
+ */
 function authorize(request: Request): NextResponse | null {
-    const expected = process.env.OPS_SHARED_SECRET;
-    if (!expected) {
-        // Fail closed. An unset secret must never mean "no check required" on a route that
-        // can re-price a subscription.
-        console.error("[ops/plan-sync] OPS_SHARED_SECRET is not set — refusing");
-        return NextResponse.json({ error: "Not configured." }, { status: 503 });
-    }
-    if (!secretMatches(request.headers.get("x-ops-secret"), expected)) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return null;
-}
-
-/** Constant-time compare so the secret can't be probed a byte at a time. */
-function secretMatches(provided: string | null, expected: string): boolean {
-    if (!provided) return false;
-    const a = Buffer.from(provided);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
+    return authorizeOps(request, "OPS_SHARED_SECRET", "ops/plan-sync");
 }
 
 type FoundSite = { account: PortalAccount; site: PortalSite } | { response: NextResponse };

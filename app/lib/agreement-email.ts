@@ -62,9 +62,27 @@ export async function sendClientAgreementEmail(
   const resend = new Resend(apiKey);
 
   const label = planLabel(record.plan);
+  // Accepted by voice on a sales call: nothing was signed, and payment happens on the call or
+  // from a link we send, so the self-serve wording ("you should have been redirected") is wrong.
+  const verbal = record.acceptance?.method === "verbal-operator";
   // No em-dash: this is a subject line a client reads.
-  const subject = `Signed MSA: ${record.clientLegalName}`;
-  const innerHtml = `
+  const subject = verbal
+    ? `Your agreement with Juneau Digital Designs: ${record.clientLegalName}`
+    : `Signed MSA: ${record.clientLegalName}`;
+  const innerHtml = verbal
+    ? `
+    <p style="margin:0 0 18px;">Thanks for joining Juneau Digital Designs. You agreed to these terms with us by phone, and a copy is attached to this email for your records.</p>
+    <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:0 0 18px;">
+      <div style="font-size:13px;line-height:1.7;">
+        <strong>Plan:</strong> ${label}<br/>
+        <strong>Agreed by:</strong> ${record.signerName} (${record.signerTitle})<br/>
+        <strong>Business:</strong> ${record.clientLegalName}<br/>
+        <strong>Agreed at:</strong> ${record.audit.signedAt}
+      </div>
+    </div>
+    <p style="margin:0;">If anything here doesn't match what we discussed, just reply to this email.</p>
+  `
+    : `
     <p style="margin:0 0 18px;">Thanks for signing your agreement with Juneau Digital Designs. A copy of your signed PDF is attached to this email.</p>
     <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:0 0 18px;">
       <div style="font-size:13px;line-height:1.7;">
@@ -77,9 +95,11 @@ export async function sendClientAgreementEmail(
     <p style="margin:0;">Next step: complete payment through Stripe Checkout (you should have been redirected automatically). If you weren't, return to <a href="https://juneaudigitaldesigns.com/pricing" style="color:${EMAIL.accent};font-weight:500;text-decoration:underline;">juneaudigitaldesigns.com/pricing</a>.</p>
   `;
   const html = brandedEmailHtml({
-    title: "Service Agreement: Signed",
+    title: verbal ? "Service Agreement: Accepted" : "Service Agreement: Signed",
     body: innerHtml,
-    footerNote: `Agreement ID: ${record.id} · SHA-256: ${record.audit.payloadHash} · Signed via electronic signature in compliance with ESIGN Act / UETA.`,
+    footerNote: verbal
+      ? `Agreement ID: ${record.id} · Terms SHA-256: ${record.audit.termsHash} · Accepted verbally by telephone.`
+      : `Agreement ID: ${record.id} · SHA-256: ${record.audit.payloadHash} · Signed via electronic signature in compliance with ESIGN Act / UETA.`,
   });
 
   const filename = `MSA-${record.clientLegalName.replace(/\W+/g, "_")}.pdf`;
