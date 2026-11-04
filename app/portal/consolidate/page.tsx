@@ -3,22 +3,36 @@ import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { growthSitesForConsolidation } from "@jdd/schema";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
-import { getConsolidation } from "@/app/lib/consolidation";
+import { planConsolidation } from "@/app/lib/consolidation";
 import { getSchedule } from "@/app/lib/legal";
+import {
+    consolidationParagraph,
+    consolidationRefusal,
+    perPeriod,
+    poolLine,
+} from "@/app/lib/plan-change-copy";
 import PortalScope from "@/app/components/portal/PortalScope";
 
 export const dynamic = "force-dynamic";
 
+function formatDate(ms: number): string {
+    return new Date(ms).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+}
+
 /**
  * The confirmation step before a Growth → Enterprise consolidation.
  *
- * Deliberately its own page rather than a modal on the upsell. What follows cancels
- * subscriptions the client is currently being served by, so the sites involved are named
- * back to them and the billing consequence is stated in full before they sign anything.
+ * Deliberately its own page rather than a modal on the upsell. What follows upgrades one
+ * subscription the client is being served by and cancels the others, so the sites involved are
+ * named back to them and the billing consequence is stated in full before they accept anything.
  *
- * Signing happens on `/agreement`; this page only sets it up. The `?consolidate=1` flag
- * tells the signing form to post the resulting agreement to `/api/portal/consolidate`
- * instead of `/api/checkout`, exactly as `?upgrade=` already does for in-place tier changes.
+ * Everything that could refuse the move (sites on different periods or Stripe customers, a site
+ * set to cancel, billing that can't be read) is checked HERE, before the client is offered the
+ * agreement. It used to be checked only after they had accepted it and been emailed a copy.
+ *
+ * Acceptance happens on `/agreement`; `?consolidate=1` sends the accepted agreement to
+ * `/api/portal/consolidate` instead of checkout. Wording approved word for word by Xander on
+ * 2026-11-04 (`plan-change-copy.ts`).
  */
 export default async function ConsolidatePage() {
     const { userId } = await auth();
@@ -31,16 +45,14 @@ export default async function ConsolidatePage() {
     // Nothing to absorb makes this an ordinary Enterprise purchase, which /start owns.
     if (absorbing.length === 0) redirect("/start?plan=enterprise");
 
-    // A consolidation past `awaiting-payment` has money attached and must not be restarted
-    // from the UI. Send them to the portal, where the outcome will appear.
-    const inFlight = await getConsolidation(account.email);
-    if (inFlight && inFlight.status !== "awaiting-payment" && inFlight.status !== "stalled") {
-        redirect("/portal?consolidating=1");
-    }
+    const move = await planConsolidation(account);
+    const interval = move.ok ? move.interval : "month";
 
     const growth = getSchedule("growth");
     const enterprise = getSchedule("enterprise");
-    const currentMonthly = absorbing.length * growth.monthlyPrice;
+    const priceOf = (s: { monthlyPrice: number; annualPrice: number }) =>
+        interval === "year" ? s.annualPrice : s.monthlyPrice;
+    const sites = move.ok ? [move.host, ...move.others].map(({ site }) => site) : absorbing;
 
     return (
         <PortalScope>
@@ -56,10 +68,12 @@ export default async function ConsolidatePage() {
                         style={{ borderColor: "var(--rule)", background: "var(--surface)" }}
                     >
                         <p className="text-sm font-semibold" style={{ color: "var(--fg)" }}>
-                            These {absorbing.length} sites move onto one plan
+                            {sites.length === 1
+                                ? "This site moves onto Enterprise"
+                                : `These ${sites.length} sites move onto one plan`}
                         </p>
                         <ul className="mt-3 flex flex-col gap-2">
-                            {absorbing.map((s) => (
+                            {sites.map((s) => (
                                 <li key={s.slug} style={{ color: "var(--fg-2)", fontSize: 15 }}>
                                     {s.name ?? s.slug}
                                 </li>
@@ -71,8 +85,8 @@ export default async function ConsolidatePage() {
                         >
                             Nothing goes offline. Your sites, phone numbers and receptionists keep
                             running exactly as they are. Only the billing changes, and you keep
-                            room for {enterprise.maxSites - absorbing.length} more{" "}
-                            {enterprise.maxSites - absorbing.length === 1 ? "site" : "sites"}.
+                            room for {enterprise.maxSites - sites.length} more{" "}
+                            {enterprise.maxSites - sites.length === 1 ? "site" : "sites"}.
                         </p>
                     </div>
 
@@ -85,11 +99,10 @@ export default async function ConsolidatePage() {
                                 You pay now
                             </dt>
                             <dd className="mt-2" style={{ fontSize: "var(--text-xl)", color: "var(--fg)" }}>
-                                ${currentMonthly.toLocaleString()}/mo
+                                {perPeriod(sites.length * priceOf(growth), interval)}
                             </dd>
                             <p className="mt-1" style={{ fontSize: 13, color: "var(--fg-3)" }}>
-                                {absorbing.length} separate pools of{" "}
-                                {(growth.callMinutes ?? 0).toLocaleString()} min
+                                {poolLine({ pools: sites.length, minutes: growth.callMinutes ?? 0, shared: false })}
                             </p>
                         </div>
                         <div
@@ -100,10 +113,10 @@ export default async function ConsolidatePage() {
                                 You&rsquo;ll pay
                             </dt>
                             <dd className="mt-2" style={{ fontSize: "var(--text-xl)", color: "var(--fg)" }}>
-                                ${enterprise.monthlyPrice.toLocaleString()}/mo
+                                {perPeriod(priceOf(enterprise), interval)}
                             </dd>
                             <p className="mt-1" style={{ fontSize: 13, color: "var(--fg-3)" }}>
-                                one shared pool of {(enterprise.callMinutes ?? 0).toLocaleString()} min
+                                {poolLine({ pools: 1, minutes: enterprise.callMinutes ?? 0, shared: true })}
                             </p>
                         </div>
                     </dl>
@@ -112,21 +125,22 @@ export default async function ConsolidatePage() {
                         className="mt-6"
                         style={{ color: "var(--fg-3)", lineHeight: "var(--leading-relaxed)", fontSize: 14 }}
                     >
-                        {/*
-                          * Stated plainly because it is the question anyone sensible asks, and
-                          * because the cancellations are prorated — the unused part of each
-                          * Growth period is credited against the Enterprise invoice, so nobody
-                          * pays twice for the overlap.
-                          */}
-                        Your {growth.name} subscriptions are cancelled once the new plan is paid
-                        for, and the unused part of each is credited back to you. You&rsquo;ll sign
-                        a short addendum on the next screen before anything is charged.
+                        {move.ok
+                            ? consolidationParagraph({
+                                  hostName: move.host.site.name ?? move.host.site.slug,
+                                  interval: move.interval,
+                                  periodEnd: formatDate(move.periodEnd),
+                                  others: move.others.length,
+                              })
+                            : consolidationRefusal(move.code, move.cancelAt ? formatDate(move.cancelAt) : undefined)}
                     </p>
 
                     <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-                        <Link href="/agreement?plan=enterprise&consolidate=1" className="btn primary">
-                            Review and sign
-                        </Link>
+                        {move.ok && (
+                            <Link href="/agreement?plan=enterprise&consolidate=1" className="btn primary">
+                                Review and accept
+                            </Link>
+                        )}
                         <Link
                             href="/portal"
                             className="text-sm underline underline-offset-4"

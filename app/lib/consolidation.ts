@@ -1,36 +1,38 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
+import type Stripe from "stripe";
 import { stripe } from "./stripe";
 import { getPlan } from "./plans";
-import { resolveSubscriptionId } from "./plan-billing";
+import { releaseScheduledChange, resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import { billingIntervalOf, consolidationPrice } from "./billing-periods.mjs";
-import { getAccount, saveAccount } from "./account-store";
-import { upsertSite, growthSitesForConsolidation, type PortalAccount } from "@jdd/schema";
+import { getPlanChange, isPendingPlanChange, savePlanChange } from "./plan-change";
+import { growthSitesForConsolidation, type PortalAccount, type PortalSite } from "@jdd/schema";
 
 /**
- * Moving a client off two Growth subscriptions and onto one Enterprise bundle.
+ * Moving a client's Growth sites onto one Enterprise plan, in place.
  *
- * The ordering here is the whole design, and it is deliberately the *opposite* of the obvious
- * one. The obvious version creates the Enterprise subscription first and cancels the Growth
- * ones after; a failure between those two steps leaves the client paying for three
- * subscriptions at once, which is the single worst outcome available and the one they came
- * here to avoid.
+ * Contract v5.3 §15.4: a change to a higher-priced plan "takes effect immediately, and Client is
+ * charged the difference between the two plans' prices for the remainder of the current billing
+ * period", and the billing period carries over. So the move is an upgrade of one subscription,
+ * not a new one (Xander approved this, option C3, on 2026-11-04):
  *
- * So money is captured through a Checkout Session before anything is cancelled, and the
- * cancellations run in the webhook once payment has actually cleared. A failure now leaves
- * them *paid but not yet consolidated* — still fully served, briefly over-subscribed, and
- * recoverable by resuming. Wrong in the direction that does not hurt the client.
+ *   1. The oldest Growth site's subscription (the host) has its price changed to Enterprise on
+ *      the same period, through `changeSubscriptionPlan`: prorated, invoiced now, and refused by
+ *      Stripe if the card doesn't pay, in which case nothing has changed at all.
+ *   2. Every other Growth subscription is cancelled with `prorate` and `invoice_now`. The final
+ *      invoice is negative, so the unused time lands on the customer's credit balance, which
+ *      Stripe takes off the next invoices.
+ *   3. Every absorbed site is pointed at the host subscription.
  *
- * A Checkout Session rather than `subscriptions.create` for a second reason: because
- * `customer_email` used to mint a new Stripe Customer per purchase, a client with two Growth
- * sites frequently has *two Customers*, each holding its own payment method. Stripe cannot
- * merge them. Creating a subscription directly on whichever one we picked could land on a
- * Customer with no usable card; Checkout asks the client to confirm payment and guarantees
- * the host Customer ends up with one.
+ * This replaced a Checkout Session for a brand-new Enterprise subscription. That charged a full
+ * new Enterprise period up front and restarted the client's billing date. Its cancellations left
+ * the Growth credit as pending invoice items that never reduced the Enterprise charge. And a
+ * stalled or repeated checkout could open a second paid Enterprise subscription.
  *
- * Every step is written to `jdd:consolidation:{email}` *before* the next is attempted, so a
- * webhook redelivery resumes rather than restarting — and in particular can never open a
- * second Enterprise subscription.
+ * Every step is idempotent, so a retry or a second acceptance resumes rather than repeats: the
+ * host already on Enterprise is "no change" (no second invoice), and a subscription already
+ * cancelled is skipped. The records are written last, so until the move completes they still
+ * describe what Stripe was billing before it.
  */
 
 let _redis: Redis | null = null;
@@ -39,28 +41,28 @@ function getRedis(): Redis {
   return _redis;
 }
 
-const CONSOLIDATION_TTL = 60 * 60 * 24 * 90; // 90 days — long enough to debug a stalled one
+const CONSOLIDATION_TTL = 60 * 60 * 24 * 90; // 90 days, long enough to debug a stalled one
 const consolidationKey = (email: string) => `jdd:consolidation:${email}`;
 
-export type ConsolidationStatus = "awaiting-payment" | "cancelling" | "done" | "stalled";
+export type ConsolidationStatus = "upgrading" | "cancelling" | "done" | "stalled";
 
+/** The audit trail of one move, and the resume marker if it stops partway. */
 export interface ConsolidationRecord {
   id: string;
   accountEmail: string;
-  /** The Customer the Enterprise subscription is opened on. */
-  hostCustomerId: string;
   /** Growth site slugs being absorbed, captured at start so the set cannot drift. */
   absorbing: string[];
-  /** The addendum authorising the move. */
+  /** The site whose subscription became the Enterprise one. */
+  hostSlug: string;
+  hostSubscriptionId: string;
+  /** The Customer every absorbed subscription bills to. */
+  customerId: string;
+  /** The Enterprise agreement authorising the move. */
   agreementId: string;
   status: ConsolidationStatus;
   startedAt: number;
-  /** Set once Checkout completes. */
-  enterpriseSubscriptionId?: string;
-  /** Growth subscription ids already cancelled — the resume marker. */
+  /** Growth subscription ids already cancelled. */
   cancelled: string[];
-  /** True once every absorbed site points at the Enterprise subscription. */
-  rewritten?: boolean;
   lastError?: string;
   updatedAt: number;
 }
@@ -70,147 +72,136 @@ export async function getConsolidation(email: string): Promise<ConsolidationReco
 }
 
 export async function saveConsolidation(rec: ConsolidationRecord): Promise<void> {
-  await getRedis().set(
-    consolidationKey(rec.accountEmail),
-    { ...rec, updatedAt: Date.now() },
-    { ex: CONSOLIDATION_TTL },
-  );
+  await getRedis().set(consolidationKey(rec.accountEmail), { ...rec, updatedAt: Date.now() }, { ex: CONSOLIDATION_TTL });
 }
 
-/**
- * Which Customer should host the Enterprise subscription?
- *
- * The one behind the oldest Growth site, because that is the Customer most likely to carry
- * the client's original payment method and their billing history. Any choice works — Checkout
- * collects a method regardless — but picking deterministically means a resumed consolidation
- * cannot land on a different Customer than the one it started on.
- */
-export async function pickHostCustomer(account: PortalAccount): Promise<string | null> {
-  if (account.stripeCustomerId) return account.stripeCustomerId;
+export interface AbsorbedSubscription {
+  site: PortalSite;
+  subscription: Stripe.Subscription;
+}
 
-  const growth = [...growthSitesForConsolidation(account)].sort((a, b) => a.addedAt - b.addedAt);
-  for (const site of growth) {
-    if (site.stripeCustomerId) return site.stripeCustomerId;
-    const subId = await resolveSubscriptionId(site);
-    if (!subId) continue;
-    try {
-      const sub = await stripe.subscriptions.retrieve(subId);
-      const id = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
-      if (id) return id;
-    } catch (e) {
-      console.error("[consolidation] could not resolve customer for", site.slug, e);
+export type ConsolidationPlan =
+  | {
+      ok: true;
+      /** The oldest Growth site: its subscription becomes the Enterprise one. */
+      host: AbsorbedSubscription;
+      /** The other Growth sites, whose subscriptions are cancelled and credited. */
+      others: AbsorbedSubscription[];
+      interval: "month" | "year";
+      enterprisePriceId: string;
+      /** End of the host's current period, epoch ms: what the client pays the difference to. */
+      periodEnd: number;
+      customerId: string;
     }
-  }
-  return null;
-}
+  | {
+      ok: false;
+      code: "no-sites" | "mixed-periods" | "different-customers" | "cancel-pending" | "no-price" | "unreadable" | "inactive";
+      /** For `cancel-pending`: when the site is set to cancel, epoch ms. */
+      cancelAt?: number;
+    };
 
 /**
- * Finish a consolidation whose payment has cleared: cancel the Growth subscriptions, then
- * repoint every absorbed site at the Enterprise subscription.
+ * Can this account's Growth sites move to Enterprise in place, and on what terms?
  *
- * Idempotent at the level of each individual cancellation, not just the run as a whole — the
- * `cancelled` list is written after each one, so a redelivery picks up where it stopped
- * rather than re-issuing a cancel against a subscription Stripe has already closed.
+ * Read-only. The page runs it before the client is offered anything to accept, and the move runs
+ * it again, so a refusal is shown up front and never after an agreement has been accepted and
+ * emailed. Refuses, rather than guessing, whenever there isn't one obvious way to do it:
  *
- * Cancels with `prorate: true` so the unused remainder of each Growth period lands on the
- * Customer's balance and is credited against the Enterprise invoice. Without it the client
- * pays twice for the overlap.
+ *   - sites billed on different periods (one monthly, one annual) have no one period to keep;
+ *   - subscriptions on different Stripe Customers can't share a credit balance, so the unused
+ *     Growth time would land where the Enterprise invoices never see it;
+ *   - a site set to cancel would be absorbed and then cancelled.
  */
-export async function completeConsolidation(
-  rec: ConsolidationRecord,
-  enterpriseSubscriptionId: string,
-): Promise<ConsolidationRecord> {
-  let current: ConsolidationRecord = {
-    ...rec,
-    enterpriseSubscriptionId,
-    status: "cancelling",
-  };
-  await saveConsolidation(current);
+export async function planConsolidation(account: PortalAccount): Promise<ConsolidationPlan> {
+  const sites = [...growthSitesForConsolidation(account)].sort((a, b) => a.addedAt - b.addedAt);
+  if (sites.length === 0) return { ok: false, code: "no-sites" };
 
-  const account = await getAccount(rec.accountEmail);
-  if (!account) {
-    current = { ...current, status: "stalled", lastError: "account not found" };
-    await saveConsolidation(current);
-    return current;
-  }
+  const pendingCancel = sites.find((s) => s.cancelRequestedAt);
+  if (pendingCancel) return { ok: false, code: "cancel-pending", cancelAt: pendingCancel.cancelEffectiveAt };
 
-  for (const slug of rec.absorbing) {
-    const site = account.sites.find((s) => s.slug === slug);
-    if (!site) continue;
-
+  const absorbed: AbsorbedSubscription[] = [];
+  for (const site of sites) {
     const subId = await resolveSubscriptionId(site);
-    // Never cancel the subscription we just opened. A site whose record was already
-    // repointed by an earlier partial run would otherwise be read back as Enterprise.
-    if (!subId || subId === enterpriseSubscriptionId) continue;
-    if (current.cancelled.includes(subId)) continue;
-
+    if (!subId) return { ok: false, code: "unreadable" };
     try {
-      await stripe.subscriptions.cancel(subId, { prorate: true });
-      current = { ...current, cancelled: [...current.cancelled, subId] };
-      await saveConsolidation(current);
-      console.log("[consolidation] cancelled growth subscription", slug, subId);
+      const subscription = await stripe.subscriptions.retrieve(subId);
+      absorbed.push({ site, subscription });
     } catch (e) {
-      // Already cancelled by an earlier run is success, not failure.
-      const message = e instanceof Error ? e.message : String(e);
-      if (/no such subscription|canceled/i.test(message)) {
-        current = { ...current, cancelled: [...current.cancelled, subId] };
-        await saveConsolidation(current);
-        continue;
-      }
-      current = { ...current, status: "stalled", lastError: `cancel ${subId}: ${message}` };
-      await saveConsolidation(current);
-      console.error("[consolidation] cancel failed", slug, subId, e);
-      return current;
-    }
-  }
-
-  // Repoint last. Until this lands the records still describe what Stripe was actually
-  // billing, which is what makes a stalled consolidation diagnosable rather than a mystery.
-  let next = account;
-  for (const slug of rec.absorbing) {
-    next = upsertSite(next, {
-      slug,
-      plan: "enterprise",
-      stripeSubscriptionId: enterpriseSubscriptionId,
-      stripeCustomerId: rec.hostCustomerId,
-    });
-  }
-  await saveAccount({ ...next, stripeCustomerId: rec.hostCustomerId, updatedAt: Date.now() });
-
-  current = { ...current, rewritten: true, status: "done" };
-  await saveConsolidation(current);
-  console.log("[consolidation] complete", rec.accountEmail, enterpriseSubscriptionId);
-  return current;
-}
-
-export type EnterprisePrice =
-  | { ok: true; interval: "month" | "year"; priceId: string }
-  | { ok: false; code: "mixed-periods" | "no-price" | "unreadable"; interval?: "month" | "year" };
-
-/**
- * The Enterprise recurring price for this consolidation, on the period the absorbed Growth
- * subscriptions bill on: an annual client moves to Enterprise ANNUAL. The rule itself is
- * `consolidationPrice` in billing-periods.mjs, where the test runs it.
- *
- * A subscription that can't be read is refused, not assumed monthly: guessing wrong moves an
- * annual client to monthly billing, or a monthly one to a year's charge.
- */
-export async function enterprisePriceFor(account: PortalAccount): Promise<EnterprisePrice> {
-  const intervals: ("month" | "year")[] = [];
-  for (const site of growthSitesForConsolidation(account)) {
-    const subId = await resolveSubscriptionId(site);
-    if (!subId) continue;
-    try {
-      const sub = await stripe.subscriptions.retrieve(subId);
-      intervals.push(billingIntervalOf(sub.items.data[0]?.price?.recurring));
-    } catch (e) {
-      console.error("[consolidation] could not read billing period for", site.slug, e);
+      console.error("[consolidation] could not read subscription for", site.slug, e);
       return { ok: false, code: "unreadable" };
     }
   }
+
+  for (const { subscription } of absorbed) {
+    // Cancelled by an earlier run of this move that stopped before repointing the records: still
+    // part of the move (its site needs repointing), not a reason to refuse it.
+    if (subscription.metadata?.consolidated_into) continue;
+    if (subscription.status !== "active" && subscription.status !== "trialing") return { ok: false, code: "inactive" };
+    if (subscription.cancel_at || subscription.cancel_at_period_end) {
+      return { ok: false, code: "cancel-pending", cancelAt: (subscription.cancel_at ?? 0) * 1000 || undefined };
+    }
+  }
+
+  // The period and price rule is `consolidationPrice` (billing-periods.mjs), where the test runs it.
   const cfg = getPlan("enterprise");
-  return consolidationPrice({
-    intervals,
+  const price = consolidationPrice({
+    intervals: absorbed.map(({ subscription }) => intervalOf(subscription)),
     prices: { monthly: cfg?.monthlyPriceId, annual: cfg?.annualPriceId },
   });
+  if (!price.ok) return { ok: false, code: price.code };
+  const { interval, priceId: enterprisePriceId } = price;
+
+  const customers = new Set(absorbed.map(({ subscription }) => customerOf(subscription)));
+  if (customers.size > 1 || customers.has(null)) return { ok: false, code: "different-customers" };
+  const customerId = [...customers][0] as string;
+
+  const [host, ...others] = absorbed;
+  const period = subscriptionPeriod(host.subscription);
+  if (!period) return { ok: false, code: "unreadable" };
+
+  return { ok: true, host, others, interval, enterprisePriceId, periodEnd: period.end * 1000, customerId };
+}
+
+/**
+ * A downgrade scheduled on any absorbed site is withdrawn: the client is moving those sites up
+ * to Enterprise now, which supersedes it, and a subscription still on a schedule can't have its
+ * plan changed.
+ */
+export async function withdrawScheduledChanges(account: PortalAccount, plan: Extract<ConsolidationPlan, { ok: true }>) {
+  for (const { site, subscription } of [plan.host, ...plan.others]) {
+    if (subscription.schedule) await releaseScheduledChange(subscription.id);
+    const pending = await getPlanChange(account.email, site.slug);
+    if (isPendingPlanChange(pending)) await savePlanChange({ ...pending, status: "cancelled" });
+  }
+}
+
+/**
+ * Cancel one absorbed Growth subscription, crediting its unused time to the customer's balance.
+ *
+ * `invoice_now` is what makes the credit real. With `prorate` alone the credit stays a pending
+ * invoice item, which Stripe "can bill on another invoice for the customer" but did not take off
+ * the Enterprise charge. With both, the final invoice is negative and its total goes to the credit
+ * balance, which every later invoice on the customer draws down.
+ *
+ * Marked `consolidated_into` first, so the `customer.subscription.deleted` webhook knows the site
+ * lives on under Enterprise and doesn't treat it as churn.
+ */
+export async function cancelAbsorbedSubscription(subscriptionId: string, hostSubscriptionId: string): Promise<void> {
+  const sub = await stripe.subscriptions.retrieve(subscriptionId);
+  if (sub.status === "canceled") return;
+  await stripe.subscriptions.update(subscriptionId, {
+    metadata: { ...(sub.metadata ?? {}), consolidated_into: hostSubscriptionId },
+  });
+  await stripe.subscriptions.cancel(subscriptionId, { prorate: true, invoice_now: true });
+}
+
+function intervalOf(sub: Stripe.Subscription): "month" | "year" {
+  const recurring = sub.items.data.filter((i) => i.price.recurring !== null);
+  return billingIntervalOf(recurring[0]?.price.recurring);
+}
+
+function customerOf(sub: Stripe.Subscription): string | null {
+  const c = sub.customer;
+  if (!c) return null;
+  return typeof c === "string" ? c : c.id;
 }

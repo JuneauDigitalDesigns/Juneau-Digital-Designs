@@ -15,7 +15,7 @@ import type { AgreementRecord } from "./agreement-types";
  * `masterRefFor` once the change has succeeded, persisting it at the same time.
  */
 export function isHeldForPlanChange(record: AgreementRecord): boolean {
-    return Boolean(record.pendingUpgrade || record.pendingDowngrade);
+    return Boolean(record.pendingUpgrade || record.pendingDowngrade || record.pendingConsolidation);
 }
 
 /**

@@ -164,6 +164,7 @@ export async function POST(req: Request) {
     ...(body.downgradeSlug
       ? { pendingDowngrade: true, downgradeSlug: body.downgradeSlug.trim() }
       : {}),
+    ...(body.consolidate && body.plan === "enterprise" ? { pendingConsolidation: true } : {}),
   };
 
   try {
@@ -251,6 +252,9 @@ export async function POST(req: Request) {
   } else if (record.pendingDowngrade) {
     // Same reason: the client gets the Starter agreement once the downgrade is scheduled.
     console.log(`[/api/agreement] ${id} held for downgrade confirmation (${record.downgradeSlug})`);
+  } else if (record.pendingConsolidation) {
+    // And the Enterprise agreement once the move to Enterprise has gone through.
+    console.log(`[/api/agreement] ${id} held for consolidation`);
   } else {
     after(() =>
       stripLastPage(pdfBytes)
