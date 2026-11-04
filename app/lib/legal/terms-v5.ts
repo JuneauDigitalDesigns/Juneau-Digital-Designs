@@ -1,6 +1,15 @@
 import { ref, type PlanSchedule, type SectionDef } from "./types";
+import { ANNUAL } from "./schedules";
 
 /**
+ * v5.1 → v5.2 on 2026-11-03 (Xander approved the wording word for word): the agreement now
+ * covers annual prepay, which self-serve already sold. Until then every billing clause — the
+ * term, termination for convenience, the no-refund rule — read month-to-month only, so an annual
+ * cancellation was ambiguous. A client bound to a non-refundable prepaid year has agreed to
+ * something materially different from a v5.1 signer, so the string moves: a returning v5.1
+ * client signs the full master again rather than an addendum, and the read-aloud script (whose
+ * version derives from this) changes with it, so a close in flight is refused, not recorded.
+ *
  * Bumped from v4.2 on 2026-10-12. The changes are material, not editorial: all three prices
  * rose, every tier gained the AI receptionist, the onboarding fee became payable at signing on
  * every plan and is now covered by a first-month guarantee rather than being non-refundable,
@@ -12,7 +21,7 @@ import { ref, type PlanSchedule, type SectionDef } from "./types";
  * so stored agreements stay identifiable. Nothing had been signed when this shipped, so there
  * is no migration and no re-papering.
  */
-export const TERMS_VERSION = "v5.1";
+export const TERMS_VERSION = "v5.2";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -23,6 +32,10 @@ export const PROVIDER = {
 } as const;
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
+
+/** "twelve (12)": the contract's style for counts. Only the counts the annual clause uses. */
+const COUNT_WORDS: Record<number, string> = { 10: "ten", 12: "twelve" };
+const count = (n: number) => `${COUNT_WORDS[n] ?? String(n)} (${n})`;
 
 /**
  * Per-minute rates always carry two decimals — `money()` would render 0.2 as
@@ -81,7 +94,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
       intro: [
         {
           kind: "para",
-          text: `This Agreement governs the ${s.name} plan, billed at ${money(s.monthlyPrice)} per month. Provider will deliver the services described in this Agreement and detailed in Schedule A. The ${s.name} plan covers ${s.siteLabel}.`,
+          text: `This Agreement governs the ${s.name} plan, billed at ${money(s.monthlyPrice)} per month, or ${money(s.annualPrice)} per year if Client elects annual prepay (Section ${ref("fees")}). Provider will deliver the services described in this Agreement and detailed in Schedule A. The ${s.name} plan covers ${s.siteLabel}.`,
         },
         { kind: "para", text: `The ${s.name} plan includes:` },
         { kind: "bullets", items: s.included },
@@ -219,6 +232,37 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             },
           ],
         },
+        /**
+         * Annual prepay (v5.2). Conditional wording rather than a separate document, because the
+         * terms — and their hash — are per plan, not per billing period. Price and the 12-for-10
+         * come from Schedule A's `annualPrice` and `ANNUAL`, so this clause, the pricing page and
+         * the read-aloud script cannot quote different deals. Wording approved by Xander.
+         */
+        {
+          heading: "Annual Prepay Option",
+          blocks: [
+            {
+              kind: "para",
+              text: `Client may instead elect to prepay the ${s.name} plan annually at ${money(s.annualPrice)} per year, which is ${count(12)} months of service for the price of ${count(ANNUAL.monthsCharged)}. The annual fee is billed in advance, in a single payment, at signing and on each anniversary of the first annual payment, and covers the ${count(12)} service months that follow.`,
+            },
+            ...(s.onboardingFee > 0
+              ? [
+                  {
+                    kind: "para" as const,
+                    text: "The one-time onboarding fee applies to annual billing in the same way and is charged at signing together with the first annual payment.",
+                  },
+                ]
+              : []),
+            {
+              kind: "para",
+              text: `Annual billing renews automatically for successive ${count(12)} month periods until cancelled. Client may cancel at any time. Cancellation takes effect at the end of the then-current paid year, and Provider will continue to deliver the Services until then.`,
+            },
+            {
+              kind: "para",
+              text: "Annual fees are non-refundable, including for any unused months remaining in the paid year when Client cancels.",
+            },
+          ],
+        },
         {
           heading: "Payment Method",
           blocks: [
@@ -247,11 +291,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           ],
         },
         {
-          heading: "No Refunds for Partial Months",
+          heading: "No Refunds for Partial Periods",
           blocks: [
             {
               kind: "para",
-              text: `Monthly fees are non-refundable for partial months. Cancellation takes effect at the end of the current paid month, as described in Section ${ref("term")}. Client retains access to the Services through the end of that month.`,
+              text: `Fees are non-refundable for partial billing periods. On monthly billing, cancellation takes effect at the end of the current paid month; on annual billing, at the end of the current paid year, as described in Section ${ref("term")}. Client retains access to the Services through the end of that period.`,
             },
           ],
         },
@@ -1101,7 +1145,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: "This Agreement begins on the Effective Date and continues month-to-month until terminated by either party.",
+              text: "This Agreement begins on the Effective Date and continues from billing period to billing period (monthly, or annually if Client elects annual prepay) until terminated by either party.",
             },
             /**
              * Stated affirmatively, not merely left unsaid.
@@ -1115,7 +1159,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
              */
             {
               kind: "callout",
-              text: "There is no minimum term, no commitment period, and no early-termination fee. Client may cancel at any time.",
+              text: "There is no early-termination fee, and Client may cancel at any time. On monthly billing there is no minimum term. On annual billing, the year already paid for runs to its end and is not refunded.",
             },
           ],
         },
@@ -1124,11 +1168,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: "Either party may terminate this Agreement at any time, effective at the end of the then-current monthly billing cycle. No notice period applies and no penalty, early-termination charge, or clawback of any kind is payable on termination. Notice of termination may be delivered by email to the addresses on file.",
+              text: "Either party may terminate this Agreement at any time, effective at the end of the then-current billing period (the paid month on monthly billing, or the paid year on annual billing). No notice period applies and no penalty, early-termination charge, or clawback of any kind is payable on termination. Notice of termination may be delivered by email to the addresses on file.",
             },
             {
               kind: "para",
-              text: "Provider will continue to deliver the Services through the end of the month Client has already paid for.",
+              text: "Provider will continue to deliver the Services through the end of the period Client has already paid for.",
             },
           ],
         },
@@ -1168,7 +1212,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             {
               kind: "bullets",
               items: [
-                "Fees already paid for the current month remain payable and are not refunded in part",
+                "Fees already paid for the current billing period remain payable and are not refunded in part",
                 "Provider will continue the Services through the end of that paid month",
                 `Client's portal access is deactivated as described in Section ${ref("portal")}`,
                 ...(s.hasVoiceAgent ? [`Phone number disposition follows Section ${ref("phone")}`] : []),
