@@ -41,11 +41,16 @@ export interface AgreementSubmission {
   /**
    * data:image/png;base64,… — the drawn signature.
    *
-   * Optional because an operator-closed client accepts by voice on a call and draws nothing.
-   * `/api/agreement` still requires it, so the self-serve form is unchanged; only
-   * `recordVerbalAcceptance` builds a submission without one.
+   * No longer collected: self-serve accepts with `termsAccepted` (2026-11-03) and an
+   * operator-closed client accepts by voice. Still accepted from a page loaded before the
+   * signature pad was removed, so a client mid-signing across the deploy isn't turned away.
    */
   signatureDataUrl?: string;
+  /**
+   * The client ticked "I have read and agree" on the self-serve page. Required unless a legacy
+   * signature is present (`agreement-validate.mjs` holds the rule).
+   */
+  termsAccepted?: boolean;
   pageOpenedAt: string; // ISO UTC — when the agreement page mounted
   scrollCompletedAt: string; // ISO UTC — when the reader reached the end of the terms
   /**
@@ -118,7 +123,20 @@ export interface VerbalAcceptance {
   confirmedAt: string;
 }
 
-export type AgreementAcceptance = { method: "drawn-signature" } | VerbalAcceptance;
+/**
+ * The client ticked "I have read and agree" on the self-serve agreement page (since 2026-11-03,
+ * replacing the drawn signature). Who ticked it is the signer on the record; this adds when and
+ * from where. Which words they agreed to is `audit.termsHash` + `agreementVersion`.
+ */
+export interface ClickwrapAcceptance {
+  method: "clickwrap-self";
+  /** ISO UTC — when the server received the ticked box. */
+  checkedAt: string;
+  ip: string;
+  userAgent: string;
+}
+
+export type AgreementAcceptance = { method: "drawn-signature" } | VerbalAcceptance | ClickwrapAcceptance;
 
 export interface AgreementRecord {
   id: string;

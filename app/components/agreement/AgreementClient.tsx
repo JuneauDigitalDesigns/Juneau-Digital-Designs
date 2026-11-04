@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
 import PlanChip from "./PlanChip";
-import SignatureCanvas, { type SignatureCanvasHandle } from "./SignatureCanvas";
 import TermsReader from "./TermsReader";
 
 interface Props {
@@ -126,7 +125,6 @@ export default function AgreementClient({
      * precisely where a starter client should be able to opt in.
      */
     const isStarter = plan === "starter";
-    const sigRef = useRef<SignatureCanvasHandle>(null);
 
     /**
      * The phone-handling choice.
@@ -209,15 +207,12 @@ export default function AgreementClient({
         setError(null);
 
         if (!hasReadTerms) {
-            setError("Please scroll to the end of the agreement before signing.");
+            setError("Please scroll to the end of the agreement before agreeing.");
             return;
         }
+        // The ticked box IS the acceptance (no signature since 2026-11-03), so it is required.
         if (!agreed) {
-            setError("You must agree to the Service Agreement to continue.");
-            return;
-        }
-        if (sigRef.current?.isEmpty() ?? true) {
-            setError("Please draw your signature.");
+            setError("Please tick the box to agree to the Terms of Service.");
             return;
         }
         if (!form.clientLegalName || !form.clientAddress || !form.signerName || !form.signerTitle || !form.signerEmail) {
@@ -254,14 +249,13 @@ export default function AgreementClient({
             return;
         }
 
-        const signatureDataUrl = sigRef.current!.toDataUrl();
         const additionalSites = isEnterprise
             ? [form.site1, form.site2, form.site3].filter(Boolean)
             : [];
 
         setSubmitting(true);
         try {
-            // 1. Sign agreement
+            // 1. Record the agreement (accepted by the ticked box)
             const sigRes = await fetch("/api/agreement", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -274,7 +268,7 @@ export default function AgreementClient({
                     signerTitle: form.signerTitle.trim(),
                     signerEmail: form.signerEmail.trim(),
                     additionalSites,
-                    signatureDataUrl,
+                    termsAccepted: true,
                     pageOpenedAt,
                     scrollCompletedAt,
                     // The phone-handling choice and, for forwarding, the line to forward. Omitted
@@ -389,7 +383,8 @@ export default function AgreementClient({
                 </p>
 
                 <form onSubmit={handleSubmit}>
-                    {/* Agreement — must be read to the end before signing unlocks */}
+                    {/* Agreement — must be read to the end before the acceptance box unlocks */}
+                    <span id="terms" />
                     <Section title={`Agreement, ${activeVersion}`}>
                         {/* Keyed on the variant so switching to/from website-only remounts the
                             reader, resetting its internal scroll tracking along with the gate. */}
@@ -573,22 +568,9 @@ export default function AgreementClient({
                         </Section>
                     )}
 
-                    {/* Signature — locked until the terms have been read */}
-                    <Section title="Signature">
-                        <div
-                            aria-disabled={!hasReadTerms}
-                            style={{
-                                pointerEvents: hasReadTerms ? "auto" : "none",
-                                opacity: hasReadTerms ? 1 : 0.4,
-                                transition: "opacity 200ms ease",
-                            }}
-                        >
-                            <SignatureCanvas ref={sigRef} />
-                        </div>
-                        {!hasReadTerms && <LockNote />}
-                    </Section>
-
-                    {/* Acceptance */}
+                    {/* Acceptance. The ticked box is the acceptance (no drawn signature since
+                        2026-11-03), so it is required, never pre-ticked, and locked until the
+                        terms have been read to the end. */}
                     <label
                         style={{
                             display: "flex",
@@ -618,12 +600,23 @@ export default function AgreementClient({
                             }}
                         />
                         <span style={{ fontSize: 13.5, color: "var(--fg)", lineHeight: 1.55 }}>
-                            I have read and agree to be legally bound by the{" "}
-                            <strong style={{ color: "var(--fg)" }}>Service Agreement</strong>.
-                            I understand my electronic signature has the same legal effect as a
-                            handwritten one.
+                            {/* Client-facing wording, approved by Xander 2026-11-03. */}
+                            {isAddendum ? (
+                                <>
+                                    I have read and agree to this Site Addendum and the{" "}
+                                    <a href="#terms" style={{ color: "var(--fg)", fontWeight: 600 }}>Terms of Service</a>{" "}
+                                    it adopts.
+                                </>
+                            ) : (
+                                <>
+                                    I have read and agree to the{" "}
+                                    <a href="#terms" style={{ color: "var(--fg)", fontWeight: 600 }}>Terms of Service</a>,
+                                    including the plan details in Schedule A.
+                                </>
+                            )}
                         </span>
                     </label>
+                    {!hasReadTerms && <LockNote />}
 
                     {/*
                         Optional SMS opt-in. Sits below the binding acceptance, in its own
@@ -774,7 +767,7 @@ function LockNote() {
                 letterSpacing: "0.04em",
             }}
         >
-            ━ SIGNING UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL AGREEMENT ABOVE
+            ━ THE BOX UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL AGREEMENT ABOVE
         </p>
     );
 }
