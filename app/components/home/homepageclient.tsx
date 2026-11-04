@@ -141,6 +141,7 @@ function JourneySection({
   outcomes,
   visual,
   visualFirst = false,
+  stacked = false,
   footnote,
 }: {
   heading: string;
@@ -148,10 +149,55 @@ function JourneySection({
   outcomes: string[];
   visual: React.ReactNode;
   visualFirst?: boolean;
+  /** Copy above, visual below at full width, for a visual that is the section rather than
+   *  a picture beside it. Only the portal section uses it, for the portal demo. At ≥900px
+   *  the copy splits too: heading and body left, outcomes right. */
+  stacked?: boolean;
   /** A line under the outcomes, set apart from them. Only the portal section uses it, for
    *  the one sentence on the page that separates the plans before the price cards. */
   footnote?: React.ReactNode;
 }) {
+  const outcomeList = (
+    <div className="journey-outcomes">
+      {outcomes.map((o) => (
+        <span key={o} className="journey-outcome">
+          {o}
+        </span>
+      ))}
+    </div>
+  );
+  const footnoteLine = footnote && (
+    <p style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 20 }}>
+      {footnote}
+    </p>
+  );
+
+  if (stacked) {
+    return (
+      <section className="journey-section">
+        <div className="journey-grid journey-grid--stacked">
+          <JourneyReveal delay={0} className="journey-stack-copy">
+            <div>
+              <h2 style={{ fontWeight: 800, fontSize: "clamp(30px,4.2vw,54px)", lineHeight: 0.98, letterSpacing: ".01em", textTransform: "uppercase", maxWidth: "16ch" }}>
+                {heading}
+              </h2>
+              <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 18 }}>
+                {body}
+              </p>
+            </div>
+            <div>
+              {outcomeList}
+              {footnoteLine}
+            </div>
+          </JourneyReveal>
+          <JourneyReveal delay={1} className="journey-visual">
+            {visual}
+          </JourneyReveal>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="journey-section">
       <div className={`journey-grid${visualFirst ? " journey-grid--flip" : ""}`}>
@@ -169,18 +215,8 @@ function JourneySection({
           {/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page,
               carrying the most specific facts we have. The hierarchy was inverted against
               the value of the content, so these are now full-contrast sentences. */}
-          <div className="journey-outcomes">
-            {outcomes.map((o) => (
-              <span key={o} className="journey-outcome">
-                {o}
-              </span>
-            ))}
-          </div>
-          {footnote && (
-            <p style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 20 }}>
-              {footnote}
-            </p>
-          )}
+          {outcomeList}
+          {footnoteLine}
         </JourneyReveal>
 
         <JourneyReveal delay={1} className="journey-visual">
@@ -293,7 +329,7 @@ function PortalSection() {
           </strong>
         </>
       }
-      visualFirst
+      stacked
       visual={<PortalDemo />}
     />
   );

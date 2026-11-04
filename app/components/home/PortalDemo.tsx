@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import Image from "next/image";
-import { useInView, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import {
     Archive,
     ArrowCounterClockwise,
@@ -69,9 +69,11 @@ import s from "./PortalDemo.module.css";
  *     whatever is being done, so a 390px frame zooms tighter rather than shrinking the portal
  *     to unreadable. Framing is measured from the elements themselves (`data-f`), never from
  *     hard-coded coordinates.
- *   - Plays once when half of it is in view. Each step can be picked, and replays from its own
- *     starting state, which every step can rebuild (`STEP_START`).
- *   - Reduced motion never autoplays: each step shows its finished frame, and the camera cuts.
+ *   - Nothing plays until the visitor presses Start demo (Xander's call: no autoplay). The
+ *     steps sit above the window as its chapters; each can be picked, and replays from its own
+ *     starting state, which every step can rebuild (`STEP_START`). Below the window is the
+ *     narration alone.
+ *   - Reduced motion steps through finished frames instead of playing, and the camera cuts.
  */
 
 /* ── the world the film draws ───────────────────────────────────────────── */
@@ -194,13 +196,10 @@ export default function PortalDemo() {
     const viewportRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
     const cursorRef = useRef<HTMLDivElement>(null);
-    const inView = useInView(rootRef, { once: true, amount: 0.5 });
 
     const [world, setWorld] = useState<World>(BASE);
     const [step, setStep] = useState(0);
     const [run, setRun] = useState<Run>("idle");
-    /** Set once anyone has played, paused or picked a step, so autoplay never overrides them. */
-    const touched = useRef(false);
 
     /** Cuts every camera and drawer move to zero for a frame, when a step is rebuilt or the
      *  frame resizes. A class on the root rather than state, so it needs no render. */
@@ -516,22 +515,11 @@ export default function PortalDemo() {
         [commit, cut, hideCursor, look, settle],
     );
 
-    // First framing, once the frame has a size. Nothing plays from here.
+    // First framing, once the frame has a size. Nothing plays until someone presses Start.
     useEffect(() => {
-        const id = requestAnimationFrame(() => (reduce ? show(0) : look("all")));
+        const id = requestAnimationFrame(() => look("all"));
         return () => cancelAnimationFrame(id);
-    }, [reduce, look, show]);
-
-    // Plays once, the first time it is mostly on screen. Reduced motion never autoplays.
-    // Started from a task, not from the effect itself: the script commits with `flushSync`,
-    // which React refuses while it is still committing this render.
-    useEffect(() => {
-        if (!inView || reduce) return;
-        const id = setTimeout(() => {
-            if (!touched.current) void play(0);
-        }, 0);
-        return () => clearTimeout(id);
-    }, [inView, reduce, play]);
+    }, [look]);
 
     // Anything still running stops with the component.
     useEffect(
@@ -554,8 +542,13 @@ export default function PortalDemo() {
         return () => ro.disconnect();
     }, [cut, look]);
 
+    /** Start, or start over from a step. Reduced motion steps through finished frames instead. */
+    function start(i = 0) {
+        if (reduce) show(i);
+        else void play(i);
+    }
     function onPlayButton() {
-        touched.current = true;
+        if (run === "idle") return start(0);
         if (reduce) return show(Math.min(step + 1, DEMO_STEPS.length - 1));
         if (run === "playing") {
             token.current++;
@@ -564,81 +557,27 @@ export default function PortalDemo() {
         }
         void play(run === "done" ? 0 : step);
     }
-    function onStep(i: number) {
-        touched.current = true;
-        if (reduce) show(i);
-        else void play(i);
-    }
 
+    const idle = run === "idle";
     const current = DEMO_STEPS[step];
-    const playLabel = reduce ? "Next step" : run === "playing" ? "Pause" : run === "done" ? "Replay" : "Play";
+    const playLabel = idle
+        ? "Start demo"
+        : reduce
+          ? "Next step"
+          : run === "playing"
+            ? "Pause"
+            : run === "done"
+              ? "Replay"
+              : "Play";
 
     return (
         <div ref={rootRef} className={`${s.demo} ${reduce ? s.reduced : ""}`}>
-            {/* The film is decorative: the caption below says what each frame shows, and is
-                what a screen reader gets. Nothing in the window is focusable. */}
-            <div className={s.window} aria-hidden="true">
-                <div className={s.chrome}>
-                    <span className={s.dots}>
-                        <i />
-                        <i />
-                        <i />
-                    </span>
-                    <span className={s.url}>juneaudigitaldesigns.com/portal</span>
-                    <span className={s.chromeSpacer} />
-                </div>
-                <div ref={viewportRef} className={s.viewport}>
-                    <div ref={canvasRef} className={s.canvas}>
-                        {/* `minHeight: 0` undoes the scope's full-viewport rule; the inline style
-                            is what beats the unlayered `.portal-scope` block. */}
-                        <div className={`portal-scope ${s.portal}`} style={{ minHeight: 0 }}>
-                            <Rail tab={world.tab} />
-                            <main className={s.stage}>
-                                {world.view === "inbox" ? (
-                                    <InboxView w={world} />
-                                ) : world.view === "board" ? (
-                                    <BoardView w={world} />
-                                ) : (
-                                    <RecordView w={world} />
-                                )}
-                            </main>
-                            <div className={s.backdrop} data-open={world.drawer !== null} />
-                            <div className={s.drawer} data-open={world.drawer !== null} data-width={world.drawer === "review" ? "md" : "lg"}>
-                                {world.drawer === "review" ? <ReviewDrawer w={world} /> : <LeadDrawer w={world} />}
-                            </div>
-                            <div ref={cursorRef} className={s.cursor}>
-                                <svg className={s.arrow} viewBox="0 0 24 24">
-                                    <path
-                                        d="M4 2.5 L4 19 L8.6 14.8 L11.6 21.5 L14.4 20.3 L11.5 13.7 L17.8 13.7 Z"
-                                        fill="#0d1117"
-                                        stroke="#fff"
-                                        strokeWidth="1.4"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
-                                <span className={s.ring} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className={s.caption} aria-live="polite">
-                <div className={s.stepLabel}>
-                    <span>
-                        Step {step + 1} of {DEMO_STEPS.length} · {current.short}
-                    </span>
-                    <span className={s.plan} data-growth={current.plan === "Growth"}>
-                        {current.plan}
-                    </span>
-                </div>
-                <p className={s.line}>{current.caption}</p>
-                {current.gated && <p className={s.gate}>{CARRIER_LINE}</p>}
-            </div>
-
+            {/* Above the window, so the steps read as the demo's chapters before it plays. */}
             <div className={s.controls}>
                 <button type="button" className={s.play} onClick={onPlayButton} aria-label={playLabel} title={playLabel}>
-                    {reduce ? (
+                    {idle ? (
+                        <Play size={16} weight="fill" />
+                    ) : reduce ? (
                         <CaretRight size={16} weight="bold" />
                     ) : run === "playing" ? (
                         <Pause size={16} weight="fill" />
@@ -650,16 +589,23 @@ export default function PortalDemo() {
                 </button>
                 <div className={s.steps} role="group" aria-label="Demo steps">
                     {DEMO_STEPS.map((st, i) => {
-                        const state =
-                            i < step ? "done" : i > step ? "empty" : run === "playing" ? "running" : run === "idle" ? "empty" : "full";
+                        const state = idle
+                            ? "empty"
+                            : i < step
+                              ? "done"
+                              : i > step
+                                ? "empty"
+                                : run === "playing"
+                                  ? "running"
+                                  : "full";
                         return (
                             <button
                                 key={st.key}
                                 type="button"
                                 className={s.step}
-                                aria-current={i === step ? "step" : undefined}
+                                aria-current={!idle && i === step ? "step" : undefined}
                                 aria-label={`Step ${i + 1}: ${st.short}`}
-                                onClick={() => onStep(i)}
+                                onClick={() => start(i)}
                             >
                                 <b>{i + 1}</b>
                                 <span className={s.stepName}>{st.short}</span>
@@ -674,6 +620,77 @@ export default function PortalDemo() {
                         );
                     })}
                 </div>
+            </div>
+
+            <div className={s.frame}>
+                {/* The film is decorative: the narration below says what each frame shows, and
+                    is what a screen reader gets. Nothing in the window is focusable. The start
+                    button sits beside the window rather than in it, so it is not inside
+                    aria-hidden. */}
+                <div className={s.window} aria-hidden="true">
+                    <div className={s.chrome}>
+                        <span className={s.dots}>
+                            <i />
+                            <i />
+                            <i />
+                        </span>
+                        <span className={s.url}>juneaudigitaldesigns.com/portal</span>
+                        <span className={s.chromeSpacer} />
+                    </div>
+                    <div ref={viewportRef} className={s.viewport}>
+                        <div ref={canvasRef} className={s.canvas}>
+                            {/* `minHeight: 0` undoes the scope's full-viewport rule; the inline style
+                                is what beats the unlayered `.portal-scope` block. */}
+                            <div className={`portal-scope ${s.portal}`} style={{ minHeight: 0 }}>
+                                <Rail tab={world.tab} />
+                                <main className={s.stage}>
+                                    {world.view === "inbox" ? (
+                                        <InboxView w={world} />
+                                    ) : world.view === "board" ? (
+                                        <BoardView w={world} />
+                                    ) : (
+                                        <RecordView w={world} />
+                                    )}
+                                </main>
+                                <div className={s.backdrop} data-open={world.drawer !== null} />
+                                <div className={s.drawer} data-open={world.drawer !== null} data-width={world.drawer === "review" ? "md" : "lg"}>
+                                    {world.drawer === "review" ? <ReviewDrawer w={world} /> : <LeadDrawer w={world} />}
+                                </div>
+                                <div ref={cursorRef} className={s.cursor}>
+                                    <svg className={s.arrow} viewBox="0 0 24 24">
+                                        <path
+                                            d="M4 2.5 L4 19 L8.6 14.8 L11.6 21.5 L14.4 20.3 L11.5 13.7 L17.8 13.7 Z"
+                                            fill="#0d1117"
+                                            stroke="#fff"
+                                            strokeWidth="1.4"
+                                            strokeLinejoin="round"
+                                        />
+                                    </svg>
+                                    <span className={s.ring} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {idle && (
+                    <div className={s.startGate}>
+                        <button type="button" className={`btn primary lg ${s.startBtn}`} onClick={() => start(0)}>
+                            <Play size={18} weight="fill" aria-hidden="true" />
+                            Start demo
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Narration only. Its height is reserved before the first step, so nothing below
+                moves when it starts. */}
+            <div className={s.caption} aria-live="polite">
+                {!idle && (
+                    <>
+                        <p className={s.line}>{current.caption}</p>
+                        {current.gated && <p className={s.gate}>{CARRIER_LINE}</p>}
+                    </>
+                )}
             </div>
         </div>
     );

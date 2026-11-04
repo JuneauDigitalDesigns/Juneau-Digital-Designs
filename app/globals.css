@@ -1677,6 +1677,24 @@ select option {
   .journey-grid--flip > .journey-visual { order: -1; }
 }
 
+/* Stacked: copy above, the visual full width beneath it (the portal demo). Two classes, so it
+   outranks the two-column rule above at every width. */
+.journey-grid.journey-grid--stacked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(36px, 4.5vw, 64px);
+}
+@media (min-width: 900px) {
+  .journey-stack-copy {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: clamp(40px, 5vw, 80px);
+    align-items: start;
+  }
+  /* The outcomes start level with the heading here, so their usual top margin would only
+     push the first rule below the heading line. */
+  .journey-stack-copy .journey-outcomes { margin-top: 6px; }
+}
+
 /* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page, sitting
    under the body paragraph at 16.5px/--fg-2. The most specific and most persuasive
    content in each section was rendered in the least visible type on it, so the visual
