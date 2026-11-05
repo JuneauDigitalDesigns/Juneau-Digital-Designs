@@ -21,6 +21,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import {
     buildInbox,
@@ -54,6 +55,7 @@ function call(overrides = {}) {
         date: at(0),
         callerName: "Ada Byron",
         callerNumber: NUMBER,
+        callbackNumber: null,
         summary: "Asked about a bathroom refit.",
         durationSeconds: 94,
         callType: "inbound",
@@ -831,4 +833,45 @@ test("an archived item is still reachable by deep link", () => {
     assert.deepEqual(ids(filterInbox(items, "all")), [], "hidden from the worklist");
     assert.equal(inboxItemForDeepLink(items, "recCall").id, "recCall", "still reachable");
     assert.equal(items[0].archived, true);
+});
+
+/* ── "no, use my cell" ───────────────────────────────────────────────────── */
+
+test("a number the caller asked to be reached at shows, and the call's own number stays the identity", () => {
+    // Retell extracts bare digits; Caller number is E.164.
+    const [item] = buildInbox({ calls: [call({ callbackNumber: "2075550100" })], leads: [] });
+    assert.equal(item.callbackPhone, "+12075550100");
+    assert.equal(item.callbackPhoneDisplay, "(207) 555-0100");
+    assert.equal(item.phone, NUMBER, "the contact is still the number the call was on");
+});
+
+test("the same number in another format is not a different number", () => {
+    // Every call the agent confirms extracts the number it is on. A raw compare would show each
+    // of them a "Callback number" identical to Phone.
+    const [item] = buildInbox({ calls: [call({ callbackNumber: "9305551234" })], leads: [] });
+    assert.equal(item.callbackPhone, null);
+    assert.equal(item.callbackPhoneDisplay, null);
+});
+
+test("no spoken number, or nothing dialable, shows nothing", () => {
+    for (const callbackNumber of [null, "", "unknown", "123"]) {
+        const [item] = buildInbox({ calls: [call({ callbackNumber })], leads: [] });
+        assert.equal(item.callbackPhone, null, String(callbackNumber));
+    }
+});
+
+test("a callback collapsed into its form lead still carries the corrected number", () => {
+    const [item] = buildInbox({ calls: [call({ callbackNumber: "2075550100" })], leads: [lead()] });
+    assert.equal(item.source, "web-form");
+    assert.equal(item.callbackPhone, "+12075550100");
+    assert.equal(buildInbox({ calls: [], leads: [lead()] })[0].callbackPhone, null);
+});
+
+test("the record shows it, and the call button rings it", () => {
+    const src = readFileSync(new URL("../app/components/portal/InboxSection.tsx", import.meta.url), "utf8");
+    assert.match(src, /<Fact label="Callback number">/);
+    assert.match(src, /tel:\$\{open\.callbackPhone \?\? open\.phone\}/);
+    const calls = readFileSync(new URL("../app/lib/airtable-calls.ts", import.meta.url), "utf8");
+    assert.match(calls, /callbackNumber: str\(r\.fields\["Callback number"\]\)/);
+    assert.match(calls, /const KNOWN_FIELDS[^;]*"Callback number"/s, "a base without the column must not be asked for it");
 });

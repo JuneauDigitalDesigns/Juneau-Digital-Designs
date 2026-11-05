@@ -725,6 +725,13 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                                         "—"
                                     )}
                                 </Fact>
+                                {open.callbackPhone && (
+                                    <Fact label="Callback number">
+                                        <a href={`tel:${open.callbackPhone}`} style={{ color: "var(--accent)" }}>
+                                            {open.callbackPhoneDisplay}
+                                        </a>
+                                    </Fact>
+                                )}
                                 <Fact label="Source">
                                     {open.source === "web-form" ? "Website form" : "Phone call"}
                                 </Fact>
@@ -757,7 +764,11 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                             ) : (
                                 <>
                                     <a
-                                        href={open.phone ? `tel:${open.phone}` : undefined}
+                                        href={
+                                            (open.callbackPhone ?? open.phone)
+                                                ? `tel:${open.callbackPhone ?? open.phone}`
+                                                : undefined
+                                        }
                                         className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
                                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                                     >
