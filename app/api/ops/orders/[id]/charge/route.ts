@@ -14,7 +14,9 @@ export const runtime = "nodejs";
  * GET: the checkout. The card added (brand, last 4 and expiry; the number never leaves Stripe),
  * the amount, Stripe's own preview of it, the renewal date and the statement descriptor.
  *
- * POST `{ amountCents }`: charge it. Only for an order awaiting payment on the card path, and
+ * POST `{ amountCents, paymentMethodId? }`: charge it. `paymentMethodId` is the card typed into the
+ * wizard's Stripe card field (a `pm_…` id from Stripe.js); without it, the card added on the
+ * Dashboard page is charged. Only for an order awaiting payment on the card path, and
  * only for the order's own amount: `amountCents` must be the amount the GET returned. Safe to
  * repeat: a second request while one runs is refused, and one after a success returns `paid`
  * without charging again.
@@ -49,7 +51,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const order = await getOrder(id);
     if (!order) return NextResponse.json({ error: "No such order." }, { status: 404 });
 
-    let body: { amountCents?: unknown } = {};
+    let body: { amountCents?: unknown; paymentMethodId?: unknown } = {};
     try {
         body = await request.json();
     } catch {
@@ -57,7 +59,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
 
     try {
-        const result = await chargeMotoOrder(order, body.amountCents);
+        const result = await chargeMotoOrder(order, body.amountCents, body.paymentMethodId);
         if (result.outcome === "paid") return NextResponse.json({ ok: true, ...result });
         return NextResponse.json({ ok: false, outcome: result.outcome, error: result.message, order }, { status: 402 });
     } catch (e) {
