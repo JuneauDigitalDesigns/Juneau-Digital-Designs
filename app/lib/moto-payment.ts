@@ -16,7 +16,10 @@ import {
     chargeReceipt,
     classifyChargeError,
     dashboardCustomerUrl,
+    isMotoUnavailableError,
+    isPaymentMethodId,
     motoRef,
+    motoSetupParams,
     nextPaymentAt,
     pickMotoCard,
 } from "./moto-charge.mjs";
@@ -32,6 +35,11 @@ import {
  *      operator to read aloud before charging.
  *   4. `chargeMotoOrder`: the subscription, at the order's period price with the onboarding fee
  *      on its first invoice, charged to that card. Then the same fulfilment a paid link gets.
+ *
+ * Steps 2 and 3 have a one-screen form (`cardEntryOptions`): once Stripe enables phone-order
+ * entry on the account's API, the operator types the card into Stripe's card field inside the
+ * wizard, and Charge saves it as a phone order (`motoSetupParams`) and charges it in one go.
+ * Until then the wizard keeps the Dashboard form above.
  *
  * The card-path state is kept beside the order, in `jdd:order-charge:{id}`, not on it: the order
  * shape is `@jdd/schema`'s, its parser drops fields it doesn't know, and this state belongs only
@@ -77,6 +85,51 @@ async function writeState(orderId: string, state: MotoState): Promise<void> {
 export async function motoChargeInFlight(orderId: string): Promise<boolean> {
     const [lock, state] = await Promise.all([getRedis().exists(lockKey(orderId)), readState(orderId)]);
     return Boolean(lock) || Boolean(state?.subscriptionId);
+}
+
+export interface CardEntryOptions {
+    /** The wizard can take the card in its own Stripe card field: API phone-order entry is on. */
+    inline: boolean;
+    /** Stripe.js needs it to show the card field; in the same mode (test/live) as the secret key. */
+    publishableKey: string | null;
+}
+
+let _motoApi: { ok: boolean; until: number } | null = null;
+
+/**
+ * Whether the account accepts phone-order (MOTO) entry through the API. Stripe answers
+ * `parameter_unknown` for `moto` until it is enabled, so this asks with a SetupIntent that is
+ * cancelled straight away: no Customer, no card, nothing to charge. "No" is re-asked every few
+ * minutes, so the inline field appears soon after Stripe switches it on; "yes" is kept for an hour.
+ */
+async function motoApiEnabled(): Promise<boolean> {
+    if (_motoApi && _motoApi.until > Date.now()) return _motoApi.ok;
+    let ok = false;
+    try {
+        const probe = await stripe.setupIntents.create({
+            payment_method_types: ["card"],
+            payment_method_options: { card: { moto: true } },
+            metadata: { purpose: "moto-api-check" },
+        });
+        ok = true;
+        await stripe.setupIntents.cancel(probe.id).catch(() => {});
+    } catch (e) {
+        if (!isMotoUnavailableError(e as { code?: string; param?: string; message?: string })) {
+            console.error("[moto] could not check API phone-order entry", e);
+        }
+    }
+    _motoApi = { ok, until: Date.now() + (ok ? 60 * 60_000 : 5 * 60_000) };
+    return ok;
+}
+
+/** How the wizard takes the card for this account: its own Stripe card field, or the Dashboard. */
+export async function cardEntryOptions(): Promise<CardEntryOptions> {
+    const secret = process.env.STRIPE_SECRET_KEY ?? process.env.STRIPE_LIVE_SECRET_KEY ?? "";
+    const publishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+    // A test card field charging a live key (or the reverse) can only fail; don't offer it.
+    const sameMode = /_test_/.test(secret) === /_test_/.test(publishable);
+    const publishableKey = publishable.startsWith("pk_") && sameMode ? publishable : null;
+    return { inline: Boolean(publishableKey) && (await motoApiEnabled()), publishableKey };
 }
 
 export function motoDashboardUrl(customerId: string): string {
@@ -287,7 +340,15 @@ export type ChargeOutcome =
  * `error_if_incomplete`: if the first invoice can't be paid (declined, or the bank wants 3-D
  * Secure, which can't be done on a phone call) Stripe creates no subscription and charges nothing.
  */
-export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unknown): Promise<ChargeOutcome> {
+export async function chargeMotoOrder(
+    order: OperatorOrder,
+    requestedCents: unknown,
+    /** The card typed into the wizard's Stripe card field, as Stripe.js tokenised it. */
+    paymentMethodId?: unknown,
+): Promise<ChargeOutcome> {
+    if (paymentMethodId != null && !isPaymentMethodId(paymentMethodId)) {
+        throw new MotoError("That isn't a card from Stripe's card field.", "bad-card", 400);
+    }
     const state = await readState(order.id);
     if (order.status === "paid" || order.status === "fulfilled") {
         // Already charged (a repeat request, a reopened wizard): the receipt again, never a charge.
@@ -320,18 +381,36 @@ export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unkn
         });
         if (!gate.ok) throw new MotoError(gate.message, gate.code, 409);
 
-        const pm = await findCard(order, state);
-        if (!pm) throw new MotoError("No card has been added on the Stripe customer page yet.", "no-card", 409);
+        // The card field's card, or the newest one added on the Dashboard page since Enter card.
+        let pmId: string;
+        if (typeof paymentMethodId === "string") {
+            pmId = paymentMethodId;
+        } else {
+            const pm = await findCard(order, state);
+            if (!pm) throw new MotoError("No card has been added on the Stripe customer page yet.", "no-card", 409);
+            pmId = pm.id;
+        }
 
         const { recurring, onboarding } = prices(order);
         let sub: Stripe.Subscription;
         try {
+            if (typeof paymentMethodId === "string") {
+                // Save the typed card to the Customer as a phone order, then charge it below. Keyed
+                // on the card, so a retried request attaches it once.
+                const si = await stripe.setupIntents.create(
+                    motoSetupParams({ customerId, paymentMethodId, orderId: order.id }) as Stripe.SetupIntentCreateParams,
+                    { idempotencyKey: `jdd-order-card-setup:${order.id}:${paymentMethodId}` },
+                );
+                if (si.status !== "succeeded") {
+                    throw Object.assign(new Error(`Card setup ended ${si.status}`), { type: "StripeCardError", code: "authentication_required" });
+                }
+            }
             sub = await stripe.subscriptions.create(
                 {
                     customer: customerId,
                     items: [{ price: recurring }],
                     ...(onboarding ? { add_invoice_items: [{ price: onboarding }] } : {}),
-                    default_payment_method: pm.id,
+                    default_payment_method: pmId,
                     payment_behavior: "error_if_incomplete",
                     off_session: true,
                     metadata: {
@@ -347,6 +426,9 @@ export async function chargeMotoOrder(order: OperatorOrder, requestedCents: unkn
                 { idempotencyKey: chargeIdempotencyKey(order.id, state.attempt) },
             );
         } catch (e) {
+            if (isMotoUnavailableError(e as { code?: string; param?: string; message?: string })) {
+                throw new MotoError("Card entry in the wizard isn't switched on for this Stripe account yet. Add the card in Stripe instead.", "moto-unavailable", 409);
+            }
             const kind = classifyChargeError(e as { type?: string; code?: string; decline_code?: string });
             if (kind === "error") throw e;
             await writeState(order.id, { ...state, attempt: state.attempt + 1 });

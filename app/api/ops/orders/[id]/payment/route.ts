@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { authorizeOps } from "@/app/lib/ops-auth";
 import { getOrder, saveOrder, transitionOrder } from "@/app/lib/operator-orders";
 import { OrderCheckoutError, openOrderCheckout, shortPayUrl } from "@/app/lib/order-checkout";
-import { MotoError, motoChargeInFlight, startMotoPayment } from "@/app/lib/moto-payment";
+import { MotoError, cardEntryOptions, motoChargeInFlight, startMotoPayment } from "@/app/lib/moto-payment";
 
 export const runtime = "nodejs";
 
@@ -35,7 +35,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (method === "dashboard-moto") {
         try {
             const { order: saved, dashboardUrl } = await startMotoPayment(order);
-            return NextResponse.json({ ok: true, order: saved, dashboardUrl });
+            // The Dashboard page stays the fallback: it is returned even when the wizard can take
+            // the card in its own field.
+            return NextResponse.json({ ok: true, order: saved, dashboardUrl, cardEntry: await cardEntryOptions() });
         } catch (e) {
             if (e instanceof MotoError) return NextResponse.json({ error: e.message, code: e.code, order }, { status: e.status });
             console.error("[ops/orders] card entry failed", id, e);

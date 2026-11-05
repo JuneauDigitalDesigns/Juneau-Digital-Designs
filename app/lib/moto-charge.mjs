@@ -184,3 +184,43 @@ export function chargeReceipt(sub) {
     nextAmountCents: typeof item?.price?.unit_amount === "number" ? item.price.unit_amount : null,
   };
 }
+
+/**
+ * The SetupIntent that saves a card typed into the wizard's Stripe card field, as a phone order.
+ *
+ * The console turns the card field into a PaymentMethod in the browser (Stripe.js; the number
+ * goes straight to Stripe), and sends only its `pm_…` id. This attaches it to the order's
+ * Customer, confirmed server-side with `moto: true`: the cardholder isn't present, they read the
+ * card out on the call, so no 3-D Secure challenge is sent to their phone. `off_session` because
+ * the subscription will charge it again at every renewal.
+ *
+ * @param {{ customerId: string, paymentMethodId: string, orderId: string }} input
+ */
+export function motoSetupParams({ customerId, paymentMethodId, orderId }) {
+  return {
+    customer: customerId,
+    payment_method: paymentMethodId,
+    payment_method_types: ["card"],
+    payment_method_options: { card: { moto: true } },
+    usage: "off_session",
+    confirm: true,
+    metadata: { order_id: orderId, payment_method: "dashboard-moto", entry: "wizard-card-field" },
+  };
+}
+
+/**
+ * Stripe's answer when phone-order entry isn't enabled for the account's API: it doesn't treat
+ * `moto` as a parameter at all. Recorded from this account on 2026-11-04, in test mode:
+ * `StripeInvalidRequestError parameter_unknown - Received unknown parameter:
+ * payment_method_options[card][moto]`. The wizard falls back to Dashboard entry when it sees it.
+ *
+ * @param {{ type?: string, code?: string, param?: string, message?: string } | null | undefined} err
+ */
+export function isMotoUnavailableError(err) {
+  return err?.code === "parameter_unknown" && /\bmoto\b/.test(`${err?.param ?? ""} ${err?.message ?? ""}`);
+}
+
+/** A PaymentMethod id as Stripe.js returns it. Anything else is refused before reaching Stripe. */
+export function isPaymentMethodId(v) {
+  return typeof v === "string" && /^pm_[A-Za-z0-9]{8,}$/.test(v);
+}

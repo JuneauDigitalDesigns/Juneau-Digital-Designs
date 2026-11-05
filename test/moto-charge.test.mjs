@@ -29,6 +29,9 @@ import {
     pickMotoCard,
     nextPaymentAt,
     chargeReceipt,
+    motoSetupParams,
+    isMotoUnavailableError,
+    isPaymentMethodId,
 } from "../app/lib/moto-charge.mjs";
 
 register("./server-only-hook.mjs", import.meta.url);
@@ -145,6 +148,8 @@ function upstash([op, ...args]) {
 let stripeCalls = [];
 /** How the fake Stripe answers subscription creation. */
 let onCreate = async () => ({ status: 200, body: {} });
+/** How it answers saving a typed card (SetupIntent create). */
+let onSetup = async () => ({ status: 200, body: { object: "setup_intent", id: "seti_1", status: "succeeded", payment_method: "pm_typed1234" } });
 let cards = [];
 let previewCents = 79400;
 
@@ -173,6 +178,10 @@ async function stripeFetch(url, init) {
     if (u.pathname === "/v1/account") return json(200, { object: "account", settings: { payments: { statement_descriptor: "JUNEAU DIGITAL" } } });
     if (u.pathname === "/v1/invoices/create_preview") return json(200, { object: "invoice", amount_due: previewCents });
     if (u.pathname === "/v1/customers/cus_moto/payment_methods") return json(200, list(cards));
+    if (u.pathname === "/v1/setup_intents" && init.method === "POST") {
+        const { status, body } = await onSetup();
+        return json(status, body);
+    }
     if (u.pathname === "/v1/subscriptions" && init.method === "POST") {
         const { status, body } = await onCreate();
         return json(status, body);
@@ -226,6 +235,7 @@ beforeEach(() => {
     cards = [card("pm_added", "2026-11-04T15:02:00Z")];
     previewCents = 79400;
     onCreate = async () => declined("generic_decline");
+    onSetup = async () => ({ status: 200, body: { object: "setup_intent", id: "seti_1", status: "succeeded", payment_method: "pm_typed1234" } });
     kv.set("jdd:order-charge:ord_moto", JSON.stringify({ startedAt: STARTED, attempt: 0 }));
     globalThis.fetch = async (input, init = {}) => {
         const url = String(input instanceof Request ? input.url : input);
@@ -349,4 +359,58 @@ test("the receipt shows what Stripe charged, not what we expected", () => {
         nextPaymentAt: null,
         nextAmountCents: null,
     });
+});
+
+/* ── the card typed into the wizard's own Stripe field ────────────────────── */
+
+// Recorded from this account on 2026-11-04 (test mode), before Stripe enabled API phone orders.
+const MOTO_NOT_ENABLED = {
+    type: "invalid_request_error",
+    code: "parameter_unknown",
+    param: "payment_method_options[card][moto]",
+    message: "Received unknown parameter: payment_method_options[card][moto]",
+};
+
+test("a typed card is saved as a phone order, for renewals, before it is charged", () => {
+    const p = motoSetupParams({ customerId: "cus_1", paymentMethodId: "pm_typed1234", orderId: "ord_1" });
+    assert.equal(p.payment_method_options.card.moto, true, "without moto the bank may send a 3-D Secure code to the client");
+    assert.equal(p.usage, "off_session");
+    assert.equal(p.confirm, true);
+    assert.equal(p.customer, "cus_1");
+    assert.equal(p.payment_method, "pm_typed1234");
+});
+
+test("Stripe's answer before phone orders are enabled is recognised, and nothing else is", () => {
+    assert.equal(isMotoUnavailableError(MOTO_NOT_ENABLED), true);
+    assert.equal(isMotoUnavailableError({ code: "parameter_unknown", param: "metadata[x]", message: "Received unknown parameter: metadata[x]" }), false);
+    assert.equal(isMotoUnavailableError({ type: "StripeCardError", code: "card_declined" }), false);
+});
+
+test("only a Stripe card id is accepted from the card field", () => {
+    assert.equal(isPaymentMethodId("pm_1Q2w3E4r5T6y"), true);
+    for (const bad of ["4242424242424242", "tok_visa", "pm_", "", null, 4242]) assert.equal(isPaymentMethodId(bad), false, String(bad));
+});
+
+test("the card field's card is attached as a phone order, then charged, in one request", async () => {
+    await chargeMotoOrder(order(), 79400, "pm_typed1234");
+    const setup = stripeCalls.find((c) => c.path === "/v1/setup_intents");
+    assert.ok(setup, "the card is saved to the customer first");
+    const sb = new URLSearchParams(setup.body);
+    assert.equal(sb.get("payment_method_options[card][moto]"), "true");
+    assert.equal(sb.get("customer"), "cus_moto");
+    assert.equal(sb.get("payment_method"), "pm_typed1234");
+    assert.ok(setup.idempotencyKey, "a retried request attaches the card once");
+    assert.equal(new URLSearchParams(creates()[0].body).get("default_payment_method"), "pm_typed1234");
+    assert.equal(stripeCalls.some((c) => c.path.endsWith("/payment_methods")), false, "the typed card is charged, not whatever is newest on the customer");
+});
+
+test("until Stripe enables phone orders, a typed card is refused and nothing is charged", async () => {
+    onSetup = async () => ({ status: 400, body: { error: MOTO_NOT_ENABLED } });
+    await assert.rejects(chargeMotoOrder(order(), 79400, "pm_typed1234"), (e) => e.code === "moto-unavailable");
+    assert.equal(creates().length, 0);
+});
+
+test("anything but a Stripe card id is refused before Stripe is called", async () => {
+    await assert.rejects(chargeMotoOrder(order(), 79400, "4242424242424242"), (e) => e.code === "bad-card");
+    assert.equal(stripeCalls.length, 0);
 });
