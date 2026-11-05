@@ -21,6 +21,7 @@ export type KnownField =
     | "Date"
     | "Caller name"
     | "Caller number"
+    | "Callback number"
     | "Summary"
     | "Duration (seconds)"
     | "Call type"
@@ -35,6 +36,7 @@ const KNOWN_FIELDS: KnownField[] = [
     "Date",
     "Caller name",
     "Caller number",
+    "Callback number",
     "Summary",
     "Duration (seconds)",
     "Call type",
@@ -51,6 +53,12 @@ export interface CallRecord {
     date: string | null;
     callerName: string | null;
     callerNumber: string | null;
+    /**
+     * The number the caller asked to be reached at. `callerNumber` is the line the call was on,
+     * so "no, use my cell" lives only here. Null on any base without the column, and on a call
+     * where none was spoken.
+     */
+    callbackNumber: string | null;
     summary: string | null;
     durationSeconds: number | null;
     callType: string | null;
@@ -281,6 +289,7 @@ async function fetchCallsUncached({
         // Deliberately NOT masked. These are the client's own callers, and a call log you
         // cannot return a call from is a report, not a tool.
         callerNumber: str(r.fields["Caller number"]),
+        callbackNumber: str(r.fields["Callback number"]),
         summary: str(r.fields["Summary"]),
         durationSeconds: num(r.fields["Duration (seconds)"]),
         callType: str(r.fields["Call type"]),

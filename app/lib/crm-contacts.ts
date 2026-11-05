@@ -34,6 +34,13 @@ export interface InboxItem {
     name: string | null;
     phone: string | null;
     phoneDisplay: string;
+    /**
+     * The number the caller asked to be reached at, only when it isn't `phone`. The agent reads
+     * the number on the call back to them, so most calls extract that same number here, and
+     * showing it twice would say nothing. `phone` stays the contact's identity either way.
+     */
+    callbackPhone: string | null;
+    callbackPhoneDisplay: string | null;
     email: string | null;
     /** One line for the list. The enquiry text for a form, the call summary for a call. */
     preview: string | null;
@@ -100,6 +107,18 @@ function cmp(a: string, b: string): number {
 
 export function callContactId(call: CallRecord): string | null {
     return normalizeE164(call.callerNumber);
+}
+
+/**
+ * The two callback fields for an item shown under `phone`. Goes through `normalizeE164` because
+ * Retell extracts this one as bare digits and `Caller number` is E.164: a raw compare would show
+ * every call's own number as a "different" one. Anything that isn't a dialable number is dropped.
+ */
+function callbackFields(raw: string | null | undefined, phone: string | null) {
+    const e164 = normalizeE164(raw);
+    return e164 && e164 !== phone
+        ? { callbackPhone: e164, callbackPhoneDisplay: formatUsPhone(e164) }
+        : { callbackPhone: null, callbackPhoneDisplay: null };
 }
 
 /**
@@ -190,6 +209,7 @@ export function buildInbox({
             name: lead.name,
             phone: e164,
             phoneDisplay: e164 ? formatUsPhone(e164) : (lead.phoneRaw ?? "No number"),
+            ...callbackFields(cb?.callbackNumber, e164),
             email: lead.email,
             preview: lead.message,
             at: lead.createdAt,
@@ -221,6 +241,7 @@ export function buildInbox({
             name: call.callerName,
             phone: e164,
             phoneDisplay: e164 ? formatUsPhone(e164) : (call.callerNumber ?? "Unknown"),
+            ...callbackFields(call.callbackNumber, e164),
             email: call.email,
             preview: call.summary,
             at: call.date,
