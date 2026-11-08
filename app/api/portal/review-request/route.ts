@@ -6,6 +6,8 @@ import { normalizeE164 } from "@/app/lib/phone";
 import { sendSms } from "@/app/lib/twilio";
 import { appendActivity, findCustomerByPhone, recordReviewSend } from "@/app/lib/portal-crm";
 import { reviewRequestActivity } from "@/app/lib/review-message";
+import { checkSpokenConsent } from "@/app/lib/spoken-consent-check";
+import { NOT_AGREED_MESSAGE } from "@/app/lib/spoken-consent";
 import {
     canSendReview,
     composeReviewMessage,
@@ -30,11 +32,12 @@ const REASON_MESSAGE: Record<ReviewBlockReason, string> = {
     "no-number": "We don't have a mobile number for this caller, so we can't text them.",
     "already-sent": "You've already sent a review request to this caller.",
     "opted-out": "This caller has opted out of texts, so we can't message them.",
+    "not-agreed": NOT_AGREED_MESSAGE,
 };
 
 /** 409 for the permanent blocks (a real conflict), 400/422 for configuration. */
 function statusFor(reason: ReviewBlockReason): number {
-    return reason === "already-sent" || reason === "opted-out" ? 409 : 422;
+    return reason === "already-sent" || reason === "opted-out" || reason === "not-agreed" ? 409 : 422;
 }
 
 export async function POST(request: Request) {
@@ -71,6 +74,19 @@ export async function POST(request: Request) {
     if (!check.allowed) {
         const reason: ReviewBlockReason = check.reason;
         return NextResponse.json({ error: REASON_MESSAGE[reason], reason }, { status: statusFor(reason) });
+    }
+
+    // What they said on a call. After `canSendReview`, so its setup answers come first.
+    const spoken = await checkSpokenConsent(ctx, phone);
+    if (spoken === "declined" || spoken === "not-agreed") {
+        const reason: ReviewBlockReason = spoken === "declined" ? "opted-out" : "not-agreed";
+        return NextResponse.json({ error: REASON_MESSAGE[reason], reason }, { status: statusFor(reason) });
+    }
+    if (spoken === "unavailable") {
+        return NextResponse.json(
+            { error: "We couldn't send that just now. Please try again in a moment." },
+            { status: 502 },
+        );
     }
 
     // `check.allowed` guarantees both are present, but narrow for the type checker.

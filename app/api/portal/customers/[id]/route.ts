@@ -12,7 +12,7 @@ import {
     type Activity,
 } from "@/app/lib/portal-crm";
 import { duration } from "@/app/lib/duration";
-import { markOrigin } from "@/app/lib/crm-contacts";
+import { callTouchesPhone, markOrigin } from "@/app/lib/crm-contacts";
 
 export const runtime = "nodejs";
 
@@ -64,10 +64,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
                 acctScope: acct,
             });
             if (res.ok) {
-                const digits = customer.phone.replace(/\D/g, "").slice(-10);
                 for (const call of res.calls) {
-                    const callDigits = (call.callerNumber ?? "").replace(/\D/g, "").slice(-10);
-                    if (!callDigits || callDigits !== digits) continue;
+                    if (!callTouchesPhone(call, customer.phone)) continue;
                     callActivity.push({
                         id: `call:${call.id}`,
                         kind: "call",
