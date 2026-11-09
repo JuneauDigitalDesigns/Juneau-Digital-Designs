@@ -1,0 +1,19 @@
+{
+  "status": 200,
+  "body": {
+    "items": [
+      {
+        "call_id": "call_recordedfixture00000000000",
+        "agent_id": "agent_recordedfixture",
+        "call_status": "ended",
+        "start_timestamp": 1794166997424,
+        "direction": "outbound",
+        "from_number": "+15005550009",
+        "to_number": "+15005550006",
+        "recording_url": "https://dxc03zgurdly9.cloudfront.net/SCRUBBED/recording.wav",
+        "opt_in_signed_url": false
+      }
+    ],
+    "has_more": false
+  }
+}
