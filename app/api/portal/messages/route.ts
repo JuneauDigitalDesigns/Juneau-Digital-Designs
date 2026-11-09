@@ -3,6 +3,8 @@ import { siteFeature } from "@jdd/schema";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { accountScope } from "@/app/lib/portal-kv";
 import { sendSms } from "@/app/lib/twilio";
+import { checkSpokenConsent } from "@/app/lib/spoken-consent-check";
+import { NOT_AGREED_MESSAGE } from "@/app/lib/spoken-consent";
 import {
     appendMessage,
     getCustomer,
@@ -26,6 +28,7 @@ export const runtime = "nodejs";
  *    before the campaign verifies would be filtered by carriers, not delivered.
  *  • The recipient must already be a customer with a number, i.e. someone who reached out.
  *  • An opted-out recipient is blocked outright.
+ *  • So is one who said no on a call, or never answered when asked (`spoken-consent.ts`).
  *  • Sends go through the client's **own** Messaging Service, so Advanced Opt-Out applies.
  *  • **There is no bulk path.** One request sends one message to one customer, by design.
  */
@@ -77,6 +80,23 @@ export async function POST(request: Request) {
         return NextResponse.json(
             { error: "This customer has opted out of texts, so we can't message them." },
             { status: 409 },
+        );
+    }
+
+    const spoken = await checkSpokenConsent(ctx, customer.phone);
+    if (spoken === "declined") {
+        return NextResponse.json(
+            { error: "This customer has opted out of texts, so we can't message them." },
+            { status: 409 },
+        );
+    }
+    if (spoken === "not-agreed") {
+        return NextResponse.json({ error: NOT_AGREED_MESSAGE }, { status: 409 });
+    }
+    if (spoken === "unavailable") {
+        return NextResponse.json(
+            { error: "We couldn't send that just now. Please try again in a moment." },
+            { status: 502 },
         );
     }
 

@@ -110,6 +110,16 @@ export function callContactId(call: CallRecord): string | null {
 }
 
 /**
+ * Is this call one of this number's? Either number on the call counts: a customer promoted onto
+ * their callback number must still see the call they gave it on.
+ */
+export function callTouchesPhone(call: CallRecord, phone: string): boolean {
+    const digits = (n: string | null) => (n ?? "").replace(/\D/g, "").slice(-10);
+    const want = digits(phone);
+    return Boolean(want) && (digits(call.callerNumber) === want || digits(call.callbackNumber) === want);
+}
+
+/**
  * The two callback fields for an item shown under `phone`. Goes through `normalizeE164` because
  * Retell extracts this one as bare digits and `Caller number` is E.164: a raw compare would show
  * every call's own number as a "different" one. Anything that isn't a dialable number is dropped.
@@ -337,7 +347,9 @@ export function promotionInput(item: InboxItem): PromotionInput {
     const outcome = item.outcome?.trim().toLowerCase();
     return {
         name: item.name,
-        phone: item.phone,
+        // The number they asked to be reached at. It is what the owner will dial and text, and
+        // what their spoken SMS answer was about.
+        phone: item.callbackPhone ?? item.phone,
         email: item.email,
         address: item.address,
         note: item.preview,

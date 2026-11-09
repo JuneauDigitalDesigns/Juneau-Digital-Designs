@@ -30,7 +30,8 @@ export type KnownField =
     | "Email"
     | "Address"
     | "Recording URL"
-    | "Priority";
+    | "Priority"
+    | "SMS consent";
 
 const KNOWN_FIELDS: KnownField[] = [
     "Date",
@@ -46,6 +47,7 @@ const KNOWN_FIELDS: KnownField[] = [
     "Address",
     "Recording URL",
     "Priority",
+    "SMS consent",
 ];
 
 export interface CallRecord {
@@ -68,6 +70,8 @@ export interface CallRecord {
     address: string | null;
     recordingUrl: string | null;
     priority: string | null;
+    /** The caller's spoken answer: granted, declined or unknown. See `spoken-consent.ts`. */
+    smsConsent: string | null;
 }
 
 /** Why a fetch failed, in terms the caller can act on. Never shown to a client verbatim. */
@@ -299,6 +303,7 @@ async function fetchCallsUncached({
         address: str(r.fields["Address"]),
         recordingUrl: str(r.fields["Recording URL"]),
         priority: str(r.fields["Priority"]),
+        smsConsent: str(r.fields["SMS consent"]),
     }));
 
     return { ok: true, calls, fields, truncated };

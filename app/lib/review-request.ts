@@ -46,7 +46,7 @@ export function composeReviewMessage(clientBody: string, reviewUrl: string): str
     return `${body}\n\n${reviewUrl}\n${STOP_TAIL}`;
 }
 
-export type ReviewBlockReason = "no-review-link" | "no-number" | "already-sent" | "opted-out";
+export type ReviewBlockReason = "no-review-link" | "no-number" | "already-sent" | "opted-out" | "not-agreed";
 
 /**
  * May we send a review request to this number? The feature's hard guard.
