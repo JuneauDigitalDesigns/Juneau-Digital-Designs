@@ -1,4 +1,7 @@
 import { SignUp } from "@clerk/nextjs";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import InviteOtherAccount from "@/app/components/portal/InviteOtherAccount";
+import { inviteNeedsSignOut, inviteReturnPath } from "@/app/lib/invite-return.mjs";
 import PortalScope from "@/app/components/portal/PortalScope";
 import { safeRedirectPath } from "@/app/lib/safe-redirect";
 import { postAuthRedirect } from "@/app/lib/post-auth-redirect";
@@ -7,8 +10,21 @@ import { portalClerkAppearance } from "../../clerkAppearance";
 export default async function PortalSignUpPage({
     searchParams,
 }: {
-    searchParams: Promise<{ redirect_url?: string | string[] }>;
+    searchParams: Promise<{ redirect_url?: string | string[]; __clerk_ticket?: string | string[]; __clerk_status?: string | string[] }>;
 }) {
+    const params = await searchParams;
+    const { userId } = await auth();
+    if (inviteNeedsSignOut(userId, params.__clerk_ticket)) {
+        const user = await currentUser();
+        return (
+            <PortalScope>
+                <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg)" }}>
+                    <InviteOtherAccount email={user?.primaryEmailAddress?.emailAddress ?? null} returnPath={inviteReturnPath(params)} />
+                </div>
+            </PortalScope>
+        );
+    }
+
     /**
      * Honour where the visitor was actually headed.
      *
@@ -18,7 +34,7 @@ export default async function PortalSignUpPage({
      * had just chosen silently discarded. Validated rather than passed straight through:
      * a query param that decides where the browser goes next is an open redirect otherwise.
      */
-    const redirectUrl = safeRedirectPath((await searchParams).redirect_url);
+    const redirectUrl = safeRedirectPath(params.redirect_url);
 
     return (
         <PortalScope>
