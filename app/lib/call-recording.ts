@@ -14,7 +14,8 @@ import { dropCached, getCached, setCached } from "./portal-kv";
  * Retell mints a fresh link each time a call is read, so the portal asks for one at play time.
  * That needs the call's id, which no column holds. It does not need a new column: `Date` is
  * Make's `parseDate(start_timestamp)`, and on the fixtures it equals Retell's `start_timestamp`
- * to the millisecond on every row, so an exact-time search finds the one call.
+ * to the millisecond on every row with a call on the current agent, so an exact-time search
+ * finds the one call.
  *
  * ── What keeps an old call playable ─────────────────────────────────────────────────────────
  * Retell does not re-sign old files ("Files created before secure URLs were enabled will still

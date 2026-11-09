@@ -8,7 +8,7 @@
  * The vendor responses in test/fixtures/recordings/ were recorded from one `_e2e_test_growth`
  * call on 2026-11-09, then scrubbed of its numbers, caller details and links. They carry two
  * things worth knowing that nobody would have written by hand: Retell's time filter is
- * `{type:"number",op:"eq",value}` (the docs' `{op,value}` is a 400), and Airtable answers an id
+ * `{type:"number",op:"eq",value}` (a bare `{op,value}` is a 400), and Airtable answers an id
  * from another base with a 403, not a 404.
  *
  * Real route, real account store, real KV helpers. Only the network is doubled.
