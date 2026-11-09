@@ -23,6 +23,7 @@ import {
     nextPaymentAt,
     pickMotoCard,
 } from "./moto-charge.mjs";
+import { sessionSettled } from "./pay-link.mjs";
 
 /**
  * The card path: the operator types the client's card into Stripe's Dashboard (Stripe's MOTO
@@ -183,7 +184,7 @@ export async function startMotoPayment(order: OperatorOrder): Promise<{ order: O
     const sessionId = order.payment?.checkoutSessionId;
     if (order.status === "awaiting-payment" && order.payment?.method === "link" && sessionId) {
         const s = await stripe.checkout.sessions.retrieve(sessionId);
-        if (s.payment_status === "paid") throw new MotoError("They've already paid on the link.", "already-paid", 409);
+        if (sessionSettled(s)) throw new MotoError("They've already paid on the link.", "already-paid", 409);
         if (s.status === "open") await stripe.checkout.sessions.expire(sessionId);
         if (order.payment.shortCode) await deletePayCode(order.payment.shortCode);
     }

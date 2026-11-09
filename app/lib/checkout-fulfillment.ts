@@ -1,6 +1,7 @@
 import "server-only";
 import type Stripe from "stripe";
 import { stripe } from "./stripe";
+import { sessionSettled } from "./pay-link.mjs";
 import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement, persistAgreement } from "./kv";
 import { getPurchaseIntent, markIntentConsumed } from "./purchase-intent";
 import { createPendingSite, getAccount, saveAccount } from "./account-store";
@@ -69,7 +70,7 @@ export async function provisionPaidSession(
       ? await stripe.checkout.sessions.retrieve(sessionIdOrSession)
       : sessionIdOrSession;
 
-  if (session.payment_status !== "paid") return null;
+  if (!sessionSettled(session)) return null;
 
   /**
    * An operator-closed client (sold on a call) takes its own path, decided HERE rather than in

@@ -4,6 +4,7 @@ import { acquireLinkLock, deletePayCode, getOrder, releaseLinkLock, transitionOr
 import { checkoutRefusal } from "@/app/lib/order-link.mjs";
 import { OrderCheckoutError, openOrderCheckout, shortPayUrl } from "@/app/lib/order-checkout";
 import { stripe } from "@/app/lib/stripe";
+import { sessionSettled } from "@/app/lib/pay-link.mjs";
 
 export const runtime = "nodejs";
 
@@ -36,10 +37,11 @@ async function resend(id: string) {
     }
 
     const oldSession = order.payment?.checkoutSessionId;
-    if (order.status === "awaiting-payment" && oldSession) {
+    // Even on an order marked expired: a session it recorded may still be open and payable.
+    if (oldSession) {
         try {
             const s = await stripe.checkout.sessions.retrieve(oldSession);
-            if (s.payment_status === "paid") {
+            if (sessionSettled(s)) {
                 return NextResponse.json({ error: "They've already paid.", order }, { status: 409 });
             }
             if (s.status === "open") await stripe.checkout.sessions.expire(oldSession);

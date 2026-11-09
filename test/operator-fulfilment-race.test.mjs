@@ -27,7 +27,7 @@ Object.assign(process.env, {
     RESEND_API_KEY: "re_test",
 });
 
-const { fulfilOperatorPayment } = await import("../app/lib/checkout-fulfillment.ts");
+const { fulfilOperatorPayment, provisionPaidSession } = await import("../app/lib/checkout-fulfillment.ts");
 
 const kv = new Map();
 const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
@@ -121,6 +121,27 @@ test("two deliveries at once send one invitation, and the order records the one 
     assert.equal(order.invite.invitationId, "inv_1");
     assert.equal(emails.length, 1, "one welcome email");
     assert.match(emails[0], /clerk\.test\/ticket\/1/, "the email carries the recorded invitation");
+});
+
+test("a promo code that makes the first invoice free still fulfils the order", async () => {
+    const out = await provisionPaidSession({
+        id: "cs_free",
+        status: "complete",
+        payment_status: "no_payment_required",
+        amount_total: 0,
+        customer: "cus_1",
+        subscription: "sub_1",
+        metadata: { order_id: "ord_race" },
+    });
+    assert.ok(out, "checkout finished, so the order must be fulfilled");
+    const order = JSON.parse(kv.get("jdd:order:ord_race"));
+    assert.equal(order.status, "fulfilled");
+    assert.equal(order.payment.amountTotal, 0);
+});
+
+test("a session that hasn't been paid is not fulfilled", async () => {
+    assert.equal(await provisionPaidSession({ id: "cs_open", status: "open", payment_status: "unpaid", metadata: { order_id: "ord_race" } }), null);
+    assert.equal(JSON.parse(kv.get("jdd:order:ord_race")).status, "awaiting-payment");
 });
 
 test("a later delivery changes nothing", async () => {

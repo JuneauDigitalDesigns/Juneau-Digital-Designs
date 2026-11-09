@@ -173,6 +173,9 @@ export async function POST(req: Request) {
         metadata: { plan: cfg.slug, agreement_id, purchase_id: purchaseId, period: billingPeriod },
       },
       allow_promotion_codes: true,
+      // The same tick above Subscribe as the operator's payment link. Stripe's own wording, linking
+      // the ToS URL set in Stripe's public details.
+      consent_collection: { terms_of_service: "required" },
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Stripe error";

@@ -4,6 +4,7 @@ import { getAgreement } from "./kv";
 import { readAgreementPdf } from "./agreement-store";
 import type { PaymentDetails } from "./notification-email";
 import type { AgreementRecord } from "./agreement-types";
+import { sessionSettled } from "./pay-link.mjs";
 
 /**
  * Everything the operator notification needs about how a client came to exist: what they
@@ -33,7 +34,7 @@ export async function gatherClientContext(sessionId: string): Promise<{
     let agreementId: string | undefined;
     try {
         const session = await stripe.checkout.sessions.retrieve(sessionId);
-        if (session.payment_status === "paid") {
+        if (sessionSettled(session)) {
             payment = {
                 plan: session.metadata?.plan,
                 customerName: session.customer_details?.name,

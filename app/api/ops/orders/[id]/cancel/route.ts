@@ -3,6 +3,7 @@ import { isOrderPaid } from "@jdd/schema";
 import { authorizeOps } from "@/app/lib/ops-auth";
 import { deletePayCode, getOrder, releaseSlug, transitionOrder } from "@/app/lib/operator-orders";
 import { stripe } from "@/app/lib/stripe";
+import { sessionSettled } from "@/app/lib/pay-link.mjs";
 import { motoChargeInFlight } from "@/app/lib/moto-payment";
 
 export const runtime = "nodejs";
@@ -35,7 +36,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (sessionId) {
         try {
             const s = await stripe.checkout.sessions.retrieve(sessionId);
-            if (s.payment_status === "paid") {
+            if (sessionSettled(s)) {
                 return NextResponse.json({ error: "They've just paid, so this can't be cancelled.", order }, { status: 409 });
             }
             if (s.status === "open") await stripe.checkout.sessions.expire(sessionId);
