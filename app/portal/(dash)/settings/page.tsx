@@ -1,6 +1,7 @@
 import SettingsSection from "@/app/components/portal/SettingsSection";
 import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
 import { currentSite, resolveDashboard } from "@/app/lib/portal-dashboard";
+import { listAccountAgreements } from "@/app/lib/portal-agreements";
 import { getConsentStateForAccount } from "@/app/lib/sms-consent";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +20,17 @@ export default async function SettingsPage({
     // sites they run. A missing record simply means they never opted in.
     const consent = await getConsentStateForAccount(ctx.account.email).catch(() => null);
 
+    const agreements = await listAccountAgreements(ctx.account).catch((e) => {
+        console.error("[portal/settings] could not list agreements", e);
+        return [];
+    });
+
     return (
         <SettingsSection
             key={site.slug}
             site={site}
             accountEmail={ctx.account.email}
+            agreements={agreements}
             smsConsent={consent ? { phone: consent.phone, status: consent.status } : null}
             accountProfile={
                 ctx.account.profile

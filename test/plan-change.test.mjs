@@ -125,7 +125,7 @@ test("downgrades are scheduled, not applied: the console request emails a link, 
 
 test("an upgrade keeps its agreement, binds it to the account, and words a declined card plainly", () => {
   const src = read("app/api/portal/upgrade/route.ts");
-  assert.match(src, /persistAgreement\(agreementId\)/);
+  assert.match(src, /persistAgreement\(agreementId, account\.email\)/);
   assert.match(src, /!acceptedBy\(agreement, account\)/);
   assert.match(src, /CARD_DECLINED/);
   assert.match(src, /upgradeCancelPending\(/);

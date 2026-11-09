@@ -17,6 +17,8 @@ import { register } from "node:module";
 register("./server-only-hook.mjs", import.meta.url);
 register("./agreement-route-hook.mjs", import.meta.url);
 
+process.env.AGREEMENTS_BLOB_READ_WRITE_TOKEN = "private-store-token";
+
 const { POST } = await import("../app/api/agreement/route.ts");
 
 const NOW = new Date().toISOString();

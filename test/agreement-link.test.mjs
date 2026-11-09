@@ -26,6 +26,8 @@ register("./clerk-unreachable-hook.mjs", import.meta.url);
 register("./next-server-hook.mjs", import.meta.url);
 register("./vercel-blob-hook.mjs", import.meta.url);
 
+process.env.AGREEMENTS_BLOB_READ_WRITE_TOKEN = "private-store-token";
+
 const KV_URL = "https://kv.test.invalid";
 Object.assign(process.env, {
     KV_REST_API_URL: KV_URL,

@@ -200,6 +200,7 @@ export interface AgreementRecord {
   forwardingNumber?: string;
   /** The billing period printed on the cover. See `AgreementSubmission.billingPeriod`. */
   billingPeriod?: "monthly" | "annual";
+  /** The private store's URL. Unusable without the store's token; read through `agreement-store`. */
   pdfUrl: string;
   audit: AgreementAudit;
   agreementVersion: string;

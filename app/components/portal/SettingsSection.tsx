@@ -4,6 +4,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import type { PortalSiteProps } from "@/app/portal/types";
 import { splitConsentText } from "@/app/lib/sms-consent-text";
+import type { AccountAgreement } from "@/app/lib/portal-agreements";
 import { SectionCard, FieldRow, inputStyle } from "./ui/FormPrimitives";
 
 export interface SmsConsentProps {
@@ -16,6 +17,7 @@ interface SettingsSectionProps {
     accountEmail: string;
     accountProfile: { contactName?: string; contactPhone?: string } | null;
     smsConsent: SmsConsentProps | null;
+    agreements: AccountAgreement[];
 }
 
 // ── Profile ──────────────────────────────────────────────────────────────────
@@ -639,16 +641,70 @@ function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
 
 // ── Exports ───────────────────────────────────────────────────────────────────
 
+/**
+ * The account's signed agreements. Account-wide on purpose: the master governs every site, so an
+ * Enterprise client sees the same list whichever site is selected, each addendum named by site.
+ * The link is a plain download; the route checks the session's account on every request.
+ */
+function agreementTitle(a: AccountAgreement): string {
+    if (a.kind === "addendum") return "Addendum";
+    return a.current ? "Master agreement" : "Earlier master agreement";
+}
+
+function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
+    return (
+        <SectionCard title="Agreements">
+            {agreements.length === 0 ? (
+                <p className="px-5 py-4 text-sm" style={{ color: "var(--fg-2)" }}>
+                    No signed agreements yet.
+                </p>
+            ) : (
+                <ul>
+                    {agreements.map((a) => (
+                        <li
+                            key={a.id}
+                            className="flex items-center justify-between gap-4 px-5 py-3.5 border-b last:border-b-0"
+                            style={{ borderColor: "var(--rule)" }}
+                        >
+                            <div className="min-w-0">
+                                <p className="text-sm" style={{ color: "var(--fg)" }}>
+                                    {agreementTitle(a)}
+                                    {a.siteName ? `: ${a.siteName}` : ""}
+                                </p>
+                                <p className="text-xs mt-0.5" style={{ color: "var(--fg-3)" }}>
+                                    Signed {SIGNED_DATE.format(new Date(a.signedAt))}
+                                </p>
+                            </div>
+                            <a
+                                href={`/api/portal/agreements/${a.id}`}
+                                download
+                                className="text-sm underline shrink-0"
+                                style={{ color: "var(--accent)" }}
+                            >
+                                Download
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </SectionCard>
+    );
+}
+
+const SIGNED_DATE = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
+
 export default function SettingsSection({
     site,
     accountEmail,
     accountProfile,
     smsConsent,
+    agreements,
 }: SettingsSectionProps) {
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
             <SmsAlertsSection consent={smsConsent} />
+            <AgreementsSection agreements={agreements} />
             <FeaturedSection site={site} />
         </div>
     );

@@ -1,5 +1,5 @@
 import "server-only";
-import { put } from "@vercel/blob";
+import { storeAgreementPdf } from "./agreement-store";
 import { randomUUID } from "node:crypto";
 import type { OperatorOrder } from "@jdd/schema";
 import { generateSignedPdf, hashSubmission } from "./pdf-signer";
@@ -166,10 +166,7 @@ async function storeOrderAgreement(
     };
 
     const pdfBytes = await generateSignedPdf(submission, audit, id, acceptance);
-    const uploaded = await put(`agreements/${id}.pdf`, Buffer.from(pdfBytes), {
-        access: "public",
-        contentType: "application/pdf",
-    });
+    const pdfUrl = await storeAgreementPdf(id, pdfBytes);
 
     const record: AgreementRecord = {
         id,
@@ -186,7 +183,7 @@ async function storeOrderAgreement(
         ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber.trim() } : {}),
         billingPeriod: order.period,
-        pdfUrl: uploaded.url,
+        pdfUrl,
         audit,
         agreementVersion: input.kind === "addendum" ? ADDENDUM_VERSION : TERMS_VERSION,
         acceptance,

@@ -238,7 +238,7 @@ export async function POST(request: Request) {
     // hang off, so it must outlive the 30-day TTL `saveAgreement` gave it. Only first-purchase
     // fulfilment used to do this, so every upgrade agreement quietly expired a month later.
     // After the save above, which would otherwise set the TTL again.
-    await persistAgreement(agreementId).catch((e) =>
+    await persistAgreement(agreementId, account.email).catch((e) =>
         console.error("[portal/upgrade] could not persist agreement", agreementId, e),
     );
 

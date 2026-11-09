@@ -178,7 +178,7 @@ export async function POST(request: Request) {
   // persisting, because `saveAgreement` sets the TTL again.
   const settled = { ...agreement, pendingConsolidation: false };
   await saveAgreement(settled);
-  await persistAgreement(agreementId).catch((e) =>
+  await persistAgreement(agreementId, account.email).catch((e) =>
     console.error("[consolidate] could not persist agreement", agreementId, e),
   );
   after(() => sendStoredAgreementEmail(settled));
