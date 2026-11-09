@@ -26,6 +26,14 @@ export async function saveAgreement(record: AgreementRecord): Promise<void> {
   await getRedis().set(key(record.id), record, { ex: AGREEMENT_TTL_SECONDS });
 }
 
+/**
+ * Change a stored agreement without touching its expiry. `saveAgreement` sets a fresh 30 days,
+ * which on a paid agreement would quietly put the client's contract back on a month's lease.
+ */
+export async function updateAgreement(record: AgreementRecord): Promise<void> {
+  await getRedis().set(key(record.id), record, { keepTtl: true });
+}
+
 export async function getAgreement(id: string): Promise<AgreementRecord | null> {
   return getRedis().get<AgreementRecord>(key(id));
 }

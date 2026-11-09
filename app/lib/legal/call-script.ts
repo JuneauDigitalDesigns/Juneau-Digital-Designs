@@ -22,8 +22,24 @@ import { ANNUAL } from "./schedules";
 export interface CallScript {
   version: string;
   hash: string;
+  /** Spoken before the recording starts. */
+  recordingNotice: string;
+  /** The first thing said once it is running, so the consent is on the recording itself. */
+  recordingOpener: string;
   lines: string[];
 }
+
+// Approved word for word by Xander, 2026-11-09. Part of the hash below: an acceptance has to
+// prove the client was told, not only that the terms were read.
+const RECORDING_NOTICE = "This part of our call is recorded to keep a record of these terms. Is that okay with you?";
+const RECORDING_OPENER = "We're now recording. You're okay with that?";
+
+/**
+ * Bump whenever the fixed wording changes, including the lines above. The version is how a stored
+ * acceptance names the words that were read, so the same version must never mean two scripts.
+ * Versions with no revision are the first script, which had no recording lines.
+ */
+const SCRIPT_REVISION = "r2";
 
 export function buildCallScript(
   plan: PlanSlug,
@@ -57,7 +73,9 @@ export function buildCallScript(
     "By saying yes, you accept these terms and the full agreement we'll email you. Do you agree?",
   ];
 
-  const version = `${TERMS_VERSION}-${opts.webOnly ? "web-only" : plan}-${period}`;
-  const hash = createHash("sha256").update([version, ...lines].join("\n"), "utf8").digest("hex");
-  return { version, hash, lines };
+  const version = `${TERMS_VERSION}-${opts.webOnly ? "web-only" : plan}-${period}-${SCRIPT_REVISION}`;
+  const hash = createHash("sha256")
+    .update([version, RECORDING_NOTICE, RECORDING_OPENER, ...lines].join("\n"), "utf8")
+    .digest("hex");
+  return { version, hash, recordingNotice: RECORDING_NOTICE, recordingOpener: RECORDING_OPENER, lines };
 }

@@ -212,7 +212,8 @@ test("agreeing records the agreement on the order, the same kind of record a ver
     assert.equal(record.audit.ip, "203.0.113.9");
     assert.equal(record.audit.termsHash, termsHashForOrder(order(), "master"));
     assert.ok(record.pdfUrl.startsWith("https://blob.test/agreements/"));
-    await new Promise((r) => setTimeout(r, 50));
+    // The copy goes out after the response, and stripping the PDF takes longer on a busy machine.
+    for (let i = 0; i < 100 && emails === 0; i++) await new Promise((r) => setTimeout(r, 50));
     assert.equal(emails, 1, "the client gets their copy");
 });
 

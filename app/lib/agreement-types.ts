@@ -143,6 +143,21 @@ export interface VerbalAcceptance {
   scriptHash: string;
   /** ISO UTC — when the operator recorded the client's yes. */
   confirmedAt: string;
+  /** ISO UTC — when the operator ticked "Client consented to recording". Absent before 2026-11-09. */
+  recordingConsentAt?: string;
+  /** ISO UTC — when the operator ticked "Recording stopped". Payment waits for it. */
+  recordingStoppedAt?: string;
+}
+
+/** The call recording attached to a read-aloud agreement, held in the private store. */
+export interface AgreementRecording {
+  pathname: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  /** SHA-256 of the bytes as they were uploaded, so the file can be shown to be unaltered. */
+  sha256: string;
+  attachedAt: string;
 }
 
 /**
@@ -194,6 +209,8 @@ export interface AgreementRecord {
    * operator closes existed — so no stored agreement needs migrating to stay valid.
    */
   acceptance?: AgreementAcceptance;
+  /** The call recording, once attached from /manage. Read-aloud acceptances only. */
+  recording?: AgreementRecording;
   /**
    * Set when this agreement was signed to authorise an in-portal upgrade, and cleared once
    * Stripe confirms the plan actually changed.

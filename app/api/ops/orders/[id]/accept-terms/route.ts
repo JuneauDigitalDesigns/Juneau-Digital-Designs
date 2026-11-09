@@ -9,6 +9,7 @@ import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import { withTermsLock } from "@/app/lib/agreement-link";
 import { orderAgreementSummary } from "@/app/lib/order-agreement-summary";
 import { formatUsPhone, normalizeE164 } from "@/app/lib/phone";
+import { parseConsentTime } from "@/app/lib/order-recording";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,7 @@ async function acceptTerms(request: Request, id: string) {
         return NextResponse.json({ error: "Terms were already accepted for this order.", order }, { status: 409 });
     }
 
-    let body: { confirmed?: boolean; scriptHash?: string; termsHash?: string; callRef?: string };
+    let body: { confirmed?: boolean; scriptHash?: string; termsHash?: string; callRef?: string; recordingConsentAt?: unknown };
     try {
         body = await request.json();
     } catch {
@@ -47,6 +48,12 @@ async function acceptTerms(request: Request, id: string) {
     }
     if (body.confirmed !== true || !body.scriptHash || !body.termsHash) {
         return NextResponse.json({ error: "confirmed, scriptHash and termsHash are required." }, { status: 400 });
+    }
+    // The script now opens with the recording notice, so an acceptance without the consent tick
+    // came from a screen that didn't show it.
+    const recordingConsentAt = parseConsentTime(body.recordingConsentAt, Date.now());
+    if (!recordingConsentAt) {
+        return NextResponse.json({ error: "Recording consent is required.", code: "recording-consent" }, { status: 400 });
     }
 
     // Re-derived rather than trusted from the draft: an addendum must hang off the master the
@@ -63,6 +70,7 @@ async function acceptTerms(request: Request, id: string) {
             callRef,
             scriptHash: body.scriptHash,
             termsHash: body.termsHash,
+            recordingConsentAt,
         });
     } catch (e) {
         if (e instanceof TermsChangedError) {
