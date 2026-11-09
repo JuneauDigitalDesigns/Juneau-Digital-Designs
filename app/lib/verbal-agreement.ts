@@ -11,6 +11,7 @@ import type {
     AgreementAudit,
     AgreementRecord,
     AgreementSubmission,
+    ClickwrapAcceptance,
     VerbalAcceptance,
 } from "./agreement-types";
 
@@ -68,8 +69,71 @@ export async function recordVerbalAcceptance(
         throw new TermsChangedError("The terms changed since the script was shown. Reload it and read it again.");
     }
 
-    const id = randomUUID();
     const now = new Date().toISOString();
+    const verbal: VerbalAcceptance = {
+        method: "verbal-operator",
+        orderId: order.id,
+        operator: input.operator,
+        callRef: input.callRef,
+        scriptVersion: script.version,
+        scriptHash: script.hash,
+        confirmedAt: now,
+    };
+    // No browser, so no page timings. Both are the moment of acceptance, which is the honest
+    // value: there was no page, and nothing was scrolled.
+    return storeOrderAgreement(order, input, verbal, {
+        pageOpenedAt: now,
+        scrollCompletedAt: now,
+        signedAt: now,
+        ip: "operator-call",
+        userAgent: "operator-call",
+        dwellMs: 0,
+        termsHash,
+    });
+}
+
+/** The client read the full agreement on their own device and ticked the box. */
+export async function recordClickwrapOrderAcceptance(
+    order: OperatorOrder,
+    input: {
+        kind: "master" | "addendum";
+        parentAgreementId?: string;
+        pageOpenedAt: string;
+        scrollCompletedAt: string;
+        ip: string;
+        userAgent: string;
+        /** Where they agreed, for the audit page: `juneaudigitaldesigns.com/agree/ABC…`. */
+        path: string;
+    },
+): Promise<{ record: AgreementRecord; pdfBytes: Uint8Array }> {
+    const signedAt = new Date();
+    const clickwrap: ClickwrapAcceptance = {
+        method: "clickwrap-self",
+        checkedAt: signedAt.toISOString(),
+        ip: input.ip,
+        userAgent: input.userAgent,
+        orderId: order.id,
+        via: input.path,
+    };
+    return storeOrderAgreement(order, input, clickwrap, {
+        pageOpenedAt: new Date(input.pageOpenedAt).toISOString(),
+        scrollCompletedAt: new Date(input.scrollCompletedAt).toISOString(),
+        signedAt: signedAt.toISOString(),
+        ip: input.ip,
+        userAgent: input.userAgent,
+        dwellMs: Math.max(0, signedAt.getTime() - Date.parse(input.pageOpenedAt)),
+        termsHash: termsHashForOrder(order, input.kind),
+    });
+}
+
+/** The agreement record and PDF for an order, however it was accepted. */
+async function storeOrderAgreement(
+    order: OperatorOrder,
+    input: { kind: "master" | "addendum"; parentAgreementId?: string },
+    acceptance: VerbalAcceptance | ClickwrapAcceptance,
+    facts: { pageOpenedAt: string; scrollCompletedAt: string; signedAt: string; ip: string; userAgent: string; dwellMs: number; termsHash: string },
+): Promise<{ record: AgreementRecord; pdfBytes: Uint8Array }> {
+    const id = randomUUID();
 
     const submission: AgreementSubmission = {
         plan: order.plan,
@@ -82,36 +146,24 @@ export async function recordVerbalAcceptance(
         signerTitle: order.client.contactTitle,
         signerEmail: order.client.email,
         additionalSites: [],
-        // No browser, so no page timings. Both are the moment of acceptance, which is the
-        // honest value: there was no page, and nothing was scrolled.
-        pageOpenedAt: now,
-        scrollCompletedAt: now,
+        pageOpenedAt: facts.pageOpenedAt,
+        scrollCompletedAt: facts.scrollCompletedAt,
         ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
         billingPeriod: order.period,
     };
 
-    const verbal: VerbalAcceptance = {
-        method: "verbal-operator",
-        orderId: order.id,
-        operator: input.operator,
-        callRef: input.callRef,
-        scriptVersion: script.version,
-        scriptHash: script.hash,
-        confirmedAt: now,
-    };
-
     const audit: AgreementAudit = {
-        ip: "operator-call",
-        userAgent: "operator-call",
-        signedAt: now,
+        ip: facts.ip,
+        userAgent: facts.userAgent,
+        signedAt: facts.signedAt,
         payloadHash: hashSubmission(submission),
-        scrollCompletedAt: now,
-        dwellMs: 0,
-        termsHash,
+        scrollCompletedAt: facts.scrollCompletedAt,
+        dwellMs: facts.dwellMs,
+        termsHash: facts.termsHash,
     };
 
-    const pdfBytes = await generateSignedPdf(submission, audit, id, verbal);
+    const pdfBytes = await generateSignedPdf(submission, audit, id, acceptance);
     const uploaded = await put(`agreements/${id}.pdf`, Buffer.from(pdfBytes), {
         access: "public",
         contentType: "application/pdf",
@@ -135,7 +187,7 @@ export async function recordVerbalAcceptance(
         pdfUrl: uploaded.url,
         audit,
         agreementVersion: input.kind === "addendum" ? ADDENDUM_VERSION : TERMS_VERSION,
-        acceptance: verbal,
+        acceptance,
     };
 
     await saveAgreement(record);

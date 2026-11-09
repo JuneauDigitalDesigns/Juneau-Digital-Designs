@@ -216,7 +216,7 @@ export async function generateSignedPdf(
       : clickwrap
         ? "This electronic acceptance complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
           "The client affirmed intent to be bound by the agreement above by scrolling through the full terms and checking " +
-          "the box stating they had read and agree to the Terms of Service on juneaudigitaldesigns.com/agreement. " +
+          `the box stating they had read and agree to the Terms of Service on ${clickwrap.via ?? "juneaudigitaldesigns.com/agreement"}. ` +
           "The terms hash above identifies the exact text presented to the client at the time of acceptance."
         : "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
           "The signer affirmed intent to be bound by the agreement above by scrolling through the full terms, drawing their " +

@@ -156,6 +156,10 @@ export interface ClickwrapAcceptance {
   checkedAt: string;
   ip: string;
   userAgent: string;
+  /** Set when it was accepted through an operator order's private link. */
+  orderId?: string;
+  /** Where it was accepted, when that isn't the self-serve agreement page. */
+  via?: string;
 }
 
 export type AgreementAcceptance = { method: "drawn-signature" } | VerbalAcceptance | ClickwrapAcceptance;

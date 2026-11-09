@@ -21,9 +21,18 @@ export type PortalInvite =
     | { kind: "invitation"; invitationId: string; url: string }
     | { kind: "existing-login" };
 
-/** Where accepting the invite lands them: straight into this site's onboarding form. */
-function onboardingRedirect(siteSlug: string): string {
-    return `${SITE_URL}/portal/onboarding?site=${encodeURIComponent(siteSlug)}`;
+/**
+ * Where a Clerk invitation sends the client: the sign-up page, which creates their login from the
+ * invitation ticket, and then on to this site's onboarding form.
+ *
+ * It used to point straight at `/portal/onboarding`. That route is protected and an invitee has
+ * no session yet, so the middleware bounced them to sign-in with the ticket buried in
+ * `redirect_url`, and sign-in said it couldn't find an account. No phone-closed client could ever
+ * have created a login (test run, 2026-11-08).
+ */
+export function invitationRedirect(siteSlug: string): string {
+    const onboarding = `/portal/onboarding?site=${encodeURIComponent(siteSlug)}`;
+    return `${SITE_URL}/portal/sign-up?redirect_url=${encodeURIComponent(onboarding)}`;
 }
 
 /**
@@ -37,7 +46,7 @@ export async function invitePortalUser(email: string, siteSlug: string): Promise
 
     const invitation = await client.invitations.createInvitation({
         emailAddress: email,
-        redirectUrl: onboardingRedirect(siteSlug),
+        redirectUrl: invitationRedirect(siteSlug),
         notify: false,
         ignoreExisting: true,
     });

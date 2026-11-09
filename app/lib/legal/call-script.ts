@@ -44,16 +44,17 @@ export function buildCallScript(
     `You are signing up for ${s.name}, billed ${billed}.`,
     `There is a one-time onboarding fee of ${money(s.onboardingFee)}, charged today with your first ${annual ? "year" : "month"}. That makes ${money(today)} today.`,
     annual
-      ? "It renews automatically every year until you cancel."
-      : "It renews automatically every month until you cancel. There is no minimum term.",
+      ? `It renews automatically every year, and you are charged ${money(s.annualPrice)} on this date each year until you cancel.`
+      : `It renews automatically every month, and you are charged ${money(s.monthlyPrice)} on this date each month until you cancel. There is no minimum term.`,
     // Annual prepay is non-refundable and runs to the end of the paid year (Xander, 2026-11-03).
     "You can cancel any time from your portal or by emailing us. It stops at the end of the period you have already paid for, and there are no refunds for partial periods.",
     ...(s.callMinutes != null
       ? [
-          `Your plan includes ${s.callMinutes.toLocaleString("en-US")} call-minutes a month. Minutes over that are billed at the rate in the terms.`,
+          `Your plan includes ${s.callMinutes.toLocaleString("en-US")} call-minutes a month. Extra minutes are $${(s.overagePerMinute ?? 0).toFixed(2)} each.`,
         ]
       : []),
-    "A copy of the full terms will be emailed to you. Do you agree to them?",
+    "Disputes are handled individually through arbitration, not in court, and the terms limit our liability.",
+    "By saying yes, you accept these terms and the full agreement we'll email you. Do you agree?",
   ];
 
   const version = `${TERMS_VERSION}-${opts.webOnly ? "web-only" : plan}-${period}`;

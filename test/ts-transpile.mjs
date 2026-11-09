@@ -55,7 +55,8 @@ export async function resolve(specifier, context, next) {
     if (bare) {
         // An explicit `.ts`/`.tsx` is honoured as written; everything else is extensionless,
         // the way TypeScript source is normally spelled.
-        const hit = EXTENSIONS.some((e) => bare.endsWith(e))
+        // `@/app/lib/x.mjs` too: routes import the pure `.mjs` rules through the alias.
+        const hit = EXTENSIONS.some((e) => bare.endsWith(e)) || bare.endsWith(".mjs")
             ? (existsSync(bare) ? bare : null)
             : firstExisting(bare);
         if (hit) return { url: pathToFileURL(hit).href, format: "module", shortCircuit: true };

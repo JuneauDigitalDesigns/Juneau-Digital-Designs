@@ -144,6 +144,40 @@ export async function releaseSlug(slug: string, orderId: string): Promise<void> 
     }
 }
 
+const LINK_LOCK_SECONDS = 30;
+const linkLockKey = (orderId: string) => `jdd:order-link-lock:${orderId}`;
+
+/**
+ * Only one request at a time may open a payment link for an order. "Does it already have a link?"
+ * and "create one" are two steps, so two requests at once (two console tabs, or React's dev
+ * double effect) both found none and opened two Checkout Sessions, one of them orphaned at
+ * Stripe: found in the 2026-11-08 test run.
+ */
+export async function acquireLinkLock(orderId: string): Promise<boolean> {
+    return (await getRedis().set(linkLockKey(orderId), Date.now(), { nx: true, ex: LINK_LOCK_SECONDS })) !== null;
+}
+
+export async function releaseLinkLock(orderId: string): Promise<void> {
+    await getRedis().del(linkLockKey(orderId));
+}
+
+const FULFIL_LOCK_SECONDS = 60;
+const fulfilLockKey = (orderId: string) => `jdd:order-fulfil-lock:${orderId}`;
+
+/**
+ * One fulfilment at a time per order. Stripe delivers webhooks concurrently, and each delivery
+ * read the order as not yet fulfilled and sent its own portal invitation: on 2026-11-08 two went
+ * out 38 ms apart, the client got one and the order recorded the other, so Resend invite would
+ * have revoked the wrong link.
+ */
+export async function acquireFulfilLock(orderId: string): Promise<boolean> {
+    return (await getRedis().set(fulfilLockKey(orderId), Date.now(), { nx: true, ex: FULFIL_LOCK_SECONDS })) !== null;
+}
+
+export async function releaseFulfilLock(orderId: string): Promise<void> {
+    await getRedis().del(fulfilLockKey(orderId));
+}
+
 export async function savePayCode(code: string, orderId: string, expiresAt: number): Promise<void> {
     const ttl = Math.max(60, Math.floor((expiresAt - Date.now()) / 1000));
     await getRedis().set(payCodeKey(code), orderId, { ex: ttl });

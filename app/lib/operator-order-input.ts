@@ -11,6 +11,7 @@ import {
 import { normalizeE164 } from "./phone";
 import { planLimits } from "./plan-limits";
 import { TERMS_VERSION, getSchedule } from "./legal";
+import { nextPaymentAt } from "./moto-charge.mjs";
 import { scriptForOrder, termsHashForOrder } from "./verbal-agreement";
 
 /**
@@ -155,6 +156,12 @@ export function termsView(order: OperatorOrder, kind: "master" | "addendum") {
     return {
         script,
         termsHash: termsHashForOrder(order, kind),
-        totals: { today: recurring + schedule.onboardingFee, recurring, period: order.period },
+        totals: {
+            today: recurring + schedule.onboardingFee,
+            recurring,
+            period: order.period,
+            // What the payment screens say renews when: a month or a year on, the same day.
+            nextPaymentAt: nextPaymentAt(Date.now(), order.period),
+        },
     };
 }

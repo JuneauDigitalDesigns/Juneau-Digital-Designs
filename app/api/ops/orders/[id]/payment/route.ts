@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { authorizeOps } from "@/app/lib/ops-auth";
-import { getOrder, saveOrder, transitionOrder } from "@/app/lib/operator-orders";
+import { acquireLinkLock, getOrder, releaseLinkLock, saveOrder, transitionOrder } from "@/app/lib/operator-orders";
+import { checkoutRefusal } from "@/app/lib/order-link.mjs";
 import { OrderCheckoutError, openOrderCheckout, shortPayUrl } from "@/app/lib/order-checkout";
 import { MotoError, cardEntryOptions, motoChargeInFlight, startMotoPayment } from "@/app/lib/moto-payment";
+
+import type { OperatorOrder } from "@jdd/schema";
 
 export const runtime = "nodejs";
 
@@ -33,8 +36,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }
     const method = body.method ?? "link";
     if (method === "dashboard-moto") {
+        // The same one-at-a-time as a link: each request would otherwise find no Customer on the
+        // account and create its own, leaving the order on one and the account on the other.
+        const held = await acquireLinkLock(id);
+        if (!held && !(await waitForCardEntry(id))) {
+            return NextResponse.json({ error: "Card entry is already being set up. Try again in a moment.", code: "link-in-progress" }, { status: 409 });
+        }
         try {
-            const { order: saved, dashboardUrl } = await startMotoPayment(order);
+            const { order: saved, dashboardUrl } = await startMotoPayment((await getOrder(id)) ?? order);
             // The Dashboard page stays the fallback: it is returned even when the wizard can take
             // the card in its own field.
             return NextResponse.json({ ok: true, order: saved, dashboardUrl, cardEntry: await cardEntryOptions() });
@@ -42,11 +51,57 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
             if (e instanceof MotoError) return NextResponse.json({ error: e.message, code: e.code, order }, { status: e.status });
             console.error("[ops/orders] card entry failed", id, e);
             return NextResponse.json({ error: "Could not set up card entry." }, { status: 500 });
+        } finally {
+            if (held) await releaseLinkLock(id).catch(() => {});
         }
     }
     if (method !== "link") return NextResponse.json({ error: "Unknown payment method." }, { status: 400 });
 
     // Idempotent: a second click while the link is live returns the same link, not a second session.
+    if (order.status === "awaiting-payment" && order.payment?.method === "link" && order.payment.shortCode) {
+        return NextResponse.json(linkResponse(order));
+    }
+    // One request opens the link. A second one arriving meanwhile gets that same link back.
+    if (!(await acquireLinkLock(id))) {
+        const made = await waitForLink(id);
+        return made
+            ? NextResponse.json(linkResponse(made))
+            : NextResponse.json({ error: "A payment link is already being created. Try again in a moment.", code: "link-in-progress" }, { status: 409 });
+    }
+    try {
+        return await openLink(id, order);
+    } finally {
+        await releaseLinkLock(id).catch(() => {});
+    }
+}
+
+const LINK_WAIT_MS = 8_000;
+
+/** Whether another request finished setting up card entry. */
+async function waitForCardEntry(id: string) {
+    const deadline = Date.now() + LINK_WAIT_MS;
+    while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 200));
+        const o = await getOrder(id);
+        if (o?.status === "awaiting-payment" && o.payment?.method === "dashboard-moto") return true;
+    }
+    return false;
+}
+
+/** The link another request is creating, once it exists. */
+async function waitForLink(id: string) {
+    const deadline = Date.now() + LINK_WAIT_MS;
+    while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 200));
+        const o = await getOrder(id);
+        if (o?.status === "awaiting-payment" && o.payment?.method === "link" && o.payment.shortCode) return o;
+    }
+    return null;
+}
+
+async function openLink(id: string, before: OperatorOrder) {
+    // Read again now the lock is held: the request before this one may have just finished.
+    const order = (await getOrder(id)) ?? before;
     if (order.status === "awaiting-payment" && order.payment?.method === "link" && order.payment.shortCode) {
         return NextResponse.json(linkResponse(order));
     }
@@ -83,6 +138,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
             return NextResponse.json({ error: e.message, code: e.code }, { status: 400 });
         }
         console.error("[ops/orders] payment link failed", id, e);
+        const refusal = checkoutRefusal(e as { type?: string; param?: string; message?: string });
+        if (refusal) return NextResponse.json({ error: refusal.message, code: refusal.code }, { status: 502 });
         return NextResponse.json({ error: "Could not open a payment link." }, { status: 500 });
     }
 }

@@ -4,7 +4,7 @@ import { stripe } from "./stripe";
 import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement, persistAgreement } from "./kv";
 import { getPurchaseIntent, markIntentConsumed } from "./purchase-intent";
 import { createPendingSite, getAccount, saveAccount } from "./account-store";
-import { getOrder, transitionOrder } from "./operator-orders";
+import { acquireFulfilLock, getOrder, releaseFulfilLock, transitionOrder } from "./operator-orders";
 import { invitePortalUser } from "./portal-invite";
 import { sendWelcomeEmail } from "./welcome-email";
 import { doubleOptInEnabled, promotePendingConsent } from "./sms-consent";
@@ -276,6 +276,26 @@ export interface OperatorPayment {
  * of them on `payment.ref` and on the order's own status.
  */
 export async function fulfilOperatorPayment(orderId: string, payment: OperatorPayment): Promise<FulfilledSession | null> {
+  // One winner. A caller that arrives while another is running waits, then finds the order
+  // fulfilled and changes nothing, so it can't send a second invitation.
+  const deadline = Date.now() + FULFIL_WAIT_MS;
+  while (!(await acquireFulfilLock(orderId))) {
+    if (Date.now() > deadline) {
+      console.error("[fulfillment] gave up waiting for another fulfilment", orderId, payment.ref);
+      return null;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  try {
+    return await fulfilHoldingLock(orderId, payment);
+  } finally {
+    await releaseFulfilLock(orderId).catch(() => {});
+  }
+}
+
+const FULFIL_WAIT_MS = 15_000;
+
+async function fulfilHoldingLock(orderId: string, payment: OperatorPayment): Promise<FulfilledSession | null> {
   const order = await getOrder(orderId);
   if (!order) {
     console.error("[fulfillment] operator order not found", orderId, payment.ref);
