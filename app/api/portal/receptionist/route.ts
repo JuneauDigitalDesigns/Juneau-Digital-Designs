@@ -68,7 +68,7 @@ export async function POST(request: Request) {
     // Saved before persisting: `saveAgreement` sets the TTL again.
     const settled = { ...agreement, pendingReceptionist: false };
     await saveAgreement(settled);
-    await persistAgreement(agreementId).catch((e) =>
+    await persistAgreement(agreementId, account.email).catch((e) =>
         console.error("[portal/receptionist] could not persist agreement", agreementId, e),
     );
 

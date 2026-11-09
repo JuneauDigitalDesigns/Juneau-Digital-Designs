@@ -97,7 +97,7 @@ export async function sendClientCompleteNotification(
           "Signed PDF",
           data.agreementPdf
             ? "Attached (with audit trail)"
-            : `<a href="${data.agreement.pdfUrl}" style="color:${EMAIL.accent};text-decoration:underline;">View signed PDF</a>`,
+            : "Could not be attached. It is in the private store under the Agreement ID above.",
         ),
       ].join("")
     : row("Status", "Agreement record unavailable.");

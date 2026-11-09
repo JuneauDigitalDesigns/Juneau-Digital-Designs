@@ -1,5 +1,6 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
+import { normalizeEmail } from "@jdd/schema";
 import type { AgreementRecord } from "./agreement-types";
 
 let _redis: Redis | null = null;
@@ -19,6 +20,7 @@ function getRedis(): Redis {
 
 const AGREEMENT_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const key = (id: string) => `agreement:${id}`;
+const accountIndexKey = (email: string) => `agreements:account:${normalizeEmail(email)}`;
 
 export async function saveAgreement(record: AgreementRecord): Promise<void> {
   await getRedis().set(key(record.id), record, { ex: AGREEMENT_TTL_SECONDS });
@@ -39,8 +41,14 @@ export async function getAgreement(id: string): Promise<AgreementRecord | null> 
  * A signature alone does not qualify. Payment is the event that turns a draft into a record
  * worth keeping, which is why this is called from the webhook rather than the signing route.
  */
-export async function persistAgreement(id: string): Promise<void> {
+export async function persistAgreement(id: string, accountEmail: string): Promise<void> {
   await getRedis().persist(key(id));
+  await getRedis().sadd(accountIndexKey(accountEmail), id);
+}
+
+/** Every agreement paid for on this account, so the portal can list and serve them. */
+export async function listAccountAgreementIds(accountEmail: string): Promise<string[]> {
+  return getRedis().smembers(accountIndexKey(accountEmail));
 }
 
 /**
