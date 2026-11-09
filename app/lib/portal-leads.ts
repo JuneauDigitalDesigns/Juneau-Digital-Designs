@@ -222,6 +222,36 @@ export async function markLeadRead(
     return next;
 }
 
+const MAX_MESSAGE_CHARS = 2000;
+
+/**
+ * Add a visitor's follow-up to their lead, after an AI callback that couldn't be placed.
+ *
+ * Updates the lead rather than recording another, so the owner has one enquiry and one text. It
+ * goes back to unread, or a message arriving after the owner opened the lead would go unseen.
+ * Capped in total, so repeating the request can't grow a record without limit.
+ */
+export async function appendLeadMessage(
+    acctScope: string,
+    slug: string,
+    leadId: string,
+    message: string,
+): Promise<WebLead | null> {
+    const existing = await getLead(acctScope, slug, leadId);
+    if (!existing) return null;
+
+    const next: WebLead = {
+        ...existing,
+        message: [existing.message, message.trim()]
+            .filter(Boolean)
+            .join("\n\n")
+            .slice(0, MAX_MESSAGE_CHARS),
+        readAt: null,
+    };
+    await getRedis().set(leadKey(acctScope, slug, leadId), next, { ex: LEAD_TTL });
+    return next;
+}
+
 /**
  * Delete one lead, for good.
  *
