@@ -144,7 +144,7 @@ const GROWTH_SYSTEM: { Icon: Icon; title: string; line: string; gated: boolean }
     { Icon: ChatCircleText, title: "Customer texts", line: "Text customers back from your business number, right in your portal.", gated: true },
     { Icon: Star, title: "Google reviews", line: "Ask for a Google review in one tap when the job is done.", gated: true },
 ];
-const GROWTH_ALSO = "AI lead qualification, searchable call transcripts, and urgency and caller names pulled from every call.";
+const GROWTH_ALSO = "AI lead qualification, a searchable call log with recordings, and urgency and caller names pulled from every call.";
 const LIVE_FAQ_ID = "how-fast-live";
 
 /** The minutes footnote, appended last so it reads as a line item rather than a selling point. */

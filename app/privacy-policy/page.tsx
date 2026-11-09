@@ -39,7 +39,7 @@ export default function PrivacyPolicyPage() {
                     Privacy Policy
                 </h1>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)", marginBottom: 40 }}>
-                    Effective date: August 13, 2026
+                    Effective date: November 9, 2026
                 </p>
 
                 {[
@@ -142,6 +142,17 @@ export default function PrivacyPolicyPage() {
                                         messaging. Provides the phone number your customers call, and delivers call summary texts to your
                                         mobile number if you opted in. Twilio processes your mobile number solely to deliver those messages
                                         on our behalf.
+                                    </li>
+                                    <li>
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Retell AI.</span> Voice AI. When our AI
+                                        receptionist handles a call for a client&apos;s business, Retell records and transcribes the call and
+                                        generates its summary. The caller is told at the start of the call that it is recorded. OpenAI and
+                                        Anthropic provide the language models that process the conversation.
+                                    </li>
+                                    <li>
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Airtable.</span> Call log storage. The
+                                        caller&apos;s name and number, the call summary, and a link to the recording are stored in Airtable to
+                                        populate the client portal.
                                     </li>
                                     <li>
                                         <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Blob.</span> File storage. Signed

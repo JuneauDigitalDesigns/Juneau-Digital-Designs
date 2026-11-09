@@ -2,6 +2,15 @@ import { ref, type PlanSchedule, type SectionDef } from "./types";
 import { ANNUAL } from "./schedules";
 
 /**
+ * v5.3 → v5.4 on 2026-11-09 (Xander approved the wording word for word). Florida is an all-party
+ * consent state; v5.3 said the opposite, and rested on the AI agent being the "consenting party".
+ * The recording clauses now describe what the product does: every agent states that the call is
+ * recorded as its first line (jdd-ops lib/voice-consent.js), a call Client answers is not
+ * recorded by us, and the portal plays recordings. Client consents as the party, the indemnity
+ * covers what Client controls, and the Growth "full call transcripts" line is gone because no
+ * transcript is stored or shown on our side. No clients signed v5.3 or v5.2, so the bump costs
+ * only version tracking.
+ *
  * v5.2 → v5.3 on 2026-11-04 (Xander approved). An annual-coverage sweep: every clause an annual
  * client would hit now reads correctly for both periods — fees due, allowances resetting
  * monthly, overage invoiced monthly, price changes at renewal, plan changes (upgrade now and
@@ -31,7 +40,7 @@ import { ANNUAL } from "./schedules";
  * so stored agreements stay identifiable. Nothing had been signed when this shipped, so there
  * is no migration and no re-papering.
  */
-export const TERMS_VERSION = "v5.3";
+export const TERMS_VERSION = "v5.4";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -586,7 +595,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                 ...(s.hasVoiceAgent
                   ? [
                       "Twilio - telephony, phone number provisioning, and SIP routing",
-                      "Retell AI - voice AI agent, call transcription, and call summary generation",
+                      "Retell AI - voice AI agent, call recording, call transcription, and call summary generation",
                       "OpenAI and Anthropic - the underlying large language models powering the voice agents",
                     ]
                   : []),
@@ -838,26 +847,35 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           ],
         },
         {
-          heading: "Call Recording and Two-Party Consent Disclosure",
+          heading: "Call Recording and Consent",
           blocks: [
             {
               kind: "para",
-              text: "Calls handled by an AI voice agent are recorded and transcribed by Provider's telephony and AI subcontractors for service delivery, quality assurance, and generation of Client's call log.",
+              text: "Each call handled by an AI voice agent is recorded and transcribed by Provider's voice AI Subcontractor for service delivery, quality assurance, and generation of Client's call log, call summaries, and lead records.",
             },
             {
               kind: "para",
-              text: "Recording consent laws vary by state. The United States operates under two general frameworks:",
-            },
-            {
-              kind: "bullets",
-              items: [
-                "One-party consent: only one party to the call must consent to recording. Florida operates under one-party consent for telephone communications under Fla. Stat. Section 934.03. In one-party jurisdictions, the AI agent, operating on Client's behalf, serves as the consenting party.",
-                "Two-party (all-party) consent: all parties to the call must consent. States including but not limited to California, Illinois, Maryland, Massachusetts, Michigan, Montana, New Hampshire, Pennsylvania, and Washington require all-party consent.",
-              ],
+              text: "Recording consent laws vary by state. Some states, including Florida (Fla. Stat. Section 934.03) and California, require the consent of all parties to a telephone call before it may be recorded. Other states require the consent of only one party. A call between people in different states may be subject to the stricter rule.",
             },
             {
               kind: "para",
-              text: "If Client operates in or serves customers in two-party consent jurisdictions, Client must inform Provider during onboarding so that the AI voice agent's greeting can be configured to include appropriate recording disclosure language. Provider relies on Client's representations about jurisdictional requirements and assumes no independent obligation to monitor changes in recording-consent law.",
+              text: "Provider configures each AI voice agent to state that the call is recorded as the first thing it says on every call it handles, whether or not the law of any state requires it, and wherever Client or the caller is located. No request from Client is needed, and Provider will not remove this disclosure at Client's request. A caller who does not wish to be recorded may end the call.",
+            },
+            {
+              kind: "para",
+              text: "Client is the party on whose behalf each AI voice agent handles calls. Client consents to the recording and transcription of those calls and authorizes Provider and its Subcontractors to perform them.",
+            },
+            {
+              kind: "para",
+              text: "Provider does not record or transcribe a call that Client answers on Client's own line, and no recording disclosure is played on that call. If Client records any call by its own means, including a call Client answers or returns, Client alone is responsible for obtaining any consent the law requires.",
+            },
+            {
+              kind: "para",
+              text: "Provider's responsibility for the recording disclosure is to configure it as described in this Section. Provider does not warrant that the disclosure by itself establishes consent under the law of any particular jurisdiction, or that every caller will hear it, for example where a caller speaks over it or a call fails.",
+            },
+            {
+              kind: "para",
+              text: "Client must tell Provider in writing of any recording consent requirement that Client knows applies to its business and goes beyond the disclosure described above, including any requirement arising from Client's industry or professional rules. Provider relies on what Client tells it about Client's business and has no obligation to monitor changes in recording consent law or to determine which laws apply to Client or its callers.",
             },
           ],
         },
@@ -866,7 +884,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: "Some jurisdictions require businesses to disclose to callers that they are speaking with an AI rather than a human. Client is responsible for informing Provider during onboarding whether such disclosure is required in the jurisdictions where Client's business and customers are located. Upon written request, Provider will configure the AI voice agent's greeting to include appropriate disclosure language.",
+              text: "Each AI voice agent is configured to tell a caller that it is a virtual assistant if the caller asks. Unless configured otherwise under this Section, it introduces itself by a first name and does not state that it is an AI without being asked. Some jurisdictions require businesses to tell callers that they are speaking with an AI rather than a human, in some cases without waiting to be asked. Client must tell Provider in writing, during onboarding and promptly on learning of any later change, whether such a disclosure is required in the jurisdictions where Client's business and customers are located. Upon written request, Provider will configure the AI voice agent to state near the start of each call that it is an AI. Provider has no obligation to monitor changes in AI disclosure law or to determine which laws apply to Client or its callers.",
             },
           ],
         },
@@ -879,7 +897,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             },
             {
               kind: "para",
-              text: "Full call audio recordings and verbatim transcripts are generated and held by Provider's telephony and AI subcontractors under those subcontractors' own retention policies, which Provider does not control and which are subject to change by those providers. Full recordings and verbatim transcripts are not surfaced in the client portal.",
+              text: "Call audio recordings and verbatim transcripts are generated and held by Provider's voice AI Subcontractor under that Subcontractor's own retention policies, which Provider does not control and which are subject to change by that Subcontractor. Client can play a call's audio recording from the client portal for as long as the Subcontractor continues to hold it. Verbatim transcripts are not surfaced in the client portal. Client is responsible for its own use and disclosure of any recording.",
             },
             {
               kind: "para",
@@ -1212,7 +1230,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                 `Wrongfully initiated chargebacks (Section ${ref("fees")})`,
                 `Repeat copyright infringement (Section ${ref("copyright")})`,
                 ...(s.hasVoiceAgent
-                  ? [`Material misrepresentation of jurisdictional disclosure or recording consent requirements (Section ${ref("agents")}) resulting in legal exposure to Provider`]
+                  ? [`Causing the recording disclosure described in Section ${ref("agents")} to be removed or disabled, or materially misrepresenting the information Client must give Provider under that Section, in either case resulting in legal exposure to Provider`]
                   : []),
                 ...(s.slug === "enterprise"
                   // Still a real breach, and arguably a more important one now that swaps carry
@@ -1437,7 +1455,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                 "Notify Provider promptly of any changes to business name, address, phone number, services, hours, or pricing",
                 ...(s.hasVoiceAgent
                   ? [
-                      "Notify Provider of any state-specific AI disclosure or recording consent requirements",
+                      `Notify Provider in writing of any AI disclosure or recording consent requirement Client knows applies to its business, as described in Section ${ref("agents")}`,
                       "Not bypass or modify any AI voice agent configuration without Provider's knowledge",
                       "Promptly report any concerns about AI voice agent behavior or call outcomes",
                     ]
@@ -1479,7 +1497,9 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
                 ...(s.hasVoiceAgent
                   ? [
                       "Inaccurate, incomplete, or unauthorized information Client provides for use by any AI voice agent",
-                      "Client's failure to inform Provider of jurisdictional disclosure or recording consent requirements",
+                      `Client's failure to inform Provider of AI disclosure or recording consent requirements as required by Section ${ref("agents")}`,
+                      `Any recording of a call made by Client or on Client's behalf, other than the recording by an AI voice agent described in Section ${ref("agents")}, and Client's use or disclosure of any call recording, transcript, or summary`,
+                      `Any claim that a call handled by an AI voice agent was recorded without a required consent, except to the extent the claim results from Provider's failure to configure the recording disclosure as described in Section ${ref("agents")}`,
                     ]
                   : []),
                 `Website accessibility claims as described in Section ${ref("accessibility")}`,

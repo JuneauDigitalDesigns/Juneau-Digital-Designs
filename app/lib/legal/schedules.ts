@@ -137,7 +137,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       "AI outbound callbacks to website form submissions, typically within sixty (60) seconds",
       "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, job value, and tags",
       "AI lead qualification, including answers to common questions drawn from the Client's intake",
-      "Searchable call log with full call transcripts",
+      "Searchable call log with call summaries and call recordings",
       "Urgency and caller-name extraction on every call",
       "Client portal access for website health and the searchable call log",
       "Support response within one (1) business day",
