@@ -61,6 +61,7 @@ export async function recordVerbalAcceptance(
         callRef: string;
         scriptHash: string;
         termsHash: string;
+        recordingConsentAt: string;
     },
 ): Promise<{ record: AgreementRecord; pdfBytes: Uint8Array }> {
     const script = scriptForOrder(order, input.kind);
@@ -78,6 +79,7 @@ export async function recordVerbalAcceptance(
         scriptVersion: script.version,
         scriptHash: script.hash,
         confirmedAt: now,
+        recordingConsentAt: input.recordingConsentAt,
     };
     // No browser, so no page timings. Both are the moment of acceptance, which is the honest
     // value: there was no page, and nothing was scrolled.

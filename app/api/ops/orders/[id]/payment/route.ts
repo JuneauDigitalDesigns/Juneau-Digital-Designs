@@ -5,6 +5,8 @@ import { checkoutRefusal } from "@/app/lib/order-link.mjs";
 import { OrderCheckoutError, openOrderCheckout, shortPayUrl } from "@/app/lib/order-checkout";
 import { MotoError, cardEntryOptions, motoChargeInFlight, startMotoPayment } from "@/app/lib/moto-payment";
 
+import { orderRecordingRunning } from "@/app/lib/order-recording";
+
 import type { OperatorOrder } from "@jdd/schema";
 
 export const runtime = "nodejs";
@@ -27,6 +29,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     const { id } = await ctx.params;
     const order = await getOrder(id);
     if (!order) return NextResponse.json({ error: "No such order." }, { status: 404 });
+    // Card details must never be on a recording.
+    if (await orderRecordingRunning(order)) {
+        return NextResponse.json({ error: "Recording stopped is not confirmed.", code: "recording-running", order }, { status: 409 });
+    }
 
     let body: { method?: string } = {};
     try {
