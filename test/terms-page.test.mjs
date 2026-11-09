@@ -52,3 +52,10 @@ test("/terms shows the version and hash the checkout records, from the same sour
   assert.match(page, /data-terms-version=\{version\}/);
   assert.match(page, /data-terms-hash=\{hash\}/);
 });
+
+test("website checkout asks for the terms tick above Subscribe, as the operator payment link does", () => {
+    // Found in Xander's self-serve test, 2026-11-09: the link had it and website checkout did not.
+    for (const file of ["app/api/checkout/route.ts", "app/lib/order-checkout.ts"]) {
+        assert.match(readFileSync(root(file), "utf8"), /consent_collection: \{ terms_of_service: "required" \}/, file);
+    }
+});
