@@ -15,3 +15,14 @@ export function payLinkTarget(order, code) {
 }
 
 export const PAY_CODE = /^[A-Z0-9]{6}$/;
+
+/**
+ * Whether a Checkout Session has settled. A promo code that takes the first invoice to zero
+ * completes with `no_payment_required`, which every `=== "paid"` check read as not paid: the
+ * client would have finished checkout and never been fulfilled.
+ *
+ * @param {{ status?: string | null, payment_status?: string | null }} session
+ */
+export function sessionSettled(session) {
+  return session.payment_status === "paid" || (session.payment_status === "no_payment_required" && session.status === "complete");
+}

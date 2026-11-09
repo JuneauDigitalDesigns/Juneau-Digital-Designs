@@ -3,6 +3,7 @@ import { authorizeOps } from "@/app/lib/ops-auth";
 import { getOrder } from "@/app/lib/operator-orders";
 import { termsView } from "@/app/lib/operator-order-input";
 import { stripe } from "@/app/lib/stripe";
+import { sessionSettled } from "@/app/lib/pay-link.mjs";
 import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
 import { orderAgreementSummary } from "@/app/lib/order-agreement-summary";
 
@@ -33,7 +34,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     if (order.status === "awaiting-payment" && sessionId && Date.now() - lastTouched > RECONCILE_AFTER_MS) {
         try {
             const session = await stripe.checkout.sessions.retrieve(sessionId);
-            if (session.payment_status === "paid") {
+            if (sessionSettled(session)) {
                 await provisionPaidSession(session);
                 order = (await getOrder(id)) ?? order;
             }

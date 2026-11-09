@@ -82,6 +82,8 @@ export async function openOrderCheckout(order: OperatorOrder): Promise<{
         cancel_url: `${SITE_URL}/checkout/thanks?cancelled=1`,
         metadata,
         subscription_data: { metadata },
+        // The promo box, as on the website's checkout. Coupons are created in Stripe.
+        allow_promotion_codes: true,
         consent_collection: { terms_of_service: "required" },
         payment_method_options: { card: { request_three_d_secure: "any" } },
         expires_at: expiresAtSeconds,

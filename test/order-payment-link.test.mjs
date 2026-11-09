@@ -39,6 +39,7 @@ Object.assign(process.env, {
 const { createAccount } = await import("@jdd/schema");
 const payment = await import("../app/api/ops/orders/[id]/payment/route.ts");
 const resend = await import("../app/api/ops/orders/[id]/resend-link/route.ts");
+const { handleOrderSessionExpired } = await import("../app/lib/order-link-expiry.ts");
 
 const kv = new Map();
 const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
@@ -66,6 +67,7 @@ function upstash([op, ...args]) {
 }
 
 let sessionsCreated = 0;
+let lastSessionBody = null;
 let customersCreated = 0;
 let onCreate;
 const sessionsExpired = [];
@@ -76,6 +78,7 @@ async function stripeFetch(url, init) {
         new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "request-id": "req_test" } });
     if (u.pathname === "/v1/checkout/sessions" && init.method === "POST") {
         sessionsCreated += 1;
+        lastSessionBody = new URLSearchParams(String(init.body ?? ""));
         const { status, body } = await onCreate(sessionsCreated);
         return json(status, body);
     }
@@ -211,6 +214,11 @@ test("two requests at once make one Stripe customer, on the link path and the ca
     assert.equal(saved().payment.stripeCustomerId, JSON.parse(kv.get("jdd:account:arthur@arthursplumbing.com")).stripeCustomerId);
 });
 
+test("the payment link offers the promo code box", async () => {
+    await call(payment);
+    assert.equal(lastSessionBody.get("allow_promotion_codes"), "true");
+});
+
 test("a failed attempt doesn't block the next one", async () => {
     onCreate = async () => ({ status: 500, body: { error: { type: "api_error", message: "boom" } } });
     assert.notEqual((await call(payment)).status, 200);
@@ -242,6 +250,44 @@ test("any other refusal passes on Stripe's reason; a non-Stripe failure doesn't 
         message: "Stripe refused the payment link: No such price",
     });
     assert.equal(checkoutRefusal(new Error("kv down")), null);
+});
+
+test("the expiry webhook can't overwrite the link New link is making", async () => {
+    await call(payment);
+    let release;
+    const held = new Promise((r) => (release = r));
+    onCreate = async (n) => {
+        await held; // Stripe has expired the old session; the new one is still being created
+        return session(n);
+    };
+    const resending = call(resend, {});
+    while (sessionsExpired.length === 0) await new Promise((r) => setTimeout(r, 5));
+    let webhookFinished = false;
+    const webhook = handleOrderSessionExpired("ord_link", "cs_test_1").then((v) => ((webhookFinished = true), v));
+    await new Promise((r) => setTimeout(r, 300));
+    // The webhook has to wait. Reading the old session here and writing after New link saves is
+    // exactly what made the new link dead.
+    assert.equal(webhookFinished, false, "the webhook must wait for New link to finish");
+    release();
+    assert.equal((await resending).status, 200);
+    assert.equal(await webhook, "ok");
+    const after = saved();
+    assert.equal(after.status, "awaiting-payment", "the replacement link stays live");
+    assert.equal(after.payment.checkoutSessionId, "cs_test_2");
+    assert.equal(kv.has(`jdd:pay:${after.payment.shortCode}`), true);
+});
+
+test("the current session expiring still expires the order", async () => {
+    await call(payment);
+    assert.equal(await handleOrderSessionExpired("ord_link", "cs_test_1"), "ok");
+    assert.equal(saved().status, "expired");
+});
+
+test("New link closes an old session that is still open, even on an order marked expired", async () => {
+    await call(payment);
+    seed({ ...saved(), status: "expired" });
+    assert.equal((await call(resend, {})).status, 200);
+    assert.deepEqual(sessionsExpired, ["cs_test_1"]);
 });
 
 test("New link replaces a live link: the old session is closed and the order keeps awaiting payment", async () => {

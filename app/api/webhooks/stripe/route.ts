@@ -8,7 +8,8 @@ import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/ca
 import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement } from "@/app/lib/kv";
 import { masterRefFor } from "@/app/lib/held-agreement";
 import { sendWelcomeEmail } from "@/app/lib/welcome-email";
-import { deletePayCode, getOrder, transitionOrder } from "@/app/lib/operator-orders";
+import { getOrder } from "@/app/lib/operator-orders";
+import { handleOrderSessionExpired } from "@/app/lib/order-link-expiry";
 import { planOfSubscription } from "@/app/lib/plan-billing";
 import { getPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { dropBillingCache } from "@/app/lib/portal-kv";
@@ -45,10 +46,8 @@ export async function POST(req: Request) {
     const orderId = session.metadata?.order_id;
     if (orderId) {
       try {
-        const order = await getOrder(orderId);
-        if (order?.status === "awaiting-payment" && order.payment?.checkoutSessionId === session.id) {
-          if (order.payment.shortCode) await deletePayCode(order.payment.shortCode);
-          await transitionOrder(order, "expired", { kind: "expired", text: "Payment link expired" });
+        if ((await handleOrderSessionExpired(orderId, session.id)) === "retry") {
+          return NextResponse.json({ error: "order busy" }, { status: 500 });
         }
       } catch (e) {
         console.error("[stripe webhook] could not expire order", orderId, session.id, e);

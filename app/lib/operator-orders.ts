@@ -161,6 +161,16 @@ export async function releaseLinkLock(orderId: string): Promise<void> {
     await getRedis().del(linkLockKey(orderId));
 }
 
+/** The link lock, waiting for a request that holds it to finish. False if it stays busy. */
+export async function waitForLinkLock(orderId: string, waitMs = 12_000): Promise<boolean> {
+    const deadline = Date.now() + waitMs;
+    while (!(await acquireLinkLock(orderId))) {
+        if (Date.now() > deadline) return false;
+        await new Promise((r) => setTimeout(r, 200));
+    }
+    return true;
+}
+
 const FULFIL_LOCK_SECONDS = 60;
 const fulfilLockKey = (orderId: string) => `jdd:order-fulfil-lock:${orderId}`;
 

@@ -537,6 +537,7 @@ export default function AgreementClient({
                                 value={form.signerEmail}
                                 onChange={(v) => update("signerEmail", v)}
                                 required
+                                hint="The agreement copy is sent here."
                             />
                             {isEnterprise && (
                                 <div
