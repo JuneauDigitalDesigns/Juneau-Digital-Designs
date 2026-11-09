@@ -1,6 +1,7 @@
 import "server-only";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import type { Ratelimit } from "@upstash/ratelimit";
 import { resolveSite, type PortalAccount, type PortalSite } from "@jdd/schema";
 import { getAccount, getCachedAccountByUserId } from "./account-store";
 import { getPortalRatelimit } from "./portal-kv";
@@ -53,14 +54,16 @@ export type PortalRequestContext =
  * picks the site from `?site=` (falling back to the primary). Never trusts the request
  * for anything but the site slug, which is validated against the account's own sites.
  */
-export async function resolvePortalRequest(request: Request): Promise<PortalRequestContext> {
+export async function resolvePortalRequest(
+    request: Request,
+    limiter: Pick<Ratelimit, "limit"> = getPortalRatelimit(),
+): Promise<PortalRequestContext> {
     const { userId } = await auth();
     if (!userId) {
         return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
     }
 
-    const rl = getPortalRatelimit();
-    const { success } = await rl.limit(userId);
+    const { success } = await limiter.limit(userId);
     if (!success) {
         return { ok: false, response: NextResponse.json({ error: "Too many requests" }, { status: 429 }) };
     }

@@ -68,6 +68,10 @@ export interface CallRecord {
     site: string | null;
     email: string | null;
     address: string | null;
+    /**
+     * Where the portal plays this call: `recordingRoute`, never the vendor's link. Null when
+     * the row has no recording. See `call-recording.ts`.
+     */
     recordingUrl: string | null;
     priority: string | null;
     /** The caller's spoken answer: granted, declined or unknown. See `spoken-consent.ts`. */
@@ -232,6 +236,48 @@ async function assertSingleAccountBase(baseId: string, acctScope: string): Promi
     if (!seen) await setCached(key, 86_400, acctScope);
 }
 
+/** The signed-in route that plays one call's recording. */
+export function recordingRoute(recordId: string, siteSlug: string): string {
+    return `/api/portal/calls/${recordId}/recording?site=${encodeURIComponent(siteSlug)}`;
+}
+
+/** What playing a recording needs from one Call Log row, including the vendor's stored link. */
+export interface CallRow {
+    date: string | null;
+    callerNumber: string | null;
+    site: string | null;
+    storedRecordingUrl: string | null;
+}
+
+/**
+ * One row, read from THIS base by id. Null for anything but a 200.
+ *
+ * The base comes from the signed-in account, so this is the ownership check: a record id from
+ * another client's base cannot be read through this one. Airtable answers that with a 403
+ * (`INVALID_PERMISSIONS_OR_MODEL_NOT_FOUND`), not a 404, and the two are deliberately the same
+ * here.
+ */
+export async function fetchCallRow({
+    baseId,
+    apiKey,
+    recordId,
+}: {
+    baseId: string;
+    apiKey: string;
+    recordId: string;
+}): Promise<CallRow | null> {
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(TABLE)}/${recordId}`;
+    const res = await fetch(url, { headers: authHeaders(apiKey), cache: "no-store" });
+    if (!res.ok) return null;
+    const { fields } = (await res.json()) as AirtableRecord;
+    return {
+        date: str(fields["Date"]),
+        callerNumber: str(fields["Caller number"]),
+        site: str(fields["Site"]),
+        storedRecordingUrl: str(fields["Recording URL"]),
+    };
+}
+
 async function fetchCallsUncached({
     baseId,
     apiKey,
@@ -301,7 +347,9 @@ async function fetchCallsUncached({
         site: str(r.fields["Site"]),
         email: str(r.fields["Email"]),
         address: str(r.fields["Address"]),
-        recordingUrl: str(r.fields["Recording URL"]),
+        // The vendor's link stops here. It opens with no login (2026-11-09), so it must not reach
+        // a browser, the calls cache or a client JSON payload.
+        recordingUrl: str(r.fields["Recording URL"]) ? recordingRoute(r.id, siteSlug) : null,
         priority: str(r.fields["Priority"]),
         smsConsent: str(r.fields["SMS consent"]),
     }));

@@ -226,6 +226,19 @@ export async function setCachedPagespeed(slug: string, data: Record<string, unkn
     await getRedis().set(pagespeedKey(slug), data, { ex: PAGESPEED_TTL });
 }
 
+/**
+ * Playing a recording is many small Range requests, not one page load. A browser that fetches
+ * a long WAV in pieces would spend the 30-a-minute budget below mid-call, so playback has its
+ * own bucket.
+ */
+export function getRecordingRatelimit(): Ratelimit {
+    return new Ratelimit({
+        redis: getRedis(),
+        limiter: Ratelimit.fixedWindow(300, "60s"),
+        prefix: "portal:rl:recording",
+    });
+}
+
 // 30 requests per minute per user across all portal API routes
 export function getPortalRatelimit(): Ratelimit {
     return new Ratelimit({

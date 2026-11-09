@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "body": {
+    "id": "recRECORDEDFIXTUR",
+    "createdTime": "2026-11-08T19:45:15.000Z",
+    "fields": {
+      "Caller name": "scrubbed",
+      "Callback number": "+15005550006",
+      "Address": "scrubbed",
+      "Duration (seconds)": 115,
+      "Recording URL": "https://dxc03zgurdly9.cloudfront.net/SCRUBBED/recording.wav",
+      "Caller number": "+15005550006",
+      "Call type": "outbound",
+      "Date": "2026-11-08T19:43:17.424Z",
+      "Summary": "scrubbed",
+      "Priority": "emergency",
+      "SMS consent": "granted"
+    }
+  }
+}
