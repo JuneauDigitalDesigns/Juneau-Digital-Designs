@@ -104,7 +104,7 @@ test("the Enterprise agreement is emailed only once the move has gone through", 
   assert.match(agreement, /pendingConsolidation: true/);
   const route = read("app/api/portal/consolidate/route.ts");
   assert.match(route, /sendStoredAgreementEmail\(settled\)/);
-  assert.match(route, /persistAgreement\(agreementId\)/);
+  assert.match(route, /persistAgreement\(agreementId, account\.email\)/);
 });
 
 test("a move's Enterprise agreement is held: bound by who accepted it, recorded as master only on success", async () => {

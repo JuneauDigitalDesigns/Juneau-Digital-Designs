@@ -16,6 +16,8 @@ import { register } from "node:module";
 register("./server-only-hook.mjs", import.meta.url);
 register("./agreement-route-hook.mjs", import.meta.url);
 
+process.env.AGREEMENTS_BLOB_READ_WRITE_TOKEN = "private-store-token";
+
 const { POST } = await import("../app/api/agreement/route.ts");
 
 const ACCOUNT = { email: "marisol@riverapd.example", sites: [], createdAt: 0, updatedAt: 0 };
@@ -79,7 +81,7 @@ test("accepting twice for the same purchase files one agreement and sends one em
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
   assert.equal(second.agreement_id, first.agreement_id);
-  assert.equal(second.pdf_url, first.pdf_url);
+  assert.equal(second.agreement_id, first.agreement_id);
   assert.equal(state.savedAgreements.length, 1);
   assert.deepEqual(state.emailsTo, ["marisol@riverapd.example"]);
   assert.equal(count("generateSignedPdf"), 1);

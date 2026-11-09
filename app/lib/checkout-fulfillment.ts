@@ -174,7 +174,7 @@ export async function provisionPaidSession(
    * Best effort: the site fields copied above are what the app reads, so a failure here costs
    * the audit copy, not the client's access.
    */
-  await persistAgreement(agreementId).catch((e) =>
+  await persistAgreement(agreementId, email).catch((e) =>
     console.error("[fulfillment] could not persist agreement", agreementId, e),
   );
 
@@ -356,7 +356,7 @@ async function fulfilHoldingLock(orderId: string, payment: OperatorPayment): Pro
     }
   }
   if (order.agreementId) {
-    await persistAgreement(order.agreementId).catch((e) =>
+    await persistAgreement(order.agreementId, email).catch((e) =>
       console.error("[fulfillment] could not persist agreement", order.agreementId, e),
     );
   }

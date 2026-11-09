@@ -29,6 +29,7 @@ const STUBS = {
             if (${STATE}.failPut) { ${STATE}.failPut -= 1; throw new Error("blob down"); }
             return { url: "https://blob.test/" + pathname };
         };
+        export const get = async () => null;
     `,
     "@/app/lib/portal-account": `
         export const resolveAccountForUser = async (userId) => {

@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-import { put } from "@vercel/blob";
+import { storeAgreementPdf } from "@/app/lib/agreement-store";
 import { randomUUID } from "node:crypto";
 import { generateSignedPdf, hashSubmission, stripLastPage } from "@/app/lib/pdf-signer";
 import { auth } from "@clerk/nextjs/server";
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
   }
   if (prior) {
     console.log(`[/api/agreement] repeat acceptance, returning ${prior.id} (${account.email}, ${prior.plan})`);
-    return NextResponse.json({ agreement_id: prior.id, pdf_url: prior.pdfUrl });
+    return NextResponse.json({ agreement_id: prior.id });
   }
   // From here a failure gives the slot back, so the client's retry signs afresh rather than
   // being handed an agreement that was never saved.
@@ -162,12 +162,7 @@ export async function POST(req: Request) {
 
   let pdfUrl: string;
   try {
-    const filename = `agreements/${id}.pdf`;
-    const uploaded = await put(filename, Buffer.from(pdfBytes), {
-      access: "public",
-      contentType: "application/pdf",
-    });
-    pdfUrl = uploaded.url;
+    pdfUrl = await storeAgreementPdf(id, pdfBytes);
   } catch (e) {
     console.error("[/api/agreement] blob upload failed", e);
     await releaseSlot();
@@ -315,7 +310,7 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ agreement_id: id, pdf_url: pdfUrl });
+  return NextResponse.json({ agreement_id: id });
 }
 
 /**

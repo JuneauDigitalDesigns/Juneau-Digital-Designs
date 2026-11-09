@@ -1,6 +1,7 @@
 import "server-only";
 import { stripe } from "./stripe";
 import { getAgreement } from "./kv";
+import { readAgreementPdf } from "./agreement-store";
 import type { PaymentDetails } from "./notification-email";
 import type { AgreementRecord } from "./agreement-types";
 
@@ -58,18 +59,11 @@ export async function gatherClientContext(sessionId: string): Promise<{
         }
     }
 
-    if (agreement?.pdfUrl) {
+    if (agreement) {
         try {
-            const res = await fetch(agreement.pdfUrl);
-            if (res.ok) agreementPdf = Buffer.from(await res.arrayBuffer());
-            else
-                console.error(
-                    "[client-context] agreement PDF fetch returned",
-                    res.status,
-                    agreement.pdfUrl,
-                );
+            agreementPdf = Buffer.from(await readAgreementPdf(agreement.id));
         } catch (e) {
-            console.error("[client-context] agreement PDF fetch failed", agreement.pdfUrl, e);
+            console.error("[client-context] agreement PDF read failed", agreement.id, e);
         }
     }
 

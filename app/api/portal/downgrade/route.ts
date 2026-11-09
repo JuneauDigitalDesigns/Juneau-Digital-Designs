@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     // Saved before persisting: `saveAgreement` sets the TTL again, so the other order would undo it.
     const settled = { ...agreement, pendingDowngrade: false };
     await saveAgreement(settled);
-    await persistAgreement(agreementId).catch((e) =>
+    await persistAgreement(agreementId, account.email).catch((e) =>
         console.error("[portal/downgrade] could not persist agreement", agreementId, e),
     );
     after(async () => {
