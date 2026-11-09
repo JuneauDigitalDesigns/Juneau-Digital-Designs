@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authorizeOps } from "@/app/lib/ops-auth";
-import { deletePayCode, getOrder, transitionOrder } from "@/app/lib/operator-orders";
+import { acquireLinkLock, deletePayCode, getOrder, releaseLinkLock, transitionOrder } from "@/app/lib/operator-orders";
+import { checkoutRefusal } from "@/app/lib/order-link.mjs";
 import { OrderCheckoutError, openOrderCheckout, shortPayUrl } from "@/app/lib/order-checkout";
 import { stripe } from "@/app/lib/stripe";
 
@@ -17,6 +18,17 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (gate) return gate;
 
     const { id } = await ctx.params;
+    if (!(await acquireLinkLock(id))) {
+        return NextResponse.json({ error: "A payment link is already being created. Try again in a moment.", code: "link-in-progress" }, { status: 409 });
+    }
+    try {
+        return await resend(id);
+    } finally {
+        await releaseLinkLock(id).catch(() => {});
+    }
+}
+
+async function resend(id: string) {
     const order = await getOrder(id);
     if (!order) return NextResponse.json({ error: "No such order." }, { status: 404 });
     if (order.status !== "awaiting-payment" && order.status !== "expired") {
@@ -61,6 +73,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
             return NextResponse.json({ error: e.message, code: e.code }, { status: 400 });
         }
         console.error("[ops/orders] resend link failed", id, e);
+        const refusal = checkoutRefusal(e as { type?: string; param?: string; message?: string });
+        if (refusal) return NextResponse.json({ error: refusal.message, code: refusal.code }, { status: 502 });
         return NextResponse.json({ error: "Could not open a payment link." }, { status: 500 });
     }
 }

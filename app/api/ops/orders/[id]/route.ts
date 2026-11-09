@@ -4,6 +4,7 @@ import { getOrder } from "@/app/lib/operator-orders";
 import { termsView } from "@/app/lib/operator-order-input";
 import { stripe } from "@/app/lib/stripe";
 import { provisionPaidSession } from "@/app/lib/checkout-fulfillment";
+import { orderAgreementSummary } from "@/app/lib/order-agreement-summary";
 
 export const runtime = "nodejs";
 
@@ -46,5 +47,6 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
         ok: true,
         order,
         ...termsView(order, order.agreementKind ?? "master"),
+        agreement: await orderAgreementSummary(order),
     });
 }

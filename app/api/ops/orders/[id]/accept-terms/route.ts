@@ -6,6 +6,8 @@ import { accountFacts } from "@/app/lib/operator-order-input";
 import { recordVerbalAcceptance, TermsChangedError } from "@/app/lib/verbal-agreement";
 import { stripLastPage } from "@/app/lib/pdf-signer";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
+import { withTermsLock } from "@/app/lib/agreement-link";
+import { orderAgreementSummary } from "@/app/lib/order-agreement-summary";
 import { formatUsPhone, normalizeE164 } from "@/app/lib/phone";
 
 export const runtime = "nodejs";
@@ -25,6 +27,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     if (gate) return gate;
 
     const { id } = await ctx.params;
+    // One acceptance at a time: the client may be agreeing on their own link right now.
+    const response = await withTermsLock(id, () => acceptTerms(request, id));
+    return response ?? NextResponse.json({ error: "These terms are being accepted right now." }, { status: 409 });
+}
+
+async function acceptTerms(request: Request, id: string) {
     const order = await getOrder(id);
     if (!order) return NextResponse.json({ error: "No such order." }, { status: 404 });
     if (order.status !== "draft") {
@@ -78,7 +86,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
             .catch((e) => console.error("[ops/orders] terms email failed", id, e)),
     );
 
-    return NextResponse.json({ ok: true, order: saved, agreementId: result.record.id, emailSentTo: order.client.email });
+    return NextResponse.json({
+        ok: true,
+        order: saved,
+        agreementId: result.record.id,
+        emailSentTo: order.client.email,
+        agreement: await orderAgreementSummary(saved),
+    });
 }
 
 /** "Phone call with (407) 555-0143 · 3 Nov 2026, 2:12 PM ET" — editable later in /manage. */
