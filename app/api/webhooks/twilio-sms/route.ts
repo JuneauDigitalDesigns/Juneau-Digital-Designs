@@ -10,12 +10,11 @@ import {
   appendMessage,
   findCustomerByPhone,
   getNumberOwner,
-  getOwnerEmail,
   markReviewOptOut,
   type NumberOwner,
 } from "@/app/lib/portal-crm";
-import { publicWebhookUrl, sendSms, validateTwilioSignature } from "@/app/lib/twilio";
-import { getConsentStateForAccount, isDeliverable } from "@/app/lib/sms-consent";
+import { publicWebhookUrl, validateTwilioSignature } from "@/app/lib/twilio";
+import { notifyOwnerOfCustomerReply } from "@/app/lib/lead-alert";
 
 export const runtime = "nodejs";
 
@@ -160,33 +159,14 @@ export async function POST(request: Request) {
 /**
  * Tell the owner a customer replied — **the fact, not the message**.
  *
- * The portal is where they hold the conversation, so the alert's job is to get them there, not
- * to relay content to a second device. Keeping the body out also means a customer's words are
- * never forwarded somewhere the client did not expect.
- *
- * Account lane: JDD → the owner, on the already-approved notification campaign, so this works
- * day one and never waits on the client's own A2P registration. Honours the owner's existing
- * SMS consent; silent when they never opted in or have revoked.
+ * The text itself lives in `lead-alert.ts` with the other owner texts, because what it may say
+ * depends on the live campaign: under v1 (today's approved campaign, which describes only
+ * end-of-call summaries) it is paused; under `OWNER_TEXT_CAMPAIGN=v2` it is the replacement
+ * campaign's "New message in your portal" sample. Never throws, so a failed notification can't
+ * fail the webhook — Twilio would retry and we would thread the same inbound message twice.
  */
 async function notifyOwnerOfReply(owner: NumberOwner, customerName: string | null): Promise<void> {
-  try {
-    const email = await getOwnerEmail(owner.acctScope);
-    if (!email) return;
-
-    const consent = await getConsentStateForAccount(email);
-    if (!isDeliverable(consent)) return;
-
-    const who = customerName?.trim() || "a customer";
-    await sendSms({
-      lane: "account",
-      to: consent.phone,
-      body: `You have a new message from ${who} in your portal: https://juneaudigitaldesigns.com/portal/customers`,
-    });
-  } catch (e) {
-    // A failed notification must never fail the webhook — Twilio would retry and we would
-    // thread the same inbound message twice.
-    console.error("[twilio-sms] owner notification failed", e);
-  }
+  await notifyOwnerOfCustomerReply({ acctScope: owner.acctScope, slug: owner.slug, customerName });
 }
 
 /** Twilio expects TwiML, and an empty <Response/> means "say nothing back". */

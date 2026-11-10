@@ -148,7 +148,9 @@ test("an owner who opted in through the portal gets the brief, on the account la
             To: OWNER_PHONE,
             From: NOTIFICATION_NUMBER,
             MessagingServiceSid: MASTER_SERVICE,
-            Body: "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help",
+            // v1, the approved campaign's format. No About: this account has no agent on record,
+            // so no summary is read (owner-text-campaign.test.mjs covers the Retell path).
+            Body: "Juneau Digital Designs call alert\nName: Santa Juno\nStatus: Callback\nPhone: (207) 318-1838\nReply STOP to opt out, HELP for help",
         },
     );
 });
@@ -218,41 +220,50 @@ test("a caller's name cannot carry a link or a number into the owner's text", ()
     assert.match(nameLine, /^Name: Visit evil example x or call\b/);
 });
 
-test("no summary line — the analysed summary is a stranger's words, so it stays in the portal", () => {
-    const body = callBriefBody({ callerName: "Dana", priority: "callback" });
-    assert.doesNotMatch(body, /About:/);
-    assert.match(body, /\nThe full lead is in your portal\.\nReply STOP to opt out, HELP for help$/);
+test("the About line carries the summary only once it is cleaned, and is left out when nothing is left", () => {
+    const base = { callerName: "Dana", priority: "callback", callerNumber: "+12073181838" };
+    assert.doesNotMatch(callBriefBody({ ...base, summary: null }), /About:/);
+    assert.doesNotMatch(callBriefBody({ ...base, summary: "call 407-555-0199 or see evil.example/x" }), /About: .*(\d{3}|evil)/);
+    assert.match(callBriefBody({ ...base, summary: "Water heater leaking" }), /\nAbout: Water heater leaking\nReply STOP/);
 });
 
 test("blank or unexpected analysis values degrade to safe text, never to a stranger's string", () => {
-    const body = callBriefBody({ callerName: "", priority: "" });
-    assert.equal(body, "JDD Notification Service\nName: not given\nPriority: Callback\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help");
-    assert.equal(callBriefName("4075550199"), "not given");
-    assert.match(callBriefBody({ callerName: "Dana", priority: "emergency" }), /Priority: Emergency/);
-    assert.match(callBriefBody({ callerName: "Dana", priority: "URGENT click here" }), /Priority: Callback/);
+    const body = callBriefBody({ callerName: "", priority: "", callerNumber: "", summary: "" });
+    assert.equal(body, "Juneau Digital Designs call alert\nName: Not given\nStatus: Callback\nPhone: Not available\nReply STOP to opt out, HELP for help");
+    assert.equal(callBriefName("4075550199"), "Not given");
+    assert.match(callBriefBody({ callerName: "Dana", priority: "emergency" }), /Status: Urgent/);
+    assert.match(callBriefBody({ callerName: "Dana", priority: "URGENT click here" }), /Status: Callback/);
 });
 
-/* Xander's wording, 2026-11-03: header, name, priority, where the full lead is. No phone number. */
-test("the brief opens with JDD Notification Service and carries no phone number", () => {
-    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency" });
-    assert.equal(body, "JDD Notification Service\nName: Santa Juno\nPriority: Emergency\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help");
-    assert.doesNotMatch(body, /Phone|\(\d{3}\)/);
+/* The approved campaign's registered format (Xander, 2026-11-10). */
+test("the brief opens with the registered header and carries no link", () => {
+    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency", callerNumber: "+12073181838", summary: "Burst pipe in the kitchen" });
+    assert.equal(
+        body,
+        "Juneau Digital Designs call alert\nName: Santa Juno\nStatus: Urgent\nPhone: (207) 318-1838\nAbout: Burst pipe in the kitchen\nReply STOP to opt out, HELP for help",
+    );
+    assert.doesNotMatch(body, /http|www\./);
 });
 
-test("the brief is plain GSM-7, so a normal one is a single segment", () => {
-    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency" });
+test("the brief is plain GSM-7, so a normal one without a summary is a single segment", () => {
+    const body = callBriefBody({ callerName: "Santa Juno", priority: "emergency", callerNumber: "+12073181838" });
     assert.match(body, /^[\x20-\x7E\n]+$/);
     assert.ok(body.length <= 160, `${body.length} chars`);
 });
 
 /* ── one consent implementation, two alerts ───────────────────────────────── */
 
-test("the lead alert still sends through the shared path, unchanged", async () => {
-    seedAccount();
-    seedConsent("granted");
-    const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-plumbing", name: "Maria Lopez" });
-    assert.equal(result.sent, true);
-    assert.equal(twilioCalls[0].Body, "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help");
+test("the lead alert sends through the same shared path (under v2, the only campaign that describes it)", async () => {
+    process.env.OWNER_TEXT_CAMPAIGN = "v2";
+    try {
+        seedAccount();
+        seedConsent("granted");
+        const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-plumbing", name: "Maria Lopez" });
+        assert.equal(result.sent, true);
+        assert.equal(twilioCalls[0].Body, "New lead in your portal\nFrom: Maria Lopez\nJuneau Digital Designs: Reply STOP to opt out, HELP for help");
+    } finally {
+        delete process.env.OWNER_TEXT_CAMPAIGN;
+    }
 });
 
 test("call-brief.ts sends only through textAccountOwner — no second consent check", () => {

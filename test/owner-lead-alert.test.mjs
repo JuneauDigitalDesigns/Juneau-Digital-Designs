@@ -37,11 +37,14 @@ Object.assign(process.env, {
     TWILIO_ACCOUNT_SID: `AC${"a".repeat(32)}`,
     TWILIO_AUTH_TOKEN: "test-auth",
     TWILIO_MESSAGING_SERVICE_SID: MASTER_SERVICE,
+    // The new-lead alert only goes out under the replacement campaign (v1 pauses it; see
+    // owner-text-campaign.test.mjs). These tests are about how it is sent, so they run under v2.
+    OWNER_TEXT_CAMPAIGN: "v2",
 });
 
 // Dynamic, so the hook above is in place before `server-only` is resolved.
 const { sendSms } = await import("../app/lib/twilio.ts");
-const { notifyOwnerOfLead, leadAlertBody, leadAlertName } = await import("../app/lib/lead-alert.ts");
+const { notifyOwnerOfLead, leadAlertBodyV2, leadAlertName } = await import("../app/lib/lead-alert.ts");
 const { accountScope } = await import("../app/lib/portal-kv.ts");
 
 const ACCT = accountScope(OWNER_EMAIL);
@@ -188,7 +191,7 @@ test("a lead for an owner with SMS consent produces exactly one account-lane tex
             To: OWNER_PHONE,
             From: NOTIFICATION_NUMBER,
             MessagingServiceSid: MASTER_SERVICE,
-            Body: "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help",
+            Body: "New lead in your portal\nFrom: Maria Lopez\nJuneau Digital Designs: Reply STOP to opt out, HELP for help",
         },
     );
 });
@@ -262,17 +265,17 @@ test("a Twilio failure resolves as not-sent instead of throwing into the ingest 
 
 test("the visitor's name cannot carry a link or a number into the alert", () => {
     assert.equal(leadAlertName("José O'Brien-Smith"), "José O'Brien-Smith");
-    assert.equal(leadAlertName("Visit http://evil.example/win"), "Visit http evil example win");
+    assert.equal(leadAlertName("Visit http://evil.example/win"), "Visit evil example win");
     assert.equal(leadAlertName("407-555-0123"), "a website visitor");
     assert.equal(leadAlertName(null), "a website visitor");
     assert.equal(leadAlertName("   "), "a website visitor");
-    assert.doesNotMatch(leadAlertBody("Click www.evil.com now"), /\.\w/);
+    assert.doesNotMatch(leadAlertBodyV2("Click www.evil.com now", null), /\.\w/);
 });
 
 test("the alert is GSM-7 and one segment however long the name", () => {
     // The old em dash forced UCS-2 (70-char segments). The approved form has none, so it is GSM-7,
     // where one segment is 160 — and the STOP line must not push a long name into a second one.
-    const body = leadAlertBody("Bartholomew Maximilian Featherstonehaugh-Worthington III");
+    const body = leadAlertBodyV2("Bartholomew Maximilian Featherstonehaugh-Worthington III", null);
     assert.match(body, /^[\n\x20-\x7E]+$/, "GSM-7 only");
     assert.ok(body.length <= 160, `${body.length} chars: ${body}`);
 });

@@ -1,11 +1,12 @@
 /**
- * Links in the owner's texts, switched OFF until Twilio re-vets the campaign.
+ * Links in the owner's texts, switched OFF until Twilio approves the replacement campaign.
  *
- * JDD's ACCOUNT_NOTIFICATION campaign is registered `has_embedded_links: false`. A text with a
- * link before that changes is undeclared campaign content — what carriers filter. So the switch
- * (`OWNER_TEXT_LINKS=on`) must be the ONLY way a link goes out, flag-off texts must be today's
- * byte for byte, and flag-on texts must be the samples submitted to Twilio
- * (jdd-ops/TWILIO-SUPPORT-campaign-update.md) byte for byte, since those are what get vetted.
+ * The approved ACCOUNT_NOTIFICATION campaign (v1) is registered `has_embedded_links: false`. A
+ * text with a link under it is undeclared campaign content — what carriers filter. Links exist
+ * only under the replacement campaign (`OWNER_TEXT_CAMPAIGN=v2`), so these tests run under v2,
+ * where `OWNER_TEXT_LINKS=on` must be the ONLY way a link goes out, flag-off texts must be the
+ * v2 samples without their "View it:" line, and flag-on texts the v2 samples (approved
+ * 2026-11-08) byte for byte. Under v1 no link is ever minted, whatever OWNER_TEXT_LINKS says.
  *
  * And `/portal/l/<id>` must open only for the account the link was made for: another account's
  * id, an unknown id and a malformed id all get one identical answer.
@@ -109,6 +110,7 @@ beforeEach(() => {
     twilioCalls = [];
     kvSetFails = false;
     delete process.env.OWNER_TEXT_LINKS;
+    process.env.OWNER_TEXT_CAMPAIGN = "v2";
     kv.set(`jdd:account:${OWNER_EMAIL}`, JSON.stringify({ email: OWNER_EMAIL }));
     kv.set(`sms:consent:account:${OWNER_EMAIL}`, OWNER_PHONE);
     kv.set(
@@ -137,6 +139,7 @@ beforeEach(() => {
 afterEach(() => {
     globalThis.fetch = realFetch;
     delete process.env.OWNER_TEXT_LINKS;
+    delete process.env.OWNER_TEXT_CAMPAIGN;
 });
 
 const lead = (over = {}) => ({ acctScope: ACCT, slug: SLUG, name: "Maria Lopez", leadId: "4f2c9a1e-7b3d-4e8a-9c21-5d6e7f8a9b0c", ...over });
@@ -153,17 +156,18 @@ const call = (over = {}) => ({
 const linkKeys = () => [...kv.keys()].filter((k) => k.startsWith("portal:owner-link:"));
 /** Swap the minted id for the sample's illustrative one, to compare with the registered sample. */
 const asSample = (body, sampleId) => body.replace(LINK, `https://www.juneaudigitaldesigns.com/portal/l/${sampleId}`);
-const TODAY_BRIEF = "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal.\nReply STOP to opt out, HELP for help";
+const TODAY_BRIEF = "New call lead in your portal\nName: Santa Juno\nPriority: Callback\nJuneau Digital Designs: Reply STOP to opt out, HELP for help";
+const TODAY_LEAD = "New lead in your portal\nFrom: Maria Lopez\nJuneau Digital Designs: Reply STOP to opt out, HELP for help";
 
 /* ── switch OFF: today's texts, byte for byte, and no link minted ─────────── */
 
-test("links off: the new-lead text is exactly today's", async () => {
+test("links off: the new-lead text is the v2 sample without its link line", async () => {
     await notifyOwnerOfLead(lead());
-    assert.equal(twilioCalls[0].Body, "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help");
+    assert.equal(twilioCalls[0].Body, TODAY_LEAD);
     assert.deepEqual(linkKeys(), []);
 });
 
-test("links off: the end-of-call brief is exactly today's", async () => {
+test("links off: the end-of-call brief is the v2 sample without its link line", async () => {
     await notifyOwnerOfCall(call());
     assert.equal(twilioCalls[0].Body, TODAY_BRIEF);
     assert.deepEqual(linkKeys(), []);
@@ -177,23 +181,33 @@ for (const value of ["off", "true", "1", "ON", "yes", ""]) {
     });
 }
 
-/* ── switch ON: the registered samples, byte for byte ─────────────────────── */
+test("under v1 (the approved campaign) OWNER_TEXT_LINKS=on mints nothing and no text carries a link", async () => {
+    process.env.OWNER_TEXT_CAMPAIGN = "v1";
+    process.env.OWNER_TEXT_LINKS = "on";
+    await notifyOwnerOfCall(call());
+    assert.equal(await links.ownerItemLink({ acctScope: ACCT, slug: SLUG, itemId: REC }), null);
+    assert.deepEqual(linkKeys(), []);
+    assert.equal(twilioCalls.length, 1);
+    for (const { Body } of twilioCalls) assert.doesNotMatch(Body, /http|View it/);
+});
 
-test("links on: the new-lead text is the registered sample", async () => {
+/* ── switch ON: the v2 samples, byte for byte ───────────────────────────────── */
+
+test("links on: the new-lead text is the v2 sample", async () => {
     process.env.OWNER_TEXT_LINKS = "on";
     await notifyOwnerOfLead(lead());
     assert.equal(
         asSample(twilioCalls[0].Body, "7Kq2Xw9P"),
-        "JDD Notification Service\nNew lead from Maria Lopez.\nView it: https://www.juneaudigitaldesigns.com/portal/l/7Kq2Xw9P\nReply STOP to opt out, HELP for help",
+        "New lead in your portal\nFrom: Maria Lopez\nView it: https://www.juneaudigitaldesigns.com/portal/l/7Kq2Xw9P\nJuneau Digital Designs: Reply STOP to opt out, HELP for help",
     );
 });
 
-test("links on: the end-of-call brief is the registered sample", async () => {
+test("links on: the end-of-call brief is the v2 sample", async () => {
     process.env.OWNER_TEXT_LINKS = "on";
     await notifyOwnerOfCall(call());
     assert.equal(
         asSample(twilioCalls[0].Body, "rB4mT8sZ"),
-        "JDD Notification Service\nName: Santa Juno\nPriority: Callback\nThe full lead is in your portal: https://www.juneaudigitaldesigns.com/portal/l/rB4mT8sZ\nReply STOP to opt out, HELP for help",
+        "New call lead in your portal\nName: Santa Juno\nPriority: Callback\nView it: https://www.juneaudigitaldesigns.com/portal/l/rB4mT8sZ\nJuneau Digital Designs: Reply STOP to opt out, HELP for help",
     );
 });
 
@@ -222,7 +236,7 @@ test("links on, KV refuses the link: the owner still gets today's text", async (
     process.env.OWNER_TEXT_LINKS = "on";
     kvSetFails = true;
     await notifyOwnerOfLead(lead());
-    assert.equal(twilioCalls[0].Body, "JDD Notification Service\nNew lead from Maria Lopez.\nReply STOP to opt out, HELP for help");
+    assert.equal(twilioCalls[0].Body, TODAY_LEAD);
 });
 
 /* ── /portal/l/<id>: only the account it was made for ─────────────────────── */

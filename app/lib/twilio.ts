@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { carriesLink, ownerTextLinksAllowed } from "./owner-text-campaign";
 
 /**
  * Minimal Twilio client.
@@ -137,6 +138,15 @@ export async function sendSms({
     serviceSid = laneOpts.messagingServiceSid;
     from = laneOpts.from;
   } else {
+    // The last stop for every owner text. The approved campaign (v1) is registered without
+    // links, so a body with one is refused here whatever built it; a throw is "not sent" to
+    // every account-lane caller. See owner-text-campaign.ts.
+    if (carriesLink(body) && !ownerTextLinksAllowed()) {
+      throw new Error(
+        "Account-lane SMS refused: the body carries a link and the live campaign declares none " +
+          "(OWNER_TEXT_CAMPAIGN=v2 with OWNER_TEXT_LINKS=on is the only mode that allows one)",
+      );
+    }
     const master = process.env.TWILIO_MESSAGING_SERVICE_SID;
     if (!master) {
       throw new Error("Account-lane SMS needs TWILIO_MESSAGING_SERVICE_SID");

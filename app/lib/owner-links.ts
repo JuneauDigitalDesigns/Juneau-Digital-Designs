@@ -3,17 +3,18 @@ import { randomBytes } from "node:crypto";
 import { Redis } from "@upstash/redis";
 import { accountScope } from "./portal-kv";
 import { resolveInboxDeepLink } from "./portal-deep-link";
+import { ownerTextLinksAllowed } from "./owner-text-campaign";
 
 /**
  * Links in the owner's texts that open the portal on that one lead.
  *
  * ── Switched OFF until Twilio approves ──────────────────────────────────────────────────────
- * JDD's ACCOUNT_NOTIFICATION campaign is registered `has_embedded_links: false`, and an approved
- * campaign can't be edited from our side. A text carrying a link before that registration
- * changes is a text the campaign never declared, which is exactly what carriers filter. So
- * `OWNER_TEXT_LINKS=on` is the only value that adds one. Unset, or anything else, and both
- * owner texts are today's, byte for byte. The wording these produce is the sample set in
- * jdd-ops/TWILIO-SUPPORT-campaign-update.md, which is what the campaign will be re-vetted against.
+ * The approved ACCOUNT_NOTIFICATION campaign (v1) is registered `has_embedded_links: false`, and
+ * an approved campaign can't be edited from our side. A text carrying a link under it is a text
+ * the campaign never declared, which is exactly what carriers filter. So a link is minted only
+ * under `OWNER_TEXT_CAMPAIGN=v2` AND `OWNER_TEXT_LINKS=on` (owner-text-campaign.ts); under v1
+ * nothing is minted, whatever OWNER_TEXT_LINKS says. The texts that carry one are the v2 samples
+ * (replacement campaign, approved 2026-11-08), whose link line is "View it: <url>".
  *
  * ── The link ────────────────────────────────────────────────────────────────────────────────
  * `https://www.juneaudigitaldesigns.com/portal/l/<8 chars>`. Always `www`: the apex 307-redirects,
@@ -32,8 +33,9 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
 /** Long enough to cover a slow week's follow-up; short enough that dead links don't pile up. */
 const LINK_TTL_SECONDS = 60 * 60 * 24 * 180;
 
+/** Whether a link may be minted now: the v2 campaign with `OWNER_TEXT_LINKS=on`, nothing else. */
 export function ownerTextLinksEnabled(env: Record<string, string | undefined> = process.env): boolean {
-    return env.OWNER_TEXT_LINKS?.trim() === "on";
+    return ownerTextLinksAllowed(env);
 }
 
 /** The URL a text carries. Throws on anything but a well-formed id — a link is never improvised. */
