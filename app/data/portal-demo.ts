@@ -91,7 +91,9 @@ export const DEMO_CLOSING = {
 /** What the Message and Review steps wait on, never how long. */
 export const CARRIER_LINE = "Switches on once the carriers approve your business registration.";
 
-export const DEMO_BUSINESS = { name: "Brannock Heating & Air", host: "brannockheating.com" };
+/* "Your HVAC Co." matches the growth template the website section and the receptionist film
+   above now show, so the page is one business end to end. */
+export const DEMO_BUSINESS = { name: "Your HVAC Co.", host: "yourhvacco.com" };
 
 /**
  * The new lead: Dave, who filled in the estimate form on the website at 2 AM, and whom the
@@ -178,7 +180,7 @@ export const DEMO_TIMES = {
 };
 
 /** Written the way an owner texts from the truck: short, first names, no sign-off. */
-export const DEMO_SMS = "Hi Dave, it's Tom with Brannock. You're down for 11 this morning. I'll text when I'm on my way.";
+export const DEMO_SMS = "Hi Dave, it's Tom with Your HVAC Co. You're down for 11 this morning. I'll text when I'm on my way.";
 
 /**
  * The review request as the composer pre-fills it: `defaultReviewMessage` in
@@ -187,4 +189,4 @@ export const DEMO_SMS = "Hi Dave, it's Tom with Brannock. You're down for 11 thi
  * so they are not shown here.
  */
 export const DEMO_REVIEW =
-    "Hi Dave, thanks for choosing Brannock Heating & Air! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";
+    "Hi Dave, thanks for choosing Your HVAC Co.! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";
