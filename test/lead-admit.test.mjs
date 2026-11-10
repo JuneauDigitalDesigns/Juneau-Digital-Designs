@@ -375,3 +375,11 @@ test("10 submissions per visitor per site a day", async (t) => {
     }
     assert.deepEqual(statuses, [...Array(10).fill(200), 429]);
 });
+
+test("a widget whose secret we don't hold is our mistake: the lead is kept, nobody is called", async () => {
+    // A stored secret Cloudflare doesn't recognise for the widget: it answers invalid-input-secret.
+    redis.kv.set(`portal:gate:v1:widget-secret:0x4AAAAAAAorphan`, { value: "stale-secret", exp: null });
+    const out = await submit({ siteKey: "0x4AAAAAAAorphan" });
+    assert.deepEqual(out, { called: false, lead: 200 });
+    assert.equal((await listLeads(ACCT, SLUG))[0].fields.verification, "unavailable");
+});

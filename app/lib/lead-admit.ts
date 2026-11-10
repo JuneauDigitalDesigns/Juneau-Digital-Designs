@@ -149,6 +149,12 @@ export async function verifyTurnstile(
     }
     const codes = out["error-codes"] ?? [];
     if (codes.includes("internal-error")) return { kind: "unavailable" };
+    // Our secret is wrong or missing for this widget: our mistake, never the visitor's. Refusing
+    // would turn away every lead the site gets; this keeps them and places no call.
+    if (codes.includes("invalid-input-secret") || codes.includes("missing-input-secret")) {
+        console.error("[lead-admit] Cloudflare doesn't accept our secret for this widget: no human check, no AI calls");
+        return { kind: "unavailable" };
+    }
     if (out.success !== true) return { kind: "failed", codes };
 
     // A dummy secret answers for any page (its hostname is a placeholder), so the hostname rule
