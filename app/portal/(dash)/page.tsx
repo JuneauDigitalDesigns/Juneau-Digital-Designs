@@ -1,44 +1,86 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import type { PortalAccount, PortalSite } from "@jdd/schema";
-import { HealthStrip } from "@/app/components/portal/HealthStrip";
 import { BuildProgress } from "@/app/components/portal/BuildProgress";
 import {
     GrowthProvisioning,
     isProvisioningReceptionist,
 } from "@/app/components/portal/GrowthProvisioning";
-import {
-    OverviewMetrics,
-    LatestCalls,
-    OverviewAside,
-} from "@/app/components/portal/OverviewSection";
 import { PendingSiteBanner } from "@/app/components/portal/PendingSiteBanner";
 import { SectionHeader, Card } from "@/app/components/portal/ui/Card";
+import { FeatureError, FeatureState } from "@/app/components/portal/ui/FeatureState";
 import {
-    StatRowSkeleton,
     HealthStripSkeleton,
     Skeleton,
+    StatRowSkeleton,
 } from "@/app/components/portal/ui/Skeleton";
+import { ActivityFeed } from "@/app/components/portal/overview/ActivityFeed";
+import { LeadsWeekCard } from "@/app/components/portal/overview/LeadsWeekCard";
+import { NeedsYouCard } from "@/app/components/portal/overview/NeedsYouCard";
+import {
+    OverviewHeader,
+    StatusLine,
+    greetingLine,
+} from "@/app/components/portal/overview/OverviewHeader";
+import {
+    OverviewTiles,
+    afterHoursTile,
+    callbackSpeedTile,
+    followUpsTile,
+    handledTile,
+    longestWaitTile,
+    reviewsTile,
+    type TileSpec,
+} from "@/app/components/portal/overview/OverviewTiles";
+import { GrowthLockedPanel, PipelineCard } from "@/app/components/portal/overview/PipelineCard";
 import { currentSiteContext } from "@/app/lib/portal-dashboard";
 import { getInfraSnapshot } from "@/app/lib/portal-infra";
-import { getOverviewData, getCachedScore } from "@/app/lib/portal-overview";
-import { getTrafficData } from "@/app/lib/portal-traffic";
-import { getBillingSummary } from "@/app/lib/portal-billing-summary";
-import { getUsageSummary } from "@/app/lib/portal-usage";
-import type { PortalSiteProps } from "@/app/portal/types";
+import { getCachedScore } from "@/app/lib/portal-overview";
+import { activityFeed } from "@/app/lib/portal-overview-activity";
+import {
+    callbackSpeedSeconds,
+    caughtAfterHours,
+    leadWeek,
+    needsYou,
+} from "@/app/lib/portal-overview-leads";
+import {
+    followUpsDue,
+    pipelineSummary,
+    reviewsAskedThisWeek,
+} from "@/app/lib/portal-overview-pipeline";
+import {
+    clientHours,
+    getDoneRecords,
+    getInboundTexts,
+    getOverviewCrm,
+    getOverviewInbox,
+    overviewClock,
+} from "@/app/lib/portal-overview-sources";
+import { overviewStatus } from "@/app/lib/portal-overview-status";
+import {
+    mondayLabel,
+    msOf,
+    partOfDay,
+    sinceLabel,
+    spanLabel,
+} from "@/app/lib/portal-overview-time";
+import { tabHref, type PortalSiteProps } from "@/app/portal/types";
 
 export const dynamic = "force-dynamic";
 
 /**
- * The Overview: the client's whole web presence at a glance.
+ * The Overview: what came in, what needs the client, and what it is worth.
  *
- * Rendered on the server, streamed per module. The page used to be a client component that
- * `fetch()`ed its own API from a `useEffect`, so every visit flashed a skeleton even though
- * the layout above had already awaited the account from KV.
+ * It used to lead with the website's technical health — a five-segment strip, then call
+ * stats, then visitors and billing. The rework (2026-11-09, mockups approved by Xander) turns
+ * it around: a client opens the portal to see their leads. Site health is one status line
+ * linking to Analytics; visitors and billing moved to Analytics and Settings. Those
+ * components (`HealthStrip`, `OverviewAside`) are kept for the pages they moved to.
  *
- * Each module is its own Suspense boundary because their upstreams have wildly different
- * latencies — the infra probe is a live HTTP request, Airtable can paginate, Stripe is a
- * round trip. One shared boundary would make the whole page wait for the slowest.
+ * Rendered on the server, streamed per module. Each module is its own Suspense boundary
+ * because their upstreams have very different latencies — the infra probe is a live HTTP
+ * request, Airtable can paginate, the CRM is a handful of KV reads. The reads are `cache()`d
+ * (`portal-overview-sources.ts`), so boundaries that share a source share one read.
  */
 export default async function OverviewPage({
     searchParams,
@@ -79,12 +121,25 @@ export default async function OverviewPage({
     // merged timeline.
     const provisioningGrowth = isProvisioningReceptionist(site.features.calls);
 
+    const { nowMs, timeZone, week } = overviewClock();
+
     return (
-        <div className="space-y-6" key={site.slug}>
-            <SectionHeader
-                title={building ? "Your site is being built" : "Overview"}
-                meta={building ? undefined : "Everything we watch for you, live"}
-            />
+        <div className="flex flex-col gap-3 lg:gap-4" key={site.slug}>
+            {building ? (
+                <SectionHeader title="Your site is being built" />
+            ) : (
+                <OverviewHeader
+                    greeting={greetingLine(account.profile?.contactName, partOfDay(nowMs, timeZone))}
+                    sub={`This week, ${mondayLabel(week)} – today`}
+                    status={
+                        // No fallback: the line is small and optional, and a placeholder pill
+                        // that then turns into nothing would be worse than a late arrival.
+                        <Suspense fallback={null}>
+                            <StatusBlock site={site} raw={raw} account={account} />
+                        </Suspense>
+                    }
+                />
+            )}
 
             {/*
               * Above everything else on purpose. A site that has been paid for and not yet
@@ -108,137 +163,219 @@ export default async function OverviewPage({
                 </Suspense>
             ) : (
                 <>
-                    <Suspense fallback={<HealthStripSkeleton />}>
-                        <HealthBlock site={site} raw={raw} account={account} />
+                    <Suspense fallback={<LeadsSkeleton />}>
+                        <LeadsBlock site={site} raw={raw} account={account} />
                     </Suspense>
 
-                    <Suspense fallback={<StatRowSkeleton count={5} />}>
-                        <MetricsBlock raw={raw} account={account} />
+                    <Suspense fallback={<StatRowSkeleton count={3} />}>
+                        <TilesBlock site={site} raw={raw} account={account} />
                     </Suspense>
 
-                    <div className="portal-band">
-                        <Suspense fallback={<FeedSkeleton />}>
-                            <FeedBlock site={site} raw={raw} account={account} />
+                    {site.features.crm.state === "ready" ? (
+                        <Suspense fallback={<CardSkeleton rows={2} />}>
+                            <PipelineBlock site={site} raw={raw} account={account} />
                         </Suspense>
-                        <Suspense fallback={<AsideSkeleton />}>
-                            <AsideBlock site={site} raw={raw} account={account} />
-                        </Suspense>
-                    </div>
+                    ) : site.features.crm.state === "not-on-plan" ? (
+                        // PR C makes `demo=growth` open the Growth demo on arrival.
+                        <GrowthLockedPanel
+                            demoHref={`${tabHref("customers", site.slug)}&demo=growth`}
+                        />
+                    ) : null}
+
+                    <Suspense fallback={<CardSkeleton rows={4} />}>
+                        <ActivityBlock site={site} raw={raw} account={account} />
+                    </Suspense>
                 </>
             )}
         </div>
     );
 }
 
-async function HealthBlock({
-    site,
-    raw,
-    account,
-}: {
+interface BlockProps {
     site: PortalSiteProps;
     raw: PortalSite;
     account: PortalAccount;
-}) {
+}
+
+/** The header's status line, from the same infra snapshot and receptionist state the
+ *  HealthStrip read. Links to Analytics' Site health section (PR A builds that route). */
+async function StatusBlock({ site, raw, account }: BlockProps) {
     const [infra, score] = await Promise.all([
-        getInfraSnapshot(raw, account.email),
-        getCachedScore(raw.slug),
+        // The line is optional; a probe failure means no line, never a broken header.
+        getInfraSnapshot(raw, account.email).catch(() => null),
+        getCachedScore(raw.slug).catch(() => null),
     ]);
     return (
-        <HealthStrip
-            infra={infra}
-            score={score}
-            slug={site.slug}
-            calls={site.features.calls}
+        <StatusLine
+            status={overviewStatus(infra, score, site.features.calls)}
+            href={`${tabHref("analytics", site.slug)}#health`}
         />
     );
 }
 
-async function BuildBlock({
-    site,
-    raw,
-    account,
-}: {
-    site: PortalSiteProps;
-    raw: PortalSite;
-    account: PortalAccount;
-}) {
+async function BuildBlock({ site, raw, account }: BlockProps) {
     // A build in flight is exactly when infra can fail in interesting ways, so this must
     // never be the thing that takes the page down.
     const infra = await getInfraSnapshot(raw, account.email).catch(() => null);
     return <BuildProgress site={site} infra={infra} />;
 }
 
-async function MetricsBlock({
-    raw,
-    account,
-}: {
-    raw: PortalSite;
-    account: PortalAccount;
-}) {
-    const [data, usage] = await Promise.all([
-        getOverviewData(account, raw),
-        getUsageSummary(account, raw),
+/** Needs you, beside New leads this week. */
+async function LeadsBlock({ site, raw, account }: BlockProps) {
+    const inbox = await getOverviewInbox(account, raw);
+    if (inbox.state === "error") return <FeatureError message={inbox.error} />;
+    if (inbox.state !== "ready") {
+        return <FeatureState feature="leads" availability={{ state: inbox.state }} siteSlug={site.slug} />;
+    }
+
+    const { nowMs, timeZone, week } = overviewClock();
+    const hours = clientHours(raw);
+    const waiting = needsYou(inbox.items, { hours, timeZone, nowMs });
+    const thisWeek = leadWeek(inbox.items, week, { hours, timeZone });
+
+    return (
+        <div className="grid grid-cols-1 gap-3 lg:gap-4 items-start lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+            <NeedsYouCard
+                data={waiting}
+                handledThisWeek={thisWeek.handled}
+                inboxHref={tabHref("calls", site.slug)}
+                nowMs={nowMs}
+                timeZone={timeZone}
+            />
+            <LeadsWeekCard
+                week={thisWeek}
+                todayIndex={week.todayIndex}
+                chart={site.features.crm.state === "ready"}
+            />
+        </div>
+    );
+}
+
+/**
+ * The tiles. Growth (CRM live): Callback speed, Caught after hours, Follow-ups due today,
+ * Reviews asked for. Starter: Caught after hours, Handled this week, Longest wait. Each hides
+ * when it has nothing true to show — see `OverviewTiles`.
+ */
+async function TilesBlock({ site, raw, account }: BlockProps) {
+    const growth = site.features.crm.state === "ready";
+    const [inbox, crm] = await Promise.all([
+        getOverviewInbox(account, raw),
+        growth ? getOverviewCrm(account, raw) : null,
     ]);
-    return <OverviewMetrics data={data} usage={usage} siteSlug={raw.slug} />;
+    const items = inbox.state === "ready" ? inbox.items : [];
+    const { nowMs, timeZone, week } = overviewClock();
+    const hours = clientHours(raw);
+    const caught = caughtAfterHours(items, week, { hours, timeZone });
+
+    const tiles: TileSpec[] = [];
+    if (growth) {
+        const speed = callbackSpeedSeconds(items, week);
+        if (speed !== null) tiles.push(callbackSpeedTile(spanLabel(speed)));
+        if (caught !== null) tiles.push(afterHoursTile(caught));
+        if (crm?.state === "ready") {
+            const customersHref = tabHref("customers", site.slug);
+            const due = followUpsDue(crm.tasks, crm.customers, week.todayEndMs);
+            tiles.push(
+                followUpsTile({
+                    count: due.count,
+                    first: due.first?.title ?? null,
+                    firstHref: due.first
+                        ? `${customersHref}&open=${encodeURIComponent(due.first.customerId)}`
+                        : null,
+                    allHref: customersHref,
+                }),
+            );
+            tiles.push(reviewsTile(reviewsAskedThisWeek(crm.customers, week)));
+        }
+    } else if (inbox.state === "ready") {
+        if (caught !== null) tiles.push(afterHoursTile(caught));
+        const thisWeek = leadWeek(items, week, { hours, timeZone });
+        tiles.push(handledTile(thisWeek.handled, thisWeek.total));
+        const oldest = needsYou(items, { hours, timeZone, nowMs }).oldest;
+        const oldestMs = msOf(oldest?.at);
+        if (oldest && oldestMs !== null) {
+            tiles.push(
+                longestWaitTile(
+                    spanLabel((nowMs - oldestMs) / 1000),
+                    oldest.name ?? oldest.phoneDisplay,
+                    sinceLabel(oldestMs, nowMs, timeZone),
+                ),
+            );
+        }
+    }
+
+    return <OverviewTiles tiles={tiles} />;
 }
 
-async function FeedBlock({
-    site,
-    raw,
-    account,
-}: {
-    site: PortalSiteProps;
-    raw: PortalSite;
-    account: PortalAccount;
-}) {
-    // React dedupes this against MetricsBlock's identical call within the same request, so
-    // the two boundaries share one Airtable read.
-    const data = await getOverviewData(account, raw);
-    return <LatestCalls site={site} data={data} />;
+async function PipelineBlock({ site, raw, account }: BlockProps) {
+    const crm = await getOverviewCrm(account, raw);
+    if (crm.state === "error") return <FeatureError message="We couldn't load your pipeline just now." />;
+    if (crm.state !== "ready") return null;
+    const { week } = overviewClock();
+    return (
+        <PipelineCard
+            summary={pipelineSummary(crm.customers, week)}
+            customersHref={tabHref("customers", site.slug)}
+        />
+    );
 }
 
-async function AsideBlock({
-    site,
-    raw,
-    account,
-}: {
-    site: PortalSiteProps;
-    raw: PortalSite;
-    account: PortalAccount;
-}) {
-    const [traffic, billing] = await Promise.all([
-        getTrafficData(raw, account.email),
-        getBillingSummary(raw, account.email),
+async function ActivityBlock({ site, raw, account }: BlockProps) {
+    const growth = site.features.crm.state === "ready";
+    const [inbox, crm] = await Promise.all([
+        getOverviewInbox(account, raw),
+        growth ? getOverviewCrm(account, raw) : null,
     ]);
-    return <OverviewAside site={site} traffic={traffic} billing={billing} />;
+    const items = inbox.state === "ready" ? inbox.items : [];
+    const customers = crm?.state === "ready" ? crm.customers : [];
+
+    const [done, texts] = await Promise.all([
+        getDoneRecords(
+            account,
+            raw,
+            items.filter((i) => i.archived).map((i) => i.id),
+        ),
+        getInboundTexts(
+            account,
+            raw,
+            customers.filter((c) => !c.archived).map((c) => c.customerId),
+        ),
+    ]);
+
+    const { nowMs, timeZone } = overviewClock();
+    return (
+        <ActivityFeed
+            events={activityFeed({ items, customers, texts, done, showValues: growth })}
+            nowMs={nowMs}
+            timeZone={timeZone}
+        />
+    );
 }
 
-function FeedSkeleton() {
+function LeadsSkeleton() {
+    return (
+        <div className="grid grid-cols-1 gap-3 lg:gap-4 items-start lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+            <CardSkeleton rows={3} />
+            <Card className="flex flex-col gap-3">
+                <Skeleton width="45%" height={9} />
+                <Skeleton width="30%" height={44} />
+                <Skeleton height={13} />
+                <Skeleton height={13} />
+            </Card>
+        </div>
+    );
+}
+
+function CardSkeleton({ rows }: { rows: number }) {
     return (
         <Card className="flex flex-col gap-4">
-            <Skeleton width="30%" height={9} />
-            {Array.from({ length: 4 }, (_, i) => (
+            <Skeleton width="30%" height={12} />
+            {Array.from({ length: rows }, (_, i) => (
                 <div key={i} className="flex flex-col gap-2">
                     <Skeleton width="45%" height={13} />
                     <Skeleton width="85%" height={11} />
                 </div>
             ))}
         </Card>
-    );
-}
-
-function AsideSkeleton() {
-    return (
-        <div className="flex flex-col gap-4">
-            <Card className="flex flex-col gap-3">
-                <Skeleton width="40%" height={9} />
-                <Skeleton width="55%" height={30} />
-                <Skeleton height={40} rounded={6} />
-            </Card>
-            <Card density="compact" className="flex flex-col gap-2">
-                <Skeleton width="45%" height={12} />
-                <Skeleton width="70%" height={9} />
-            </Card>
-        </div>
     );
 }
