@@ -9,7 +9,7 @@
  * `service-suggestions.ts`, one trade per approved batch.
  */
 
-import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import {
     BRAND_SUGGESTIONS,
     CERT_SUGGESTIONS,
@@ -31,9 +31,11 @@ import {
     emptyFacts,
     isAnswered,
     modesFor,
+    openService,
     profilesForPayload,
     screenErrors,
     serviceStatuses,
+    serviceStepsFor,
     servicesMenu,
     slotsFor,
     townFromAddress,
@@ -42,13 +44,14 @@ import {
     type ScreenDef,
     type ServiceFacts,
     type ServiceStatus,
+    type ServiceStepId,
     type WizardContext,
     type WizardPrefill,
     type WizardState,
 } from "./model";
 import { PROFILE_KINDS, VOICE_OPTIONS, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
-import { C, PROFILE_HOWTO, PROFILE_LABELS, PROFILE_SHORT } from "./copy-pending";
+import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-pending";
 import { suggestionsFor } from "./service-suggestions";
 import s from "./wizard.module.css";
 
@@ -100,7 +103,9 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
         case "contact": return { q: "How do customers reach you?", help: "These go on your site. Your email is already filled in from your agreement." };
         case "area": return { q: "Which towns do you cover?", help: 'Named towns read better than "the surrounding area". Your receptionist uses them too.' };
         case "website": return { q: "Do you have a website now?", help: "We'll read it so you don't have to retype anything." };
-        case "online": return { q: C.onlineQ, help: C.onlineHelp };
+        case "visit": return { q: C.visitQ, help: C.visitHelp };
+        case "google": return { q: C.googleQ, help: C.googleHelp };
+        case "elsewhere": return { q: C.elsewhereQ, help: C.elsewhereHelp };
         case "details": return state.detailOpen ? { q: "", help: "" } : { q: C.detailsQ, help: C.detailsHelp };
         case "sites": return { q: "Additional sites", help: `Your ${extra.planLabel} plan includes up to ${extra.maxSites} sites. Add facts for each extra location or brand, and we write their copy too.` };
         case "services": return { q: "What do you offer?", help: "Tap everything you do. We write the descriptions." };
@@ -357,19 +362,17 @@ export function ScreenBody(p: ScreenProps) {
                     <Field label="Business address" error={errors.address} note={notes(prefillNote(p, "address"), C.addressNote)}>
                         <Text value={state.address} onChange={(v) => update({ address: v })} placeholder="Street, city, state, ZIP" autoComplete="street-address" />
                     </Field>
-                    {/* Unanswered stays null ("not asked"); "no" hides the street on the site (client-seo). */}
-                    <div className={s.fld} role="group" aria-label={C.visitLabel}>
-                        <span className={s.fldLab}>{C.visitLabel}</span>
-                        <div className={s.chips}>
-                            <Chip label={C.visitYes} on={state.visitAddress === "yes"} onClick={() => update({ visitAddress: state.visitAddress === "yes" ? "" : "yes" })} />
-                            <Chip label={C.visitNo} on={state.visitAddress === "no"} onClick={() => update({ visitAddress: state.visitAddress === "no" ? "" : "no" })} />
-                        </div>
-                        {state.visitAddress ? (
-                            <span className={s.derived} style={{ alignSelf: "flex-start" }}>✓ {state.visitAddress === "no" ? C.visitNoNote : C.visitYesNote}</span>
-                        ) : null}
-                    </div>
                 </>
             );
+
+        case "visit":
+            return <VisitScreen {...p} />;
+
+        case "google":
+            return <GoogleScreen {...p} />;
+
+        case "elsewhere":
+            return <ElsewhereScreen {...p} />;
 
         case "area": {
             const town = townFromAddress(state.address);
@@ -389,9 +392,6 @@ export function ScreenBody(p: ScreenProps) {
                 </>
             );
         }
-
-        case "online":
-            return <OnlineScreen {...p} />;
 
         case "details":
             return <DetailsScreen {...p} />;
@@ -594,10 +594,31 @@ export function ScreenBody(p: ScreenProps) {
     }
 }
 
-// ── Online profiles ──────────────────────────────────────────────────────────
+// ── Visiting you, Google listing, other profiles (v2: one question per screen) ──
 
-/** Always shown as fields; the rest are added from chips. */
-const PRIMARY_PROFILES: ProfileKind[] = ["google", "facebook", "yelp"];
+function VisitScreen({ state, update }: ScreenProps) {
+    // Unanswered stays null ("not asked"); "no" hides the street on the site (client-seo).
+    const opts: { id: "yes" | "no"; label: string; detail: string }[] = [
+        { id: "yes", label: C.visitYes, detail: C.visitYesDetail },
+        { id: "no", label: C.visitNo, detail: C.visitNoDetail },
+    ];
+    return (
+        <div className={s.narrow} role="group" aria-label={C.visitQ}>
+            {opts.map((o) => (
+                <button
+                    key={o.id}
+                    type="button"
+                    className={s.opt}
+                    aria-pressed={state.visitAddress === o.id}
+                    onClick={() => update({ visitAddress: state.visitAddress === o.id ? "" : o.id })}
+                >
+                    <span className={s.optLabel}>{o.label}</span>
+                    <span className={s.optDetail}>{o.detail}</span>
+                </button>
+            ))}
+        </div>
+    );
+}
 
 function linkError(kind: ProfileKind, url: string): string | undefined {
     const problem = profileLinkProblem(kind, url);
@@ -607,36 +628,50 @@ function linkError(kind: ProfileKind, url: string): string | undefined {
     return undefined;
 }
 
-function OnlineScreen({ state, update }: ScreenProps) {
-    const urlOf = (k: ProfileKind) => state.profiles.find((x) => x.kind === k)?.url ?? "";
-    const setUrl = (k: ProfileKind, url: string) =>
-        update({
-            profiles: state.profiles.some((x) => x.kind === k)
-                ? state.profiles.map((x) => (x.kind === k ? { ...x, url } : x))
-                : [...state.profiles, { kind: k, url }],
-        });
-    const shown = PROFILE_KINDS.filter((k) => PRIMARY_PROFILES.includes(k) || state.profiles.some((x) => x.kind === k));
-    const addable = PROFILE_KINDS.filter((k) => !shown.includes(k));
+const urlOf = (state: WizardState, k: ProfileKind) => state.profiles.find((x) => x.kind === k)?.url ?? "";
+function withUrl(state: WizardState, k: ProfileKind, url: string): WizardState["profiles"] {
+    return state.profiles.some((x) => x.kind === k)
+        ? state.profiles.map((x) => (x.kind === k ? { ...x, url } : x))
+        : [...state.profiles, { kind: k, url }];
+}
+
+function GoogleScreen({ state, update }: ScreenProps) {
+    // A bad link shows what's wrong but never blocks: the screen is optional, and the payload and
+    // the route both drop a link that fails the check.
     return (
         <div className={s.narrow}>
-            {/* A bad link shows what's wrong but never blocks: the screen is optional, and the
-                payload and the route both drop a link that fails the check. */}
-            {shown.map((k) => (
-                <Field
-                    key={k}
-                    label={k === "google" ? <>{PROFILE_LABELS[k]}<span className={s.tag} style={{ margin: "0 0 0 8px", verticalAlign: 2 }}>{C.mostImportant}</span></> : PROFILE_LABELS[k]}
-                    error={linkError(k, urlOf(k))}
-                    note={k === "google" ? C.googleNote : undefined}
-                >
-                    <Text value={urlOf(k)} onChange={(v) => setUrl(k, v)} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={PROFILE_LABELS[k]} />
-                </Field>
-            ))}
-            {addable.length ? (
-                <div className={s.chips}>
-                    {addable.map((k) => <Chip key={k} ghost label={`+ ${PROFILE_LABELS[k]}`} onClick={() => update({ profiles: [...state.profiles, { kind: k, url: "" }] })} />)}
+            <Field label={C.googleLabel} error={linkError("google", urlOf(state, "google"))}>
+                <Text value={urlOf(state, "google")} onChange={(v) => update({ profiles: withUrl(state, "google", v) })} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={C.googleLabel} />
+            </Field>
+            <ol className={s.howto}>
+                {C.googleSteps.map((t, i) => <li key={t}><b aria-hidden="true">{i + 1}</b>{t}</li>)}
+            </ol>
+        </div>
+    );
+}
+
+/** Everything but Google, in the footer's order. Tapping one opens its link box. */
+const OTHER_PROFILES = PROFILE_KINDS.filter((k) => k !== "google");
+
+function ElsewhereScreen({ state, update }: ScreenProps) {
+    const on = (k: ProfileKind) => state.profiles.some((x) => x.kind === k);
+    const toggle = (k: ProfileKind) =>
+        update({ profiles: on(k) ? state.profiles.filter((x) => x.kind !== k) : [...state.profiles, { kind: k, url: "" }] });
+    const label = (k: ProfileKind) => (k === "other" ? C.anotherLink : C.linkLabel(PROFILE_SHORT[k]));
+    return (
+        <div className={s.narrow}>
+            <div className={s.chips}>
+                {OTHER_PROFILES.map((k) => <Chip key={k} label={k === "other" ? C.anotherLink : PROFILE_SHORT[k]} on={on(k)} onClick={() => toggle(k)} />)}
+            </div>
+            {OTHER_PROFILES.filter(on).length ? (
+                <div className={s.linkFields}>
+                    {OTHER_PROFILES.filter(on).map((k) => (
+                        <Field key={k} label={label(k)} error={linkError(k, urlOf(state, k))}>
+                            <Text value={urlOf(state, k)} onChange={(v) => update({ profiles: withUrl(state, k, v) })} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={label(k)} />
+                        </Field>
+                    ))}
                 </div>
             ) : null}
-            <p className={s.hint} style={{ marginTop: 12 }}>{C.noProfiles}</p>
         </div>
     );
 }
@@ -666,7 +701,7 @@ function ReviewSource({ state, update }: ScreenProps) {
     );
 }
 
-// ── Service details ──────────────────────────────────────────────────────────
+// ── Service details: the list, then one short step at a time ─────────────────
 
 const STATUS_LINE: Record<ServiceStatus["state"], string> = { ready: C.stReady, near: C.stNear, core: C.stCore, none: C.stNone };
 
@@ -674,7 +709,7 @@ function DetailsScreen(p: ScreenProps) {
     const { state, update, ctx } = p;
     const statuses = useMemo(() => serviceStatuses(state, ctx), [state, ctx]);
     const openIndex = state.services.findIndex((x) => x.name === state.detailOpen);
-    if (openIndex >= 0) return <ServicePanel key={state.detailOpen} {...p} index={openIndex} status={statuses[openIndex]} />;
+    if (openIndex >= 0) return <ServiceStep key={`${state.detailOpen}:${state.detailStep}`} {...p} index={openIndex} status={statuses[openIndex]} />;
     const ready = statuses.filter((x) => x.state === "ready").length;
     const total = state.services.length;
     return (
@@ -687,7 +722,7 @@ function DetailsScreen(p: ScreenProps) {
                 {state.services.map((sv, i) => {
                     const st = statuses[i];
                     return (
-                        <button key={sv.name} type="button" className={`${s.svc} ${st.state === "ready" ? s.svcReady : ""}`} onClick={() => update({ detailOpen: sv.name })}>
+                        <button key={sv.name} type="button" className={`${s.svc} ${st.state === "ready" ? s.svcReady : ""}`} onClick={() => update(openService(state, sv.name))}>
                             <span className={`${s.badge} ${st.state === "ready" ? s.badgeOk : ""}`} aria-hidden="true">{st.state === "ready" ? "✓" : st.count || ""}</span>
                             <span className={s.svcText}>
                                 <b>{sv.name}</b>
@@ -698,27 +733,19 @@ function DetailsScreen(p: ScreenProps) {
                     );
                 })}
             </div>
-            <p className={s.hint} style={{ marginTop: 10 }}>{C.detailsFoot}</p>
+            <p className={s.hint} style={{ marginTop: 12 }}>{C.detailsFoot}</p>
         </>
     );
 }
 
-type Section = "included" | "jobs" | "price" | "duration" | "questions" | "photos" | "brands" | "areas";
-
-function ServicePanel({ state, update, toast, uploads, index, status }: ScreenProps & { index: number; status: ServiceStatus }) {
+/** One service's current step: a header with its progress, one question, and what answering adds. */
+function ServiceStep({ state, update, toast, uploads, index, status }: ScreenProps & { index: number; status: ServiceStatus }) {
     const sv = state.services[index];
     const f: ServiceFacts = state.serviceFacts[sv.name] ?? emptyFacts();
     const sug = suggestionsFor(state.trade, sv.name);
-    const showBrands = !!BRAND_SUGGESTIONS[state.trade] || state.brands.length > 0;
-    const showAreas = state.towns.length >= 2;
-    const first: Section = f.included.length < 3 ? "included" : f.typicalJobs.length < 2 ? "jobs" : "price";
-    const [open, setOpen] = useState<Section | null>(first);
+    const steps = serviceStepsFor(state).filter((x) => x !== "done");
+    const step = (state.detailStep || "included") as ServiceStepId;
     const slot = `svc:${sv.name}`;
-    // A long section on a short screen is brought fully into view as it opens.
-    const openRef = useRef<HTMLDivElement | null>(null);
-    useEffect(() => {
-        openRef.current?.scrollIntoView({ block: "nearest" });
-    }, [open]);
 
     const set = (patch: Partial<ServiceFacts>) => update({ serviceFacts: { ...state.serviceFacts, [sv.name]: { ...f, ...patch } } });
     const toggleCapped = (key: "included" | "typicalJobs" | "brands", v: string) => {
@@ -741,87 +768,114 @@ function ServicePanel({ state, update, toast, uploads, index, status }: ScreenPr
         set({ questions: [...f.questions, { q, a: "" }] });
     };
 
-    const picked = (n: number) => (n ? C.vPicked(n) : C.vNone);
-    const areasValue = f.areasMode === "some" && f.areas.length ? C.vSomeTowns(f.areas.length, state.towns.length) : C.vEverywhere;
-    const rows: { id: Section; label: string; earn: string; filled: boolean; value: string; body: ReactNode }[] = [
-        {
-            id: "included", label: C.qIncluded, earn: C.earnIncluded, filled: f.included.length >= 3, value: picked(f.included.length),
-            body: (
+    if (step === "done") {
+        const lines: { text: string; ok: boolean }[] = [
+            ...(f.included.length ? [{ text: C.dIncluded(f.included.length), ok: true }] : []),
+            ...(f.typicalJobs.length ? [{ text: C.dJobs(f.typicalJobs.length), ok: true }] : []),
+            ...(f.priceFrom.trim() || f.duration.trim()
+                ? [{ text: [f.priceFrom.trim() && `Starting at ${f.priceFrom.trim()}`, f.duration.trim()].filter(Boolean).join(" · "), ok: true }]
+                : []),
+            ...(f.questions.length ? [{ text: C.dQuestions(f.questions.length), ok: true }] : []),
+            { text: f.photos.length ? C.dPhotos(f.photos.length) : C.dNoPhotos, ok: f.photos.length > 0 },
+        ];
+        const ready = status.state === "ready";
+        return (
+            <div className={`${s.doneCard} ${ready ? s.doneCardOk : ""}`}>
+                {ready ? <div className={s.doneBig} aria-hidden="true">✓</div> : null}
+                <h1 className={`${s.q} ${s.qDone}`}>{ready ? C.doneReady(sv.name) : C.doneSaved(sv.name)}</h1>
+                {!ready ? <p className={s.help}>{C.doneNotYet}</p> : null}
+                <ul className={s.doneList}>
+                    {lines.map((l) => <li key={l.text} className={l.ok ? "" : s.doneNo}>{l.text}</li>)}
+                </ul>
+                {/* On a phone the footer has no room for this; on a desktop it sits in the footer. */}
+                <button type="button" className={`${s.lnk} ${s.phoneOnly}`} style={{ marginTop: 14, paddingLeft: 0 }} onClick={() => update({ detailOpen: "", detailStep: "" })}>{C.backToAll}</button>
+            </div>
+        );
+    }
+
+    const n = steps.indexOf(step) + 1;
+    const head = (
+        <div className={s.svcHead}>
+            <span className={s.eyebrow}>{C.stepOf(sv.name, n, steps.length)}</span>
+            <span className={s.dotsRow} aria-hidden="true">
+                {steps.map((x, i) => <i key={x} className={i < n - 1 ? s.dotDone : i === n - 1 ? s.dotCur : ""} />)}
+            </span>
+        </div>
+    );
+    const adds = (text: string) => <p className={s.earnLine}><i aria-hidden="true">+</i>{text}</p>;
+
+    let q = "";
+    let help = "";
+    let body: ReactNode = null;
+    let earn = "";
+    switch (step) {
+        case "included":
+            q = C.qIncluded; help = C.hIncluded; earn = C.adds("What's included");
+            body = (
                 <>
-                    <p className={s.panelHint}>{C.hIncluded}</p>
-                    <ChipList options={sug.included} selected={f.included} onToggle={(v) => toggleCapped("included", v)} limit={5} />
+                    <ChipList options={sug.included} selected={f.included} onToggle={(v) => toggleCapped("included", v)} limit={6} />
                     <AddRow placeholder={C.addIncluded} onAdd={(v) => !f.included.includes(v) && toggleCapped("included", v)} />
                 </>
-            ),
-        },
-        {
-            id: "jobs", label: C.qJobs, earn: C.earnJobs, filled: f.typicalJobs.length >= 2, value: picked(f.typicalJobs.length),
-            body: (
+            );
+            break;
+        case "jobs":
+            q = C.qJobs; help = C.hJobs; earn = C.adds("Signs it's time to call");
+            body = (
                 <>
-                    <p className={s.panelHint}>{C.hJobs}</p>
-                    <ChipList options={sug.jobs} selected={f.typicalJobs} onToggle={(v) => toggleCapped("typicalJobs", v)} limit={5} />
+                    <ChipList options={sug.jobs} selected={f.typicalJobs} onToggle={(v) => toggleCapped("typicalJobs", v)} limit={6} />
                     <AddRow placeholder={C.addJobs} onAdd={(v) => !f.typicalJobs.includes(v) && toggleCapped("typicalJobs", v)} />
                 </>
-            ),
-        },
-        {
-            id: "price", label: C.qPrice, earn: C.earnPrice, filled: !!f.priceFrom.trim(), value: f.priceFrom.trim() || C.vNotShared,
-            body: (
+            );
+            break;
+        case "pricetime": {
+            q = C.qPriceTime; help = C.hPriceTime; earn = C.adds2("Starting at", "What to expect");
+            const custom = f.duration.trim() && !(C.durationChips as readonly string[]).includes(f.duration.trim()) ? [f.duration.trim()] : [];
+            body = (
                 <>
-                    <p className={s.panelHint}>{C.hPrice}</p>
                     <div className={s.narrower}>
-                        <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" ariaLabel={C.qPrice} />
+                        <Field label={C.qPrice} note={C.hPrice}>
+                            <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" ariaLabel={C.qPrice} />
+                        </Field>
+                    </div>
+                    {/* One answer: tapping a chip picks it (again clears it); "add your own" replaces it. */}
+                    <div className={s.fld} role="group" aria-label={C.qDuration}>
+                        <span className={s.fldLab}>{C.qDuration}</span>
+                        <div className={s.chips}>
+                            {[...C.durationChips, ...custom].map((d) => (
+                                <Chip key={d} label={d} on={f.duration.trim() === d} onClick={() => set({ duration: f.duration.trim() === d ? "" : d })} />
+                            ))}
+                        </div>
+                        <AddRow placeholder={C.addDuration} onAdd={(v) => set({ duration: v.slice(0, 40) })} />
                     </div>
                 </>
-            ),
-        },
-        {
-            // One answer: tapping a chip picks it (again clears it); "add your own" replaces it.
-            id: "duration", label: C.qDuration, earn: C.earnExpect, filled: !!f.duration.trim(), value: f.duration.trim(),
-            body: (
+            );
+            break;
+        }
+        case "questions":
+            q = C.qQuestions; help = C.hQuestions; earn = C.adds("Common questions");
+            body = (
                 <>
-                    <p className={s.panelHint}>{C.hDuration}</p>
-                    <div className={s.chips}>
-                        {[...C.durationChips, ...(f.duration.trim() && !(C.durationChips as readonly string[]).includes(f.duration.trim()) ? [f.duration.trim()] : [])].map((d) => (
-                            <Chip key={d} label={d} on={f.duration.trim() === d} onClick={() => set({ duration: f.duration.trim() === d ? "" : d })} />
-                        ))}
-                    </div>
-                    <AddRow placeholder={C.addDuration} onAdd={(v) => set({ duration: v.slice(0, 40) })} />
-                </>
-            ),
-        },
-        {
-            id: "questions", label: C.qQuestions, earn: C.earnQuestions, filled: f.questions.length > 0, value: picked(f.questions.length),
-            body: (
-                <>
-                    <p className={s.panelHint}>{C.hQuestions}</p>
-                    {f.questions.map((q, qi) => (
-                        <div key={q.q} className={s.qa}>
+                    {f.questions.map((x, qi) => (
+                        <div key={x.q} className={s.qa}>
                             <span className={s.qaQ}>
-                                <b>{q.q}</b>
+                                <b>{x.q}</b>
                                 <button type="button" className={s.qaX} aria-label="Remove question" onClick={() => set({ questions: f.questions.filter((_, j) => j !== qi) })}>×</button>
                             </span>
-                            <Text
-                                value={q.a}
-                                onChange={(v) => set({ questions: f.questions.map((x, j) => (j === qi ? { ...x, a: v } : x)) })}
-                                placeholder={C.answerPh}
-                                ariaLabel={`${C.answerPh}: ${q.q}`}
-                            />
+                            <Text value={x.a} onChange={(v) => set({ questions: f.questions.map((y, j) => (j === qi ? { ...y, a: v } : y)) })} placeholder={C.answerPh} ariaLabel={`${C.answerPh}: ${x.q}`} />
                         </div>
                     ))}
-                    <ChipList options={sug.questions.filter((q) => !f.questions.some((x) => x.q === q))} selected={[]} onToggle={addQuestion} limit={4} />
+                    <ChipList options={sug.questions.filter((x) => !f.questions.some((y) => y.q === x))} selected={[]} onToggle={addQuestion} limit={4} />
                     <AddRow placeholder={C.addQuestion} onAdd={addQuestion} clean={cleanQuestion} />
                 </>
-            ),
-        },
-        {
-            id: "photos", label: C.qPhotos, earn: C.earnPhotos, filled: f.photos.length > 0, value: f.photos.length ? C.vPicked(f.photos.length) : C.vUpTo3,
-            body: (
+            );
+            break;
+        case "photos":
+            q = C.qPhotos; help = C.hPhotos; earn = C.addsPhotos;
+            body = (
                 <>
-                    <p className={s.panelHint}>{C.hPhotos}</p>
                     <div className={s.thumbs}>
                         {f.photos.map((img, i) => (
-                            <span key={img.url} className={s.thumb}>
+                            <span key={img.url} className={`${s.thumb} ${s.thumbBig}`}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
                                 <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
@@ -835,7 +889,7 @@ function ServicePanel({ state, update, toast, uploads, index, status }: ScreenPr
                                     if (files.length > SERVICE_CAPS.photos - f.photos.length) toast(C.photosCap);
                                     uploads.service(sv.name, files.slice(0, SERVICE_CAPS.photos - f.photos.length));
                                 }}
-                                className={`${s.thumb} ${s.thumbAdd}`}
+                                className={`${s.thumb} ${s.thumbBig} ${s.thumbAdd}`}
                                 ariaLabel={C.qPhotos}
                             >
                                 {uploads.busy.has(slot) ? "…" : "+"}
@@ -844,72 +898,45 @@ function ServicePanel({ state, update, toast, uploads, index, status }: ScreenPr
                     </div>
                     {uploads.errors[slot] ? <p className={s.err} role="alert">{uploads.errors[slot]}</p> : null}
                 </>
-            ),
-        },
-        ...(showBrands
-            ? [{
-                  id: "brands" as Section, label: C.qBrands, earn: C.earnBrands, filled: f.brands.length > 0, value: f.brands.length ? f.brands.join(", ") : C.vNone,
-                  body: (
-                      <>
-                          <p className={s.panelHint}>{C.hBrands}</p>
-                          <ChipList options={[...(BRAND_SUGGESTIONS[state.trade] ?? []), ...state.brands.filter((b) => !(BRAND_SUGGESTIONS[state.trade] ?? []).includes(b))]} selected={f.brands} onToggle={toggleBrand} />
-                      </>
-                  ),
-              }]
-            : []),
-        ...(showAreas
-            ? [{
-                  id: "areas" as Section, label: C.qAreas, earn: C.earnAreas, filled: f.areasMode === "some" && f.areas.length > 0, value: areasValue,
-                  body: (
-                      <>
-                          <div className={s.chips} style={{ marginBottom: 8 }}>
-                              <Chip label={C.areasAll} on={f.areasMode === "all"} onClick={() => set({ areasMode: f.areasMode === "all" ? "" : "all" })} />
-                              <Chip label={C.areasSome} on={f.areasMode === "some"} onClick={() => set({ areasMode: f.areasMode === "some" ? "" : "some" })} />
-                          </div>
-                          {f.areasMode === "some" ? (
-                              <div className={s.chips}>
-                                  {state.towns.map((t) => (
-                                      <Chip key={t} label={t} on={f.areas.includes(t)} onClick={() => set({ areas: f.areas.includes(t) ? f.areas.filter((x) => x !== t) : [...f.areas, t] })} />
-                                  ))}
-                              </div>
-                          ) : null}
-                      </>
-                  ),
-              }]
-            : []),
-    ];
-
-    const banner = status.state === "ready" ? C.banReady : status.state === "near" ? C.banNear : C.banCore;
+            );
+            break;
+        case "brands": {
+            q = C.qBrands; help = C.hBrands; earn = C.adds("Brands we work with");
+            const menu = BRAND_SUGGESTIONS[state.trade] ?? [];
+            body = <ChipList options={[...menu, ...state.brands.filter((b) => !menu.includes(b))]} selected={f.brands} onToggle={toggleBrand} />;
+            break;
+        }
+        case "areas":
+            q = C.qAreas; help = ""; earn = C.adds("Areas we serve");
+            body = (
+                <>
+                    <div className={s.chips} style={{ marginBottom: 14 }}>
+                        <Chip label={C.areasAll} on={f.areasMode === "all"} onClick={() => set({ areasMode: f.areasMode === "all" ? "" : "all" })} />
+                        <Chip label={C.areasSome} on={f.areasMode === "some"} onClick={() => set({ areasMode: f.areasMode === "some" ? "" : "some" })} />
+                    </div>
+                    {f.areasMode === "some" ? (
+                        <div className={s.chips}>
+                            {state.towns.map((t) => (
+                                <Chip key={t} label={t} on={f.areas.includes(t)} onClick={() => set({ areas: f.areas.includes(t) ? f.areas.filter((x) => x !== t) : [...f.areas, t] })} />
+                            ))}
+                        </div>
+                    ) : null}
+                </>
+            );
+            break;
+    }
     return (
         <>
-            <div className={s.panelTop}>
-                <button type="button" className={`${s.lnk} ${s.lnkInline}`} onClick={() => update({ detailOpen: "" })}>{C.allServices}</button>
-                <span className={s.eyebrow}>{C.serviceOf(index + 1, state.services.length)}</span>
-            </div>
-            <h1 className={`${s.q} ${s.qPanel}`}>{sv.name}</h1>
-            <div className={`${s.earnBan} ${status.state === "ready" ? s.earnBanOk : ""}`} role="status">{banner}</div>
-            <div className={s.acc}>
-                {rows.map((r) => {
-                    const isOpen = open === r.id;
-                    return (
-                        <div key={r.id} className={s.accRow}>
-                            <button type="button" className={s.ar} aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : r.id)}>
-                                <span className={`${s.arIc} ${r.filled ? s.arIcOn : ""}`} aria-hidden="true" />
-                                <b>{r.label}</b>
-                                {/* Empty: what answering it adds to the page. Answered: what they gave. */}
-                                {r.filled ? <span className={`${s.arV} ${s.arVOn}`}>{r.value}</span> : <span className={s.earn}>{r.earn}</span>}
-                            </button>
-                            {isOpen ? (
-                                <div className={s.accOpen} ref={openRef}>
-                                    {/* Phones have no room for the tag in the row, so it sits here. */}
-                                    {!r.filled ? <p className={s.earnOpen}>{r.earn}</p> : null}
-                                    {r.body}
-                                </div>
-                            ) : null}
-                        </div>
-                    );
-                })}
-            </div>
+            {head}
+            <h1 className={s.q}>{q}</h1>
+            {help ? <p className={s.help}>{help}</p> : null}
+            {body}
+            {/* "Everywhere I cover" adds nothing (client-seo, (b)), so the line only shows for "some". */}
+            {step !== "areas" || f.areasMode === "some" ? adds(earn) : null}
+            {/* Phones: the footer has no room for this link, so it sits under the question. */}
+            <p className={s.phoneOnly} style={{ textAlign: "center", margin: "18px 0 0" }}>
+                <button type="button" className={s.lnk} onClick={() => update({ detailStep: "done" })}>{C.doneWithService}</button>
+            </p>
         </>
     );
 }
@@ -1068,7 +1095,8 @@ export function summaryLines(id: string, st: WizardState): string[] {
         case "contact": return [t(st.phone), t(st.email), t(st.address)];
         case "area": return [st.towns.join(", ")];
         case "website": return [t(st.website)];
-        case "online": {
+        // All profiles are summarised once, on the Google listing line.
+        case "google": {
             const n = profilesForPayload(st.profiles).length;
             return [n ? C.profilesSummary(n) : ""];
         }

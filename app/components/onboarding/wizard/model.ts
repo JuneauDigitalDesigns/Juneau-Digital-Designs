@@ -74,6 +74,13 @@ export type ServiceFacts = {
 
 export type ProfileEntry = { kind: ProfileKind; url: string };
 
+/**
+ * The short steps one service walks through on the "details" screen (Xander, 2026-11-10: "spread
+ * things across steps", one question per screen). "done" closes the service with what it earned.
+ */
+export type ServiceStepId = "included" | "jobs" | "pricetime" | "questions" | "photos" | "brands" | "areas" | "done";
+const STEP_IDS: ServiceStepId[] = ["included", "jobs", "pricetime", "questions", "photos", "brands", "areas", "done"];
+
 /** The wizard's answers. Persisted as the draft (`v: 2`). */
 export type WizardState = {
     v: 2;
@@ -117,6 +124,8 @@ export type WizardState = {
     serviceFacts: Record<string, ServiceFacts>;
     /** The service whose details are open on the "details" screen, by name; "" = the list. */
     detailOpen: string;
+    /** Which short step of that service is showing (v2: one question per screen). */
+    detailStep: ServiceStepId | "";
     seasonBodies: Record<string, string>;
     serviceRadiusMiles: string;
     offerBadge: string;
@@ -228,9 +237,12 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         S("trade", 0, "Your trade", "brand", { required: true }),
         S("name", 0, "Business name", "brand", { required: true }),
         S("contact", 0, "Contact details", "contact", { required: true }),
+        // Its own screen in v2, so the contact screen stays the approved three fields.
+        S("visit", 0, C.visitNav, "contact", { skippable: true }),
         S("area", 0, "Towns", "towns", { skippable: true }),
         S("website", 0, "Website", "website", { skippable: true }),
-        S("online", 0, C.onlineNav, "profiles", { skippable: true }),
+        S("google", 0, C.googleNav, "profiles", { skippable: true }),
+        S("elsewhere", 0, C.elsewhereNav, "profiles", { skippable: true }),
         ...(ctx.plan === "enterprise" ? [S("sites", 0, "Other locations", "none", { skippable: true })] : []),
         S("services", 1, "Services", "services", { skippable: true }),
         // The facts each service's own page is built from. Price lives here for every trade now.
@@ -303,7 +315,9 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "contact": return !!(state.phone.trim() && state.address.trim());
         case "area": return state.towns.length > 0;
         case "website": return !!state.website.trim();
-        case "online": return state.profiles.some((p) => p.url.trim());
+        case "visit": return !!state.visitAddress;
+        case "google": return state.profiles.some((p) => p.kind === "google" && p.url.trim());
+        case "elsewhere": return state.profiles.some((p) => p.kind !== "google" && p.url.trim());
         case "sites": return state.additionalSites.some((s) => s.brandName.trim());
         case "services": return state.services.length > 0;
         case "details": return state.services.some((sv) => hasAnyFact(state.serviceFacts[sv.name]));
@@ -518,6 +532,47 @@ export function serviceStatus(state: WizardState, index: number, ctx?: WizardCon
     return serviceStatuses(state, ctx)[index] ?? { state: "none", count: 0 };
 }
 
+// ── One service, step by step ────────────────────────────────────────────────
+
+/** Brands are asked only where the trade has brand suggestions (or the client named brands). */
+export function showsBrands(state: Pick<WizardState, "trade" | "brands">): boolean {
+    return !!BRAND_SUGGESTIONS[state.trade] || state.brands.length > 0;
+}
+
+/** The steps a service walks through. Brands and towns appear only when they can mean something. */
+export function serviceStepsFor(state: Pick<WizardState, "trade" | "brands" | "towns">): ServiceStepId[] {
+    return STEP_IDS.filter((id) => (id === "brands" ? showsBrands(state) : id === "areas" ? state.towns.length >= 2 : true));
+}
+
+type DetailPatch = Pick<Partial<WizardState>, "detailOpen" | "detailStep">;
+const CLOSED: DetailPatch = { detailOpen: "", detailStep: "" };
+
+export function openService(state: WizardState, name: string): DetailPatch {
+    return state.services.some((x) => x.name === name) ? { detailOpen: name, detailStep: "included" } : CLOSED;
+}
+
+/** Next (or Skip): the following step; from "done", the next service, or back to the list after the last. */
+export function detailForward(state: WizardState): DetailPatch {
+    const steps = serviceStepsFor(state);
+    const at = steps.indexOf(state.detailStep || "included");
+    if (state.detailStep !== "done") return { detailStep: steps[Math.min(at + 1, steps.length - 1)] };
+    const i = state.services.findIndex((x) => x.name === state.detailOpen);
+    const following = state.services[i + 1];
+    return following ? { detailOpen: following.name, detailStep: "included" } : CLOSED;
+}
+
+/** Back: the previous step, or the list from the first one. */
+export function detailBack(state: WizardState): DetailPatch {
+    const steps = serviceStepsFor(state);
+    const at = steps.indexOf(state.detailStep || "included");
+    return at <= 0 ? CLOSED : { detailStep: steps[at - 1] };
+}
+
+/** "Done with this service": straight to its summary. */
+export function detailFinish(state: WizardState): DetailPatch {
+    return state.detailOpen ? { detailStep: "done" } : CLOSED;
+}
+
 /** Profiles worth sending: a good link, one per kind, in PROFILE_KINDS order. */
 export function profilesForPayload(profiles: ProfileEntry[]): { kind: ProfileKind; url: string }[] {
     const out: { kind: ProfileKind; url: string }[] = [];
@@ -633,7 +688,7 @@ export function initialState(email: string, signedMode?: ReceptionistMode, prefi
         address: prefill?.address ?? "", visitAddress: "", towns: [], website: "", profiles: [],
         services: [], diffs: [], customers: [],
         established: "", license: "", owner: prefill?.owner ?? "", response: "", brands: [], certs: [],
-        rating: "", reviewCount: "", reviewUrl: "", reviewSource: "", statValues: {}, serviceFacts: {}, detailOpen: "",
+        rating: "", reviewCount: "", reviewUrl: "", reviewSource: "", statValues: {}, serviceFacts: {}, detailOpen: "", detailStep: "",
         seasonBodies: {}, serviceRadiusMiles: "", offerBadge: "",
         logoChoice: "", images: { heroSlides: [] }, voice: [], avoid: "",
         receptionistMode: signedMode ?? "", hours: "", customHours: "", emergency: false, agentName: "",
@@ -736,8 +791,15 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
     const serviceFacts = readServiceFacts(d.serviceFacts, rec(d.servicePrices));
 
     if (d.v === 2) {
-        // The retired Starting prices screen: resume on service details, where price lives now.
-        const saved = str(d.screen) === "prices" ? "details" : str(d.screen);
+        // Retired screens resume where their question lives now: Starting prices on service details,
+        // and the first layout's single profiles screen on the Google listing.
+        const RENAMED: Record<string, string> = { prices: "details", online: "google" };
+        const saved = RENAMED[str(d.screen)] ?? str(d.screen);
+        const detailOpen = str(d.detailOpen);
+        const savedStep = str(d.detailStep);
+        const detailStep: WizardState["detailStep"] = !detailOpen
+            ? ""
+            : (STEP_IDS as string[]).includes(savedStep) ? (savedStep as ServiceStepId) : "included";
         const screen = saved || base.screen;
         return {
             ...base,
@@ -752,7 +814,7 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
             brands: strs(d.brands), certs: strs(d.certs),
             rating: str(d.rating), reviewCount: str(d.reviewCount), reviewUrl: str(d.reviewUrl),
             reviewSource: isKind(d.reviewSource) ? d.reviewSource : "",
-            statValues: rec(d.statValues), serviceFacts, detailOpen: str(d.detailOpen), seasonBodies: rec(d.seasonBodies),
+            statValues: rec(d.statValues), serviceFacts, detailOpen, detailStep, seasonBodies: rec(d.seasonBodies),
             serviceRadiusMiles: str(d.serviceRadiusMiles), offerBadge: str(d.offerBadge),
             logoChoice: d.logoChoice === "design" ? "design" : "",
             images: safeImages, voice: strs(d.voice).slice(0, MAX_VOICES), avoid: str(d.avoid),

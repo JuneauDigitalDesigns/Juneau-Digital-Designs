@@ -22,6 +22,11 @@ import {
     restoreDraft,
     screensFor,
     serviceStatus,
+    serviceStepsFor,
+    openService,
+    detailForward,
+    detailBack,
+    detailFinish,
 } from "../app/components/onboarding/wizard/model.ts";
 import { profileLinkProblem } from "../app/lib/profile-links.ts";
 
@@ -46,10 +51,11 @@ function base() {
 
 const facts = (patch) => ({ ...emptyFacts(), ...patch });
 
-test("details follows services, online follows website, and the prices screen is gone", () => {
+test("v2 order: one question per screen, and the prices screen is gone", () => {
     const ids = screensFor(base(), growth).map((s) => s.id);
     assert.equal(ids[ids.indexOf("services") + 1], "details");
-    assert.equal(ids[ids.indexOf("website") + 1], "online");
+    assert.deepEqual(ids.slice(ids.indexOf("contact"), ids.indexOf("contact") + 6), ["contact", "visit", "area", "website", "google", "elsewhere"]);
+    assert.ok(!ids.includes("online"), "the busy profiles screen is split in two");
     for (const trade of ["hvac", "lawn-care", "car-detailing", "plumbing", "roofing"]) {
         assert.ok(!screensFor({ ...base(), trade }, growth).some((s) => s.id === "prices"), `${trade}: price lives on each service now`);
     }
@@ -202,6 +208,7 @@ test("drafts: an old price map moves onto the service, and the new answers round
         screen: "details",
         visited: ["welcome", "details"],
         detailOpen: "AC Installation & Service",
+        detailStep: "questions",
         visitAddress: "no",
         profiles: [{ kind: "google", url: "https://g.page/ridgeline" }],
         reviewSource: "google",
@@ -225,4 +232,33 @@ test("how long a job takes: the client's own words, sent as given, not a page fa
     const status = (f) => serviceStatus({ ...base(), serviceFacts: { "AC Installation & Service": facts(f) } }, 0).state;
     assert.equal(status({ included: ["a", "b", "c"], duration: "Half a day" }), "near", "it feeds What to expect; the own-page gate doesn't count it");
     assert.equal(status({ duration: "Half a day" }), "core", "something given, so not 'No details yet'");
+});
+
+test("each service is a short walkthrough: brands and towns only when they apply", () => {
+    assert.deepEqual(serviceStepsFor(base()), ["included", "jobs", "pricetime", "questions", "photos", "brands", "areas", "done"]);
+    assert.deepEqual(serviceStepsFor({ ...base(), trade: "lawn-care" }), ["included", "jobs", "pricetime", "questions", "photos", "areas", "done"], "no brand suggestions for lawn care");
+    assert.deepEqual(serviceStepsFor({ ...base(), trade: "lawn-care", towns: ["Orlando"] }), ["included", "jobs", "pricetime", "questions", "photos", "done"], "one town: nothing to narrow");
+});
+
+test("Next, Back, Skip and Done move through one service, then on to the next", () => {
+    const at = (patch) => ({ ...base(), ...patch });
+    const ac = "AC Installation & Service";
+    const furnace = "Furnace Repair & Replacement";
+    assert.deepEqual(openService(base(), furnace), { detailOpen: furnace, detailStep: "included" });
+    assert.deepEqual(detailForward(at({ detailOpen: ac, detailStep: "included" })), { detailStep: "jobs" });
+    assert.deepEqual(detailForward(at({ detailOpen: ac, detailStep: "areas" })), { detailStep: "done" });
+    assert.deepEqual(detailForward(at({ detailOpen: ac, detailStep: "done" })), { detailOpen: furnace, detailStep: "included" }, "done → the next service");
+    assert.deepEqual(detailForward(at({ detailOpen: "Duct Cleaning & Sealing", detailStep: "done" })), { detailOpen: "", detailStep: "" }, "last service → back to the list");
+    assert.deepEqual(detailBack(at({ detailOpen: ac, detailStep: "jobs" })), { detailStep: "included" });
+    assert.deepEqual(detailBack(at({ detailOpen: ac, detailStep: "included" })), { detailOpen: "", detailStep: "" }, "back from step 1 → the list");
+    assert.deepEqual(detailFinish(at({ detailOpen: ac, detailStep: "jobs" })), { detailStep: "done" }, "Done with this service");
+    assert.deepEqual(detailForward(at({ detailOpen: ac, detailStep: "photos", trade: "lawn-care", towns: ["Orlando"] })), { detailStep: "done" }, "skips steps that don't apply");
+});
+
+test("drafts from the first layout land on the new screens", () => {
+    const old = { ...base(), v: 2, screen: "online", detailOpen: "AC Installation & Service" };
+    delete old.detailStep;
+    const s = restoreDraft(JSON.parse(JSON.stringify(old)), initialState("x@y.com", "forwarded"));
+    assert.equal(s.screen, "google");
+    assert.equal(s.detailStep, "included", "an open service from the old panel resumes at its first step");
 });

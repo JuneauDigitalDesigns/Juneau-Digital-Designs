@@ -242,7 +242,7 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
                     <span className={hl("contact")}>{shownAddress(state) || "Your address"}</span>
                     <span className={hl("hours")}>{(state.hours === "custom" ? state.customHours.trim() : state.hours) || "Your hours"}</span>
                     {profileNames.length || focus === "profiles" ? (
-                        <span className={hl("profiles")} style={{ marginLeft: "auto" }}>{profileNames.join(" · ") || "Google · Facebook · Yelp"}</span>
+                        <span className={hl("profiles")} style={{ marginLeft: "auto" }}>{profileNames.join(" · ") || C.profilesPlaceholder}</span>
                     ) : null}
                 </div>
             </div>

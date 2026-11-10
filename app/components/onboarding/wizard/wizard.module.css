@@ -297,48 +297,6 @@
 @keyframes pulse { 50% { outline-color: transparent; } }
 @media (prefers-reduced-motion: reduce) { .hl { animation: none; } }
 
-/* ── Service details (2026-11-10) ── */
-.tally { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; font-size: 14px; }
-.meterBig { flex: 1; max-width: 220px; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
-.meterBig i { display: block; height: 100%; background: var(--accent); transition: width 0.4s; }
-.svcs { display: flex; flex-direction: column; gap: 6px; }
-.svc { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid var(--rule); background: var(--elev-1); border-radius: 14px; padding: 10px 14px; min-height: 52px; }
-.svc:hover { border-color: var(--fg-3); }
-.svcReady { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-.badge { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 1px solid var(--rule-strong); font: 700 12px var(--font-mono); color: var(--fg-3); }
-.badgeOk { background: var(--accent); border-color: var(--accent); color: var(--on-sel); }
-.svcText { min-width: 0; display: flex; flex-direction: column; }
-.svcText b { font-size: 14.5px; }
-.svcSt { font-size: 12.5px; color: var(--fg-3); }
-.svcStOk { color: var(--accent); font-weight: 700; }
-.svcStNear { color: var(--fg-2); font-weight: 600; }
-.svcGo { margin-left: auto; font-weight: 700; font-size: 13px; color: var(--fg-2); white-space: nowrap; }
-
-.panelTop { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.qPanel { font-size: 34px; margin: 8px 0 10px; }
-.earnBan { border-radius: 12px; padding: 9px 12px; font-size: 13.5px; margin: 0 0 12px; background: var(--surface); border: 1px dashed var(--rule-strong); color: var(--fg-2); }
-.earnBanOk { background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); color: var(--accent); font-weight: 700; }
-.acc { border: 1px solid var(--rule); border-radius: 14px; background: var(--elev-1); overflow: hidden; }
-.accRow + .accRow { border-top: 1px solid var(--rule-weak); }
-.ar { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 10px 14px; min-height: 44px; }
-.ar b { font-size: 14px; }
-.arIc { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--rule-strong); flex: none; }
-.arIcOn { background: var(--accent); border-color: var(--accent); }
-.earn { margin-left: auto; font: 500 10.5px var(--font-mono); color: var(--accent); letter-spacing: 0.03em; white-space: nowrap; }
-.arV { font-size: 12.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
-
-.arV { margin-left: auto; }
-.arVOn { color: var(--accent); font-weight: 700; }
-.accOpen { padding: 4px 14px 12px; background: var(--elev-2); }
-.panelHint { margin: 4px 0 8px; font-size: 13px; color: var(--fg-3); }
-.earnOpen { display: none; margin: 4px 0 0; font: 500 10.5px var(--font-mono); color: var(--accent); letter-spacing: 0.03em; }
-.qa { border: 1px solid var(--rule); border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; background: var(--elev-1); display: grid; gap: 6px; }
-.qaQ { display: flex; align-items: center; gap: 8px; }
-.qaQ b { font-size: 13.5px; flex: 1; }
-.qaQ b::before { content: "✓ "; color: var(--accent); }
-.qaX { border: 0; background: none; color: var(--fg-3) !important; font-size: 16px; padding: 0 4px; }
-.qa .input { font-size: 14px; padding: 8px 10px; }
-
 /* Wireframe: pages so far, and one service's page */
 .pgList { display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; }
 .pg { display: flex; gap: 8px; align-items: center; border: 1px solid var(--s-rule); border-radius: 7px; padding: 6px 9px; font-size: 10.5px; background: var(--s-bg); }
@@ -350,23 +308,116 @@
 .sList span::before { content: "✓ "; font-weight: 800; }
 .sCrumb { font: 9px var(--font-mono); color: var(--s-soft); margin-bottom: 6px; }
 
-@media (max-width: 899px) {
-  .qPanel { font-size: 26px; }
-  .svc { padding: 9px 12px; }
-  .ar { padding: 9px 12px; min-height: 42px; }
-  .ar .earn { display: none; }
-  .earnOpen { display: block; }
-  .accOpen { padding: 2px 12px 10px; }
-  .earnBan { font-size: 13px; padding: 7px 10px; }
-}
-
-/* Short laptop screens: one open service still fits without scrolling. */
-@media (min-width: 900px) and (max-height: 760px) {
-  .qPanel { font-size: 30px; margin: 2px 0 6px; }
-  .earnBan { padding: 6px 12px; margin-bottom: 8px; }
-  .ar { padding: 5px 14px; min-height: 36px; }
-  .panelHint { margin: 2px 0 6px; }
-  .accOpen .addrow { margin-top: 8px; }
-}
-
 .sLinks span { white-space: nowrap; }
+
+/* ── v2 (Xander, 2026-11-10): one question per screen, room to breathe ──
+   Each screen's content sits in the vertical middle of its column; margin-block:auto collapses to 0
+   when a screen is taller than the column, so nothing is ever pushed out of reach. */
+@media (min-width: 900px) {
+  .scr { display: flex; flex-direction: column; }
+  .scrIn { margin-block: auto; width: 100%; }
+}
+.help { font-size: 16px; line-height: 1.55; margin-bottom: 26px; }
+.chips { gap: 10px; }
+.chip { padding: 11px 18px; font-size: 15px; }
+.fld { gap: 8px; margin-bottom: 20px; }
+.input { padding: 14px 16px; font-size: 16.5px; }
+.addrow { margin-top: 14px; }
+.addInput { padding: 11px 16px; font-size: 15px; }
+.addBtn { padding: 10px 16px; font-size: 14px; }
+.opt { padding: 20px 22px; margin-bottom: 14px; border-radius: 18px; }
+.optLabel { font-size: 16.5px; }
+.optDetail { font-size: 14.5px; line-height: 1.5; }
+
+/* Service list */
+.tally { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; font-size: 14.5px; }
+.meterBig { flex: 1; max-width: 220px; height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+.meterBig i { display: block; height: 100%; background: var(--accent); transition: width 0.4s; }
+.svcs { display: flex; flex-direction: column; gap: 10px; }
+.svc { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; border: 1px solid var(--rule); background: var(--elev-1); border-radius: 16px; padding: 14px 18px; min-height: 56px; }
+.svc:hover { border-color: var(--fg-3); }
+.svcReady { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.badge { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 1px solid var(--rule-strong); font: 700 12px var(--font-mono); color: var(--fg-3); }
+.badgeOk { background: var(--accent); border-color: var(--accent); color: var(--on-sel); }
+.svcText { min-width: 0; display: flex; flex-direction: column; }
+.svcText b { font-size: 16px; }
+.svcSt { font-size: 13.5px; color: var(--fg-3); }
+.svcStOk { color: var(--accent); font-weight: 700; }
+.svcStNear { color: var(--fg-2); font-weight: 600; }
+.svcGo { margin-left: auto; font-weight: 700; font-size: 13.5px; color: var(--fg-2); white-space: nowrap; }
+
+/* One service, one step */
+.svcHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dotsRow { display: flex; gap: 6px; flex: none; }
+.dotsRow i { width: 22px; height: 5px; border-radius: 3px; background: var(--rule); }
+.dotsRow i.dotDone { background: var(--accent); }
+.dotsRow i.dotCur { background: var(--fg); }
+.earnLine { display: flex; gap: 10px; align-items: center; margin: 24px 0 0; padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--accent); font-size: 14.5px; font-weight: 600; max-width: 600px; }
+.earnLine i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--on-sel); display: grid; place-items: center; font-size: 13px; flex: none; }
+.qa { border: 1px solid var(--rule); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; background: var(--elev-1); display: grid; gap: 8px; max-width: 600px; }
+.qaQ { display: flex; align-items: center; gap: 8px; }
+.qaQ b { font-size: 15px; flex: 1; }
+.qaQ b::before { content: "✓ "; color: var(--accent); }
+.qaX { border: 0; background: none; color: var(--fg-3) !important; font-size: 18px; padding: 0 4px; }
+.qa .input { font-size: 15px; padding: 11px 13px; }
+.qa + .chips { margin-top: 6px; }
+.thumbBig { width: 120px; height: 90px; }
+.thumbBig.thumbAdd { font-size: 28px; }
+
+/* A service's summary */
+.doneCard { border: 1px solid var(--rule); background: var(--elev-1); border-radius: 20px; padding: 26px 28px; max-width: 600px; }
+.doneCardOk { border-color: color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.doneBig { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: var(--on-sel); display: grid; place-items: center; font-size: 24px; margin-bottom: 14px; }
+.qDone { font-size: 36px; margin: 0 0 10px; }
+.doneList { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; font-size: 15px; color: var(--fg-2); }
+.doneList li::before { content: "✓  "; color: var(--accent); font-weight: 700; }
+.doneList li.doneNo { color: var(--fg-3); }
+.doneList li.doneNo::before { content: "○  "; color: var(--fg-3); }
+
+/* Google listing and other profiles */
+.howto { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.howto li { border: 1px solid var(--rule); border-radius: 14px; padding: 14px; background: var(--elev-1); font-size: 14px; color: var(--fg-2); }
+.howto b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--fg); color: var(--bg); font: 700 13px var(--font-mono); margin-bottom: 8px; }
+.linkFields { margin-top: 26px; }
+
+/* Short laptop screens (1366×768 leaves about 650px): same layout, a little tighter. */
+@media (min-width: 900px) and (max-height: 760px) {
+  .help { margin-bottom: 18px; }
+  .fld { margin-bottom: 14px; }
+  .input { padding: 12px 14px; }
+  .chip { padding: 9px 15px; }
+  .opt { padding: 12px 16px; margin-bottom: 8px; }
+  .optDetail { font-size: 13.5px; }
+  .svc { padding: 11px 16px; min-height: 50px; }
+  .svcs { gap: 8px; }
+  .earnLine { margin-top: 18px; padding: 10px 14px; }
+  .qDone { font-size: 32px; }
+}
+
+@media (max-width: 899px) {
+  .help { font-size: 15px; margin-bottom: 18px; }
+  .chip { padding: 9px 14px; font-size: 14px; }
+  .chips { gap: 8px; }
+  .input { padding: 12px 13px; }
+  .fld { margin-bottom: 14px; }
+  .opt { padding: 15px 16px; }
+  .svc { padding: 12px 14px; gap: 12px; }
+  .svcs { gap: 8px; }
+  .svcGo { display: none; }
+  .svcHead { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .howto { grid-template-columns: 1fr; gap: 8px; }
+  .howto li { display: flex; gap: 12px; align-items: center; padding: 10px 12px; }
+  .howto b { margin: 0; flex: none; }
+  .earnLine { font-size: 13.5px; margin-top: 18px; }
+  .doneCard { padding: 20px; }
+  .qDone { font-size: 28px; }
+  .thumbBig { width: 96px; height: 72px; }
+}
+
+/* Shown on one side of the 900px line only (the step footer and the done screen). */
+.phoneOnly { display: none; }
+@media (max-width: 899px) {
+  .phoneOnly { display: block; }
+  span.phoneOnly { display: inline; }
+  .deskOnly { display: none !important; }
+}

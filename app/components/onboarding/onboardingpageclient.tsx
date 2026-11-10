@@ -30,6 +30,9 @@ import {
     MAX_WORK_PHOTOS,
     SERVICE_CAPS,
     buildPayload,
+    detailBack,
+    detailFinish,
+    detailForward,
     emptyFacts,
     initialState,
     isAnswered,
@@ -266,16 +269,20 @@ export default function OnboardingPageClient({
         });
     }, []);
 
-    /** On service details with a service open, Continue (and Enter) moves to the next service. */
+    /**
+     * On service details with a service open, the footer walks that service's short steps:
+     * Next (and Enter) and Skip move forward, Back moves back, and "Done with this service" jumps
+     * to its summary. From the summary, Next opens the following service.
+     */
     const detailOpen = def.id === "details" && state.services.some((x) => x.name === state.detailOpen);
-    const nextService = () => {
-        const i = state.services.findIndex((x) => x.name === state.detailOpen);
-        const following = state.services[i + 1];
-        update({ detailOpen: following ? following.name : "" });
+    const onDone = detailOpen && state.detailStep === "done";
+    const followingService = state.services[state.services.findIndex((x) => x.name === state.detailOpen) + 1];
+    const moveDetail = (patch: Partial<WizardState>) => {
+        update(patch);
         document.querySelector(`.${s.scr}`)?.scrollTo({ top: 0 });
     };
     const next = () => {
-        if (detailOpen) return nextService();
+        if (detailOpen) return moveDetail(detailForward(state));
         if (def.id === "review") return;
         const errs = screenErrors(def.id, state, ctx);
         if (Object.keys(errs).length) {
@@ -291,7 +298,7 @@ export default function OnboardingPageClient({
         goTo(screens[Math.min(index + 1, screens.length - 1)].id);
     };
     const back = () => {
-        if (detailOpen) return update({ detailOpen: "" });
+        if (detailOpen) return moveDetail(detailBack(state));
         if (index > 0) goTo(screens[index - 1].id);
     };
 
@@ -387,7 +394,7 @@ export default function OnboardingPageClient({
     // Service details shows the site's pages, or the open service's own page, instead of the home page.
     const wireframe = done ? (
         <SiteWireframe state={state} focus="none" />
-    ) : detailOpen ? (
+    ) : detailOpen && !onDone ? (
         <ServiceWireframe state={state} name={state.detailOpen} />
     ) : def.id === "details" ? (
         <PagesWireframe state={state} />
@@ -501,11 +508,19 @@ export default function OnboardingPageClient({
                         </>
                     ) : (
                         <>
-                            {def.id === "welcome" ? <span /> : <button type="button" className={s.lnk} onClick={back}>{detailOpen ? C.allServices : "← Back"}</button>}
+                            {def.id === "welcome" ? <span /> : <button type="button" className={s.lnk} onClick={back}>← Back</button>}
                             <span className={s.barSp}>
-                                {position >= 0 && !detailOpen ? <span className={s.hint}>{position + 1} of {questionScreens.length}</span> : null}
-                                {def.id !== "review" ? <span className={s.hint} style={{ marginLeft: 14 }}>or press Enter</span> : null}
+                                {detailOpen && !onDone ? (
+                                    <button type="button" className={`${s.lnk} ${s.deskOnly}`} onClick={() => moveDetail(detailFinish(state))}>{C.doneWithService}</button>
+                                ) : detailOpen ? null : (
+                                    <>
+                                        {position >= 0 ? <span className={s.hint}>{position + 1} of {questionScreens.length}</span> : null}
+                                        {def.id !== "review" ? <span className={s.hint} style={{ marginLeft: 14 }}>or press Enter</span> : null}
+                                    </>
+                                )}
                             </span>
+                            {detailOpen && !onDone ? <button type="button" className={s.lnk} onClick={next}>{C.skip}</button> : null}
+                            {onDone && followingService ? <button type="button" className={`${s.lnk} ${s.deskOnly}`} onClick={() => moveDetail({ detailOpen: "", detailStep: "" })}>{C.backToAll}</button> : null}
                             {def.skippable && !detailOpen && !isAnswered(def.id, state) ? <button type="button" className={s.lnk} onClick={skip}>Skip for now</button> : null}
                             {/* Distinct keys and type="button" on both: React must never reuse the Next
                                 node as the Send node, and neither may ever be a native submit. */}
@@ -526,9 +541,9 @@ export default function OnboardingPageClient({
                                 </button>
                             ) : (
                                 <button key="next" type="button" className={s.btn} onClick={next} disabled={busy.size > 0}>
-                                    {detailOpen
-                                        ? state.services[state.services.length - 1]?.name === state.detailOpen ? C.done : C.nextService
-                                        : def.id === "welcome" ? "Let's start" : "Continue"}{" "}
+                                    {onDone
+                                        ? followingService ? <><span className={s.deskOnly}>{C.nextServiceNamed(followingService.name)}</span><span className={s.phoneOnly}>{C.nextServiceShort}</span></> : C.backToAll
+                                        : detailOpen ? C.next : def.id === "welcome" ? "Let's start" : "Continue"}{" "}
                                     <span className={s.kbd} aria-hidden="true">↵</span>
                                 </button>
                             )}
@@ -539,8 +554,8 @@ export default function OnboardingPageClient({
 
             <section className={s.prev} aria-label="Wireframe of your site">
                 <div className={s.cap}>
-                    <span>{detailOpen && !done ? C.capService : "Wireframe of your site"}</span>
-                    <span>{def.id === "details" && !detailOpen && !done ? C.capPages : "Shows what goes where, not the final design"}</span>
+                    <span>{detailOpen && !onDone && !done ? C.capService : "Wireframe of your site"}</span>
+                    <span>{def.id === "details" && (!detailOpen || onDone) && !done ? C.capPages : "Shows what goes where, not the final design"}</span>
                 </div>
                 {wireframe}
             </section>
@@ -550,7 +565,7 @@ export default function OnboardingPageClient({
                     <div className={s.sheetIn} role="dialog" aria-label="Wireframe of your site">
                         <div className={s.grab} />
                         <div className={s.cap}>
-                            <span>{detailOpen ? C.capServicePhone : "Wireframe of your site, not the final design"}</span>
+                            <span>{detailOpen && !onDone ? C.capServicePhone : "Wireframe of your site, not the final design"}</span>
                             <button type="button" className={`${s.lnk} ${s.lnkInline}`} onClick={() => setSheetOpen(false)}>Close</button>
                         </div>
                         {wireframe}
