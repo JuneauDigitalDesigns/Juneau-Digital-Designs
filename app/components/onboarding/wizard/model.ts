@@ -65,6 +65,8 @@ export type ServiceFacts = {
     areas: string[];
     brands: string[];
     priceFrom: string;
+    /** "How long does it usually take?", in the client's words. Feeds "What to expect"; not a gate fact. */
+    duration: string;
     /** Photo 1 becomes the service's picture; every photo is also a tagged job photo. */
     photos: ImageMeta[];
     questions: { q: string; a: string }[];
@@ -427,14 +429,14 @@ export const TRADE_OPTIONS: { id: string; label: string }[] = [
 // ── Service facts ────────────────────────────────────────────────────────────
 
 export function emptyFacts(): ServiceFacts {
-    return { included: [], typicalJobs: [], areasMode: "", areas: [], brands: [], priceFrom: "", photos: [], questions: [] };
+    return { included: [], typicalJobs: [], areasMode: "", areas: [], brands: [], priceFrom: "", duration: "", photos: [], questions: [] };
 }
 
 /** Whether the client has given this service anything at all (drives "No details yet"). */
 export function hasAnyFact(f: ServiceFacts | undefined): boolean {
     if (!f) return false;
     return !!(
-        f.included.length || f.typicalJobs.length || f.brands.length || f.priceFrom.trim() || f.photos.length ||
+        f.included.length || f.typicalJobs.length || f.brands.length || f.priceFrom.trim() || f.duration.trim() || f.photos.length ||
         f.questions.some((q) => q.q.trim()) || (f.areasMode === "some" && f.areas.length)
     );
 }
@@ -456,6 +458,7 @@ export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): 
     const areas = f.areasMode === "some" ? uniq(f.areas.map(cleanEntry).filter((a) => covered.includes(a))) : [];
     const keepAreas = areas.length > 0 && areas.length < uniq(covered).length;
     const priceFrom = f.priceFrom.trim().slice(0, 40);
+    const duration = f.duration.trim().slice(0, 40);
     const photos = f.photos.filter((p) => p && typeof p.url === "string" && p.url).slice(0, SERVICE_CAPS.photos);
     const questions = f.questions
         .map((q) => ({ q: cleanQuestion(q.q), a: (q.a || "").trim().slice(0, 300) }))
@@ -467,6 +470,7 @@ export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): 
         ...(keepAreas ? { areas } : {}),
         ...(brands.length ? { brands } : {}),
         ...(priceFrom ? { priceFrom } : {}),
+        ...(duration ? { duration } : {}),
         ...(photos.length ? { photos } : {}),
         ...(questions.length ? { questions } : {}),
     };
@@ -670,6 +674,7 @@ function readServiceFacts(v: unknown, oldPrices: Record<string, string>): Record
                 areas: strs(f.areas),
                 brands: strs(f.brands),
                 priceFrom: str(f.priceFrom),
+                duration: str(f.duration),
                 photos: readImages(f.photos, SERVICE_CAPS.photos),
                 questions: (Array.isArray(f.questions) ? f.questions : [])
                     .map((q) => ({ q: str((q as { q?: unknown })?.q), a: str((q as { a?: unknown })?.a) }))

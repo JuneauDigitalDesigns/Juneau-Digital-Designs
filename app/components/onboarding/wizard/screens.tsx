@@ -703,7 +703,7 @@ function DetailsScreen(p: ScreenProps) {
     );
 }
 
-type Section = "included" | "jobs" | "price" | "questions" | "photos" | "brands" | "areas";
+type Section = "included" | "jobs" | "price" | "duration" | "questions" | "photos" | "brands" | "areas";
 
 function ServicePanel({ state, update, toast, uploads, index, status }: ScreenProps & { index: number; status: ServiceStatus }) {
     const sv = state.services[index];
@@ -772,6 +772,21 @@ function ServicePanel({ state, update, toast, uploads, index, status }: ScreenPr
                     <div className={s.narrower}>
                         <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" ariaLabel={C.qPrice} />
                     </div>
+                </>
+            ),
+        },
+        {
+            // One answer: tapping a chip picks it (again clears it); "add your own" replaces it.
+            id: "duration", label: C.qDuration, earn: C.earnExpect, filled: !!f.duration.trim(), value: f.duration.trim(),
+            body: (
+                <>
+                    <p className={s.panelHint}>{C.hDuration}</p>
+                    <div className={s.chips}>
+                        {[...C.durationChips, ...(f.duration.trim() && !(C.durationChips as readonly string[]).includes(f.duration.trim()) ? [f.duration.trim()] : [])].map((d) => (
+                            <Chip key={d} label={d} on={f.duration.trim() === d} onClick={() => set({ duration: f.duration.trim() === d ? "" : d })} />
+                        ))}
+                    </div>
+                    <AddRow placeholder={C.addDuration} onAdd={(v) => set({ duration: v.slice(0, 40) })} />
                 </>
             ),
         },

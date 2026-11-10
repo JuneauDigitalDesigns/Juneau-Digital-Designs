@@ -104,6 +104,9 @@ export function ServiceWireframe({ state, name }: { state: WizardState; name: st
             {f.typicalJobs.length ? (
                 <div className={s.sSec}><h6>Signs it&apos;s time to call</h6><div className={s.sTowns}>{f.typicalJobs.slice(0, 6).map((x) => <span key={x}>{x}</span>)}</div></div>
             ) : <div className={s.sGhost}>{C.ghostJobs}</div>}
+            {f.duration.trim() ? (
+                <div className={s.sSec}><h6>What to expect</h6><div className={s.sTowns}><span>{f.duration.trim()}</span></div></div>
+            ) : <div className={s.sGhost}>{C.ghostExpect}</div>}
             {f.priceFrom.trim() ? (
                 <div className={s.sSec}><b style={{ fontSize: 12 }}>Starting at {f.priceFrom.trim()}</b></div>
             ) : <div className={s.sGhost}>{C.ghostPrice}</div>}

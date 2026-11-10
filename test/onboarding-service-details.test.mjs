@@ -211,3 +211,18 @@ test("drafts: an old price map moves onto the service, and the new answers round
     };
     assert.deepEqual(restoreDraft(JSON.parse(JSON.stringify(st)), initialState("x@y.com", "forwarded")), st);
 });
+
+test("how long a job takes: the client's own words, sent as given, not a page fact", () => {
+    const one = (f) => buildPayload({ ...base(), serviceFacts: { "AC Installation & Service": facts(f) } }, growth).serviceList[0];
+    assert.equal(emptyFacts().duration, "", "a new service starts with no answer");
+    assert.equal(one({ duration: " Half a day " }).duration, "Half a day");
+    assert.equal("duration" in one({ duration: "  " }), false, "blank is left out, never defaulted");
+    assert.equal(one({ duration: "x".repeat(60) }).duration.length, 40);
+    const p = buildPayload({ ...base(), serviceFacts: { "AC Installation & Service": facts({ duration: "A full day" }) } }, growth);
+    assert.equal(zBrandIntakeSubmission.safeParse(p).success, true);
+    assert.equal(zBrandIntakeSubmission.parse(p).serviceList[0].duration, "A full day", "the schema keeps it");
+    assert.equal(mapBrandIntakeToIntake(p).sites[0].services.items[0].duration, "A full day");
+    const status = (f) => serviceStatus({ ...base(), serviceFacts: { "AC Installation & Service": facts(f) } }, 0).state;
+    assert.equal(status({ included: ["a", "b", "c"], duration: "Half a day" }), "near", "it feeds What to expect; the own-page gate doesn't count it");
+    assert.equal(status({ duration: "Half a day" }), "core", "something given, so not 'No details yet'");
+});

@@ -107,6 +107,14 @@ export const C = {
     addQuestion: "Another question customers ask?", // #42
     answerPh: "Your answer, in a few words", // #42
 
+    // How long it takes (#48 to #52; question and chips are Xander's own words, 2026-11-10)
+    qDuration: "How long does it usually take?", // #48
+    durationChips: ["Under an hour", "Half a day", "A full day", "A few days"], // #49
+    hDuration: "Roughly, for a typical job. Only if you're sure.", // #50
+    addDuration: "Something else, like 2 to 3 hours", // #51
+    earnExpect: '+ "What to expect"', // #52, the approved page heading
+    ghostExpect: '+ "What to expect": add how long it usually takes', // #55
+
     // Wireframe labels (#43 to #45)
     capPages: "Your pages so far", // #43
     capService: "Wireframe of this service's page", // #43

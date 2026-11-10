@@ -362,9 +362,9 @@
 
 /* Short laptop screens: one open service still fits without scrolling. */
 @media (min-width: 900px) and (max-height: 760px) {
-  .qPanel { font-size: 30px; margin: 4px 0 8px; }
-  .earnBan { padding: 7px 12px; margin-bottom: 10px; }
-  .ar { padding: 7px 14px; min-height: 38px; }
+  .qPanel { font-size: 30px; margin: 2px 0 6px; }
+  .earnBan { padding: 6px 12px; margin-bottom: 8px; }
+  .ar { padding: 5px 14px; min-height: 36px; }
   .panelHint { margin: 2px 0 6px; }
   .accOpen .addrow { margin-top: 8px; }
 }

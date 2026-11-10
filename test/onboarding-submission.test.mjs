@@ -167,3 +167,11 @@ test("service details, profiles and the address answer reach the intake, capped 
     assert.equal("serviceAreaBusiness" in plain, false, "only a real boolean counts as an answer");
     assert.deepEqual(plain.serviceList[0], { name: "AC Installation & Service", tag: "Cooling" });
 });
+
+test("a service's duration is kept, trimmed and capped", () => {
+    const s = buildSubmission(body({ serviceList: [{ name: "AC", tag: "", duration: `  ${"Half a day ".repeat(6)} ` }] }), site).submission;
+    assert.equal(s.serviceList[0].duration.length <= 40, true);
+    assert.ok(s.serviceList[0].duration.startsWith("Half a day"));
+    const none = buildSubmission(body({ serviceList: [{ name: "AC", tag: "", duration: 5 }] }), site).submission;
+    assert.equal("duration" in none.serviceList[0], false);
+});

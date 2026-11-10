@@ -106,6 +106,7 @@ function sanitizeService(raw: unknown, withFacts: boolean): ServiceEntry {
     const areas = sanitizeStringArray(o.areas, 20, 80);
     const brands = sanitizeStringArray(o.brands, 40, 80).slice(0, SERVICE_CAPS.brands);
     const priceFrom = sanitize(o.priceFrom, 40);
+    const duration = sanitize(o.duration, 40);
     const photos = (Array.isArray(o.photos) ? o.photos : [])
         .map(sanitizeImageMeta)
         .filter((x): x is { url: string; filename: string; alt: string } => x !== null)
@@ -118,6 +119,7 @@ function sanitizeService(raw: unknown, withFacts: boolean): ServiceEntry {
         ...(areas.length ? { areas } : {}),
         ...(brands.length ? { brands } : {}),
         ...(priceFrom ? { priceFrom } : {}),
+        ...(duration ? { duration } : {}),
         ...(photos.length ? { photos } : {}),
         ...(questions.length ? { questions } : {}),
     };
