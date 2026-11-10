@@ -3,7 +3,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import ThemeToggle from "../theme/ThemeToggle";
 
 export default function Navbar() {
     const [showNav, setShowNav] = useState(false);
@@ -22,7 +21,9 @@ export default function Navbar() {
     return (
         <div
             ref={navRef}
-            className="sticky top-0 z-50 w-full"
+            /* Not sticky since 9 Nov 2026 (Xander's call): the bar sits at the top of the page and
+               scrolls away with it. `relative` stays so the mobile menu can hang below it. */
+            className="relative z-50 w-full"
             style={{
                 background: "var(--nav-bg)",
                 backdropFilter: "blur(28px) saturate(150%)",
@@ -32,12 +33,10 @@ export default function Navbar() {
         >
             <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
                 <Link href="/" aria-label="Go to home page" className="flex items-center gap-3 hover:cursor-pointer">
-                    {/* light mode → JD_dark wordmark · dark mode → JD_light wordmark */}
-                    <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="logo-light h-12 w-auto sm:h-16" />
-                    <Image src="/JDD_mark_1.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="logo-dark h-12 w-auto sm:h-16" />
+                    <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-16" />
                 </Link>
 
-                {/* Desktop nav — toggle pinned far right */}
+                {/* Desktop nav, pinned far right */}
                 <div className="ml-auto hidden items-center gap-4 md:flex">
                     <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
                         View Pricing
@@ -45,7 +44,6 @@ export default function Navbar() {
                     <Link href="/portal" className="btn primary" style={{ fontSize: 14 }}>
                         Portal
                     </Link>
-                    <ThemeToggle />
                 </div>
 
                 {/* Mobile hamburger */}
@@ -87,10 +85,6 @@ export default function Navbar() {
                         }}
                     >
                         <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
-                            <div className="flex items-center justify-between">
-                                <span className="kicker">Theme</span>
-                                <ThemeToggle />
-                            </div>
                             <Link
                                 className="btn primary w-full justify-center"
                                 href="/pricing"

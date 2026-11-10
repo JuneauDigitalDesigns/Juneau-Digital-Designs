@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import MarketingChrome from "./components/MarketingChrome";
-import ThemeProvider from "./components/theme/ThemeProvider";
 
 /**
  * Self-hosted rather than fetched from Google at build time.
@@ -142,7 +141,6 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      suppressHydrationWarning
       className={`${bigShoulders.variable} ${dmMono.variable} ${hankenGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${cabinet.variable}`}
     >
       {/* No `overflow-x-hidden` here: setting overflow on one axis makes the other
@@ -150,12 +148,10 @@ export default function RootLayout({
           breaks every `position: sticky` inside it. `html { overflow-x: hidden }` in
           globals.css does the clipping without that side effect. */}
       <body className="antialiased">
-        <ThemeProvider>
           {/* The grain overlay used to sit here. It is `position: fixed`, so it painted
               over the portal too — MarketingChrome now owns it and keeps it off the
               product routes while leaving it on /portal/onboarding. */}
           <MarketingChrome>{children}</MarketingChrome>
-        </ThemeProvider>
       </body>
     </html>
   );

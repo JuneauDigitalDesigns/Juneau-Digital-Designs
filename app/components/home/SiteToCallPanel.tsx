@@ -2,73 +2,70 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useReducedMotion, AnimatePresence, motion } from "framer-motion";
 import { ArrowCounterClockwise } from "@phosphor-icons/react";
-import { SCENARIOS, CallScenario } from "@/app/data/switchboard-calls";
+import { FILM_CALL, FILM_SITE, type CallScenario } from "@/app/data/switchboard-calls";
 
 /**
- * The two-act film.
+ * The two-act film, retold on 9 Nov 2026 (approved by Xander from a mockup).
  *
- * Act 1 is what the customer experiences: they're on the site, they tap the call bar,
- * and someone picks up. Act 2 rewinds to the *same window* and shows the owner's phone
- * ringing unanswered, then the text arriving, then one glance at the Inbox it points to.
+ * Act 1 is what the customer experiences: Dave is on Your HVAC Co.'s website (the real growth
+ * template, the same site the laptop above shows), taps "Book a Free Estimate", fills in the
+ * form, ticks the call consent and sends it. About a minute later, on Growth, the AI rings
+ * him back. Act 2 is the owner's side: the post-call text, then the lead waiting in the Inbox.
  *
  * Three things are load-bearing:
  *
- * 1. It opens on the website. This section argues for the website too — it shows the
- *    handoff rather than asserting it.
- * 2. The asymmetry is the argument. Act 1 is long; Act 2 is a ring nobody answers, one
- *    text, and the lead already sitting in the Inbox. That imbalance is the pitch, so
- *    don't "balance" the two acts — the Inbox beat is one screen, not a tour of the portal.
- *    The section after this one does the tour.
+ * 1. It opens on the website, the real one. Every keystroke, tick and click lands on the
+ *    screenshot's own fields (positions in `FILM_SITE`, measured from the live page).
+ * 2. The callback is a Growth feature, and the film says so: the card between the form and
+ *    the call reads "About a minute later" with an "On Growth" tag. "About a minute" matches
+ *    the Growth card and the contract's "typically within sixty (60) seconds". Don't drop the
+ *    tag: this section sits under "Then someone picks up.", which every plan gets.
  * 3. Act 2 shows real messages and real places, never invented ones. The text is the
  *    post-call brief in its actual shape (see `postCallBrief`), from JDD's notification
  *    sender, arriving after the call ends — which is when it sends. And the film ends in
- *    the Inbox, not on the pipeline: in CRM v2 a caller only becomes a pipeline card when
- *    the owner promotes them, so a call landing on the board by itself would be a claim
- *    the product doesn't keep.
+ *    the Inbox, not on the pipeline: in CRM v2 a lead only becomes a pipeline card when the
+ *    owner promotes them, so a lead landing on the board by itself would be a claim the
+ *    product doesn't keep.
  *
- * Act 2 is a FLASHBACK, not a sequel — in real time the owner's phone rings before the
- * AI picks up, because the unanswered ring is what triggers the forward. The
- * "MEANWHILE, ON YOUR PHONE" card is what keeps the timeline legible. Do not retitle it
- * to anything sequential.
+ * It used to open on a drawn mock site, rotate five made-up businesses per replay, and show
+ * the owner's phone ringing unanswered before the AI picked up. A web form doesn't ring the
+ * owner, so that beat went with the switch to the form.
  */
 
 type Phase =
   | "idle"
   | "act1card"
   | "browse"
-  | "dialing"
+  | "later"
+  | "ringIn"
   | "call"
   | "act2card"
-  | "ring"
-  | "missed"
-  | "later"
   | "text"
   | "portalcard"
   | "inbox"
   | "recap";
 
-/* ~30s total. The pauses are what make it read as real — resist tightening them. */
+/* ~34s total. The pauses are what make it read as real — resist tightening them. The pause
+   after the form is sent (`SITE_DONE` to the end of `browse`, then the "later" card) was asked
+   for: the callback arriving instantly read as too quick. */
 const T = {
   act1card: 1600,
-  browse: 3800,
-  dialing: 2600,
+  browse: 10600,
+  later: 2200,
+  ringIn: 2600,
   callLine: 2000,
   callRest: 1200,
   act2card: 1800,
-  ring: 3000,
-  missed: 2000,
-  later: 1600,
   text: 4000,
   portalcard: 1400,
   inbox: 1800,
 };
 
-/* The call beat runs ~9s but represents a ~2 minute call — Act 2's "2 MINUTES LATER"
-   depends on that. Driving the on-screen timer from progress rather than wall clock
-   keeps the two consistent; a literal 0:09 would contradict the interstitial. */
-const CALL_REPRESENTS_SEC = 118;
+/* The call beat runs ~7s but represents a real call of about a minute and a half. Driving the
+   on-screen timer from progress rather than wall clock keeps the clock believable. */
+const CALL_REPRESENTS_SEC = 94;
 
-const CUSTOMER_PHASES: Phase[] = ["idle", "act1card", "browse", "dialing", "call"];
+const CUSTOMER_PHASES: Phase[] = ["idle", "act1card", "browse", "later", "ringIn", "call"];
 
 function fmtTimer(total: number): string {
   const m = Math.floor(total / 60);
@@ -76,167 +73,148 @@ function fmtTimer(total: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/* ── Act 1 · the stylized site ───────────────────────────────── */
-function MockSiteScreen({ scenario, scrolled }: { scenario: CallScenario; scrolled: boolean }) {
-  const { site, businessName, tradeTag } = scenario;
-  const block = (h: number, w: string, o: number) => (
-    <div style={{ height: h, width: w, borderRadius: 3, background: `rgba(0,0,0,${o})` }} />
-  );
+/* ── Act 1 · the website, and the form ───────────────────────── */
+
+type Box = { x: number; y: number; w: number; h: number };
+const centre = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+
+interface SiteState {
+  scroll: number;
+  cursor: { x: number; y: number; on: boolean };
+  clicks: number;
+  pressed: "hero" | "submit" | null;
+  focus: "name" | "phone" | null;
+  name: string;
+  phone: string;
+  ticked: boolean;
+}
+
+const SITE_START: SiteState = {
+  scroll: 0,
+  cursor: { x: 320, y: 760, on: false },
+  clicks: 0,
+  pressed: null,
+  focus: null,
+  name: "",
+  phone: "",
+  ticked: false,
+};
+
+/**
+ * The growth site on the customer's phone, at its real 390px layout, scaled to the screen.
+ *
+ * `play` runs the sequence once: the cursor clicks the hero's "Book a Free Estimate", the page
+ * scrolls to the form, the name and number are typed in, consent is ticked, and the form is
+ * sent. It ends on the sent form; the panel's own timeline moves on from there.
+ */
+function SiteFormScreen({ play }: { play: boolean }) {
+  const screenRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ scale: 0.72, h: 750 });
+  const [st, setSt] = useState<SiteState>(SITE_START);
+
+  useEffect(() => {
+    const el = screenRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      if (w > 0) setFit({ scale: w / FILM_SITE.width, h: el.clientHeight / (w / FILM_SITE.width) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!play) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
+    const set = (patch: Partial<SiteState> | ((s: SiteState) => Partial<SiteState>)) =>
+      setSt((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
+    const moveTo = (p: { x: number; y: number }) => set((s) => ({ cursor: { x: p.x, y: p.y - s.scroll, on: true } }));
+    const click = () => set((s) => ({ clicks: s.clicks + 1 }));
+    const type = (field: "name" | "phone", text: string, start: number) => {
+      at(start - 200, () => set({ focus: field }));
+      for (let i = 1; i <= text.length; i++) at(start + i * 70, () => set({ [field]: text.slice(0, i) } as Partial<SiteState>));
+      at(start + text.length * 70 + 300, () => set({ focus: null }));
+    };
+    const hero = centre(FILM_SITE.heroEstimate);
+    const name = centre(FILM_SITE.name);
+    const phone = centre(FILM_SITE.phone);
+    const consent = centre(FILM_SITE.consent);
+    const submit = centre(FILM_SITE.submit);
+
+    setSt(SITE_START);
+    at(500, () => moveTo(hero));
+    at(1500, () => { click(); set({ pressed: "hero" }); });
+    at(1900, () => set({ pressed: null }));
+    // The cursor stays where it is on screen while the page moves under it.
+    at(2100, () => set({ scroll: FILM_SITE.formScroll }));
+    at(3300, () => moveTo({ x: name.x - 45, y: name.y }));
+    at(4100, click);
+    type("name", FILM_CALL.caller.name, 4300);
+    at(5500, () => moveTo({ x: phone.x - 45, y: phone.y }));
+    at(6200, click);
+    type("phone", FILM_CALL.ownerMessage.callback, 6400);
+    at(7700, () => moveTo(consent));
+    at(8400, () => { click(); set({ ticked: true }); });
+    at(8900, () => moveTo(submit));
+    at(9600, () => { click(); set({ pressed: "submit" }); });
+    at(10100, () => set({ pressed: null }));
+    at(10400, () => set((s) => ({ cursor: { ...s.cursor, on: false } })));
+    return () => timers.forEach(clearTimeout);
+  }, [play]);
+
+  const box = (b: Box): React.CSSProperties => ({ left: b.x, top: b.y, width: b.w, height: b.h });
 
   return (
-    <div style={{ background: "#fff", height: "100%", position: "relative", overflow: "hidden" }}>
-      <motion.div
-        animate={{ y: scrolled ? -104 : 0 }}
-        transition={{ duration: 1.5, ease: [0.4, 0, 0.2, 1] }}
-        style={{ padding: "14px 14px 0" }}
-      >
-        {/* site header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: site.accent, letterSpacing: "-0.01em", fontFamily: "system-ui, sans-serif" }}>
-            {businessName}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2.5 }} aria-hidden="true">
-            {[0, 1, 2].map((i) => <div key={i} style={{ width: 13, height: 1.5, background: "rgba(0,0,0,0.5)" }} />)}
-          </div>
+    <div ref={screenRef} className="film-site">
+      <div className="film-site-vp" style={{ transform: `scale(${fit.scale})`, height: fit.h }}>
+        <div className="film-site-page" style={{ transform: `translateY(${-st.scroll}px)` }}>
+          {/* Plain <img>, not next/image: the overlays map 1:1 onto the capture's 390px
+              geometry, and the optimizer would resample it. The asset is a sized webp. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={FILM_SITE.src} alt="" width={FILM_SITE.width} height={FILM_SITE.height} draggable={false} />
+          <span className="film-press" data-on={st.pressed === "hero"} style={box(FILM_SITE.heroEstimate)} />
+          <span className="film-typed" data-focus={st.focus === "name"} style={box(FILM_SITE.name)}>{st.name}</span>
+          <span className="film-typed" data-focus={st.focus === "phone"} style={box(FILM_SITE.phone)}>{st.phone}</span>
+          <span className="film-tick" data-on={st.ticked} style={box(FILM_SITE.consent)} />
+          <span className="film-press" data-on={st.pressed === "submit"} style={box(FILM_SITE.submit)} />
         </div>
-
-        {/* hero block */}
-        <div style={{ background: site.accent, borderRadius: 6, padding: 12, marginBottom: 10 }}>
-          <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 7, letterSpacing: "0.14em", color: "rgba(255,255,255,0.75)", marginBottom: 7 }}>
-            {tradeTag}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <div style={{ height: 9, width: "88%", borderRadius: 3, background: "rgba(255,255,255,0.92)" }} />
-            <div style={{ height: 9, width: "62%", borderRadius: 3, background: "rgba(255,255,255,0.92)" }} />
-            <div style={{ height: 5, width: "74%", borderRadius: 3, background: "rgba(255,255,255,0.5)", marginTop: 3 }} />
-          </div>
-        </div>
-
-        {/* body blocks — variant changes the silhouette between replays */}
-        {site.variant === 1 && (
-          <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-              {[0, 1].map((i) => (
-                <div key={i} style={{ border: "1px solid rgba(0,0,0,0.09)", borderRadius: 5, padding: 9, display: "flex", flexDirection: "column", gap: 5 }}>
-                  <div style={{ height: 14, width: 14, borderRadius: 4, background: site.accent, opacity: 0.85 }} />
-                  {block(4, "80%", 0.16)}
-                  {block(4, "58%", 0.09)}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <div style={{ height: 8, width: 8, borderRadius: 999, background: site.accent, opacity: 0.7, flexShrink: 0 }} />
-                  {block(4, `${72 - i * 9}%`, 0.13)}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {site.variant === 2 && (
-          <>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ flex: 1, border: "1px solid rgba(0,0,0,0.09)", borderRadius: 5, padding: "9px 7px", display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
-                  <div style={{ height: 8, width: "62%", borderRadius: 3, background: site.accent, opacity: 0.85 }} />
-                  {block(3.5, "80%", 0.1)}
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ border: "1px solid rgba(0,0,0,0.09)", borderRadius: 5, padding: 9, display: "flex", gap: 9, alignItems: "center" }}>
-                  <div style={{ height: 22, width: 22, borderRadius: 4, background: site.accent, opacity: 0.16, flexShrink: 0 }} />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
-                    {block(4, "70%", 0.16)}
-                    {block(4, "44%", 0.09)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {site.variant === 3 && (
-          <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <div style={{ width: "42%", height: 54, borderRadius: 5, background: site.accent, opacity: 0.18 }} />
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5, justifyContent: "center" }}>
-                {block(4, "88%", 0.16)}
-                {block(4, "70%", 0.11)}
-                {block(4, "52%", 0.11)}
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} style={{ borderTop: "1px solid rgba(0,0,0,0.08)", paddingTop: 7, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  {block(4, `${58 - i * 6}%`, 0.14)}
-                  <div style={{ height: 6, width: 6, borderRadius: 999, background: site.accent, opacity: 0.6 }} />
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </motion.div>
-
-      {/* sticky call bar — the one element that must be unmistakable */}
-      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "9px 12px 14px", background: "linear-gradient(to top, #fff 62%, rgba(255,255,255,0))" }}>
-        <div
-          style={{
-            background: site.accent, borderRadius: 999, padding: "10px 16px", textAlign: "center",
-            fontSize: 12.5, fontWeight: 700, color: "#fff",
-            fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-            boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
-          }}
-        >
-          ☎ {site.ctaLabel}
-        </div>
+        <span className="film-cursor" data-on={st.cursor.on} style={{ left: st.cursor.x, top: st.cursor.y }}>
+          <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+            <path d="M4 2.5 L4 19 L8.6 14.8 L11.6 21.5 L14.4 20.3 L11.5 13.7 L17.8 13.7 Z" fill="#0d1117" stroke="#fff" strokeWidth="1.4" strokeLinejoin="round" />
+          </svg>
+          {/* Keyed on the click count, so each click replays the ring. */}
+          {st.clicks > 0 && <i key={st.clicks} className="film-cursor-ring" />}
+        </span>
       </div>
     </div>
   );
 }
 
-/* The finger. Travels to the call bar, then taps it. */
-function TapIndicator() {
-  return (
-    <motion.div
-      initial={{ opacity: 0, top: "52%", left: "58%", scale: 1 }}
-      animate={{ opacity: [0, 1, 1, 1, 0], top: ["52%", "88%"], left: ["58%", "50%"], scale: [1, 1, 0.72, 1, 1] }}
-      transition={{ duration: 2.6, times: [0, 0.18, 0.72, 0.82, 1], ease: "easeInOut", delay: 0.9 }}
-      style={{
-        position: "absolute", width: 34, height: 34, marginLeft: -17, marginTop: -17,
-        borderRadius: 999, border: "2px solid rgba(0,0,0,0.45)", background: "rgba(255,255,255,0.35)",
-        backdropFilter: "blur(2px)", zIndex: 6, pointerEvents: "none",
-      }}
-    />
-  );
-}
-
-/* ── Act 1 · dialling out ────────────────────────────────────── */
-function DialingScreen({ scenario }: { scenario: CallScenario }) {
+/* ── Act 1 · the business rings him back ─────────────────────── */
+function CallbackScreen({ scenario }: { scenario: CallScenario }) {
   return (
     <div style={{ background: "linear-gradient(165deg, #1d2430 0%, #131820 100%)", color: "#fff", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 20px", textAlign: "center" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.45)" }}>
-          Calling
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+        <div className="phone-ring-pulse" style={{ width: 84, height: 84, borderRadius: 999, background: "#b4472b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 27, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+          YH
         </div>
-        <div style={{ fontSize: 21, fontWeight: 600, letterSpacing: -0.3, lineHeight: 1.2 }}>{scenario.businessName}</div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)" }}>{scenario.businessPhone}</div>
-        <div style={{ display: "flex", gap: 5, marginTop: 4 }} aria-hidden="true">
-          {[0, 1, 2].map((i) => (
-            <motion.span
-              key={i}
-              animate={{ opacity: [0.25, 1, 0.25] }}
-              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.18 }}
-              style={{ width: 5, height: 5, borderRadius: 999, background: "#fff" }}
-            />
-          ))}
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>{scenario.businessName}</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 5 }}>Incoming Call</div>
         </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "center", paddingBottom: 34 }}>
-        <div style={{ width: 58, height: 58, borderRadius: 999, background: "rgba(255,59,48,0.92)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>✕</div>
+      <div style={{ display: "flex", justifyContent: "center", gap: 52, paddingBottom: 34 }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(255,59,48,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>✕</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Decline</div>
+        </div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(52,199,89,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>☎</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Accept</div>
+        </div>
       </div>
     </div>
   );
@@ -294,57 +272,6 @@ function CallScreen({ scenario, lineIdx, seconds }: { scenario: CallScenario; li
   );
 }
 
-/* ── Act 2 · the owner's phone rings ─────────────────────────── */
-function IncomingCallScreen({ scenario }: { scenario: CallScenario }) {
-  return (
-    <div style={{ background: "linear-gradient(160deg, #2b2418 0%, #3a2c1c 60%, #241d12 100%)", color: "#fff", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
-        <div className="phone-ring-pulse" style={{ width: 84, height: 84, borderRadius: 999, background: scenario.caller.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 29, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-          {scenario.caller.initials}
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.4 }}>{scenario.caller.name}</div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 5 }}>
-            Incoming Call · {scenario.callTime}
-          </div>
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: 52, paddingBottom: 34 }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(255,59,48,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>✕</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Decline</div>
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(52,199,89,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>☎</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Accept</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Held a beat longer than is comfortable. The pause is the old way of doing business. */
-function MissedCallScreen({ scenario }: { scenario: CallScenario }) {
-  return (
-    <div style={{ background: "linear-gradient(160deg, #2b2418 0%, #3a2c1c 60%, #241d12 100%)", color: "#fff", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 18px", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <motion.div
-        initial={{ opacity: 0, y: -12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        style={{ width: "100%", background: "rgba(255,255,255,0.12)", backdropFilter: "blur(12px)", borderRadius: 16, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 }}
-      >
-        <div style={{ width: 34, height: 34, borderRadius: 999, background: "rgba(255,59,48,0.92)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>✕</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>Missed Call</div>
-          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.6)", marginTop: 1 }}>
-            {scenario.caller.name} · {scenario.callTime}
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
 /* ── Act 2 · the text ────────────────────────────────────────── */
 
 /**
@@ -395,12 +322,13 @@ function OwnerTextScreen({ scenario }: { scenario: CallScenario }) {
 /* ── Act 2 · the Inbox ───────────────────────────────────────── */
 
 /**
- * Where the brief points: the portal's Inbox on the owner's phone, with this call on top.
+ * Where the brief points: the portal's Inbox on the owner's phone, with this lead on top.
  *
- * The Inbox rather than the pipeline, because that is where a call lands on every plan;
- * the pipeline only holds callers the owner has promoted. The two rows under the new one
- * are deliberately blank bars with a source icon — one call, one website form — so the
- * beat says "both doors lead here" without inventing a second customer to read.
+ * The Inbox rather than the pipeline, because that is where a lead lands on every plan;
+ * the pipeline only holds leads the owner has promoted. The new row carries the website
+ * form's icon, since that is how Dave came in (the portal demo below shows him the same
+ * way). The two rows under it are deliberately blank bars with a source icon, so the beat
+ * says "every door leads here" without inventing a second customer to read.
  */
 function InboxScreen({ scenario }: { scenario: CallScenario }) {
   const ghost = (icon: string, key: string) => (
@@ -426,7 +354,7 @@ function InboxScreen({ scenario }: { scenario: CallScenario }) {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 12px", background: "#fffdf5", borderBottom: "1px solid rgba(20,18,12,0.1)", boxShadow: "inset 3px 0 0 #d2542f" }}
       >
-        <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(20,18,12,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>☎</div>
+        <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(20,18,12,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>✉</div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 13, fontWeight: 600 }}>{scenario.caller.name}</span>
@@ -437,8 +365,8 @@ function InboxScreen({ scenario }: { scenario: CallScenario }) {
         </div>
       </motion.div>
 
-      {ghost("✉", "web")}
       {ghost("☎", "call")}
+      {ghost("✉", "web")}
     </div>
   );
 }
@@ -478,15 +406,13 @@ function StageCard({ label, sub }: { label: string; sub?: string }) {
 /* ── Panel ───────────────────────────────────────────────────── */
 export default function SiteToCallPanel() {
   const reduce = useReducedMotion();
-  const [idx, setIdx] = useState(0);
   const [phase, setPhase] = useState<Phase>("idle");
   const [lineIdx, setLineIdx] = useState(-1);
   const [seconds, setSeconds] = useState(0);
-  const [scrolled, setScrolled] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const scenario = SCENARIOS[idx];
+  const scenario = FILM_CALL;
   const isCustomerPhone = CUSTOMER_PHASES.includes(phase);
 
   const clearAll = useCallback(() => {
@@ -501,33 +427,29 @@ export default function SiteToCallPanel() {
     timers.current.push(setTimeout(fn, ms));
   }, []);
 
-  /* Takes the scenario rather than closing over it, so `replay` can start the next
-     trade immediately instead of routing through an effect. Nothing but a click calls
-     this — see the note on `replay`. */
-  const run = useCallback((sc: CallScenario) => {
+  /* Nothing but a click calls this. An effect that started the film ran it on every mount
+     under StrictMode, so the film played itself with nobody having pressed anything. */
+  const run = useCallback(() => {
     clearAll();
     setLineIdx(-1);
     setSeconds(0);
-    setScrolled(false);
 
-    const lines = sc.transcript.length;
+    const lines = scenario.transcript.length;
     const callMs = lines * T.callLine + T.callRest;
     let t = 0;
 
     setPhase("act1card");
 
     t += T.act1card;
-    at(() => {
-      setPhase("browse");
-      // scroll first, then the finger arrives — order matters, a tap on a still
-      // page reads as a screenshot rather than someone using it
-      at(() => setScrolled(true), 250);
-    }, t);
+    at(() => setPhase("browse"), t);
 
     t += T.browse;
-    at(() => setPhase("dialing"), t);
+    at(() => setPhase("later"), t);
 
-    t += T.dialing;
+    t += T.later;
+    at(() => setPhase("ringIn"), t);
+
+    t += T.ringIn;
     at(() => {
       setPhase("call");
       const started = Date.now();
@@ -546,15 +468,6 @@ export default function SiteToCallPanel() {
     }, t);
 
     t += T.act2card;
-    at(() => setPhase("ring"), t);
-
-    t += T.ring;
-    at(() => setPhase("missed"), t);
-
-    t += T.missed;
-    at(() => setPhase("later"), t);
-
-    t += T.later;
     at(() => setPhase("text"), t);
 
     t += T.text;
@@ -565,36 +478,11 @@ export default function SiteToCallPanel() {
 
     t += T.inbox;
     at(() => setPhase("recap"), t);
-  }, [at, clearAll]);
+  }, [at, clearAll, scenario]);
 
   function start() {
     if (reduce) { setPhase("recap"); return; }
-    run(scenario);
-  }
-
-  /**
-   * Replay picks the next trade and starts it in the same handler.
-   *
-   * This used to `setIdx` and let an effect keyed on `idx` call `run`, guarded by a
-   * `first` ref so it skipped the initial mount. That guard could not hold: React
-   * StrictMode (on by default — `reactStrictMode` is unset in next.config.ts) invokes
-   * effects twice per mount, and the ref survives the simulated remount. The first
-   * invocation flipped it to false and the second saw false and started the film. So
-   * the film played itself on every mount — navigate away, come back, and it ran with
-   * nobody having pressed anything.
-   *
-   * No effect starts the film now. A click is the only path in.
-   */
-  function replay() {
-    // Randomised client-side only — picking during render would mismatch between
-    // server and client and throw a hydration error.
-    let next = idx;
-    while (next === idx) next = Math.floor(Math.random() * SCENARIOS.length);
-    setIdx(next);
-    // Pass the new scenario explicitly; `idx` state won't have updated yet, and the
-    // first beat is a title card with no scenario content, so the swap is invisible.
-    if (reduce) { setPhase("recap"); return; }
-    run(SCENARIOS[next]);
+    run();
   }
 
   const showRecap = phase === "recap";
@@ -616,39 +504,26 @@ export default function SiteToCallPanel() {
             {phase === "idle" && (
               <motion.div key="idle" className="phone-screen" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
                 <div style={{ filter: "blur(7px)", height: "100%", opacity: 0.55 }}>
-                  <MockSiteScreen scenario={scenario} scrolled={false} />
+                  <SiteFormScreen play={false} />
                 </div>
               </motion.div>
             )}
 
-            {phase === "browse" && (
+            {(phase === "browse" || phase === "later") && (
               <motion.div key="browse" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-                <MockSiteScreen scenario={scenario} scrolled={scrolled} />
-                <TapIndicator />
+                <SiteFormScreen play />
               </motion.div>
             )}
 
-            {phase === "dialing" && (
-              <motion.div key="dialing" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                <DialingScreen scenario={scenario} />
+            {phase === "ringIn" && (
+              <motion.div key="ringIn" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                <CallbackScreen scenario={scenario} />
               </motion.div>
             )}
 
             {phase === "call" && (
               <motion.div key="call" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
                 <CallScreen scenario={scenario} lineIdx={lineIdx} seconds={seconds} />
-              </motion.div>
-            )}
-
-            {phase === "ring" && (
-              <motion.div key="ring" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-                <IncomingCallScreen scenario={scenario} />
-              </motion.div>
-            )}
-
-            {phase === "missed" && (
-              <motion.div key="missed" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                <MissedCallScreen scenario={scenario} />
               </motion.div>
             )}
 
@@ -667,17 +542,17 @@ export default function SiteToCallPanel() {
 
           <AnimatePresence>
             {phase === "act1card" && <StageCard key="c1" label="What your customer sees" />}
-            {phase === "act2card" && <StageCard key="c2" label="Meanwhile, on your phone" sub={`Same call · ${scenario.callTime}`} />}
-            {phase === "later" && <StageCard key="c3" label="2 minutes later" />}
+            {/* Approved word for word. The tag is load-bearing: see point 2 at the top. */}
+            {phase === "later" && <StageCard key="c2" label="About a minute later" sub="On Growth" />}
+            {phase === "act2card" && <StageCard key="c3" label="Meanwhile, on your phone" sub={`Same call · ${scenario.callTime}`} />}
             {phase === "portalcard" && <StageCard key="c4" label="In your portal" />}
           </AnimatePresence>
         </div>
 
         {/* Whose phone this is, readable before the card is even parsed. A switch naming
             both, with the one on screen lit, rather than a lone caption: it tells the
-            visitor up front that the story has two sides (9 Nov 2026, Xander's pick). Always
-            rendered, so it costs no height when it changes; nothing is lit before the film
-            starts. */}
+            visitor up front that the story has two sides. Always rendered, so it costs no
+            height when it changes; nothing is lit before the film starts. */}
         <p className="film-switch">
           <span aria-current={phase !== "idle" && isCustomerPhone ? "true" : undefined}>Their phone</span>
           <span aria-current={phase !== "idle" && !isCustomerPhone ? "true" : undefined}>Your phone</span>
@@ -685,13 +560,8 @@ export default function SiteToCallPanel() {
 
         {/* Both controls live in `.film-gate`, which is `position: absolute; inset: 0`
             and therefore contributes NO height. That is the whole point: the stage is the
-            same height at idle, mid-film and at the end.
-
-            What used to be here instead was `.film-recap`, a block appended BELOW the
-            phone once the sequence finished. Inside a pinned journey panel that is a
-            height change after the panel has already committed, which stretched the
-            section past the frame. If you reintroduce anything post-film, it has to be an
-            overlay, not a sibling. */}
+            same height at idle, mid-film and at the end. If you reintroduce anything
+            post-film, it has to be an overlay, not a sibling. */}
         {phase === "idle" && (
           <div className="film-gate">
             <div className="film-gate-stack">
@@ -709,7 +579,7 @@ export default function SiteToCallPanel() {
             Centring this would cover it. */}
         {showRecap && (
           <div className="film-gate film-gate--replay">
-            <button type="button" onClick={replay} className="btn ghost film-replay-btn">
+            <button type="button" onClick={start} className="btn ghost film-replay-btn">
               <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
               Replay
             </button>
