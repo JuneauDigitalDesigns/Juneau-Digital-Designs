@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import Image from "next/image";
-import Link from "next/link";
 import { useReducedMotion } from "framer-motion";
 import {
     Archive,
     ArrowCounterClockwise,
+    ArrowDown,
     ArrowLeft,
     ArrowSquareOut,
     CaretDown,
@@ -72,8 +72,8 @@ import s from "./PortalDemo.module.css";
  *     whatever is being done, so a 390px frame zooms tighter rather than shrinking the portal
  *     to unreadable. Framing is measured from the elements themselves (`data-f`), never from
  *     hard-coded coordinates.
- *   - Nothing plays until the visitor presses Start demo (Xander's call: no autoplay). The
- *     steps sit above the window as its chapters; each can be picked, and replays from its own
+ *   - Nothing plays until the visitor presses play on the window (Xander's call: no autoplay). The
+ *     steps sit under the window as its chapters; each can be picked, and replays from its own
  *     starting state, which every step can rebuild (`STEP_START`).
  *   - The narration is a tour card inside the window, like the portal's own first-run tour:
  *     each step stops once on its subject (`BEAT`), dims the rest, and explains it, then moves
@@ -204,7 +204,7 @@ type Shot = "all" | { wide: Focus[]; narrow?: Focus[]; pad?: number; anchor?: "t
 /**
  * The least the camera zooms to once the film is running. Below this the portal reads as a
  * thumbnail, and every drop to it from a closer shot reads as the camera backing away for no
- * reason. Only the poster frame behind Start demo shows the whole canvas.
+ * reason. Only the poster frame behind the play button shows the whole canvas.
  */
 const ZOOM_FLOOR = { wide: 0.9, narrow: 0.62 };
 
@@ -826,7 +826,7 @@ export default function PortalDemo() {
 
     const idle = run === "idle";
     const playLabel = idle
-        ? "Start demo"
+        ? "Play the demo"
         : closing
           ? "Replay"
           : reduce
@@ -839,59 +839,6 @@ export default function PortalDemo() {
 
     return (
         <div ref={rootRef} className={`${s.demo} ${reduce ? s.reduced : ""}`}>
-            {/* Above the window, so the steps read as the demo's chapters before it plays. */}
-            <div className={s.controls}>
-                <button type="button" className={s.play} onClick={onPlayButton} aria-label={playLabel} title={playLabel}>
-                    {idle ? (
-                        <Play size={16} weight="fill" />
-                    ) : closing ? (
-                        <ArrowCounterClockwise size={16} weight="bold" />
-                    ) : reduce ? (
-                        <CaretRight size={16} weight="bold" />
-                    ) : run === "playing" ? (
-                        <Pause size={16} weight="fill" />
-                    ) : run === "done" ? (
-                        <ArrowCounterClockwise size={16} weight="bold" />
-                    ) : (
-                        <Play size={16} weight="fill" />
-                    )}
-                </button>
-                <div className={s.steps} role="group" aria-label="Demo steps">
-                    {DEMO_STEPS.map((st, i) => {
-                        const state = idle
-                            ? "empty"
-                            : i < step
-                              ? "done"
-                              : i > step
-                                ? "empty"
-                                : run === "playing"
-                                  ? "running"
-                                  : "full";
-                        return (
-                            <button
-                                key={st.key}
-                                type="button"
-                                className={s.step}
-                                aria-current={!idle && i === step ? "step" : undefined}
-                                aria-label={`Step ${i + 1}: ${st.short}`}
-                                onClick={() => start(i)}
-                            >
-                                <b>{i + 1}</b>
-                                <span className={s.stepName}>{st.short}</span>
-                                <i
-                                    // Keyed on the run so the bar restarts with the step.
-                                    key={`${i}-${state}-${runId}`}
-                                    className={s.bar}
-                                    data-state={state}
-                                    data-held={held && run === "playing"}
-                                    style={state === "running" ? { animationDuration: `${st.ms}ms` } : undefined}
-                                />
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
             <div ref={frameRef} className={s.frame}>
                 {/* The film is decorative: the narration below says what each frame shows, and
                     is what a screen reader gets. Nothing in the window is focusable. The start
@@ -977,30 +924,88 @@ export default function PortalDemo() {
                 {closing && (
                     <div className={s.endGate} role="status">
                         <div className={s.endPanel}>
-                            <p className={s.endTitle}>{DEMO_CLOSING.title}</p>
-                            <p className={s.endBody}>{DEMO_CLOSING.body}</p>
+                            <p className={s.endTitle}>
+                                {DEMO_CLOSING.title} <span className={s.endAccent}>{DEMO_CLOSING.accent}</span>
+                            </p>
                             <div className={s.endActions}>
-                                <button type="button" className={`btn primary ${s.endBtn}`} onClick={() => start(0)}>
+                                {/* A same-page anchor, so Lenis glides it down to the calculator. */}
+                                <a href={DEMO_CLOSING.next.href} className={`btn primary ${s.endBtn}`}>
+                                    {DEMO_CLOSING.next.label}
+                                    <ArrowDown size={16} weight="bold" aria-hidden="true" />
+                                </a>
+                                <button type="button" className={`btn ghost ${s.endBtn}`} onClick={() => start(0)}>
                                     <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
                                     {DEMO_CLOSING.replay}
                                 </button>
-                                <Link href={DEMO_CLOSING.next.href} className={`btn ghost ${s.endBtn}`}>
-                                    {DEMO_CLOSING.next.label}
-                                </Link>
                             </div>
                         </div>
                     </div>
                 )}
                 {idle && (
                     <div className={s.startGate}>
-                        <button type="button" className={`btn primary lg ${s.startBtn}`} onClick={() => start(0)}>
-                            <Play size={18} weight="fill" aria-hidden="true" />
-                            Start demo
+                        {/* Icon only: "See how the whole system works", just above the window, is the
+                            words for it. */}
+                        <button type="button" className={s.startBtn} onClick={() => start(0)} aria-label="Play the demo" title="Play the demo">
+                            <Play size={30} weight="fill" aria-hidden="true" />
                         </button>
                     </div>
                 )}
             </div>
 
+            {/* Under the window since 9 Nov 2026 (Xander's layout): the window comes first, so the
+                cue above the section points straight at it, and the steps read as the film's
+                progress rather than a menu in front of it. Each can still be picked. */}
+            <div className={s.controls}>
+                <button type="button" className={s.play} onClick={onPlayButton} aria-label={playLabel} title={playLabel}>
+                    {idle ? (
+                        <Play size={16} weight="fill" />
+                    ) : closing ? (
+                        <ArrowCounterClockwise size={16} weight="bold" />
+                    ) : reduce ? (
+                        <CaretRight size={16} weight="bold" />
+                    ) : run === "playing" ? (
+                        <Pause size={16} weight="fill" />
+                    ) : run === "done" ? (
+                        <ArrowCounterClockwise size={16} weight="bold" />
+                    ) : (
+                        <Play size={16} weight="fill" />
+                    )}
+                </button>
+                <div className={s.steps} role="group" aria-label="Demo steps">
+                    {DEMO_STEPS.map((st, i) => {
+                        const state = idle
+                            ? "empty"
+                            : i < step
+                              ? "done"
+                              : i > step
+                                ? "empty"
+                                : run === "playing"
+                                  ? "running"
+                                  : "full";
+                        return (
+                            <button
+                                key={st.key}
+                                type="button"
+                                className={s.step}
+                                aria-current={!idle && i === step ? "step" : undefined}
+                                aria-label={`Step ${i + 1}: ${st.short}`}
+                                onClick={() => start(i)}
+                            >
+                                <b>{i + 1}</b>
+                                <span className={s.stepName}>{st.short}</span>
+                                <i
+                                    // Keyed on the run so the bar restarts with the step.
+                                    key={`${i}-${state}-${runId}`}
+                                    className={s.bar}
+                                    data-state={state}
+                                    data-held={held && run === "playing"}
+                                    style={state === "running" ? { animationDuration: `${st.ms}ms` } : undefined}
+                                />
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
 }

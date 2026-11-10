@@ -37,6 +37,7 @@ export default function Footer() {
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
                             <li><Link href="/" className="footer-link">Home</Link></li>
                             <li><Link href="/pricing" className="footer-link">Pricing</Link></li>
+                            <li><Link href="/faq" className="footer-link">FAQ</Link></li>
                         </ul>
                     </div>
 
@@ -46,6 +47,10 @@ export default function Footer() {
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
                             <li><Link href="/privacy-policy" className="footer-link">Privacy Policy</Link></li>
                             <li><Link href="/sms-terms" className="footer-link">SMS Terms</Link></li>
+                            {/* /terms is the service agreement each plan signs, not a general
+                                terms page, so it is named for that and can't be mistaken for the
+                                SMS Terms above it. Approved by Xander, 9 Nov 2026. */}
+                            <li><Link href="/terms" className="footer-link">Service Agreement</Link></li>
                         </ul>
                     </div>
                 </div>

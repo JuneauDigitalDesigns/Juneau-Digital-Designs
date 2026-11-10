@@ -129,18 +129,15 @@
   font-family: var(--font-display);
   font-weight: 900;
   text-transform: uppercase;
-  font-size: clamp(28px, 4.4vw, 52px);
+  font-size: clamp(26px, 4vw, 48px);
   line-height: 0.98;
+  text-wrap: balance;
   letter-spacing: 0.01em;
   color: var(--fg);
 }
-.endBody {
-  margin: 16px auto 0;
-  max-width: 42ch;
-  font-size: clamp(15px, 1.4vw, 18px);
-  line-height: 1.5;
-  color: var(--fg-2);
-}
+/* "Now you do too." in the page's coral: the same colour-only emphasis the hero and the
+   pricing headline use. */
+.endAccent { color: var(--accent-2); }
 .endActions {
   margin-top: 24px;
   display: flex;
@@ -156,11 +153,26 @@
 .reduced .endGate,
 .reduced .endPanel { animation: none; }
 
+/* A round play button, no words: the section's "See how the whole system works" cue, just
+   above the window, says what it starts. */
 .startBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  box-shadow: 0 0 32px var(--accent-glow);
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 0 0 4px; /* optical centring: the triangle's mass sits left of its box */
+  background: var(--accent-2);
+  color: var(--on-accent-2);
+  cursor: pointer;
+  box-shadow: 0 0 40px var(--accent-glow), 0 12px 30px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.startBtn:hover { transform: scale(1.06); box-shadow: 0 0 56px var(--accent-glow), 0 12px 30px rgba(0, 0, 0, 0.22); }
+.startBtn:focus-visible { outline: 3px solid var(--fg); outline-offset: 4px; }
+@media (max-width: 520px) {
+  .startBtn { width: 68px; height: 68px; }
 }
 .canvas {
   position: absolute;

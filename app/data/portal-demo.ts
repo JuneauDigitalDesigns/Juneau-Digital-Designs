@@ -66,19 +66,29 @@ export const DEMO_STEPS: DemoStep[] = [
     },
 ];
 
+/** The missed-calls calculator's anchor on the homepage, where the closing screen's button lands. */
+export const MISSED_CALLS_ID = "missed-calls";
+
 /**
- * The closing screen once the film ends. Approved by Xander word for word, like the captions;
- * do not edit without a fresh approval. It names nothing carrier-gated: texting and review requests carry their own
- * line on their steps, and a closing claim about them would have to repeat it.
+ * The closing screen once the film ends. Approved by Xander word for word on 9 Nov 2026, like
+ * the captions; do not edit without a fresh approval. It names nothing carrier-gated: texting and
+ * review requests carry their own line on their steps, and a closing claim about them would have
+ * to repeat it.
+ *
+ * The line moved here from the /pricing header, where it read "The big shops have run on one
+ * for years. Now you do too." and left "run on what?" open. A front office is the answer, and
+ * the hero's "The front office you never had to hire." already names it. `accent` is set in
+ * the page's coral. The button sends the visitor on down the page, to what their missed calls
+ * are worth, rather than off it to /pricing.
  */
 export const DEMO_CLOSING = {
-    title: "One call. One customer. Nothing slipped.",
-    body: "Dave called at 2:13 AM. By the afternoon he was a booked customer, with every step kept in one place.",
+    title: "The big shops have had a front office working every lead for years.",
+    accent: "Now you do too.",
+    next: { label: "What are my missed calls worth?", href: `#${MISSED_CALLS_ID}` },
     replay: "Watch again",
-    next: { label: "See pricing", href: "/pricing" },
 };
 
-/** Same wording and same rule as the section's third outcome: what it waits on, never how long. */
+/** What the Message and Review steps wait on, never how long. */
 export const CARRIER_LINE = "Switches on once the carriers approve your business registration.";
 
 export const DEMO_BUSINESS = { name: "Brannock Heating & Air", host: "brannockheating.com" };
