@@ -2,10 +2,10 @@ import { SignUp } from "@clerk/nextjs";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import InviteOtherAccount from "@/app/components/portal/InviteOtherAccount";
 import { inviteNeedsSignOut, inviteReturnPath } from "@/app/lib/invite-return.mjs";
-import PortalScope from "@/app/components/portal/PortalScope";
 import { safeRedirectPath } from "@/app/lib/safe-redirect";
 import { postAuthRedirect } from "@/app/lib/post-auth-redirect";
-import { portalClerkAppearance } from "../../clerkAppearance";
+import { clerkAuthAppearance } from "../../clerkAppearance";
+import AuthShell from "../../sign-in/_auth/AuthShell";
 
 export default async function PortalSignUpPage({
     searchParams,
@@ -17,11 +17,9 @@ export default async function PortalSignUpPage({
     if (inviteNeedsSignOut(userId, params.__clerk_ticket)) {
         const user = await currentUser();
         return (
-            <PortalScope>
-                <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg)" }}>
-                    <InviteOtherAccount email={user?.primaryEmailAddress?.emailAddress ?? null} returnPath={inviteReturnPath(params)} />
-                </div>
-            </PortalScope>
+            <AuthShell>
+                <InviteOtherAccount email={user?.primaryEmailAddress?.emailAddress ?? null} returnPath={inviteReturnPath(params)} />
+            </AuthShell>
         );
     }
 
@@ -36,59 +34,21 @@ export default async function PortalSignUpPage({
      */
     const redirectUrl = safeRedirectPath(params.redirect_url);
 
+    // Agency brand, not `<PortalScope>`: see AuthShell. Same page as sign-in, so a client who
+    // follows "Sign up" from the sign-in card stays in the same place.
+    //
+    // The card keeps Clerk's own title: no sign-up string has been approved yet. The explainer
+    // that used to sit beside the card ("Create your portal login" and two bullets) is replaced
+    // by the shared brand panel, whose wording is approved.
     return (
-        <PortalScope>
-            <div
-                className="min-h-screen flex items-center justify-center p-6"
-                style={{ background: "var(--bg)" }}
-            >
-                <div className="grid w-full max-w-5xl gap-10 md:grid-cols-2 md:items-center">
-                    {/* Why we're asking them to create an account */}
-                    <div className="max-w-md">
-                        <span className="eyebrow">Client Portal</span>
-                        <h1
-                            className="mt-4"
-                            style={{ fontSize: "var(--text-2xl)", color: "var(--fg)" }}
-                        >
-                            Create your portal login
-                        </h1>
-                        <p
-                            className="mt-3"
-                            style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}
-                        >
-                            Your portal is the private home base for your website. Setting up a login
-                            gives you a place to check in on it any time.
-                        </p>
-                        <ul className="mt-6 flex flex-col gap-4">
-                            <li className="flex gap-3">
-                                <span aria-hidden style={{ color: "var(--accent-2)" }}>—</span>
-                                <span style={{ color: "var(--fg-2)" }}>
-                                    <strong style={{ color: "var(--fg)" }}>Track performance &amp; traffic</strong>
-                                    {" "}— see how your site is doing at a glance.
-                                </span>
-                            </li>
-                            <li className="flex gap-3">
-                                <span aria-hidden style={{ color: "var(--accent-2)" }}>—</span>
-                                <span style={{ color: "var(--fg-2)" }}>
-                                    <strong style={{ color: "var(--fg)" }}>AI call logs</strong>
-                                    {" "}— review every call your receptionist handles.
-                                </span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Clerk sign-up card */}
-                    <div className="flex justify-center md:justify-end">
-                        <SignUp
-                            path="/portal/sign-up"
-                            routing="path"
-                            signInUrl={`/portal/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`}
-                            forceRedirectUrl={postAuthRedirect(redirectUrl)}
-                            appearance={portalClerkAppearance}
-                        />
-                    </div>
-                </div>
-            </div>
-        </PortalScope>
+        <AuthShell>
+            <SignUp
+                path="/portal/sign-up"
+                routing="path"
+                signInUrl={`/portal/sign-in?redirect_url=${encodeURIComponent(redirectUrl)}`}
+                forceRedirectUrl={postAuthRedirect(redirectUrl)}
+                appearance={clerkAuthAppearance}
+            />
+        </AuthShell>
     );
 }

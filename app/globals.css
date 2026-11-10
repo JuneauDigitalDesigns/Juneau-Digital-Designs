@@ -1,3 +1,15 @@
+/* Cascade-layer order, declared before Tailwind declares its own. The only addition is `clerk`.
+
+   Clerk puts its component CSS in the layer named by `cssLayerName` (app/portal/clerkAppearance.ts).
+   Ordered here, below `components` and `utilities`, the Tailwind classes we pass in Clerk's
+   `appearance.elements` beat Clerk's own styles; above `base`, Clerk still beats the global
+   heading defaults below, so its card title isn't restyled as a 128px marketing h1. Before this,
+   Clerk's CSS was unlayered and outranked every utility, so most of those classes did nothing.
+
+   Tailwind's own four layers keep their order (theme, base, components, utilities), so nothing
+   else on the site moves. Unlayered rules in this file still beat all of them, Clerk included. */
+@layer theme, base, clerk, components, utilities;
+
 @import "tailwindcss";
 
 /* Markdown is not a source of class names, and scanning it breaks the build.

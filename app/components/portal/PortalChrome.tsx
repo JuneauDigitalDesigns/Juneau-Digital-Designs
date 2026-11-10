@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
-import { UserButton } from "@clerk/nextjs";
 import {
     ChartPieSlice,
     TrendUp,
@@ -24,6 +23,7 @@ import {
     Users,
 } from "@phosphor-icons/react";
 import TourController, { launchTour } from "./tour/TourController";
+import PortalUserButton from "./PortalUserButton";
 import PortalBrand from "./PortalBrand";
 import SiteSelector from "./SiteSelector";
 import { PortalDataProvider } from "./PortalDataProvider";
@@ -195,7 +195,7 @@ export default function PortalChrome({
                         <CaretUpDown size={16} weight="bold" />
                     </button>
                 )}
-                <UserButton />
+                <PortalUserButton siteSlug={selected.slug} />
             </header>
 
             {/* ── Desktop: the rail ────────────────────────────────────────────── */}
@@ -365,7 +365,7 @@ export default function PortalChrome({
                         <span className="truncate">Help &amp; tour</span>
                     </button>
                     <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
-                        <UserButton />
+                        <PortalUserButton siteSlug={selected.slug} />
                         <span
                             className="truncate min-w-0"
                             style={{ color: "var(--fg-3)", fontSize: "var(--text-sm)" }}
@@ -543,7 +543,7 @@ export default function PortalChrome({
                     className="mt-4 pt-4 flex items-center gap-2.5"
                     style={{ borderTop: "1px solid var(--rule-weak)" }}
                 >
-                    <UserButton />
+                    <PortalUserButton siteSlug={selected.slug} onLeave={() => setMoreOpen(false)} />
                     <span
                         className="truncate min-w-0"
                         style={{ color: "var(--fg-3)", fontSize: "var(--text-sm)" }}

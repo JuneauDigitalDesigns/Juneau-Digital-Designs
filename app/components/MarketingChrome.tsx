@@ -21,23 +21,30 @@ import SmoothScroll from "./SmoothScroll";
  *
  *   - Navbar/footer come off for *everything* under `/portal`, onboarding included — the
  *     wizard is a focused flow and always was chrome-less.
- *   - Grain comes off only for the portal *product* (the dashboard and its auth pages),
- *     which has its own cool-neutral design system. `/portal/onboarding` is a sales funnel
- *     that deliberately stays on the agency theme, so it keeps the texture. Gating the
- *     grain on the `/portal` prefix would have quietly stripped it there and left
- *     onboarding in a third state that is neither theme.
+ *   - Grain comes off only for the portal *product* (the dashboard), which has its own
+ *     cool-neutral design system. `/portal/onboarding` is a sales funnel that deliberately
+ *     stays on the agency theme, so it keeps the texture. Gating the grain on the `/portal`
+ *     prefix would have quietly stripped it there and left onboarding in a third state that
+ *     is neither theme.
+ *
+ *   - Sign-in and sign-up are agency pages too (since 2026-11-09; they used to be product),
+ *     so they keep the grain, but pinned light: `AuthCanvas` paints the page canvas cream
+ *     even when the OS has put the rest of the agency site into its dark theme.
  */
 export default function MarketingChrome({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const isPortal = pathname === "/portal" || pathname.startsWith("/portal/");
     const isOnboarding = pathname.startsWith("/portal/onboarding");
-    // The routes wrapped in `<PortalScope>`: the dashboard, sign-in and sign-up.
-    const isPortalProduct = isPortal && !isOnboarding;
+    // Sign-in and sign-up: chrome-less like the rest of /portal, but agency-branded.
+    const isPortalAuth = /^\/portal\/sign-(in|up)(\/|$)/.test(pathname);
+    // The routes wrapped in `<PortalScope>`: the dashboard.
+    const isPortalProduct = isPortal && !isOnboarding && !isPortalAuth;
 
     return (
         <>
             {isPortalProduct && <PortalCanvas />}
+            {isPortalAuth && <AuthCanvas />}
             {!isPortalProduct && <GrainOverlay />}
             {isPortal ? (
                 children
@@ -69,6 +76,20 @@ export default function MarketingChrome({ children }: { children: React.ReactNod
  */
 function PortalCanvas() {
     return <style>{`html,body{background:#f6f7f9}`}</style>;
+}
+
+/**
+ * Repaints the page canvas cream for sign-in and sign-up.
+ *
+ * Same reason as `PortalCanvas`, different colour: `body` paints `var(--bg)` at `:root`,
+ * which is near-black when next-themes has followed the OS into dark mode, and these pages are
+ * cream-only (the lockup has no light-on-dark variant). `AuthShell` pins its own tokens light
+ * but cannot reach <body>, so without this the overscroll gutter would show dark. The shorthand
+ * also drops the body's dot grid, which the sign-in design doesn't have. Literal hex: keep it in
+ * step with `--bg` in the light `:root` block at the top of globals.css.
+ */
+function AuthCanvas() {
+    return <style>{`html,body{background:#f4ecd8}`}</style>;
 }
 
 /**
