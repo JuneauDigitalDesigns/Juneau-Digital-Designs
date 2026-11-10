@@ -21,16 +21,23 @@ import {
     DEFAULT_PALETTE_PRESET_ID,
     INDUSTRY_MENUS,
     OTHER_INDUSTRY,
+    PROFILE_KINDS,
     customersFor,
     differentiatorsFor,
     joinChoices,
+    mapBrandIntakeToIntake,
     menuFor,
     palettesForVertical,
+    qualifiesForServicePage,
+    servicePageFacts,
     type BrandIntakeSubmission,
     type ImageMeta,
+    type ProfileKind,
     type ServiceEntry,
     type TemplateSlots,
 } from "@jdd/schema";
+import { normaliseProfileLink } from "@/app/lib/profile-links";
+import { C } from "./copy-pending";
 
 export type PlanSlug = "starter" | "growth" | "enterprise";
 export type ReceptionistMode = "forwarded" | "published" | "declined";
@@ -44,6 +51,26 @@ export type AdditionalSiteForm = {
     address: string;
     differentiators: string;
 };
+
+/**
+ * The facts a service's own page is built from (service-page-spec.md §1, §3). All optional and
+ * client-supplied. Keyed by the service's name in `WizardState.serviceFacts`, so unticking and
+ * re-ticking a service keeps what was typed.
+ */
+export type ServiceFacts = {
+    included: string[];
+    typicalJobs: string[];
+    /** "all" = "Everywhere I cover": stores nothing and is no fact (client-seo, (b)). */
+    areasMode: "" | "all" | "some";
+    areas: string[];
+    brands: string[];
+    priceFrom: string;
+    /** Photo 1 becomes the service's picture; every photo is also a tagged job photo. */
+    photos: ImageMeta[];
+    questions: { q: string; a: string }[];
+};
+
+export type ProfileEntry = { kind: ProfileKind; url: string };
 
 /** The wizard's answers. Persisted as the draft (`v: 2`). */
 export type WizardState = {
@@ -60,8 +87,12 @@ export type WizardState = {
     phone: string;
     email: string;
     address: string;
+    /** "Do customers come to this address?" "no" = a service-area business (street hidden). */
+    visitAddress: "" | "yes" | "no";
     towns: string[];
     website: string;
+    /** The business's own profiles, one per kind, in the order shown. Blank urls are dropped. */
+    profiles: ProfileEntry[];
 
     services: ServiceEntry[];
     diffs: string[];
@@ -76,9 +107,14 @@ export type WizardState = {
     rating: string;
     reviewCount: string;
     reviewUrl: string;
+    /** Which profile the rating comes from; its link becomes the badge's link. */
+    reviewSource: ProfileKind | "";
     /** Stat answers the trade's template asks for that can't be worked out (keyed by stat key). */
     statValues: Record<string, string>;
-    servicePrices: Record<string, string>;
+    /** Per-service facts, keyed by service name. Replaced the name-keyed `servicePrices` map. */
+    serviceFacts: Record<string, ServiceFacts>;
+    /** The service whose details are open on the "details" screen, by name; "" = the list. */
+    detailOpen: string;
     seasonBodies: Record<string, string>;
     serviceRadiusMiles: string;
     offerBadge: string;
@@ -108,6 +144,10 @@ export type WizardContext = {
 export const MAX_SERVICES = 12;
 export const MAX_VOICES = 3;
 export const MAX_WORK_PHOTOS = 10;
+/** Google Business Profile's service-area limit; the site uses the same cap. */
+export const MAX_TOWNS = 20;
+/** What one service's page shows at most (template-visual-upgrade, 2026-11-10). */
+export const SERVICE_CAPS = { included: 8, typicalJobs: 6, brands: 8, questions: 5, photos: 3 } as const;
 
 export const HOURS_PRESETS = ["Mon to Fri, 8am to 5pm", "Mon to Sat, 7am to 6pm", "Open 24/7"] as const;
 export const CUSTOM_HOURS = "custom";
@@ -132,8 +172,9 @@ export const CERT_SUGGESTIONS: Record<string, string[]> = {
 const DERIVED_STATS = new Set(["yearsTrading", "coverageTowns", "rating", "emergencyAvailability", "availability"]);
 
 export const CHAPTERS = [
-    { label: "Your business", mins: "1 min" },
-    { label: "Your work", mins: "1 min" },
+    // 2 and 3 min: approved by Xander, 2026-11-10 (service details and profiles added).
+    { label: "Your business", mins: "2 min" },
+    { label: "Your work", mins: "3 min" },
     { label: "The specifics", mins: "2 min" },
     { label: "Your look", mins: "2 min" },
     { label: "Your phone", mins: "1 min" },
@@ -143,7 +184,7 @@ export const CHAPTERS = [
  * Where an answer shows up on the wireframe, so the current question can outline it.
  * `none` means the screen doesn't fill a visible part of the site.
  */
-export type WireFocus = "brand" | "contact" | "towns" | "website" | "services" | "pillars" | "hero" | "stats" | "trust" | "photos" | "call" | "hours" | "none";
+export type WireFocus = "brand" | "contact" | "towns" | "website" | "profiles" | "services" | "pages" | "pillars" | "hero" | "stats" | "trust" | "photos" | "call" | "hours" | "none";
 
 export type ScreenDef = {
     id: string;
@@ -187,8 +228,11 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         S("contact", 0, "Contact details", "contact", { required: true }),
         S("area", 0, "Towns", "towns", { skippable: true }),
         S("website", 0, "Website", "website", { skippable: true }),
+        S("online", 0, C.onlineNav, "profiles", { skippable: true }),
         ...(ctx.plan === "enterprise" ? [S("sites", 0, "Other locations", "none", { skippable: true })] : []),
         S("services", 1, "Services", "services", { skippable: true }),
+        // The facts each service's own page is built from. Price lives here for every trade now.
+        ...(state.services.length ? [S("details", 1, C.detailsNav, "pages", { skippable: true })] : []),
         S("apart", 1, "What sets you apart", "pillars", { skippable: true }),
         S("customers", 1, "Who you serve", "hero", { skippable: true }),
         S("since", 2, "Year and license", "stats", { skippable: true }),
@@ -197,8 +241,6 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         S("certs", 2, "Certifications", "trust", { skippable: true }),
         S("reviews", 2, "Reviews", "stats", { skippable: true }),
         ...(askedStats(state.trade, state).length ? [S("numbers", 2, "A few numbers", "stats", { skippable: true })] : []),
-        // Prices are asked per service, so the screen only makes sense once there are services.
-        ...(slots?.priceFrom && state.services.length ? [S("prices", 2, "Starting prices", "services", { skippable: true })] : []),
         ...(slots?.seasons?.length ? [S("seasons", 2, "Seasonal programs", "services", { skippable: true })] : []),
         ...(slots?.serviceRadius ? [S("radius", 2, "Travel radius", "towns", { skippable: true })] : []),
         ...(slots?.offerBadge ? [S("offer", 2, "Current offer", "hero", { skippable: true })] : []),
@@ -259,8 +301,10 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "contact": return !!(state.phone.trim() && state.address.trim());
         case "area": return state.towns.length > 0;
         case "website": return !!state.website.trim();
+        case "online": return state.profiles.some((p) => p.url.trim());
         case "sites": return state.additionalSites.some((s) => s.brandName.trim());
         case "services": return state.services.length > 0;
+        case "details": return state.services.some((sv) => hasAnyFact(state.serviceFacts[sv.name]));
         case "apart": return state.diffs.length > 0;
         case "customers": return state.customers.length > 0;
         case "since": return !!(state.established.trim() || state.license.trim());
@@ -269,7 +313,6 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "certs": return state.certs.length > 0;
         case "reviews": return !!(state.rating.trim() || state.reviewCount.trim() || state.reviewUrl.trim());
         case "numbers": return Object.values(state.statValues).some((v) => v.trim());
-        case "prices": return Object.values(state.servicePrices).some((v) => v.trim());
         case "seasons": return Object.values(state.seasonBodies).some((v) => v.trim());
         case "radius": return !!state.serviceRadiusMiles.trim();
         case "offer": return !!state.offerBadge.trim();
@@ -381,6 +424,106 @@ export const TRADE_OPTIONS: { id: string; label: string }[] = [
     { id: OTHER_INDUSTRY, label: "Something else" },
 ];
 
+// ── Service facts ────────────────────────────────────────────────────────────
+
+export function emptyFacts(): ServiceFacts {
+    return { included: [], typicalJobs: [], areasMode: "", areas: [], brands: [], priceFrom: "", photos: [], questions: [] };
+}
+
+/** Whether the client has given this service anything at all (drives "No details yet"). */
+export function hasAnyFact(f: ServiceFacts | undefined): boolean {
+    if (!f) return false;
+    return !!(
+        f.included.length || f.typicalJobs.length || f.brands.length || f.priceFrom.trim() || f.photos.length ||
+        f.questions.some((q) => q.q.trim()) || (f.areasMode === "some" && f.areas.length)
+    );
+}
+
+const uniq = (xs: string[]) => xs.filter((x, i) => xs.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+const capList = (xs: string[], n: number) => uniq(xs.map(cleanEntry).filter(Boolean)).slice(0, n);
+
+/**
+ * One service's facts as they are sent: cleaned, capped to what its page shows, blanks left out.
+ * Areas are sent only for "Only some towns", only as towns they cover, and never as the whole
+ * list (that's "everywhere", which stores nothing: client-seo, 2026-11-10).
+ */
+export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): Omit<ServiceEntry, "name" | "tag"> {
+    if (!f) return {};
+    const included = capList(f.included, SERVICE_CAPS.included);
+    const typicalJobs = capList(f.typicalJobs, SERVICE_CAPS.typicalJobs);
+    const brands = capList(f.brands, SERVICE_CAPS.brands);
+    const covered = towns.map(cleanEntry).filter(Boolean);
+    const areas = f.areasMode === "some" ? uniq(f.areas.map(cleanEntry).filter((a) => covered.includes(a))) : [];
+    const keepAreas = areas.length > 0 && areas.length < uniq(covered).length;
+    const priceFrom = f.priceFrom.trim().slice(0, 40);
+    const photos = f.photos.filter((p) => p && typeof p.url === "string" && p.url).slice(0, SERVICE_CAPS.photos);
+    const questions = f.questions
+        .map((q) => ({ q: cleanQuestion(q.q), a: (q.a || "").trim().slice(0, 300) }))
+        .filter((q) => q.q)
+        .slice(0, SERVICE_CAPS.questions);
+    return {
+        ...(included.length ? { included } : {}),
+        ...(typicalJobs.length ? { typicalJobs } : {}),
+        ...(keepAreas ? { areas } : {}),
+        ...(brands.length ? { brands } : {}),
+        ...(priceFrom ? { priceFrom } : {}),
+        ...(photos.length ? { photos } : {}),
+        ...(questions.length ? { questions } : {}),
+    };
+}
+
+/** A question keeps its own punctuation (unlike a chip), but stays one short line. */
+export function cleanQuestion(raw: string): string {
+    return (raw || "").replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 140);
+}
+
+export type ServiceStatus = {
+    /** ready: has its own page. near: core fact, one more needed. core: something given, no core fact. none: nothing yet. */
+    state: "ready" | "near" | "core" | "none";
+    /** How many facts the gate counts. */
+    count: number;
+};
+
+/**
+ * Each service's own-page status, in `state.services` order, from the SCHEMA's gate run on the
+ * mapped SiteContent (client-seo: run it on buildScaffold's output, never on the submission), so
+ * this mark and the console's can't disagree.
+ */
+export function serviceStatuses(state: WizardState, ctx: WizardContext = { plan: "growth" }): ServiceStatus[] {
+    let site: unknown = null;
+    let names: string[] = [];
+    try {
+        const payload = buildPayload(state, ctx);
+        names = payload.serviceList.map((s) => s.name);
+        site = mapBrandIntakeToIntake(payload).sites[0];
+    } catch {
+        site = null;
+    }
+    return state.services.map((sv) => {
+        const i = names.indexOf(cleanEntry(sv.name));
+        const any = hasAnyFact(state.serviceFacts[sv.name]);
+        if (!site || i < 0) return { state: any ? "core" : "none", count: 0 };
+        const f = servicePageFacts(site, i);
+        if (qualifiesForServicePage(site, i)) return { state: "ready", count: f.count };
+        if (f.core) return { state: "near", count: f.count };
+        return { state: any ? "core" : "none", count: f.count };
+    });
+}
+
+export function serviceStatus(state: WizardState, index: number, ctx?: WizardContext): ServiceStatus {
+    return serviceStatuses(state, ctx)[index] ?? { state: "none", count: 0 };
+}
+
+/** Profiles worth sending: a good link, one per kind, in PROFILE_KINDS order. */
+export function profilesForPayload(profiles: ProfileEntry[]): { kind: ProfileKind; url: string }[] {
+    const out: { kind: ProfileKind; url: string }[] = [];
+    for (const kind of PROFILE_KINDS) {
+        const p = profiles.find((x) => x.kind === kind && normaliseProfileLink(kind, x.url));
+        if (p) out.push({ kind, url: normaliseProfileLink(kind, p.url) });
+    }
+    return out;
+}
+
 // ── Submission ───────────────────────────────────────────────────────────────
 
 const list = (xs: string[]) => xs.map(cleanEntry).filter(Boolean).join("\n");
@@ -393,7 +536,11 @@ const list = (xs: string[]) => xs.map(cleanEntry).filter(Boolean).join("\n");
 export function buildPayload(state: WizardState, ctx: WizardContext, now: Date = new Date()): BrandIntakeSubmission {
     const slots = slotsFor(state.trade);
     const stats = statValuesFor(state, now);
-    const priced = slots?.priceFrom ? state.servicePrices : {};
+    const towns = state.towns.slice(0, MAX_TOWNS);
+    const profiles = profilesForPayload(state.profiles);
+    // The badge links to the profile the rating comes from; with no profiles, the old link field.
+    const sourceUrl = state.reviewSource ? profiles.find((p) => p.kind === state.reviewSource)?.url : undefined;
+    const reviewLink = sourceUrl || (profiles.length ? "" : state.reviewUrl.trim());
     return {
         selectedPlan: ctx.plan,
         ...(state.receptionistMode ? { receptionistMode: state.receptionistMode } : {}),
@@ -406,13 +553,15 @@ export function buildPayload(state: WizardState, ctx: WizardContext, now: Date =
         license: state.license.trim(),
         ownerName: state.owner.trim(),
         responseTime: state.response.trim(),
-        serviceArea: list(state.towns),
+        serviceArea: list(towns),
+        ...(state.visitAddress ? { serviceAreaBusiness: state.visitAddress === "no" } : {}),
+        ...(profiles.length ? { profiles } : {}),
         brandsCarried: list(state.brands),
         certifications: list(state.certs),
         businessHours: hoursLine(state),
         agentName: state.agentName.trim(),
         serviceList: state.services
-            .map((s) => ({ name: cleanEntry(s.name), tag: s.tag }))
+            .map((s) => ({ name: cleanEntry(s.name), tag: s.tag, ...facetsForPayload(state.serviceFacts[s.name], towns) }))
             .filter((s) => s.name)
             .slice(0, MAX_SERVICES),
         brandDirection: {
@@ -431,9 +580,8 @@ export function buildPayload(state: WizardState, ctx: WizardContext, now: Date =
         stats: Object.entries(stats).map(([key, value]) => ({ key, value, label: STAT_LABELS[key] ?? key })),
         reviewAggregate:
             state.rating.trim() || state.reviewCount.trim()
-                ? { score: state.rating.trim(), count: state.reviewCount.trim(), url: state.reviewUrl.trim() || undefined }
+                ? { score: state.rating.trim(), count: state.reviewCount.trim(), url: reviewLink || undefined }
                 : null,
-        servicePrices: Object.fromEntries(Object.entries(priced).filter(([name, v]) => v.trim() && state.services.some((s) => s.name === name)).map(([k, v]) => [k, v.trim()])),
         seasons: (slots?.seasons ?? [])
             .filter((s) => (state.seasonBodies[s.key] ?? "").trim())
             .map((s) => ({ key: s.key, label: s.label, body: state.seasonBodies[s.key].trim() })),
@@ -478,10 +626,11 @@ export function initialState(email: string, signedMode?: ReceptionistMode, prefi
     return {
         v: 2, screen: "welcome", visited: ["welcome"], skipped: [],
         trade: prefill?.trade ?? "", name: prefill?.name ?? "", phone: prefill?.phone ?? "", email,
-        address: prefill?.address ?? "", towns: [], website: "",
+        address: prefill?.address ?? "", visitAddress: "", towns: [], website: "", profiles: [],
         services: [], diffs: [], customers: [],
         established: "", license: "", owner: prefill?.owner ?? "", response: "", brands: [], certs: [],
-        rating: "", reviewCount: "", reviewUrl: "", statValues: {}, servicePrices: {}, seasonBodies: {}, serviceRadiusMiles: "", offerBadge: "",
+        rating: "", reviewCount: "", reviewUrl: "", reviewSource: "", statValues: {}, serviceFacts: {}, detailOpen: "",
+        seasonBodies: {}, serviceRadiusMiles: "", offerBadge: "",
         logoChoice: "", images: { heroSlides: [] }, voice: [], avoid: "",
         receptionistMode: signedMode ?? "", hours: "", customHours: "", emergency: false, agentName: "",
         additionalSites: [],
@@ -493,6 +642,55 @@ const strs = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => ty
 const rec = (v: unknown): Record<string, string> =>
     v && typeof v === "object" ? Object.fromEntries(Object.entries(v as Record<string, unknown>).filter(([, x]) => typeof x === "string") as [string, string][]) : {};
 const splitText = (v: unknown) => str(v).split(/[,;\n]/).map(cleanEntry).filter(Boolean);
+
+const KINDS = new Set<string>(PROFILE_KINDS);
+const isKind = (v: unknown): v is ProfileKind => typeof v === "string" && KINDS.has(v);
+
+function readImages(v: unknown, max: number): ImageMeta[] {
+    return (Array.isArray(v) ? v : [])
+        .filter((x): x is ImageMeta => !!x && typeof x === "object" && typeof (x as ImageMeta).url === "string")
+        .map((x) => ({ url: x.url, filename: str(x.filename), alt: str(x.alt) }))
+        .slice(0, max);
+}
+
+/**
+ * Per-service facts from a draft. `servicePrices` (the old name-keyed map behind the retired
+ * Starting prices screen) moves onto each service's own price, so nothing typed is lost.
+ */
+function readServiceFacts(v: unknown, oldPrices: Record<string, string>): Record<string, ServiceFacts> {
+    const out: Record<string, ServiceFacts> = {};
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+        for (const [name, raw] of Object.entries(v as Record<string, unknown>)) {
+            const f = (raw ?? {}) as Record<string, unknown>;
+            const mode = str(f.areasMode);
+            out[name] = {
+                included: strs(f.included),
+                typicalJobs: strs(f.typicalJobs),
+                areasMode: mode === "all" || mode === "some" ? mode : "",
+                areas: strs(f.areas),
+                brands: strs(f.brands),
+                priceFrom: str(f.priceFrom),
+                photos: readImages(f.photos, SERVICE_CAPS.photos),
+                questions: (Array.isArray(f.questions) ? f.questions : [])
+                    .map((q) => ({ q: str((q as { q?: unknown })?.q), a: str((q as { a?: unknown })?.a) }))
+                    .filter((q) => q.q),
+            };
+        }
+    }
+    for (const [name, price] of Object.entries(oldPrices)) {
+        if (!price.trim()) continue;
+        const f = out[name] ?? emptyFacts();
+        if (!f.priceFrom.trim()) out[name] = { ...f, priceFrom: price.trim() };
+    }
+    return out;
+}
+
+function readProfiles(v: unknown): ProfileEntry[] {
+    return (Array.isArray(v) ? v : [])
+        .map((p) => p as Record<string, unknown>)
+        .filter((p) => p && isKind(p.kind))
+        .map((p) => ({ kind: p.kind as ProfileKind, url: str(p.url) }));
+}
 
 /**
  * Read a saved draft back, from either shape.
@@ -528,20 +726,28 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
           }))
         : [];
 
+    const visit = str(d.visitAddress);
+    const visitAddress: WizardState["visitAddress"] = visit === "yes" || visit === "no" ? visit : "";
+    const serviceFacts = readServiceFacts(d.serviceFacts, rec(d.servicePrices));
+
     if (d.v === 2) {
-        const screen = str(d.screen) || base.screen;
+        // The retired Starting prices screen: resume on service details, where price lives now.
+        const saved = str(d.screen) === "prices" ? "details" : str(d.screen);
+        const screen = saved || base.screen;
         return {
             ...base,
             screen,
             visited: strs(d.visited).length ? strs(d.visited) : [screen],
             skipped: strs(d.skipped),
             trade: str(d.trade), name: str(d.name), phone: str(d.phone), email: str(d.email) || base.email,
-            address: str(d.address), towns: strs(d.towns).map(cleanEntry).filter(Boolean), website: str(d.website),
+            address: str(d.address), visitAddress, towns: strs(d.towns).map(cleanEntry).filter(Boolean), website: str(d.website),
+            profiles: readProfiles(d.profiles),
             services, diffs: strs(d.diffs), customers: strs(d.customers),
             established: str(d.established), license: str(d.license), owner: str(d.owner), response: str(d.response),
             brands: strs(d.brands), certs: strs(d.certs),
             rating: str(d.rating), reviewCount: str(d.reviewCount), reviewUrl: str(d.reviewUrl),
-            statValues: rec(d.statValues), servicePrices: rec(d.servicePrices), seasonBodies: rec(d.seasonBodies),
+            reviewSource: isKind(d.reviewSource) ? d.reviewSource : "",
+            statValues: rec(d.statValues), serviceFacts, detailOpen: str(d.detailOpen), seasonBodies: rec(d.seasonBodies),
             serviceRadiusMiles: str(d.serviceRadiusMiles), offerBadge: str(d.offerBadge),
             logoChoice: d.logoChoice === "design" ? "design" : "",
             images: safeImages, voice: strs(d.voice).slice(0, MAX_VOICES), avoid: str(d.avoid),
@@ -566,7 +772,7 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
         established: str(d.established), license: str(d.license), owner: str(d.ownerName), response: str(d.responseTime),
         brands: splitText(d.brandsCarried),
         rating: str(d.reviewScore), reviewCount: str(d.reviewCount), reviewUrl: str(d.reviewUrl),
-        statValues: rec(d.statValues), servicePrices: rec(d.servicePrices), seasonBodies: rec(d.seasonBodies),
+        statValues: rec(d.statValues), serviceFacts, seasonBodies: rec(d.seasonBodies),
         serviceRadiusMiles: str(d.serviceRadiusMiles), offerBadge: str(d.offerBadge),
         images: safeImages, voice: strs(d.voice).slice(0, MAX_VOICES), avoid: str(d.forbidden),
         receptionistMode, additionalSites: sites,

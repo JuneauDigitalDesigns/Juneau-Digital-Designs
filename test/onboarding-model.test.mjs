@@ -71,10 +71,10 @@ test("HVAC Growth: no color step, no website-only, and HVAC's stats are all work
 
 test("trade-specific screens appear only where the template uses them", () => {
     const lawn = screensFor({ ...ridgeline(), trade: "lawn-care" }, growth).map((s) => s.id);
-    assert.ok(lawn.includes("numbers") && lawn.includes("prices") && lawn.includes("seasons") && lawn.includes("offer"));
+    assert.ok(lawn.includes("numbers") && lawn.includes("seasons") && lawn.includes("offer"));
     assert.ok(!lawn.includes("brands"), "no brand screen for lawn care");
     const car = screensFor({ ...ridgeline(), trade: "car-detailing" }, growth).map((s) => s.id);
-    assert.ok(car.includes("radius") && car.includes("prices"));
+    assert.ok(car.includes("radius"));
     const ent = screensFor(ridgeline(), { plan: "enterprise" }).map((s) => s.id);
     assert.ok(ent.includes("sites"));
     assert.deepEqual(modesFor({ plan: "starter" }), ["forwarded", "published", "declined"]);

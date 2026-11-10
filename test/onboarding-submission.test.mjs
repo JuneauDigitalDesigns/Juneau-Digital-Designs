@@ -120,3 +120,50 @@ test("the palette is recorded as not chosen by the client", () => {
     const twice = markPaletteNotClientChosen(intake);
     assert.equal(twice.sites[0]._meta.missing_fields.filter((f) => f === "brand.palette").length, 1);
 });
+
+test("service details, profiles and the address answer reach the intake, capped and checked", () => {
+    const many = (n, w) => Array.from({ length: n }, (_, i) => `${w} ${i}`);
+    const s = buildSubmission(
+        body({
+            serviceList: [
+                {
+                    name: "AC Installation & Service",
+                    tag: "Cooling",
+                    included: [...many(10, "inc"), "  ", 7],
+                    typicalJobs: many(8, "job"),
+                    areas: ["Orlando"],
+                    brands: many(9, "b"),
+                    priceFrom: " $89 ",
+                    photos: [{ url: BLOB, filename: "a.jpg", alt: "" }, { url: "https://evil.example/x.jpg" }, { url: BLOB }, { url: BLOB }, { url: BLOB }],
+                    questions: [...many(6, "q").map((q) => ({ q, a: "x" })), { q: "", a: "orphan" }],
+                },
+            ],
+            serviceAreaBusiness: true,
+            profiles: [
+                { kind: "google", url: "https://maps.app.goo.gl/abc" },
+                { kind: "google", url: "https://www.google.com/search?q=ridgeline" },
+                { kind: "facebook", url: "https://evil.example/ridgeline" },
+                { kind: "myspace", url: "https://myspace.com/x" },
+                { kind: "yelp", url: "yelp.com/biz/ridgeline" },
+            ],
+        }),
+        site,
+    ).submission;
+    const ac = s.serviceList[0];
+    assert.equal(ac.included.length, 8, "included capped at 8, blanks and non-strings dropped");
+    assert.equal(ac.typicalJobs.length, 6);
+    assert.equal(ac.brands.length, 8);
+    assert.deepEqual(ac.areas, ["Orlando"]);
+    assert.equal(ac.priceFrom, "$89");
+    assert.equal(ac.photos.length, 3, "only our blob URLs, at most 3");
+    assert.equal(ac.questions.length, 5);
+    assert.equal(s.serviceAreaBusiness, true);
+    assert.deepEqual(s.profiles, [
+        { kind: "google", url: "https://maps.app.goo.gl/abc" },
+        { kind: "yelp", url: "https://yelp.com/biz/ridgeline" },
+    ]);
+    assert.equal(zBrandIntakeSubmission.safeParse(s).success, true);
+    const plain = buildSubmission(body({ serviceAreaBusiness: "yes" }), site).submission;
+    assert.equal("serviceAreaBusiness" in plain, false, "only a real boolean counts as an answer");
+    assert.deepEqual(plain.serviceList[0], { name: "AC Installation & Service", tag: "Cooling" });
+});

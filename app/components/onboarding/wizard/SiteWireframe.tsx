@@ -8,9 +8,124 @@
  * says "not the final design". The part the current question fills gets a teal outline.
  */
 
-import { useEffect, useRef } from "react";
-import { TRADE_OPTIONS, isAround247, servicesMenu, statValuesFor, STAT_LABELS, slotsFor, type WireFocus, type WizardState } from "./model";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { serviceSlug } from "@jdd/schema";
+import {
+    TRADE_OPTIONS,
+    emptyFacts,
+    isAround247,
+    profilesForPayload,
+    serviceStatuses,
+    servicesMenu,
+    statValuesFor,
+    STAT_LABELS,
+    slotsFor,
+    type WireFocus,
+    type WizardState,
+} from "./model";
+import { C, PROFILE_SHORT } from "./copy-pending";
 import s from "./wizard.module.css";
+
+/** The address as the site shows it: a service-area business shows town, state and ZIP only. */
+function shownAddress(state: WizardState): string {
+    const a = state.address.trim();
+    if (state.visitAddress !== "no") return a;
+    const parts = a.split(",").map((p) => p.trim()).filter(Boolean);
+    return parts.length >= 2 ? parts.slice(1).join(", ") : "";
+}
+
+function Chrome({ path, state, children }: { path: string; state: WizardState; children: ReactNode }) {
+    const host = (state.website.trim() || "yourbusiness.com").replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    return (
+        <div className={s.site} aria-hidden="true">
+            <div className={s.sbar}>
+                <i /><i /><i />
+                <span>{host}{path}</span>
+            </div>
+            <div className={s.sc}>
+                <div className={s.sNav}>
+                    <span className={s.sLogo}>
+                        <span className={s.sMk} />
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{state.name.trim() || "Your business"}</span>
+                    </span>
+                    <span className={s.sLinks}><span><b>Services ▾</b></span><span>About</span></span>
+                    <span className={s.sCall}>Call {state.phone.trim() || "now"}</span>
+                </div>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+/** On the service-details list: the site's pages, with each service's own page as it earns one. */
+export function PagesWireframe({ state }: { state: WizardState }) {
+    const statuses = useMemo(() => serviceStatuses(state), [state]);
+    return (
+        <Chrome path="" state={state}>
+            <div className={s.pgList}>
+                <div className={s.pg}>Home</div>
+                <div className={s.pg}>Services<small>{C.pgAll(state.services.length)}</small></div>
+                {state.services.map((sv, i) => {
+                    const st = statuses[i]?.state ?? "none";
+                    if (st === "none") return null;
+                    return (
+                        <div key={sv.name} className={`${s.pg} ${st === "ready" ? `${s.pgOwn} ${s.hl}` : s.pgDash}`}>
+                            {sv.name}
+                            <small>{st === "ready" ? C.pgOwn : st === "near" ? C.pgNear : C.pgCore}</small>
+                        </div>
+                    );
+                })}
+                <div className={s.pg}>About</div>
+                <div className={s.pg}>Contact</div>
+            </div>
+        </Chrome>
+    );
+}
+
+/**
+ * On one service's details: that service's own page, blocks filling in as the client answers,
+ * in the order the page shows them (service-page-spec.md §3). Empty blocks are dashed hints.
+ */
+export function ServiceWireframe({ state, name }: { state: WizardState; name: string }) {
+    const f = state.serviceFacts[name] ?? emptyFacts();
+    const slug = serviceSlug({ t: name }, []);
+    const areas = f.areasMode === "some" ? f.areas : [];
+    return (
+        <Chrome path={`/services/${slug}`} state={state}>
+            <div className={s.sSec} style={{ padding: "12px 14px" }}>
+                <div className={s.sCrumb}>Home › Services › {name}</div>
+                <div className={s.sH} style={{ width: "85%" }} />
+                <div className={s.sL} style={{ marginTop: 6 }} />
+                <div className={s.sL} style={{ width: "75%" }} />
+            </div>
+            {f.included.length ? (
+                <div className={s.sSec}><h6>What&apos;s included</h6><div className={s.sList}>{f.included.slice(0, 8).map((x) => <span key={x}>{x}</span>)}</div></div>
+            ) : null}
+            {f.typicalJobs.length ? (
+                <div className={s.sSec}><h6>Signs it&apos;s time to call</h6><div className={s.sTowns}>{f.typicalJobs.slice(0, 6).map((x) => <span key={x}>{x}</span>)}</div></div>
+            ) : <div className={s.sGhost}>{C.ghostJobs}</div>}
+            {f.priceFrom.trim() ? (
+                <div className={s.sSec}><b style={{ fontSize: 12 }}>Starting at {f.priceFrom.trim()}</b></div>
+            ) : <div className={s.sGhost}>{C.ghostPrice}</div>}
+            {areas.length ? (
+                <div className={s.sSec}><h6>Areas we serve</h6><div className={s.sTowns}>{areas.map((t) => <span key={t}>{t}</span>)}</div></div>
+            ) : state.towns.length >= 2 ? <div className={s.sGhost}>{C.ghostAreas}</div> : null}
+            {f.brands.length ? (
+                <div className={s.sSec}><h6>Brands we work with</h6><div className={s.sTrust}>{f.brands.map((b) => <span key={b}>{b}</span>)}</div></div>
+            ) : null}
+            {f.questions.length ? (
+                <div className={s.sSec}><h6>Common questions</h6>{f.questions.map((q) => <div key={q.q} style={{ fontSize: 9.5, fontWeight: 700, marginBottom: 3 }}>{q.q}</div>)}</div>
+            ) : <div className={s.sGhost}>{C.ghostQuestions}</div>}
+            {f.photos.length ? (
+                <div className={s.sSec}><div className={s.thumbs}>{f.photos.map((p) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={p.url} src={p.url} alt="" style={{ width: 64, height: 48, objectFit: "cover", borderRadius: 6, filter: "grayscale(1)" }} />
+                ))}</div></div>
+            ) : <div className={s.sGhost}>{C.ghostPhotos}</div>}
+            <div className={s.sFoot}><span>Call {state.phone.trim() || "now"}</span><span>Ask for a quote</span></div>
+        </Chrome>
+    );
+}
 
 /** HVAC's four stats when the trade has no template, so the band still shows where numbers go. */
 const FALLBACK_STATS = ["yearsTrading", "rating", "coverageTowns", "emergencyAvailability"];
@@ -37,6 +152,7 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
     const services = state.services.length ? state.services.slice(0, 6).map((x) => x.name) : ["Your services", "appear here", "as you pick them"];
     const towns = state.towns.length ? state.towns : ["your towns"];
     const firstPhoto = state.images.heroSlides[0]?.url;
+    const profileNames = profilesForPayload(state.profiles).map((p) => PROFILE_SHORT[p.kind]);
 
     return (
         <div className={s.site} aria-hidden="true">
@@ -120,8 +236,11 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
                 </div>
 
                 <div className={s.sFoot}>
-                    <span className={hl("contact")}>{state.address.trim() || "Your address"}</span>
+                    <span className={hl("contact")}>{shownAddress(state) || "Your address"}</span>
                     <span className={hl("hours")}>{(state.hours === "custom" ? state.customHours.trim() : state.hours) || "Your hours"}</span>
+                    {profileNames.length || focus === "profiles" ? (
+                        <span className={hl("profiles")} style={{ marginLeft: "auto" }}>{profileNames.join(" · ") || "Google · Facebook · Yelp"}</span>
+                    ) : null}
                 </div>
             </div>
         </div>
