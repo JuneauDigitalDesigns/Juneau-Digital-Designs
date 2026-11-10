@@ -673,21 +673,15 @@ export default function SiteToCallPanel() {
           </AnimatePresence>
         </div>
 
-        {/* whose phone this is — readable before the card is even parsed */}
-        <AnimatePresence mode="wait">
-          {phase !== "idle" && (
-            <motion.div
-              key={isCustomerPhone ? "lbl-c" : "lbl-o"}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="film-device-label"
-            >
-              {isCustomerPhone ? "Their phone" : "Your phone"}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Whose phone this is, readable before the card is even parsed. A switch naming
+            both, with the one on screen lit, rather than a lone caption: it tells the
+            visitor up front that the story has two sides (9 Nov 2026, Xander's pick). Always
+            rendered, so it costs no height when it changes; nothing is lit before the film
+            starts. */}
+        <p className="film-switch">
+          <span aria-current={phase !== "idle" && isCustomerPhone ? "true" : undefined}>Their phone</span>
+          <span aria-current={phase !== "idle" && !isCustomerPhone ? "true" : undefined}>Your phone</span>
+        </p>
 
         {/* Both controls live in `.film-gate`, which is `position: absolute; inset: 0`
             and therefore contributes NO height. That is the whole point: the stage is the
