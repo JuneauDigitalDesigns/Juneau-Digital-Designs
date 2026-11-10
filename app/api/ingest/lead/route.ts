@@ -40,7 +40,7 @@ const KNOWN = new Set([
     // The human check's plumbing, never the visitor's words: not stored with the lead.
     "admissionId",
     "turnstileToken",
-    "website_hp",
+    "jdd_hp",
 ]);
 
 const MAX_BODY_BYTES = 8 * 1024;
