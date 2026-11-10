@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { notifyOwnerOfLead } from "@/app/lib/lead-alert";
 import { recordLeadOnce, resolveIngestToken } from "@/app/lib/portal-leads";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
+import { admissionRequired, spendAdmission } from "@/app/lib/lead-admit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,18 @@ export const dynamic = "force-dynamic";
  */
 
 /** Keys the caller maps onto first-class columns; everything else lands in `fields`. */
-const KNOWN = new Set(["name", "phone", "email", "message", "callbackPlaced", "_honeypot"]);
+const KNOWN = new Set([
+    "name",
+    "phone",
+    "email",
+    "message",
+    "callbackPlaced",
+    "_honeypot",
+    // The human check's plumbing, never the visitor's words: not stored with the lead.
+    "admissionId",
+    "turnstileToken",
+    "jdd_hp",
+]);
 
 const MAX_BODY_BYTES = 8 * 1024;
 const CAP = { name: 200, email: 320, message: 2000, phone: 40, field: 500 } as const;
@@ -113,6 +125,20 @@ export async function POST(request: Request) {
             typeof v === "object" ? JSON.stringify(v).slice(0, CAP.field) : str(v, CAP.field);
         if (value) fields[k.slice(0, 64)] = value;
     }
+
+    // The human check. A site on the current route always sends an admission; one still on the
+    // route from before sends none and is let through until its record says it has moved.
+    let verification: string | null = null;
+    if (body.admissionId !== undefined || (await admissionRequired(owner.acctScope, owner.slug))) {
+        const admission = await spendAdmission(body.admissionId, "lead", owner, {});
+        if (!admission) {
+            console.warn(`[ingest/lead] ${owner.slug}: no admission`);
+            return NextResponse.json({ error: "No admission for this lead" }, { status: 403 });
+        }
+        if (admission.verification !== "passed") verification = admission.verification;
+    }
+    // So the owner can tell a lead nobody could check (Cloudflare was down) from one that passed.
+    if (verification) fields.verification = verification;
 
     const name = str(body.name, CAP.name);
 
