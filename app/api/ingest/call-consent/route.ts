@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordCallConsent } from "@/app/lib/call-consent";
 import { claimCallback } from "@/app/lib/lead-gate";
+import { admissionRequired, spendAdmission } from "@/app/lib/lead-admit";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
 import { resolveIngestToken } from "@/app/lib/portal-leads";
 import { normalizeE164 } from "@/app/lib/phone";
@@ -80,10 +81,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Hash does not match wording" }, { status: 400 });
     }
 
-    const claim = await claimCallback(owner.acctScope, owner.slug, phone);
-    if (!claim.ok) {
-        console.warn(`[ingest/call-consent] callback held for ${owner.slug}: ${claim.reason}`);
-        return NextResponse.json({ error: "Callback held", reason: claim.reason }, { status: 429 });
+    // A site on the current route sends the admission `/api/ingest/admit` gave it, which already
+    // passed the human check and claimed this number's call. A site still on the route from
+    // before it claims here instead, until its record says it has moved (`admissionRequired`).
+    if (body.admissionId !== undefined || (await admissionRequired(owner.acctScope, owner.slug))) {
+        const admission = await spendAdmission(body.admissionId, "consent", owner, { phone });
+        if (!admission?.callback) {
+            console.warn(`[ingest/call-consent] ${owner.slug}: no admission for a callback`);
+            return NextResponse.json({ error: "No admission for this callback" }, { status: 403 });
+        }
+    } else {
+        const claim = await claimCallback(owner.acctScope, owner.slug, phone);
+        if (!claim.ok) {
+            console.warn(`[ingest/call-consent] callback held for ${owner.slug}: ${claim.reason}`);
+            return NextResponse.json({ error: "Callback held", reason: claim.reason }, { status: 429 });
+        }
     }
 
     try {
