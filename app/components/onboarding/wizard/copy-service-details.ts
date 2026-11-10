@@ -2,13 +2,12 @@
  * Every client-facing string added for service details, online profiles and the address
  * question (onboarding-facts, 2026-11-10).
  *
- * ── PENDING APPROVAL ─────────────────────────────────────────────────────────
- * These are the DRAFT words from the copy deck (mockup https://claude.ai/artifact/K9iQcYFjUkaPp1fFRoLJMd:
- * "First draft" page items #3 to #55, and "Simpler (v2)" page items #56 to #67, which replace
- * #4 to #7, #10 to #17 and #30 to #42). Xander approved the v2 LAYOUT on 2026-11-10 ("Go ahead");
- * the words themselves still need his word-for-word approval. Until then this file must not ship:
- * the PR stays a draft. Each string carries its deck number so his reply maps onto one line here.
- * Items #1 and #2 (timings) were approved on 2026-11-10 and live in screens.tsx and model.ts.
+ * ── APPROVED WORD FOR WORD by Xander, 2026-11-10 ("Approve as drafted") ─────
+ * The copy deck (mockup https://claude.ai/artifact/K9iQcYFjUkaPp1fFRoLJMd): "First draft" page
+ * items #3 to #55, and "Simpler (v2)" page items #56 to #67, which replace #4 to #7, #10 to #17 and
+ * #30 to #42, with the build notes listed there (#35 shortened, #50 dropped, singulars, the phone
+ * "Next service"). Change none of these without his approval. Each string carries its deck number.
+ * Items #1 and #2 (timings) were approved the same day and live in screens.tsx and model.ts.
  *
  * The page headings quoted in the "Adds …" lines ("What's included", "Signs it's time to call",
  * "What to expect", "Starting at", "Common questions", "Brands we work with", "Areas we serve")
@@ -16,8 +15,6 @@
  */
 
 import type { ProfileKind } from "@jdd/schema";
-
-export const APPROVED = false;
 
 export const C = {
     // Contact (#3): the screen is otherwise the approved three fields.

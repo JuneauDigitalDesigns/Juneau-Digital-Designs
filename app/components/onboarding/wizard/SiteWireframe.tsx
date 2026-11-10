@@ -23,7 +23,7 @@ import {
     type WireFocus,
     type WizardState,
 } from "./model";
-import { C, PROFILE_SHORT } from "./copy-pending";
+import { C, PROFILE_SHORT } from "./copy-service-details";
 import s from "./wizard.module.css";
 
 /** The address as the site shows it: a service-area business shows town, state and ZIP only. */

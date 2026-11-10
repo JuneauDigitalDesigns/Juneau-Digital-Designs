@@ -37,7 +37,7 @@ import {
     type TemplateSlots,
 } from "@jdd/schema";
 import { normaliseProfileLink } from "@/app/lib/profile-links";
-import { C } from "./copy-pending";
+import { C } from "./copy-service-details";
 
 export type PlanSlug = "starter" | "growth" | "enterprise";
 export type ReceptionistMode = "forwarded" | "published" | "declined";

@@ -3,11 +3,11 @@
  * the questions they ask. A client taps only what's true; nothing here is ever sent unless
  * picked, and the copywriter may tidy a picked item but never adds one.
  *
- * ── PENDING APPROVAL ─────────────────────────────────────────────────────────
+ * ── ONE APPROVED BATCH PER TRADE ────────────────────────────────────────────────
  * Xander, 2026-11-10: "Yes, one trade per batch", each batch approved word for word, live
- * clients' trades first. Only the HVAC sample from the copy deck is drafted so far, for two
- * services. Every other service shows "add your own" with no chips until its trade's batch is
- * approved. When a batch lands, it may move to @jdd/schema's industry menu so the console intake
+ * clients' trades first. The HVAC sample below (two services) was on the copy deck he approved
+ * as drafted on 2026-11-10. Every other service shows "add your own" with no chips until its
+ * trade's batch is approved; add nothing here without that approval. When a batch lands, it may move to @jdd/schema's industry menu so the console intake
  * offers the same chips (intake-wizard asked for them).
  */
 

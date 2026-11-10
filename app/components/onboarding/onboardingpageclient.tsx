@@ -47,7 +47,7 @@ import {
 } from "./wizard/model";
 import { ScreenBody, copyFor } from "./wizard/screens";
 import SiteWireframe, { PagesWireframe, ServiceWireframe } from "./wizard/SiteWireframe";
-import { C } from "./wizard/copy-pending";
+import { C } from "./wizard/copy-service-details";
 import s from "./wizard/wizard.module.css";
 
 const STORAGE_TTL_MS = 30 * 24 * 60 * 60 * 1000;

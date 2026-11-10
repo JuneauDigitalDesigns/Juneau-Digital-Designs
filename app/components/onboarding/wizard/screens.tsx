@@ -4,9 +4,9 @@
  * One question per screen. Every client-facing string here was approved word for word by Xander
  * (onboarding copy deck, 2026-11-04). Change none of them without that approval.
  *
- * The service details, online profiles and address-question strings (2026-11-10) live in
- * `copy-pending.ts` until Xander approves that deck; the suggestion chips in
- * `service-suggestions.ts`, one trade per approved batch.
+ * The service details, online profiles and address-question strings (approved word for word,
+ * 2026-11-10) live in `copy-service-details.ts`; the suggestion chips in `service-suggestions.ts`,
+ * one trade per approved batch (the HVAC sample is approved).
  */
 
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
@@ -51,7 +51,7 @@ import {
 } from "./model";
 import { PROFILE_KINDS, VOICE_OPTIONS, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
-import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-pending";
+import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
 import { suggestionsFor } from "./service-suggestions";
 import s from "./wizard.module.css";
 
