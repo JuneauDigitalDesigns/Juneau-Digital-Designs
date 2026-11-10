@@ -46,8 +46,18 @@ export interface PortalClientProps {
 /**
  * The dashboard's tabs, in nav order.
  *
- * `shortLabel` exists for the mobile tab bar, where a fifth of a 375px screen is about 70px
- * and "Performance" does not fit. It is the same word wherever it can be.
+ * `shortLabel` exists for the mobile tab bar, where a fifth of a 375px screen is about 70px.
+ * It is the same word wherever it can be, which today is everywhere.
+ *
+ * `feature` is the gate the tab is marked by. A list means "available if any of these is":
+ * Analytics replaced Traffic (gated on `traffic`) and Performance (gated on `performance`), and
+ * a site with one but not the other still has an Analytics page worth opening. The page then
+ * explains the missing half with that half's own panel. See `tabAvailability`.
+ *
+ * 2026-11-09 rework: Traffic and Performance became one Analytics tab, and Billing moved inside
+ * Settings as "Plan & billing". Their old paths still resolve: each page under
+ * `(dash)/{traffic,performance,billing}` is now only a redirect, so bookmarks, emails and links
+ * in code that has not caught up keep working. See `legacyTabDestination`.
  */
 export const PORTAL_TABS = [
     { id: "overview", label: "Overview", shortLabel: "Overview", href: "", feature: null },
@@ -56,9 +66,13 @@ export const PORTAL_TABS = [
     // gate moved to `leads` — web-only sites have no call log but do receive form enquiries.
     { id: "calls", label: "Inbox", shortLabel: "Inbox", href: "calls", feature: "leads" },
     { id: "customers", label: "Customers", shortLabel: "Customers", href: "customers", feature: "crm" },
-    { id: "traffic", label: "Traffic", shortLabel: "Traffic", href: "traffic", feature: "traffic" },
-    { id: "performance", label: "Performance", shortLabel: "Speed", href: "performance", feature: "performance" },
-    { id: "billing", label: "Billing", shortLabel: "Billing", href: "billing", feature: null },
+    {
+        id: "analytics",
+        label: "Analytics",
+        shortLabel: "Analytics",
+        href: "analytics",
+        feature: ["traffic", "performance"],
+    },
     { id: "settings", label: "Settings", shortLabel: "Settings", href: "settings", feature: null },
     { id: "support", label: "Support", shortLabel: "Support", href: "support", feature: null },
 ] as const satisfies ReadonlyArray<{
@@ -66,33 +80,103 @@ export const PORTAL_TABS = [
     label: string;
     shortLabel: string;
     href: string;
-    feature: PortalFeature | null;
+    feature: PortalFeature | readonly PortalFeature[] | null;
 }>;
 
 export type PortalTabId = (typeof PORTAL_TABS)[number]["id"];
 
 /**
+ * Settings' two parts, in order. `href` is a full tab path, ready for `tabHref`.
+ *
+ * Nested routes rather than `?tab=`. Each part is its own server page that loads only what it
+ * shows (agreements and text-alert consent for Account, the call-minutes figure for Plan &
+ * billing), the rail and the page's own tabs can mark the current part from the pathname
+ * alone, and the old `/portal/billing` has a real path to redirect to.
+ */
+export const SETTINGS_TABS = [
+    { id: "account", label: "Account", href: "settings" },
+    { id: "billing", label: "Plan & billing", href: "settings/billing" },
+] as const;
+
+/** Which Settings part a pathname is, or null when it is not under Settings at all. */
+export function settingsTabFor(pathname: string): (typeof SETTINGS_TABS)[number]["id"] | null {
+    const rest = pathname.replace(/^\/portal\/?/, "").replace(/\/$/, "");
+    if (rest === "settings") return "account";
+    if (rest === "settings/billing") return "billing";
+    return null;
+}
+
+/**
+ * One availability for a tab, from however many features gate it.
+ *
+ * Null for an ungated tab. For a list: ready if any member is ready, because the page has
+ * something real to show; locked only when every member is off the plan, because otherwise the
+ * padlock would tell a client the whole tab is not theirs; otherwise the first member's own
+ * not-yet state, which is the panel the page leads with.
+ */
+export function tabAvailability(
+    feature: PortalFeature | readonly PortalFeature[] | null,
+    features: Record<PortalFeature, FeatureAvailability>,
+): FeatureAvailability | null {
+    if (feature === null) return null;
+    if (typeof feature === "string") return features[feature];
+
+    const all = feature.map((f) => features[f]);
+    const ready = all.find((a) => a.state === "ready");
+    if (ready) return ready;
+    return all.find((a) => a.state !== "not-on-plan") ?? all[0] ?? null;
+}
+
+/**
  * How the six tabs split across the mobile bottom bar.
  *
  * Five slots is the most a 375px screen holds at a comfortable touch size, so four tabs sit
- * in the bar and the rest go behind More. The four were picked by what a client opens the
- * portal to do: check leads, check the site is working, check what they are paying.
- * Performance and Settings are things you visit deliberately, not things you monitor.
+ * in the bar and the rest go behind More. The bar is for what a client opens the portal *to
+ * do*: work today's leads and customers, and check how the website is doing.
  *
  * Locked tabs keep their slot rather than being filtered out. A Starter client seeing
  * Customers with a padlock is the upsell; hiding it means they never learn the feature exists.
  * See the note in `PortalChrome` about tabs always navigating.
  *
- * Traffic moved to More when Customers took a slot — four is still the ceiling. The selection
- * rule is unchanged: the bar is for what a client opens the portal *to do*. Working today's
- * enquiries and customers beats checking last week's visitor count, and Traffic is a deliberate
- * visit rather than something you monitor.
+ * Analytics took the slot Billing held. Folding Traffic and Performance together made it the
+ * one place a client checks their website, which is something they monitor. Settings (which
+ * now holds Plan & billing) and Support are deliberate visits, so they sit behind More.
  */
-export const MOBILE_BAR_TABS = ["overview", "calls", "customers", "billing"] as const satisfies
+export const MOBILE_BAR_TABS = ["overview", "calls", "customers", "analytics"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
-export const MOBILE_MORE_TABS = ["traffic", "performance", "settings", "support"] as const satisfies
+export const MOBILE_MORE_TABS = ["settings", "support"] as const satisfies
     ReadonlyArray<PortalTabId>;
+
+/**
+ * Where each retired tab's path now lives.
+ *
+ * The fragment lands the reader on the section the old tab was: `/portal/performance` opens
+ * Analytics at Speed rather than at the top of the page.
+ */
+export const LEGACY_TABS = {
+    traffic: { path: "analytics", hash: "visitors" },
+    performance: { path: "analytics", hash: "speed" },
+    billing: { path: "settings/billing", hash: null },
+} as const satisfies Record<string, { path: string; hash: string | null }>;
+
+/**
+ * The redirect target for a retired tab. Every query parameter is carried over, not just
+ * `?site=`, so a link that carried something else as well arrives with it.
+ */
+export function legacyTabDestination(
+    legacy: keyof typeof LEGACY_TABS,
+    params: Record<string, string | string[] | undefined>,
+): string {
+    const { path, hash } = LEGACY_TABS[legacy];
+    const qs = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+        if (value === undefined) continue;
+        for (const v of Array.isArray(value) ? value : [value]) qs.append(key, v);
+    }
+    const query = qs.toString();
+    return `/portal/${path}${query ? `?${query}` : ""}${hash ? `#${hash}` : ""}`;
+}
 
 /**
  * Pick the site a request is scoped to.

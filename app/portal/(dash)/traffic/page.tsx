@@ -1,16 +1,16 @@
-import TrafficSection from "@/app/components/portal/TrafficSection";
-import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
-import { currentSite } from "@/app/lib/portal-dashboard";
+import { redirect } from "next/navigation";
+import { legacyTabDestination } from "@/app/portal/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Traffic is now the top of Analytics. This path stays so bookmarks, emails and any link that
+ * has not caught up still land somewhere, with `?site=` and every other parameter intact.
+ */
 export default async function TrafficPage({
     searchParams,
 }: {
-    searchParams: Promise<{ site?: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-    // See the note in calls/page.tsx: a resolution failure is not a missing URL.
-    const site = await currentSite(searchParams);
-    if (!site) return <PortalNoAccess />;
-    return <TrafficSection key={site.slug} site={site} />;
+    redirect(legacyTabDestination("traffic", await searchParams));
 }

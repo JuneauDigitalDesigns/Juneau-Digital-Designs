@@ -411,7 +411,9 @@ export default function AgreementClient({
                 if (!dnRes.ok || !dnData.ok) {
                     throw new Error(dnData.error || `Could not schedule the change (${dnRes.status})`);
                 }
-                window.location.href = `/portal/billing?site=${encodeURIComponent(downgradeSlug!)}`;
+                // Plan & billing, where the scheduled change is shown. `/portal/billing` still
+                // redirects there, but going direct saves the hop.
+                window.location.href = `/portal/settings/billing?site=${encodeURIComponent(downgradeSlug!)}`;
                 return;
             }
 

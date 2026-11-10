@@ -1,17 +1,16 @@
-import BillingSection from "@/app/components/portal/BillingSection";
-import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
-import { currentSite, resolveDashboard } from "@/app/lib/portal-dashboard";
+import { redirect } from "next/navigation";
+import { legacyTabDestination } from "@/app/portal/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Billing moved inside Settings as "Plan & billing". This path stays as a redirect: it is in
+ * old emails and bookmarks, and the downgrade flow used to finish here.
+ */
 export default async function BillingPage({
     searchParams,
 }: {
-    searchParams: Promise<{ site?: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-    // See the note in calls/page.tsx: a resolution failure is not a missing URL.
-    const site = await currentSite(searchParams);
-    const ctx = await resolveDashboard();
-    if (!site || !ctx) return <PortalNoAccess />;
-    return <BillingSection key={site.slug} site={site} accountEmail={ctx.account.email} />;
+    redirect(legacyTabDestination("billing", await searchParams));
 }

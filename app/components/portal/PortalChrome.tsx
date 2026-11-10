@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
@@ -8,8 +8,6 @@ import { UserButton } from "@clerk/nextjs";
 import {
     ChartPieSlice,
     TrendUp,
-    Gauge,
-    CreditCard,
     Gear,
     Lifebuoy,
     DotsThree,
@@ -33,7 +31,10 @@ import {
     PORTAL_TABS,
     MOBILE_BAR_TABS,
     MOBILE_MORE_TABS,
+    SETTINGS_TABS,
     selectSite,
+    settingsTabFor,
+    tabAvailability,
     tabHref,
     type PortalSiteProps,
     type PortalTabId,
@@ -54,9 +55,7 @@ const TAB_ICON = {
     overview: ChartPieSlice,
     calls: Tray,
     customers: Users,
-    traffic: TrendUp,
-    performance: Gauge,
-    billing: CreditCard,
+    analytics: TrendUp,
     settings: Gear,
     support: Lifebuoy,
 } as const satisfies Record<PortalTabId, typeof ChartPieSlice>;
@@ -120,9 +119,13 @@ export default function PortalChrome({
     // "/portal" → overview; "/portal/calls" → calls.
     const segment = pathname.replace(/^\/portal\/?/, "").split("/")[0] ?? "";
     const activeId = PORTAL_TABS.find((t) => t.href === segment)?.id ?? "overview";
+    // The whole path under /portal, so switching site on "Settings › Plan & billing" stays on
+    // Plan & billing rather than falling back to the top of Settings.
+    const subPath = pathname.replace(/^\/portal\/?/, "").replace(/\/$/, "");
+    const settingsTab = settingsTabFor(pathname);
 
     const host = hostOf(selected.canonical);
-    // `readonly ["performance","settings"]` narrows `.includes()` to its own members, so it
+    // `readonly ["settings","support"]` narrows `.includes()` to its own members, so it
     // rejects any other tab id at compile time. Widening the receiver, not the value.
     const isInMore = (MOBILE_MORE_TABS as readonly PortalTabId[]).includes(activeId);
 
@@ -137,7 +140,8 @@ export default function PortalChrome({
     /** Availability for a tab, and what that means for how it is marked. */
     function tabState(id: PortalTabId) {
         const tab = PORTAL_TABS.find((t) => t.id === id)!;
-        const availability = tab.feature ? selected.features[tab.feature] : null;
+        // Analytics is gated on two features; see `tabAvailability` for how they combine.
+        const availability = tabAvailability(tab.feature, selected.features);
         return {
             tab,
             // "Locked" and "not wired up yet" are different promises. A Starter client's Call
@@ -288,7 +292,7 @@ export default function PortalChrome({
                             <SiteSelector
                                 sites={sites}
                                 selected={selected.slug}
-                                activeTab={segment}
+                                activeTab={subPath}
                             />
                         </div>
                     )}
@@ -299,12 +303,15 @@ export default function PortalChrome({
                         const { isLocked, isReady } = tabState(tab.id);
                         const isActive = tab.id === activeId;
                         const Icon = TAB_ICON[tab.id];
+                        // Settings opens out into its two parts while you are in it. The parent
+                        // is then the current *section* ("true") and the part is the page.
+                        const showSubnav = tab.id === "settings" && isActive && settingsTab !== null;
 
                         return (
+                            <Fragment key={tab.id}>
                             <Link
-                                key={tab.id}
                                 href={tabHref(tab.href, selected.slug)}
-                                aria-current={isActive ? "page" : undefined}
+                                aria-current={isActive ? (showSubnav ? "true" : "page") : undefined}
                                 title={tab.label}
                                 data-tour={`nav-${tab.id}`}
                                 className={`portal-rail-link${isActive ? " is-active" : ""}`}
@@ -339,6 +346,37 @@ export default function PortalChrome({
                                     </>
                                 ) : null}
                             </Link>
+                            {/* Not in the collapsed 64px rail: there is no room for the words,
+                                and the page's own tabs carry the same two links. */}
+                            {showSubnav && !collapsed && (
+                                <div
+                                    className="flex flex-col"
+                                    style={{ margin: "0 0 4px 27px", borderLeft: "1px solid var(--rule)" }}
+                                >
+                                    {SETTINGS_TABS.map((sub) => {
+                                        const isSub = sub.id === settingsTab;
+                                        return (
+                                            <Link
+                                                key={sub.id}
+                                                href={tabHref(sub.href, selected.slug)}
+                                                aria-current={isSub ? "page" : undefined}
+                                                className="block hover:underline underline-offset-2"
+                                                style={{
+                                                    padding: "7px 12px",
+                                                    fontSize: "var(--text-sm)",
+                                                    // Accent on --bg is 4.82:1; --fg-2 is 6.91:1+.
+                                                    color: isSub ? "var(--accent)" : "var(--fg-2)",
+                                                    fontWeight: isSub ? 600 : 400,
+                                                    boxShadow: isSub ? "inset 2px 0 0 var(--accent)" : undefined,
+                                                }}
+                                            >
+                                                {sub.label}
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            </Fragment>
                         );
                     })}
                 </nav>
@@ -442,7 +480,7 @@ export default function PortalChrome({
                                 key={site.slug}
                                 type="button"
                                 onClick={() => {
-                                    if (!isCurrent) router.push(tabHref(segment, site.slug));
+                                    if (!isCurrent) router.push(tabHref(subPath, site.slug));
                                     setSwitchOpen(false);
                                 }}
                                 aria-current={isCurrent ? "true" : undefined}

@@ -1,14 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { PortalSiteProps } from "@/app/portal/types";
-import { SectionHeader } from "./ui/Card";
 import { StatTile } from "./ui/StatTile";
 import { FeatureError } from "./ui/FeatureState";
 import { SectionCard, FieldRow, StaticField, inputStyle } from "./ui/FormPrimitives";
 import { StatRowSkeleton, TableSkeleton } from "./ui/Skeleton";
 import { useCachedFetch, useInvalidate, CLIENT_TTL } from "./PortalDataProvider";
-import { freshness } from "./ui/format";
 import { cancellationCardText, downgradeTile } from "@/app/lib/plan-change-copy";
 
 interface Invoice {
@@ -57,17 +55,26 @@ const planLabel: Record<string, string> = {
     enterprise: "Enterprise",
 };
 
+/**
+ * Settings › Plan & billing (formerly the Billing tab).
+ *
+ * The page heading is Settings' now, so this renders no header of its own. `usage` is the
+ * call-minutes meter, streamed from the server by the page; it sits under the plan figures it
+ * belongs to, and is shown whatever state the subscription read is in, since the allowance is
+ * measured from calls and does not depend on Stripe answering.
+ */
 export default function BillingSection({
     site,
     accountEmail,
+    usage,
 }: {
     site: PortalSiteProps;
     accountEmail: string;
+    usage?: ReactNode;
 }) {
     const {
         data,
         isLoading,
-        fetchedAt,
         refresh: retry,
     } = useCachedFetch<BillingData>(
         `billing:${site.slug}`,
@@ -78,7 +85,6 @@ export default function BillingSection({
     if (isLoading) {
         return (
             <div className="space-y-8">
-                <SectionHeader title="Billing" />
                 <StatRowSkeleton count={3} />
                 <TableSkeleton rows={4} />
             </div>
@@ -88,8 +94,8 @@ export default function BillingSection({
     if (!data || data.state === "error") {
         return (
             <div className="space-y-8">
-                <SectionHeader title="Billing" />
                 <FeatureError message={data?.error} onRetry={retry} />
+                {usage}
             </div>
         );
     }
@@ -105,7 +111,6 @@ export default function BillingSection({
                   : "Your site is live and we're still linking up your billing details. Nothing is needed from you.";
         return (
             <div className="space-y-8">
-                <SectionHeader title="Billing" />
                 <SectionCard title="Plan">
                     <StaticField label="Plan" value={planLabel[site.plan] ?? site.plan} />
                     <StaticField label="Billing account" value={accountEmail} />
@@ -124,6 +129,7 @@ export default function BillingSection({
                         </p>
                     )}
                 </SectionCard>
+                {usage}
             </div>
         );
     }
@@ -133,8 +139,6 @@ export default function BillingSection({
 
     return (
         <div className="space-y-8">
-            <SectionHeader title="Billing" meta={freshness(undefined, fetchedAt)} />
-
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatTile label="Plan" value={planLabel[site.plan] ?? site.plan} size="sm" />
                 <StatTile
@@ -150,6 +154,8 @@ export default function BillingSection({
                     size="sm"
                 />
             </div>
+
+            {usage}
 
             {data.pendingPlanChange && (
                 <p
