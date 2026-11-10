@@ -14,6 +14,7 @@ import {
     type Icon,
 } from "@phosphor-icons/react";
 import { SCHEDULES, ANNUAL } from "@/app/lib/legal/schedules";
+import { LIVE_FAQ_ID, PRICING_FAQS } from "@/app/data/faq";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
 type BillingPeriod = "monthly" | "annual";
@@ -145,7 +146,6 @@ const GROWTH_SYSTEM: { Icon: Icon; title: string; line: string; gated: boolean }
     { Icon: Star, title: "Google reviews", line: "Ask for a Google review in one tap when the job is done.", gated: true },
 ];
 const GROWTH_ALSO = "AI lead qualification, a searchable call log with recordings, and urgency and caller names pulled from every call.";
-const LIVE_FAQ_ID = "how-fast-live";
 
 /** The minutes footnote, appended last so it reads as a line item rather than a selling point. */
 function minutesLine(slug: PlanSlug): string {
@@ -153,86 +153,6 @@ function minutesLine(slug: PlanSlug): string {
         ? `${minutes(slug)} AI minutes per month, pooled across all your sites`
         : `${minutes(slug)} AI minutes per month included`;
 }
-
-/* Answers are sourced from the Master Services Agreement so the marketing copy and
-   the contract can't drift apart. Section refs noted per answer. */
-const FAQS: { q: string; a: string | string[]; id?: string }[] = [
-    {
-        /**
-         * Leads the section on purpose, and replaced "What's the catch?".
-         *
-         * The old lead argued from price ("Growth is $297, agencies charge $600"), which no
-         * longer holds at $497 and was the wrong objection anyway. Consumer resistance to AI
-         * answering a phone is real and rising, so that is the first thing this page should
-         * answer. It is also the argument the whole product rests on: human-first routing.
-         */
-        q: "Will my customers get an AI instead of me?",
-        a: "No. The AI never answers before you do. A caller rings your real phone first, and only if nobody picks up does the AI step in. It is replacing your voicemail, not replacing you. Most people who call a business and reach a recording just hang up and call the next name on the list, so the comparison that matters isn't AI versus you, it's AI versus nobody.",
-    },
-    {
-        /**
-         * The web-only concession, acknowledged publicly for the first time.
-         *
-         * Deliberately an FAQ answer rather than a fourth card. Web-only is `plan: "starter"` with
-         * `receptionistMode: "declined"`, priced identically to Starter precisely so it is never
-         * the economically attractive choice (see `WEB_ONLY_SCHEDULE`). Putting it on the cards
-         * with a price would invite people to choose it to save money, which is backwards — there
-         * is no money to save, and the receptionist is where the value is. Answering it here means
-         * the prospect who asks gets a straight answer without the option being advertised to
-         * everyone who does not.
-         */
-        q: "Can I get the website without the AI receptionist?",
-        a: "Yes, though we'll try to talk you out of it. The receptionist is where most of the value is — it's what turns a missed call into a lead. If you'd rather not have AI on your line, we'll build and host the same site at the same price and leave your phone alone. It's not a cheaper plan; it's the same plan with a piece switched off.",
-    },
-    {
-        q: "What happens if I go over my minutes?",
-        a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close. On Starter especially, keep an eye on it: ${minutes("starter")} minutes is roughly twenty short calls, so a busy month can run past it.`, // MSA call volume section
-    },
-    {
-        q: "Am I locked into a contract?",
-        a: "No. There is no minimum term, no commitment period, and no cancellation fee on any plan. It's month to month. If you cancel, you keep everything through the end of the month you've already paid for, and then it stops.", // MSA term and termination
-    },
-    {
-        q: "What if I'm not happy with the site?",
-        a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If it's still not working after a fair run, there is no commitment holding you here. Month to month means you can leave at the end of any month.",
-    },
-    {
-        /* MSA delivery targets. The second paragraph is the carrier step for Growth's
-           customer-facing texts: what it waits on, who handles it, and no timeframe, because
-           approval is the carriers' to grant. The owner's own lead texts come from JDD's
-           number and are live from the start, so the first paragraph says so. */
-        id: LIVE_FAQ_ID,
-        q: "How fast can I be live?",
-        a: [
-            "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week. That covers your site, your receptionist, your portal, and the texts we send you about new leads.",
-            "On Growth, two features wait on one more step: texting your customers and asking for reviews. Those messages come from your own business number, so the carriers have to approve your business's text-messaging registration first. We file it for you, handle the back and forth, and switch both on as soon as it clears. The approval is the carriers' call, so we can't put a date on it. The callback and the pipeline work from day one.",
-        ],
-    },
-    {
-        q: "Do I have to forward my phone?",
-        a: "You pick one of two ways: forward your existing business line to the number we give you, so the AI only ever hears the calls you didn't pick up, or publish our number as your business number. Either works. We walk you through it, though your phone carrier has to make the change, so we can't do that part for you.", // MSA activation
-    },
-    {
-        // Was "It's yours. If you ever leave, it goes with you." — which the MSA does not
-        // support. The number sits on our master telephony account, and on termination the
-        // default is release, not transfer. Porting is real, but it's opt-in, time-boxed
-        // and paid, so all three conditions are stated rather than discovered later.
-        q: "Do I get to keep my phone number?",
-        a: "You get exclusive use of it for as long as you're a client: put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA phone number ownership
-    },
-    {
-        q: "Do I own my website?",
-        a: "Your content is yours: name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA intellectual property
-    },
-    {
-        q: "What if I already have a website?",
-        a: "We build you a new one and bring over the content worth keeping. You won't have to start from scratch.",
-    },
-    {
-        q: "Is this replacing a receptionist?",
-        a: "No, most of our clients never had one. When it's you and a truck, the phone rings while your hands are full. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
-    },
-];
 
 export default function PricingPageClient() {
     const [loadingPlan, setLoadingPlan] = useState<PlanSlug | null>(null);
@@ -284,16 +204,15 @@ export default function PricingPageClient() {
                     {/* Approved 2026-11-04. Was "What it costs. All of it." plus a sub-line: the page
                         opened by announcing the price. It now opens on what the owner gets, hands
                         straight to the "On every plan" spec line below, and lets the cards show the
-                        cost a scroll later. Two beats, stacked: the first at full display size, the
-                        second as a smaller display line (`.pricing-hero-beat`), so the longer
-                        sentence doesn't run four lines deep at 88px.
+                        cost a scroll later. One line, since 9 Nov 2026: its second beat ("The big
+                        shops have run on one for years.") left "run on what?" unanswered, and moved,
+                        reworked, to the end of the homepage's portal demo (DEMO_CLOSING).
 
                         Colour-only emphasis, same display face: the convention the homepage sets
                         with "Do Business." and "costing you?". Neither an italic nor a 900 Hanken
                         Grotesk is loaded, so a body-font emphasis would be synthesised. */}
                     <h1 className="pricing-hero-h1">
-                        Putting the system in your <span style={{ color: "var(--accent-2)" }}>hands</span>.{" "}
-                        <span className="pricing-hero-beat">The big shops have run on one for years. Now you do too.</span>
+                        Putting the system in your <span style={{ color: "var(--accent-2)" }}>hands</span>.
                     </h1>
                 </motion.div>
 
@@ -674,7 +593,7 @@ export default function PricingPageClient() {
                             rowGap: 0,
                         }}
                     >
-                        {FAQS.map((item) => (
+                        {PRICING_FAQS.map((item) => (
                             <div key={item.q} id={item.id} style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px", scrollMarginTop: 96 }}>
                                 <h3 style={{ fontWeight: 700, fontSize: "clamp(18px,1.9vw,22px)", lineHeight: 1.15, textTransform: "uppercase", marginBottom: 10 }}>
                                     {item.q}

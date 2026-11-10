@@ -2,17 +2,16 @@
 /* Z-index constants: navbar 50 | grain 60 | modals 70 */
 
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Info, Browser, Phone, Tray } from "@phosphor-icons/react";
+import { motion, useReducedMotion } from "framer-motion";
+import { Info, Browser, Phone, Tray, CaretDown } from "@phosphor-icons/react";
 import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
 import LeadPanel from "./LeadPanel";
 import PortalDemo from "./PortalDemo";
+import ClosingAsk from "./ClosingAsk";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
-
-const DEMO_TEL = "tel:+19302221343";
-const DEMO_TEL_DISPLAY = "(930) 222-1343";
+import { MISSED_CALLS_ID } from "@/app/data/portal-demo";
 
 /* Prices come from Schedule A, never typed in by hand — the same rule the pricing page
    follows. A number written into marketing copy is a number that can eventually contradict
@@ -131,9 +130,11 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    Three sections that each take one part of the system and spend a screen on it: the
    website, the receptionist, then the portal where every lead lands. Their headings read
    as one sentence — "A website that makes the phone ring." / "Then someone picks up." /
-   "Then nothing slips." Copy and visual alternate sides at ≥900px and always stack
+   "And nothing slips." Copy and visual alternate sides at ≥900px and always stack
    copy-first below it — see `.journey-grid` in globals.css, which flips the columns with
-   `order` rather than DOM position so the mobile reading order survives the flip. */
+   `order` rather than DOM position so the mobile reading order survives the flip. The
+   portal section is the exception: the demo is the section, so it has a layout of its own
+   (<PortalSection>). */
 
 function JourneySection({
   heading,
@@ -141,21 +142,13 @@ function JourneySection({
   outcomes,
   visual,
   visualFirst = false,
-  stacked = false,
-  footnote,
 }: {
   heading: string;
-  body: string;
+  /** Optional: the website section dropped its paragraph and runs heading then outcomes. */
+  body?: string;
   outcomes: string[];
   visual: React.ReactNode;
   visualFirst?: boolean;
-  /** Copy above, visual below at full width, for a visual that is the section rather than
-   *  a picture beside it. Only the portal section uses it, for the portal demo. At ≥900px
-   *  the copy splits too: heading and body left, outcomes right. */
-  stacked?: boolean;
-  /** A line under the outcomes, set apart from them. Only the portal section uses it, for
-   *  the one sentence on the page that separates the plans before the price cards. */
-  footnote?: React.ReactNode;
 }) {
   const outcomeList = (
     <div className="journey-outcomes">
@@ -166,37 +159,6 @@ function JourneySection({
       ))}
     </div>
   );
-  const footnoteLine = footnote && (
-    <p style={{ fontSize: 15.5, lineHeight: 1.55, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 20 }}>
-      {footnote}
-    </p>
-  );
-
-  if (stacked) {
-    return (
-      <section className="journey-section">
-        <div className="journey-grid journey-grid--stacked">
-          <JourneyReveal delay={0} className="journey-stack-copy">
-            <div>
-              <h2 style={{ fontWeight: 800, fontSize: "clamp(30px,4.2vw,54px)", lineHeight: 0.98, letterSpacing: ".01em", textTransform: "uppercase", maxWidth: "16ch" }}>
-                {heading}
-              </h2>
-              <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 18 }}>
-                {body}
-              </p>
-            </div>
-            <div>
-              {outcomeList}
-              {footnoteLine}
-            </div>
-          </JourneyReveal>
-          <JourneyReveal delay={1} className="journey-visual">
-            {visual}
-          </JourneyReveal>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section className="journey-section">
@@ -209,14 +171,15 @@ function JourneySection({
           <h2 style={{ fontWeight: 800, fontSize: "clamp(30px,4.2vw,54px)", lineHeight: 0.98, letterSpacing: ".01em", textTransform: "uppercase", maxWidth: "16ch" }}>
             {heading}
           </h2>
-          <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 18 }}>
-            {body}
-          </p>
+          {body && (
+            <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 18 }}>
+              {body}
+            </p>
+          )}
           {/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page,
               carrying the most specific facts we have. The hierarchy was inverted against
               the value of the content, so these are now full-contrast sentences. */}
           {outcomeList}
-          {footnoteLine}
         </JourneyReveal>
 
         <JourneyReveal delay={1} className="journey-visual">
@@ -235,12 +198,9 @@ function WebsiteSection() {
          "Then someone picks up." The old heading described how we work; this one describes
          what the reader gets. */
       heading="A website that makes the phone ring."
-      /* The body used to restate the heading ("we build it, host it, keep it current")
-         before adding anything. It now answers the objection that actually stalls buyers,
-         which until this pass only existed in the FAQ below. */
-      /* A plain string prop, not JSX text, so a typographic apostrophe rather than an
-         entity: `&apos;` here rendered on the page as the six literal characters. */
-      body="We write it, build it, and host it. No coding or maintenance on your part, and it’s always up to date."
+      /* No body paragraph since 9 Nov 2026 (Xander's call): "We write it, build it, and host
+         it…" said what the three outcomes below already say, so the heading hands straight
+         to them. */
       outcomes={[
         "You answer a few questions.",
         "It goes live in less than a week.",
@@ -306,32 +266,40 @@ function ReceptionistSection() {
 
    It carries the only sentence on the page that separates the plans before the price
    cards, and it does it by what Growth adds rather than by what Starter lacks: Starter is
-   the way in, the same system with the follow-up left to the owner. */
+   the way in, the same system with the follow-up left to the owner.
+
+   Since 9 Nov 2026 (Xander's layout, approved word for word) the demo is the section:
+   heading, a quiet cue pointing down at the window, the window, its five-step rail, then
+   that one line. The paragraph and the three outcomes that used to sit above the demo went;
+   the demo shows all three. The carrier-gated features still say what they wait on: the
+   Message and Review steps carry CARRIER_LINE in their tour cards. */
 function PortalSection() {
   return (
-    <JourneySection
-      /* Ends the sentence the journey headings make. */
-      heading="Then nothing slips."
-      body="Every call and every web enquiry lands in your portal, with who it was and what they need. Open it on your phone between jobs and you know exactly who’s waiting."
-      /* The third outcome is the one place on this page the two carrier-gated features
-         appear. It names them and says what they wait on, never how long: approval is the
-         carriers' to grant, so a timeframe here would be ours promising theirs. */
-      outcomes={[
-        "Calls and website enquiries in one inbox, newest first, with a summary of each.",
-        "Move each lead from Lead to Won, and spot the ones going stale before they go cold.",
-        "Text a customer back from your business number, or ask for a Google review in one tap. Both switch on once the carriers approve your business registration.",
-      ]}
-      footnote={
-        <>
+    <section className="journey-section portal-section">
+      <JourneyReveal delay={0}>
+        {/* Ends the sentence the journey headings make, without a second "Then". */}
+        <h2 className="portal-heading">And nothing slips.</h2>
+        {/* Not a button: the play button on the window is the one start, and a second one
+            here said the same thing twice. The chevrons point at it. */}
+        <p className="portal-cue">
+          See how the whole system works
+          <span className="portal-cue-arrows" aria-hidden="true">
+            <CaretDown size={18} weight="bold" />
+            <CaretDown size={18} weight="bold" />
+            <CaretDown size={18} weight="bold" />
+          </span>
+        </p>
+      </JourneyReveal>
+      <JourneyReveal delay={1} className="journey-visual portal-visual">
+        <PortalDemo />
+        <p className="portal-plans-line">
           Every plan gets the inbox.{" "}
           <strong style={{ color: "var(--fg)" }}>
             Growth adds the pipeline, the texting and the reviews: the part a team would do.
           </strong>
-        </>
-      }
-      stacked
-      visual={<PortalDemo />}
-    />
+        </p>
+      </JourneyReveal>
+    </section>
   );
 }
 
@@ -443,7 +411,9 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
   const avgJobValueFormatted = formatJobValue(avgJobValue);
 
   return (
-    <section className="calc-section">
+    /* `id` is where the portal demo's closing button lands ("What are my missed calls
+       worth?"). Lenis glides same-page anchors (see SmoothScroll). */
+    <section className="calc-section" id={MISSED_CALLS_ID}>
       <div className="aurora-grid" />
       <div style={{ position: "relative", zIndex: 2, maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
         {/* No kicker here, unlike the two sections above it. Those name a thing we sell;
@@ -632,7 +602,7 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
 
               <div className="calc-step calc-actions" style={{ animationDelay: "1450ms" }}>
                 {/* A link, not a button. The real ask is the CTA at the foot of the
-                    pricing section; a third solid primary button on one page turns all
+                    closing section; a third solid primary button on one page turns all
                     three into furniture. */}
                 <button type="button" onClick={onOpenForm} className="calc-link calc-link--lead">
                   Get started &rarr;
@@ -697,159 +667,26 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
    film now sits inside <ReceptionistSection> beside the copy that names it; the heading
    went because it introduced a section the film was already the whole of. */
 
-/* ── Before you call ────────────────────────────────────────────
-   The page argues value hard (calculator) but barely argues trust.
-   Handing your business number to an AI is a high bar, so these are the questions that
-   actually stop people, answered before the demo CTA closes.
+/* ── Every plan starts here, the plans, the ask ─────────────────
+   One closing section since 9 Nov 2026 (option D of Xander's mockup, "slab split"). It used
+   to be three: <EveryPlanSection>, the price cards, and the get-started rail under them.
 
-   Five, not seven, and collapsed rather than expanded. "Do I own it?" and "Do I have to
-   give up my number?" moved out: both are post-sale contract detail that added friction
-   before the sale, and both were already answered on /pricing ("Do I own my website?"
-   §14, "Do I get to keep my phone number?" §11). Check there before adding either back. */
-/* Answers are sourced from the Master Services Agreement so the marketing copy and the
-   contract can't drift apart; section refs are noted per answer. Where the honest answer
-   is more complicated than "yes", it's given in full. A buyer who finds the limit
-   themselves at month six is a worse outcome than one who reads it here. */
-const ANSWERS: { q: string; a: string }[] = [
-  {
-    q: "What if I already have a website?",
-    a: "Doesn't matter where you're starting. We build you a new one and bring over the content worth keeping. You don't start from scratch, and you don't chase anyone for access to the old site.",
-  },
-  {
-    q: "Will I show up on Google?",
-    a: "We do the technical side properly: page speed, titles and descriptions, structured data, sitemaps. What we won't do is promise you a ranking. Nobody controls Google's results, and anyone who says otherwise is selling something.", // MSA §SEO
-  },
-  {
-    q: "Do I have to write the content?",
-    a: "No. You answer some questions about your business and we write it. Most people are done in one sitting. The writing is what stalls everyone for six months, so we took it off your plate.",
-  },
-  {
-    q: "Will it sound like a robot?",
-    a: "Call the number at the bottom of this page and decide for yourself. That's why it's there. We'd rather you hear it than take our word for it.",
-  },
-  {
-    q: "What if it can't answer something?",
-    a: "It takes their details, puts the lead in your portal, and texts you that it's there. It doesn't guess, and it doesn't make things up about your business.",
-  },
-];
+   Read in that same order, base → plans → ask, but in one frame. The base is a dark slab:
+   it is what every plan stands on, so it looks like a foundation rather than a list. On a
+   desktop it is the left column and the plan cards lean over its right edge as rows; on a
+   phone the cards overlap its bottom edge. The ask runs the full width underneath.
 
-function FaqItem({
-  q,
-  a,
-  index,
-  open,
-  onToggle,
-  reduceMotion,
-}: {
-  q: string;
-  a: string;
-  index: number;
-  open: boolean;
-  onToggle: () => void;
-  reduceMotion: boolean;
-}) {
-  const questionId = `faq-question-${index}`;
-  const panelId = `faq-panel-${index}`;
+   Growth is the plan this page is written to sell, so it is the loudest; Starter is a real
+   option at full strength; Enterprise is present and honestly priced but receded. Hiding it
+   would be worse: a plan you have to go and find reads as a plan someone is being cagey
+   about.
 
-  /* No entrance animation of its own: the whole section arrives as one block via the
-     <JourneyReveal> around <StraightAnswers>. Staggering the rows inside a container
-     that is itself sliding up read as two separate movements fighting each other.
-     AnimatePresence below still owns the open/close, which is a different gesture. */
-  return (
-    <div className="faq-item">
-      <button
-        type="button"
-        className="faq-question"
-        id={questionId}
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={onToggle}
-      >
-        {q}
-        <motion.span
-          className="faq-icon"
-          animate={{ rotate: open ? 45 : 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.2 }}
-        >
-          +
-        </motion.span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="content"
-            id={panelId}
-            role="region"
-            aria-labelledby={questionId}
-            className="faq-answer"
-            style={{ overflow: "hidden" }}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.3, ease: EASE }}
-          >
-            <div style={{ paddingBottom: 20 }}>
-              <p style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: 0, maxWidth: "52ch" }}>{a}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+   The two bolded lines are the tier line, and /pricing carries the same pair in its
+   taglines. Change one, change both.
 
-function StraightAnswers() {
-  const [openSet, setOpenSet] = useState<Set<number>>(() => new Set());
-  const reduceMotion = !!useReducedMotion();
-
-  const toggle = (i: number) => {
-    setOpenSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  };
-
-  return (
-    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
-      {/* Heading and rows arrive together, as one block. They used to enter separately —
-          the heading on `.reveal`, each row on its own `whileInView` — which put three
-          different easings on screen at once in a section whose whole job is to feel
-          settled and matter-of-fact. */}
-      <JourneyReveal>
-        <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-          Before you call.
-        </h2>
-        {/* Collapsed by default. Expanded, these seven entries ran ~370 words and ate a full
-            screen of scroll to answer questions most visitors weren't asking yet. Full width,
-            one column: at two columns a row of collapsed summaries reads as a word grid. */}
-        <div className="faq-list">
-          {ANSWERS.map((item, i) => (
-            <FaqItem
-              key={item.q}
-              q={item.q}
-              a={item.a}
-              index={i}
-              open={openSet.has(i)}
-              onToggle={() => toggle(i)}
-              reduceMotion={reduceMotion}
-            />
-          ))}
-        </div>
-      </JourneyReveal>
-    </section>
-  );
-}
-
-/* ── Every plan starts here ─────────────────────────────────────
-   The shared base, stated once, directly above the price cards, so this and
-   <PricingSection> read as one block: what every plan gets, then what each plan adds. That
-   is also why the Starter card below opens with "Everything you see above" rather than
-   restating these three rows.
-
-   Moved here from the /pricing redesign's "Option 1 · Lead-in". The rows reuse the
-   journey's teal bar (`.journey-outcome`) so they read as the same kind of fact list. */
+   Prices come from Schedule A, never typed in by hand — the same rule the pricing page
+   follows. A number written into marketing copy is a number that can eventually
+   contradict the signed agreement. Layout is `.closing*` in globals.css. */
 const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: string }[] = [
   {
     Icon: Browser,
@@ -871,130 +708,55 @@ const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: 
   },
 ];
 
-function EveryPlanSection() {
+function ClosingSection({ onOpenForm }: { onOpenForm: () => void }) {
   return (
-    <section className="every-section">
-      <div className="every-grid">
-        {/* Heading only. The kicker and intro paragraph from the /pricing mockup went: the
-            intro compared Starter with Growth before the reader has seen either plan, since
-            on this page the cards come after this section, not before it. */}
-        <JourneyReveal delay={0}>
-          <h2 className="every-heading">Every plan starts here.</h2>
-        </JourneyReveal>
-
-        <JourneyReveal delay={1}>
-          <div className="every-rows">
-            {EVERY_PLAN.map(({ Icon, label, title, detail }) => (
-              <div key={label} className="every-row">
-                <p className="every-label">
-                  <Icon size={18} aria-hidden="true" />
-                  {label}
-                </p>
-                <div className="every-body">
-                  <h3 className="every-title">{title}</h3>
-                  <p className="every-detail">{detail}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </JourneyReveal>
-      </div>
-    </section>
-  );
-}
-
-/* ── 04 · The price ─────────────────────────────────────────────
-   All three plans, as three cards, but not at equal volume. Growth is the one almost
-   everyone should buy, so it is the loudest and sits centre; Starter is a real option at
-   full strength beside it; Enterprise is present and honestly priced but visually
-   receded, because for the business this page is written for it is a distraction, not a
-   choice. Hiding it outright would be worse — a plan you have to go and find reads as a
-   plan someone is being cagey about.
-
-   The two bolded lines are the tier line, and /pricing carries the same pair in its
-   taglines. Change one, change both, or the two pages drift into describing different
-   products — which is how the old "Starter tells you" pair ended up on one page and a
-   reworded version on the other.
-
-   Prices come from Schedule A, never typed in by hand — the same rule the pricing page
-   follows. A number written into marketing copy is a number that can eventually
-   contradict the signed agreement. */
-function PricingSection({ onOpenForm }: { onOpenForm: () => void }) {
-  return (
-    /* Short top padding: <EveryPlanSection> sits directly above and the two read as one
-       block, so the full section gap between them would split the hand-off. */
-    <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(24px,3vw,48px) clamp(18px,4vw,56px) clamp(64px,7vw,120px)" }}>
+    <section className="closing-section">
       <JourneyReveal>
-        {/* Was "Two tools, one monthly bill." — the old product's thesis in five words. */}
-        <p style={{ textAlign: "center", fontFamily: "var(--font-mono)", fontSize: 13, letterSpacing: ".14em", textTransform: "uppercase", color: "var(--accent-2)", marginBottom: "clamp(32px,3.5vw,52px)" }}>
-          One system. One monthly bill.
-        </p>
-
-        <div className="home-pricing-grid">
-          <div className="home-pricing-card">
-            <div className="kicker">Starter</div>
-            <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-            {/* Points up at <EveryPlanSection> rather than restating it: the card used to
-                list the site, the receptionist and the inbox, which the three rows directly
-                above now say in full. Pairs with Growth's "Everything in Starter" beside it. */}
-            <p>Everything you see above. This is where it starts. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
+        <div className="closing">
+          <div className="closing-slab">
+            <h2 className="closing-heading">Every plan starts here.</h2>
+            <div className="closing-base">
+              {EVERY_PLAN.map(({ Icon, label, title, detail }) => (
+                <div key={label} className="closing-base-item">
+                  <p className="closing-base-label">
+                    <Icon size={18} aria-hidden="true" />
+                    {label}
+                  </p>
+                  <h3 className="closing-base-title">{title}</h3>
+                  <p className="closing-base-detail">{detail}</p>
+                </div>
+              ))}
+            </div>
+            {/* Was "Two tools, one monthly bill." — the old product's thesis in five words. */}
+            <p className="closing-bill">One system. One monthly bill.</p>
           </div>
 
-          {/* "Within about a minute", matching /pricing and the contract's "typically within
-              sixty (60) seconds" — not "inside a minute", which promises the upper bound. */}
-          <div className="home-pricing-card home-pricing-card--featured">
-            <div className="kicker">Growth</div>
-            <div className="home-pricing-price">${GROWTH_PRICE}<span>/mo</span></div>
-            <p>Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong style={{ color: "var(--fg)" }}>Growth works them like a team would.</strong></p>
-          </div>
+          <div className="closing-plans">
+            <div className="home-pricing-card closing-plan">
+              <div className="kicker">Starter</div>
+              <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
+              {/* "Everything every plan gets", not "Everything you see above": on a desktop the
+                  base sits beside this card, not above it. Approved 9 Nov 2026. */}
+              <p>Everything every plan gets. This is where it starts. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
+            </div>
 
-          {/* "Two or three", not "up to three": Enterprise starts at two sites. */}
-          <div className="home-pricing-card home-pricing-card--muted">
-            <div className="kicker">Enterprise</div>
-            <div className="home-pricing-price">${ENTERPRISE_PRICE}<span>/mo</span></div>
-            <p>Two or three sites, each with its own receptionist and phone number, all feeding one portal. One monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
-          </div>
-        </div>
+            {/* "Within about a minute", matching /pricing and the contract's "typically within
+                sixty (60) seconds" — not "inside a minute", which promises the upper bound. */}
+            <div className="home-pricing-card home-pricing-card--featured closing-plan">
+              <div className="kicker" style={{ color: "var(--accent-2)" }}>Growth</div>
+              <div className="home-pricing-price">${GROWTH_PRICE}<span>/mo</span></div>
+              <p>Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong style={{ color: "var(--fg)" }}>Growth works them like a team would.</strong></p>
+            </div>
 
-        {/* The rail, which used to be its own section below this one. Both blocks were
-            making the same two asks back to back — the pricing column had Get Started +
-            View plans, and the rail underneath had Get Started + the demo number. Merged,
-            the cards state the price and the rail is the single ask that closes both the
-            section and the page.
-
-            Two halves, each with its own line of copy, divided by a rule. The two actions
-            are not the same ask: one is "buy", the other is "check first". Sat side by
-            side as bare buttons they read as a primary and its fallback, and the fallback
-            is the more persuasive of the two for anyone still unsure — so each gets a
-            sentence saying who it's for. */}
-        <div className="rail-cta" id="cta">
-          <div className="rail-cta-half">
-            <p className="rail-cta-copy">
-              <span className="rail-cta-lead">Get started.</span> Contact us now.
-            </p>
-            {/* `View plans + pricing` moved here from the column this block replaced. It
-                still earns its place beside the cards above: those give three prices,
-                /pricing gives what is actually in each plan. */}
-            <div className="rail-cta-pair">
-              <button type="button" onClick={onOpenForm} className="btn primary lg rail-cta-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>
-                Get Started
-              </button>
-              <a href="/pricing" className="btn ghost rail-cta-btn">View plans + pricing</a>
+            {/* "Two or three", not "up to three": Enterprise starts at two sites. */}
+            <div className="home-pricing-card home-pricing-card--muted closing-plan">
+              <div className="kicker">Enterprise</div>
+              <div className="home-pricing-price">${ENTERPRISE_PRICE.toLocaleString("en-US")}<span>/mo</span></div>
+              <p>Two or three sites, each with its own receptionist and phone number, all feeding one portal. One monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
             </div>
           </div>
 
-          <div className="rail-cta-rule" aria-hidden="true" />
-
-          <div className="rail-cta-half">
-            <p className="rail-cta-copy">
-              <span className="rail-cta-lead">Need to hear it first?</span> Call the demo.
-            </p>
-            {/* Keeps the ring pulse. Dialling the demo is still the single best thing a
-                sceptic can do, and this is the last place on the page to offer it. */}
-            <a href={DEMO_TEL} className="btn amber anim-ringpulse-slow rail-cta-tel">
-              &#9742; {DEMO_TEL_DISPLAY}
-            </a>
-          </div>
+          <ClosingAsk onOpenForm={onOpenForm} className="closing-ask" />
         </div>
       </JourneyReveal>
     </section>
@@ -1012,7 +774,8 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
      take one part of the system and spend a screen proving it — the website that makes
      the phone ring, the receptionist that picks up, the portal where the lead lands.
      Then the calculator prices the cost of not having it, then the work we've shipped,
-     then the objections, then what every plan gets, then the price, then the ask.
+     then one closing section: what every plan gets, the price, and the ask. The
+     objections live on /faq.
 
      The calculator follows the portal rather than the receptionist because it is the one
      section about the reader's business instead of the system; it reads as the bill for
@@ -1032,14 +795,9 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
 
       <FeaturedSites sites={featuredSites} />
 
-      {/* PricingSection closes the page: the cards state the price and the rail inside
-          it makes the ask. `RailCTA` used to be a fourth section here, repeating the two
-          buttons the pricing column had already shown. */}
-      <StraightAnswers />
-      {/* The shared base, then the plans. Kept as a pair: the Starter card's first line
-          points up at this section. */}
-      <EveryPlanSection />
-      <PricingSection onOpenForm={openForm} />
+      {/* Closes the page: what every plan gets, the plans, then the ask, as one section.
+          "Before you call." moved to /faq on 9 Nov 2026. */}
+      <ClosingSection onOpenForm={openForm} />
 
       {formOpen && <LeadPanel onClose={() => setFormOpen(false)} />}
     </div>
