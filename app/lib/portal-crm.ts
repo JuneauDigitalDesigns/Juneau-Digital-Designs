@@ -492,6 +492,29 @@ export async function archivedRefs(acct: string, slug: string): Promise<Set<stri
 }
 
 /**
+ * When each of these ids was put away, for the Overview's "You marked {name} done" line.
+ *
+ * Read-only, and one MGET however many ids. Ids with no record (archived before the record
+ * existed, or expired) are simply absent from the result.
+ */
+export async function archiveRecords(
+    acct: string,
+    slug: string,
+    ids: string[],
+): Promise<{ id: string; at: string }[]> {
+    if (ids.length === 0) return [];
+    const rows = (await getRedis().mget(
+        ...ids.map((id) => archivedAtKey(acct, slug, id)),
+    )) as (ArchiveRecord | null)[];
+    const out: { id: string; at: string }[] = [];
+    ids.forEach((id, i) => {
+        const r = rows[i];
+        if (r?.at) out.push({ id, at: r.at });
+    });
+    return out;
+}
+
+/**
  * Delete every archive key for one site. **For teardown.**
  *
  * `purgeLeads` in `portal-leads.ts` is the other half and has no caller in this repository —
