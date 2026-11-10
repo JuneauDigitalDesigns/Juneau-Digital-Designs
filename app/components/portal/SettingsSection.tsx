@@ -700,12 +700,15 @@ export default function SettingsSection({
     smsConsent,
     agreements,
 }: SettingsSectionProps) {
+    // Settings › Account. The order is the approved mockup's: the two things a client
+    // changes (who we contact, and whether we text them) first, then the opt-in, then the
+    // paperwork they only ever download.
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
             <SmsAlertsSection consent={smsConsent} />
-            <AgreementsSection agreements={agreements} />
             <FeaturedSection site={site} />
+            <AgreementsSection agreements={agreements} />
         </div>
     );
 }

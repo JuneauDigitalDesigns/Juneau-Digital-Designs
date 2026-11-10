@@ -1,16 +1,16 @@
-import PerformanceSection from "@/app/components/portal/PerformanceSection";
-import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
-import { currentSite } from "@/app/lib/portal-dashboard";
+import { redirect } from "next/navigation";
+import { legacyTabDestination } from "@/app/portal/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Performance is now the Speed section of Analytics. Kept as a redirect, landing on that
+ * section, so old links and bookmarks keep working.
+ */
 export default async function PerformancePage({
     searchParams,
 }: {
-    searchParams: Promise<{ site?: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-    // See the note in calls/page.tsx: a resolution failure is not a missing URL.
-    const site = await currentSite(searchParams);
-    if (!site) return <PortalNoAccess />;
-    return <PerformanceSection key={site.slug} site={site} />;
+    redirect(legacyTabDestination("performance", await searchParams));
 }
