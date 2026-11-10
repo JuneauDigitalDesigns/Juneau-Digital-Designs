@@ -179,14 +179,34 @@ export interface AdmitInput {
     host: string | null;
     /** The client site's `VERCEL_ENV`: only "production" moves the site over. */
     deployment: string | null;
+    /**
+     * "off" when the client site has no Turnstile site key, so its form renders no widget. Such a
+     * site is admitted as `unavailable` (no call; the lead recorded) rather than refused, or a site
+     * deployed before its key was set would refuse every lead. Once a site has passed a real check
+     * it can't claim "off" again: a leaked token must not be a way to switch the check off.
+     */
+    humanCheck: "on" | "off" | null;
 }
+
+const siteVerifiedKey = (acctScope: string, slug: string) => `portal:gate:v1:site-verified:${acctScope}:${slug}`;
 
 export async function admit(input: AdmitInput): Promise<AdmitResult> {
     const L = admitLimits();
     const { acctScope, slug } = input;
     if (input.deployment === "production") await markSiteMoved(acctScope, slug);
     const host = input.host ? input.host.toLowerCase().replace(/:\d+$/, "") : null;
-    const v = await verifyTurnstile(input.turnstileToken ?? "", input.ip, host);
+    let v: Verification;
+    if (input.humanCheck === "off") {
+        v = (await getRedis().get(siteVerifiedKey(acctScope, slug)))
+            ? { kind: "failed", codes: ["check-switched-off"] }
+            : { kind: "unavailable" };
+        if (v.kind === "unavailable") console.error(`[lead-admit] ${slug} has no Turnstile site key: no human check, no AI calls`);
+    } else {
+        v = await verifyTurnstile(input.turnstileToken ?? "", input.ip, host);
+        if (v.kind === "passed") {
+            await getRedis().set(siteVerifiedKey(acctScope, slug), new Date().toISOString(), { nx: true }).catch(() => {});
+        }
+    }
     if (v.kind === "failed") {
         console.warn(`[lead-admit] ${slug}: human check failed (${v.codes.join(",") || "no code"})`);
         return { ok: false, error: "not-verified" };

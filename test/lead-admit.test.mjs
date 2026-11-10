@@ -268,6 +268,19 @@ for (const state of ["down", "throw"]) {
     });
 }
 
+test("a site without a site key yet: its leads are recorded and nobody is called", async () => {
+    const a = await admit({ humanCheck: "off", turnstileToken: undefined });
+    assert.equal(a.status, 200);
+    assert.deepEqual([a.body.callback, a.body.verification], ["held", "unavailable"]);
+    assert.equal(siteverifyCalls, 0);
+});
+
+test("once a site has passed a real check, it can't claim to have none", async () => {
+    assert.equal((await admit({ wantsCallback: false })).status, 200);
+    const off = await admit({ humanCheck: "off", turnstileToken: undefined, phone: "+14075550007" });
+    assert.deepEqual([off.status, off.body.error], [403, "not-verified"], "a leaked token can't switch the check off");
+});
+
 test("no Turnstile secret on the agency: nobody is called, nobody is refused", async () => {
     delete process.env.LEAD_FORM_TURNSTILE_SECRET_KEY;
     assert.deepEqual(await submit(), { called: false, lead: 200 });
