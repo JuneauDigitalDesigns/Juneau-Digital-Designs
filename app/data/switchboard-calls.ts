@@ -1,30 +1,23 @@
 export interface TranscriptLine { role: "AI" | "CALLER"; text: string; }
 
 /**
- * The stylized site shown on the customer's phone in Act 1.
+ * The receptionist film's one story (`SiteToCallPanel`), approved by Xander on 9 Nov 2026.
  *
- * Deliberately abstract — blocks, a trade tag, a business name and an unmistakable
- * call bar. No body copy. The point of the beat is "a real person was on a real
- * site and tapped the button", not "read this website".
+ * It used to rotate five made-up businesses, one per replay, each on a drawn "mock" site.
+ * The film now opens on the real growth template (the same site the laptop above it shows),
+ * so it tells one story that matches it: Dave fills in the estimate form on Your HVAC Co.'s
+ * site, and on Growth the AI calls him back within about a minute. Dave and his number are
+ * the lead the portal demo further down the page then shows (`app/data/portal-demo.ts`), so
+ * the page reads as one customer from form to booked job.
+ *
+ * Numbers use the 555-01XX range reserved for fictional use, so nothing on this page can
+ * dial a real person.
  */
-export interface MockSite {
-  /** Brand colour for the mock. Fixed hex, not a token — this is someone else's site. */
-  accent: string;
-  /** Text on the sticky call bar. The one string on the mock that has to be readable. */
-  ctaLabel: string;
-  /** Block arrangement, so consecutive replays don't produce the same silhouette. */
-  variant: 1 | 2 | 3;
-}
-
 export interface CallScenario {
-  id: string;
-  tradeTag: string;
   businessName: string;
-  /** Shown on the outgoing-call screen — the number the customer is dialling. */
-  businessPhone: string;
   caller: { name: string; initials: string; color: string; };
+  /** When it happens, as the owner's phone shows it. Matches the portal demo's 2:13 AM. */
   callTime: string;
-  site: MockSite;
   transcript: TranscriptLine[];
   /**
    * What the owner's phone receives after the call, and what the Inbox row shows.
@@ -38,87 +31,38 @@ export interface CallScenario {
   ownerMessage: { reason: string; summary: string; callback: string; };
 }
 
-/* Caller and business numbers use the 555-01XX range reserved for fictional use, so
-   nothing on this page can dial a real person. */
-export const SCENARIOS: CallScenario[] = [
-  {
-    id: "plumbing",
-    tradeTag: "PLUMBING",
-    businessName: "Clearwater Plumbing Co.",
-    businessPhone: "(207) 555-0118",
-    caller: { name: "Dana Kim", initials: "DK", color: "#4A90D9" },
-    callTime: "2:47 PM",
-    site: { accent: "#2C6FA8", ctaLabel: "Call Now", variant: 1 },
-    transcript: [
-      { role: "CALLER", text: "Hi, my kitchen sink is leaking pretty bad. Is there someone who can come take a look?" },
-      { role: "AI",     text: "Oh no, that's no fun. We can definitely get someone out there. Can I grab your name and best callback number?" },
-      { role: "CALLER", text: "Dana Kim. This number works fine." },
-      { role: "AI",     text: "Got it, Dana. I'll pass this along right now and someone will reach out to get you on the schedule." },
-    ],
-    ownerMessage: { reason: "Needs scheduling", summary: "Kitchen sink leak", callback: "(207) 555-0143" },
-  },
-  {
-    id: "hvac",
-    tradeTag: "HVAC",
-    businessName: "Peak Comfort HVAC",
-    businessPhone: "(512) 555-0177",
-    caller: { name: "Robert Ochoa", initials: "RO", color: "#E8704A" },
-    callTime: "2:13 AM",
-    site: { accent: "#B4472B", ctaLabel: "24/7 Emergency", variant: 2 },
-    transcript: [
-      { role: "CALLER", text: "It's 2am and our heat just went out. I've got kids in the house, it's getting cold." },
-      { role: "AI",     text: "Oh man, that's a priority, I'm sorry. Let me get your info so the team can reach you right away." },
-      { role: "CALLER", text: "Robert Ochoa, 847 Elm Street. Reach me at this number." },
-      { role: "AI",     text: "Got it, Robert. I'm flagging this as urgent, someone will be calling you back very shortly." },
-    ],
-    ownerMessage: { reason: "Urgent callback needed", summary: "No heat, kids home", callback: "(512) 555-0129" },
-  },
-  {
-    id: "landscape",
-    tradeTag: "LANDSCAPE",
-    businessName: "Greenfield Outdoor",
-    businessPhone: "(603) 555-0164",
-    caller: { name: "Sarah Mills", initials: "SM", color: "#5BAD72" },
-    callTime: "4:22 PM",
-    site: { accent: "#3E8C5A", ctaLabel: "Get a Quote", variant: 3 },
-    transcript: [
-      { role: "CALLER", text: "Hey, I'm looking to get a quote for a fall cleanup on my property. About a quarter acre." },
-      { role: "AI",     text: "Sure, we can help with that. What's the best name and number to have someone reach out to you?" },
-      { role: "CALLER", text: "Sarah Mills. This number's fine. Property's at 412 Cedar Lane." },
-      { role: "AI",     text: "Perfect, Sarah. I've got all of that. Someone will be in touch soon to go over the details." },
-    ],
-    ownerMessage: { reason: "Quote requested", summary: "Fall cleanup, about ¼ acre", callback: "(603) 555-0192" },
-  },
-  {
-    id: "roofing",
-    tradeTag: "ROOFING",
-    businessName: "Summit Roofing",
-    businessPhone: "(816) 555-0136",
-    caller: { name: "Tom Benitez", initials: "TB", color: "#C0392B" },
-    callTime: "7:58 PM",
-    site: { accent: "#9E3428", ctaLabel: "Free Inspection", variant: 1 },
-    transcript: [
-      { role: "CALLER", text: "We had a bad storm last night. Think there might be some roof damage. Shingles look off." },
-      { role: "AI",     text: "Yikes, alright, let's get the team out to take a look. Can I get your name and number?" },
-      { role: "CALLER", text: "Tom Benitez. Best number is this one. I'm at 29 Maple Drive." },
-      { role: "AI",     text: "Got it, Tom. I'll get this to the guys now and someone will reach out to get you scheduled." },
-    ],
-    ownerMessage: { reason: "Inspection needed", summary: "Missing shingles, possible leak", callback: "(816) 555-0158" },
-  },
-  {
-    id: "electric",
-    tradeTag: "ELECTRIC",
-    businessName: "Bright Line Electric",
-    businessPhone: "(414) 555-0109",
-    caller: { name: "Mika Chen", initials: "MC", color: "#8E44AD" },
-    callTime: "8:12 AM",
-    site: { accent: "#6B3E9E", ctaLabel: "Book a Visit", variant: 2 },
-    transcript: [
-      { role: "CALLER", text: "I've been looking into upgrading my electrical panel. Is that something you all handle?" },
-      { role: "AI",     text: "We do, yeah, good timing to get that looked at. Can I grab your name and a good number for you?" },
-      { role: "CALLER", text: "Mika Chen. This number's the best way to reach me." },
-      { role: "AI",     text: "Great, Mika. I'll pass that along and someone will give you a call to talk through next steps." },
-    ],
-    ownerMessage: { reason: "Needs estimate call", summary: "Electrical panel upgrade", callback: "(414) 555-0171" },
-  },
-];
+export const FILM_CALL: CallScenario = {
+  businessName: "Your HVAC Co.",
+  caller: { name: "Dave Kowalski", initials: "DK", color: "#4A90D9" },
+  callTime: "2:13 AM",
+  transcript: [
+    /* The callback's opening line, approved word for word. It names the form, so the call
+       reads as the reply to it. */
+    { role: "AI",     text: "Hi Dave, it's Your HVAC Co. You just asked for an estimate on our website. What's going on with your system?" },
+    { role: "CALLER", text: "Furnace quit overnight and the house is down to 58. Two kids at home." },
+    { role: "AI",     text: "Got it, Dave. I've marked this urgent, and the team will reach you first thing in the morning." },
+  ],
+  ownerMessage: { reason: "Urgent callback needed", summary: "Furnace out, house at 58°", callback: "(512) 555-0129" },
+};
+
+/**
+ * The growth site on the customer's phone: a full-page capture of e2etestgrowth at a 390px
+ * viewport (`public/film-site.webp`, 600px wide), and where its form lives on that page.
+ *
+ * Every position is the live page's own, in CSS px at 390px wide, measured from the DOM on
+ * 9 Nov 2026, so the film's typing, tick and clicks land exactly on the screenshot's fields.
+ * Recapture and re-measure together: if the template moves the form, these move with it.
+ */
+export const FILM_SITE = {
+  src: "/film-site.webp",
+  width: 390,
+  height: 9720,
+  /** The hero's "Book a Free Estimate" link, which jumps to the form. */
+  heroEstimate: { x: 20, y: 475, w: 350, h: 56 },
+  /** How far the page scrolls to bring the form up. */
+  formScroll: 640,
+  name: { x: 44, y: 859, w: 302, h: 52 },
+  phone: { x: 44, y: 944, w: 302, h: 52 },
+  consent: { x: 44, y: 1087, w: 16, h: 16 },
+  submit: { x: 44, y: 1208, w: 302, h: 50 },
+};

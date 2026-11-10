@@ -15,11 +15,11 @@ import { useReducedMotion } from "framer-motion";
  * fix. It's now a screenshot captured at a true 1280x800 viewport, which renders
  * exactly right and drops a third-party request from the hero's critical path.
  *
- * Since 9 Nov 2026 the capture is the new growth test site (e2etestgrowth.vercel.app), one
+ * Since 9 Nov 2026 the capture is the upgraded growth template (e2etestgrowth.vercel.app), one
  * full-page screenshot at a true 1280x800 viewport (headless Chrome, `fullPage` with
  * `captureBeyondViewport`, so the page's vh units resolve against 800px and not the image's
  * height), scrolled top to bottom first so lazy images and reveals have fired. Recapture the
- * same way if the demo changes; the gate is that the image comes back ~4844px tall, not
+ * same way if the demo changes; the gate is that the image comes back ~5969px tall, not
  * several times that.
  */
 
@@ -29,7 +29,7 @@ const VIEW_W = 1280;
 const VIEW_H = 800;
 /* Defaults matching the committed asset — replaced by the real values on load, so a
    recapture at a different height still pans correctly. */
-const DEFAULT_H = 4844;
+const DEFAULT_H = 5969;
 const DURATION_MS = 34000;
 
 export default function DemoSiteFrame() {

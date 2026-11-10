@@ -1132,7 +1132,7 @@ function Segmented({ items, on }: { items: string[]; on: string }) {
 function InboxView({ w }: { w: World }) {
     const rows = [
         ...(w.leadIn
-            ? [{ id: "robert", name: DEMO_LEAD.name, unread: !w.leadRead, preview: DEMO_LEAD.preview, tag: `Call · ${DEMO_LEAD.duration}`, time: "now", web: false, count: 1 }]
+            ? [{ id: "robert", name: DEMO_LEAD.name, unread: !w.leadRead, preview: DEMO_LEAD.preview, tag: "Web form", callback: DEMO_LEAD.recording.split(" / ")[1], time: "now", web: true, count: 1 }]
             : []),
         ...DEMO_INBOX,
     ];
@@ -1189,6 +1189,8 @@ function InboxView({ w }: { w: World }) {
                                     {!grouped && r.tag && (
                                         <span className="shrink-0 flex gap-1.5">
                                             <Tag>{r.tag}</Tag>
+                                            {/* The live inbox's callback tag: a web lead the receptionist rang back. */}
+                                            {"callback" in r && r.callback && <Tag tone="pos">☎ {r.callback}</Tag>}
                                         </span>
                                     )}
                                     <span className="shrink-0 w-[72px] text-right text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}>
@@ -1254,17 +1256,25 @@ function LeadDrawer({ w }: { w: World }) {
             <DrawerHead title={DEMO_LEAD.name} />
             <div className="px-5 py-5 space-y-6" data-f="leadbody">
                 <p className="text-sm" style={{ color: "var(--fg-3)" }}>
-                    {DEMO_LEAD.receivedAt} · phone call
+                    {DEMO_LEAD.receivedAt} · web form
                 </p>
+                {/* As the live drawer shows a web-form lead with a callback: the form carried no
+                    message (the growth form asks only for a name and number), so the first
+                    section is what happened next. */}
                 <section className="space-y-2.5" data-f="said">
-                    <Label>What was said</Label>
-                    <div className="rounded-xl border p-4 text-sm leading-relaxed" style={{ background: "var(--bg)", borderColor: "var(--rule)" }}>
-                        {DEMO_LEAD.preview}
+                    <Label>What happened next</Label>
+                    <div className="flex gap-3">
+                        <span className="shrink-0 w-[26px] h-[26px] rounded-full flex items-center justify-center" style={{ background: "rgba(22,163,74,0.1)", color: "var(--chart-pos)" }}>
+                            <PhoneCall size={13} />
+                        </span>
+                        <div className="flex-1 text-sm">
+                            <div style={{ color: "var(--fg)" }}>Your receptionist called them back</div>
+                            <p className="mt-1 text-[13px] leading-relaxed" style={{ color: "var(--fg-3)" }}>
+                                {DEMO_LEAD.summary}
+                            </p>
+                            <div className={`${s.audio} mt-2`}>{DEMO_LEAD.recording}</div>
+                        </div>
                     </div>
-                </section>
-                <section className="space-y-2.5">
-                    <Label>Recording</Label>
-                    <div className={s.audio}>{DEMO_LEAD.recording}</div>
                 </section>
                 <section className="space-y-2.5">
                     <Label>Contact details</Label>
@@ -1273,7 +1283,7 @@ function LeadDrawer({ w }: { w: World }) {
                             <span style={{ color: "var(--accent)" }}>{DEMO_LEAD.phone}</span>
                         </Fact>
                         <Fact label="Email">—</Fact>
-                        <Fact label="Source">Phone call</Fact>
+                        <Fact label="Source">Web form</Fact>
                         <Fact label="Received">{DEMO_LEAD.receivedAt}</Fact>
                     </div>
                 </section>
@@ -1579,7 +1589,7 @@ function RecordView({ w }: { w: World }) {
                             <div className="flex justify-between gap-3 pt-0.5 text-[13px]">
                                 <span style={{ color: "var(--fg-2)" }}>Came from</span>
                                 <span className="text-right" style={{ color: "var(--fg)" }}>
-                                    Phone call
+                                    Website form
                                 </span>
                             </div>
                         </div>

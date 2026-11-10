@@ -91,20 +91,29 @@ export const DEMO_CLOSING = {
 /** What the Message and Review steps wait on, never how long. */
 export const CARRIER_LINE = "Switches on once the carriers approve your business registration.";
 
-export const DEMO_BUSINESS = { name: "Brannock Heating & Air", host: "brannockheating.com" };
+/* "Your HVAC Co." matches the growth template the website section and the receptionist film
+   above now show, so the page is one business end to end. */
+export const DEMO_BUSINESS = { name: "Your HVAC Co.", host: "yourhvacco.com" };
 
-/** The new lead: a 2 AM no-heat call the receptionist took. */
+/**
+ * The new lead: Dave, who filled in the estimate form on the website at 2 AM, and whom the
+ * receptionist called straight back (Growth's callback). The receptionist film above the demo
+ * shows exactly that, with the same name and number, so the page reads as one customer.
+ * Until 9 Nov 2026 he was a phone caller here, which the film no longer showed.
+ */
 export const DEMO_LEAD = {
     name: "Dave Kowalski",
     initials: "DK",
     phone: "(512) 555-0129",
     address: "2210 Wren Hollow Rd",
-    /** What the Inbox row and the drawer's "What was said" show. */
+    /** What the Inbox row shows: the callback's summary line, since the form itself only
+     *  asks for a name and a number. */
     preview: "Furnace quit overnight and the house is down to 58°. Two kids at home. Wants someone out first thing.",
-    /** The call summary the customer record pins open as the call that started it. */
+    /** The callback's summary: the drawer's "What happened next", and the call the customer
+     *  record pins open as the one that started it. */
     summary:
-        "Dave called at 2:13 AM. His furnace shut off sometime overnight and the house is down to 58 degrees, with two kids at home. He's at 2210 Wren Hollow Rd and asked for a call back as early as possible, so it's marked urgent.",
-    /** About two minutes, like the call in the phone film above. */
+        "Dave asked for an estimate on the website at 2:13 AM, and the receptionist called him straight back. His furnace shut off sometime overnight and the house is down to 58 degrees, with two kids at home. He's at 2210 Wren Hollow Rd and wants someone out first thing, so it's marked urgent.",
+    /** The callback's length. */
     duration: "1m 58s",
     recording: "0:00 / 1:58",
     receivedAt: "11/4/2026, 2:13:40 AM",
@@ -171,7 +180,7 @@ export const DEMO_TIMES = {
 };
 
 /** Written the way an owner texts from the truck: short, first names, no sign-off. */
-export const DEMO_SMS = "Hi Dave, it's Tom with Brannock. You're down for 11 this morning. I'll text when I'm on my way.";
+export const DEMO_SMS = "Hi Dave, it's Tom with Your HVAC Co. You're down for 11 this morning. I'll text when I'm on my way.";
 
 /**
  * The review request as the composer pre-fills it: `defaultReviewMessage` in
@@ -180,4 +189,4 @@ export const DEMO_SMS = "Hi Dave, it's Tom with Brannock. You're down for 11 thi
  * so they are not shown here.
  */
 export const DEMO_REVIEW =
-    "Hi Dave, thanks for choosing Brannock Heating & Air! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";
+    "Hi Dave, thanks for choosing Your HVAC Co.! If we did a great job, would you mind leaving us a quick Google review? It only takes a minute and it genuinely helps a small business like ours.";

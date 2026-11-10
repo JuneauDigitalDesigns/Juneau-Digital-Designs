@@ -132,82 +132,69 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    as one sentence — "A website that makes the phone ring." / "Then someone picks up." /
    "And nothing slips."
 
-   Since 9 Nov 2026 the first two (and the calculator and closing sections after them) are
-   built on `.slab`, the sand panel in globals.css: copy sits on it, the visual rests over
-   its edge. Each fills the same 1320px content width (`.journey-section`). Layouts approved
-   by Xander from a mockup in five rounds. */
+   Since 9 Nov 2026 (approved by Xander from a ten-round mockup) nothing around words on this
+   page has a border, a fill or a shadow: only the product is framed — the laptop, the phone
+   film, the portal demo. Colour arrives as ground (`.wash`), lists are split by hairlines,
+   and scale does the hierarchy. See "The homepage, without cards" in globals.css. Every
+   section fills the same 1320px content width (`.home-section`). */
 
 /* ── 01 · The website ─────────────────────────────────────────
-   Caption slab: the laptop is the hero, and a slab holding the heading, one line and one
-   promise overlaps its lower-right corner. The three outcome lines it replaced ("You answer
-   a few questions." / "It goes live in less than a week." / "Never again worry about your
-   website.") ran as ruled rows beside the laptop. Copy approved word for word, 9 Nov 2026. */
+   The heading and its line split across the width, then the laptop, taking the whole
+   column, scrolling the growth template (`DemoSiteFrame`). Copy approved word for word,
+   9 Nov 2026. The caption that sat under the laptop ("What yours could look like.") went in
+   the same pass. */
 function WebsiteSection() {
   return (
-    <section className="journey-section">
-      <JourneyReveal className="site-caption">
-        <div className="site-caption-visual">
-          <DemoSiteFrame />
-        </div>
-        <div className="slab slab-lift site-caption-slab">
+    <section>
+      <div className="home-section">
+        <JourneyReveal className="home-split">
           {/* Leads with the outcome and hands straight off to section 02, which answers it
               with "Then someone picks up." */}
-          <h2 className="site-caption-heading">A website that makes the phone ring.</h2>
-          <p className="site-caption-line">
-            You answer a few questions. We write it, build it and host it. After that, there&apos;s nothing for you to do.
-          </p>
-          {/* The promise: the writing, which is what stalls owners for months, and the one
-              thing the line above doesn't already say. */}
-          <p className="slab-chip">Written for your trade</p>
-        </div>
-        {/* Says "could look like" rather than claiming it's live — it's a captured
-            screenshot, and the old "running live" line stopped being true the moment the
-            iframe became an image. */}
-        <span className="site-caption-note">What yours could look like.</span>
-      </JourneyReveal>
+          <h2 className="home-display">A website that makes the phone ring.</h2>
+          <div>
+            <p className="home-lede">
+              You answer a few questions. We write it, build it and host it. After that, there&apos;s nothing for you to do.
+            </p>
+            {/* The promise: the writing, which is what stalls owners for months, and the one
+                thing the line above doesn't already say. */}
+            <p className="home-promise">Written for your trade</p>
+          </div>
+        </JourneyReveal>
+        <JourneyReveal delay={1} className="home-stage">
+          <DemoSiteFrame />
+        </JourneyReveal>
+      </div>
     </section>
   );
 }
 
 /* ── 02 · The receptionist ──────────────────────────────────────
-   Night slab: the whole section is the slab, because this is the two-in-the-morning
-   section. Copy on the left, the film on the right (centred, stacked, on a phone), and the
-   three lines as cards resting over the slab's bottom edge. The film labels its two phones
-   with a switch under the device (see `.film-switch` and <SiteToCallPanel>). */
-const RECEPTIONIST_OUTCOMES = [
-  "It asks the questions you'd ask, in English or in Spanish.",
-  "It captures the lead's name, number and what the job is.",
-  /* Where the lead goes. It used to end at a text with the details; the lead now lands in
-     the portal on every plan, and the text tells the owner it is there. */
-  "Then the lead goes straight into your portal, and you get a text saying it’s there.",
-];
-
+   On the wash: the heading and one paragraph on the left, the film on the right (stacked,
+   centred, on a phone). The paragraph is the three lines that used to be a numbered, ruled
+   list, now run together as copy; the line above them ("You're with a customer, or it's two
+   in the morning. Either way, it picks up.") was removed in the same pass. "24/7" still
+   appears in the hero and under "Every plan starts here.", so the page keeps its
+   any-hour claim. Deliberately industry-neutral: this page sells to any service business. */
 function ReceptionistSection() {
   return (
-    <section className="journey-section">
-      <JourneyReveal>
-        <div className="slab night-slab">
-          <div>
-            {/* The sequel to section 01's heading, and the middle of the sentence the three
-                journey headings make. */}
-            <h2 className="night-heading">Then someone picks up.</h2>
-            {/* LOAD-BEARING TAIL. "Or it's two in the morning" is this section's only
-                availability claim, since the cards carry none. Remove it and the section
-                never says the thing people buy this for. The hour matches the film's 2:13 AM
-                HVAC call. Deliberately industry-neutral: this page sells to any service
-                business, so no ladders, roofs or vans. */}
-            <p className="night-body">You&apos;re with a customer, or it&apos;s two in the morning. Either way, it picks up.</p>
-          </div>
-          {/* No CTA on this panel by design. The calculator and the closing section carry the
-              asks. */}
+    <section className="wash">
+      <div className="home-section home-duo">
+        <JourneyReveal>
+          {/* The sequel to section 01's heading, and the middle of the sentence the three
+              journey headings make. */}
+          <h2 className="home-display">Then someone picks up.</h2>
+          {/* The last sentence is where the lead goes: into the portal on every plan, with a
+              text telling the owner it is there. */}
+          <p className="home-lede">
+            It asks the questions you&apos;d ask, in English or in Spanish. It captures the lead&apos;s name, number and what the job is. Then the lead goes straight into your portal, and you get a text saying it&apos;s there.
+          </p>
+        </JourneyReveal>
+        {/* No CTA beside the film by design. The calculator and the closing section carry the
+            asks. */}
+        <JourneyReveal delay={1}>
           <SiteToCallPanel />
-        </div>
-        <ul className="night-cards">
-          {RECEPTIONIST_OUTCOMES.map((o) => (
-            <li key={o} className="night-card slab-lift">{o}</li>
-          ))}
-        </ul>
-      </JourneyReveal>
+        </JourneyReveal>
+      </div>
     </section>
   );
 }
@@ -367,27 +354,20 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
   return (
     /* `id` is where the portal demo's closing button lands ("What are my missed calls
        worth?"). Lenis glides same-page anchors (see SmoothScroll). */
-    <section className="calc-section" id={MISSED_CALLS_ID}>
-      <div className="aurora-grid" />
-      {/* The band (9 Nov 2026): the heading sits on a slab, and the calculator rests on a card
-          over its bottom edge, spanning the band. See `.calc-band*` in globals.css. */}
-      <div className="calc-band" style={{ position: "relative", zIndex: 2 }}>
+    <section className="calc-section calc-open wash" id={MISSED_CALLS_ID}>
+      {/* On the wash, with no card or panel (9 Nov 2026): the inputs are rows split by
+          hairlines and the answer is a pair of numerals set as type. See `.calc-open`. */}
+      <div className="home-section">
         {/* No kicker here, unlike the two sections above it. Those name a thing we sell;
             this one is about the reader's own business, and labelling it "The Numbers"
             would file it alongside the products as a third thing to buy. */}
         {/* A question, not an instruction: it puts the reader inside their own numbers
-            before they touch a slider. The sub-line that used to sit here ("Move the
-            sliders to match your business. Then hit calculate.") told them to do the two
-            things three labelled sliders and a button marked Calculate already make
-            obvious, and cost this panel — the tallest of the three — a paragraph plus its
-            margin. */}
+            before they touch a slider. */}
         <JourneyReveal>
-          <div className="slab calc-band-slab">
-            <h2 className="calc-band-heading">
-              How much are your <span>missed calls</span> worth?
-            </h2>
-          </div>
-          <div className="calc-band-card slab-lift">
+          <h2 className="home-display calc-heading">
+            How much are your <span>missed calls</span> worth?
+          </h2>
+          <div className="calc-body">
           {/* All three views stay mounted, stacked in one grid cell. That is what fixes the
               card's size without a magic number: `visibility: hidden` still contributes to
               layout, so the cell is always as tall as the tallest view and the box cannot
@@ -625,18 +605,16 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
    went because it introduced a section the film was already the whole of. */
 
 /* ── Every plan starts here, the plans, the ask ─────────────────
-   One closing section since 9 Nov 2026 (option D of Xander's mockup, "slab split"). It used
-   to be three: <EveryPlanSection>, the price cards, and the get-started rail under them.
+   One closing section, on the wash. "Every plan starts here." and the three parts every plan
+   gets on the left; the three plans on the right in one cream panel, rows split by hairlines;
+   the asks underneath, open, across the full width. Approved 9 Nov 2026: round five's layout
+   with the boxes taken off everything but the plans, which share a single panel instead of
+   three cards.
 
-   Read in that same order, base → plans → ask, but in one frame. The base is a dark slab:
-   it is what every plan stands on, so it looks like a foundation rather than a list. On a
-   desktop it is the left column and the plan cards lean over its right edge as rows; on a
-   phone the cards overlap its bottom edge. The ask runs the full width underneath.
-
-   Growth is the plan this page is written to sell, so it is the loudest; Starter is a real
-   option at full strength; Enterprise is present and honestly priced but receded. Hiding it
-   would be worse: a plan you have to go and find reads as a plan someone is being cagey
-   about.
+   Growth is the plan this page is written to sell, so it carries the coral edge; Starter is
+   a real option at full strength; Enterprise is present and honestly priced but receded.
+   Hiding it would be worse: a plan you have to go and find reads as a plan someone is being
+   cagey about.
 
    The two bolded lines are the tier line, and /pricing carries the same pair in its
    taglines. Change one, change both.
@@ -667,55 +645,58 @@ const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: 
 
 function ClosingSection({ onOpenForm }: { onOpenForm: () => void }) {
   return (
-    <section className="closing-section">
-      <JourneyReveal>
-        <div className="closing">
-          <div className="slab closing-slab">
-            <h2 className="closing-heading">Every plan starts here.</h2>
-            <div className="closing-base">
-              {EVERY_PLAN.map(({ Icon, label, title, detail }) => (
-                <div key={label} className="closing-base-item">
-                  <p className="closing-base-label">
-                    <Icon size={18} aria-hidden="true" />
-                    {label}
-                  </p>
-                  <h3 className="closing-base-title">{title}</h3>
-                  <p className="closing-base-detail">{detail}</p>
-                </div>
-              ))}
+    <section className="wash">
+      <div className="home-section">
+        <JourneyReveal>
+          <div className="closing">
+            <div>
+              <h2 className="home-display closing-heading">Every plan starts here.</h2>
+              <div className="closing-base">
+                {EVERY_PLAN.map(({ Icon, label, title, detail }) => (
+                  <div key={label} className="closing-base-item">
+                    <p className="closing-base-label">
+                      <Icon size={18} aria-hidden="true" />
+                      {label}
+                    </p>
+                    <h3 className="closing-base-title">{title}</h3>
+                    <p className="closing-base-detail">{detail}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Was "Two tools, one monthly bill." — the old product's thesis in five words. */}
+              <p className="closing-bill">One system. One monthly bill.</p>
             </div>
-            {/* Was "Two tools, one monthly bill." — the old product's thesis in five words. */}
-            <p className="closing-bill">One system. One monthly bill.</p>
+
+            <div className="closing-plans">
+              <div className="closing-plan">
+                <div className="kicker">Starter</div>
+                <p className="closing-price">${STARTER_PRICE}<span>/mo</span></p>
+                {/* "Everything every plan gets", not "Everything you see above": on a desktop
+                    the base sits beside the plans, not above them. */}
+                <p>Everything every plan gets. This is where it starts. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
+              </div>
+
+              {/* "Within about a minute", matching /pricing and the contract's "typically
+                  within sixty (60) seconds" — not "inside a minute", which promises the upper
+                  bound. */}
+              <div className="closing-plan closing-plan--featured">
+                <div className="kicker">Growth</div>
+                <p className="closing-price">${GROWTH_PRICE}<span>/mo</span></p>
+                <p>Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong style={{ color: "var(--fg)" }}>Growth works them like a team would.</strong></p>
+              </div>
+
+              {/* "Two or three", not "up to three": Enterprise starts at two sites. */}
+              <div className="closing-plan closing-plan--muted">
+                <div className="kicker">Enterprise</div>
+                <p className="closing-price">${ENTERPRISE_PRICE.toLocaleString("en-US")}<span>/mo</span></p>
+                <p>Two or three sites, each with its own receptionist and phone number, all feeding one portal. One monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
+              </div>
+            </div>
           </div>
 
-          <div className="closing-plans">
-            <div className="home-pricing-card closing-plan">
-              <div className="kicker">Starter</div>
-              <div className="home-pricing-price">${STARTER_PRICE}<span>/mo</span></div>
-              {/* "Everything every plan gets", not "Everything you see above": on a desktop the
-                  base sits beside this card, not above it. Approved 9 Nov 2026. */}
-              <p>Everything every plan gets. This is where it starts. <strong style={{ color: "var(--fg)" }}>Starter reports every lead.</strong></p>
-            </div>
-
-            {/* "Within about a minute", matching /pricing and the contract's "typically within
-                sixty (60) seconds" — not "inside a minute", which promises the upper bound. */}
-            <div className="home-pricing-card home-pricing-card--featured closing-plan">
-              <div className="kicker" style={{ color: "var(--accent-2)" }}>Growth</div>
-              <div className="home-pricing-price">${GROWTH_PRICE}<span>/mo</span></div>
-              <p>Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong style={{ color: "var(--fg)" }}>Growth works them like a team would.</strong></p>
-            </div>
-
-            {/* "Two or three", not "up to three": Enterprise starts at two sites. */}
-            <div className="home-pricing-card home-pricing-card--muted closing-plan">
-              <div className="kicker">Enterprise</div>
-              <div className="home-pricing-price">${ENTERPRISE_PRICE.toLocaleString("en-US")}<span>/mo</span></div>
-              <p>Two or three sites, each with its own receptionist and phone number, all feeding one portal. One monthly bill. <a href="/pricing">See what&apos;s included &rarr;</a></p>
-            </div>
-          </div>
-
-          <ClosingAsk onOpenForm={onOpenForm} className="closing-ask" />
-        </div>
-      </JourneyReveal>
+          <ClosingAsk onOpenForm={onOpenForm} />
+        </JourneyReveal>
+      </div>
     </section>
   );
 }

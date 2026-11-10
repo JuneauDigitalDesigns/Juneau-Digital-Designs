@@ -5,7 +5,8 @@ import { DEMO_TEL, DEMO_TEL_DISPLAY } from "@/app/data/demo-line";
 /**
  * The page's last ask: buy, or hear it first.
  *
- * Two halves, each with its own line of copy, divided by a rule. The two actions are not the
+ * Open, not boxed (9 Nov 2026): a rule above, then two halves, each with its own line of
+ * copy, divided by a hairline; stacked and centred below 860px. The two actions are not the
  * same ask: one is "buy", the other is "check first". Sat side by side as bare buttons they read
  * as a primary and its fallback, and the fallback is the more persuasive of the two for anyone
  * still unsure, so each gets a sentence saying who it's for.
