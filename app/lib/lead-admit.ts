@@ -15,7 +15,7 @@ import { sendOpsNotice } from "./ops-notice";
  *
  * **Why the agency verifies, not the client site.** The Turnstile secret never sits in a client
  * repo, and a leaked `LEAD_INGEST_TOKEN` alone can no longer write anything: every write needs a
- * fresh Turnstile solve, in a real browser, on one of that client's own hostnames.
+ * fresh Turnstile solve, in a real browser, on that client's own site.
  *
  * **Never throttle a genuine lead (operator decision, 2026-11-09).** The only refusals are a
  * failed human check and one visitor sending again and again; both are shown to the visitor in
@@ -56,34 +56,29 @@ export function admitLimits() {
     };
 }
 
-/* ── the site's own record ──────────────────────────────────────────────── */
+/* ── which sites must carry an admission ───────────────────────────────── */
 
 /**
- * Written by jdd-ops `onboard.js` next to the ingest token: the hostnames this site's form is
- * served from (a Turnstile token from anywhere else is refused), and whether this site's route
- * calls `/admit` yet. `enforce` is set once the new route is deployed, so a site still on the old
- * route keeps working (with the call and text limits) until it is re-run.
+ * A site moves over to "every write needs an admission" **by itself, the first time its
+ * production route asks for one**. Before that it is still running the route from before
+ * `/admit` existed, and refusing its writes would refuse every lead it gets.
+ *
+ * Production only: onboard.js deploys a preview first and never promotes it, so a preview
+ * asking would otherwise lock out the production site that is still on the old route.
+ *
+ * `INGEST_REQUIRE_ADMISSION=on` moves every site at once, for when they all have.
  */
-export interface SiteGate {
-    hostnames: string[];
-    enforce: boolean;
-}
+export const siteMovedKey = (acctScope: string, slug: string) => `portal:gate:v1:site-moved:${acctScope}:${slug}`;
 
-export const siteGateKey = (acctScope: string, slug: string) => `portal:gate:site:v1:${acctScope}:${slug}`;
-
-export async function getSiteGate(acctScope: string, slug: string): Promise<SiteGate | null> {
-    const raw = await getRedis().get<Partial<SiteGate>>(siteGateKey(acctScope, slug));
-    if (!raw || typeof raw !== "object") return null;
-    return {
-        hostnames: Array.isArray(raw.hostnames) ? raw.hostnames.filter((h) => typeof h === "string").map((h) => h.toLowerCase()) : [],
-        enforce: raw.enforce === true,
-    };
-}
-
-/** Whether this site's ingest writes must carry an admission. */
 export async function admissionRequired(acctScope: string, slug: string): Promise<boolean> {
     if (process.env.INGEST_REQUIRE_ADMISSION === "on") return true;
-    return (await getSiteGate(acctScope, slug))?.enforce === true;
+    return Boolean(await getRedis().get(siteMovedKey(acctScope, slug)));
+}
+
+async function markSiteMoved(acctScope: string, slug: string): Promise<void> {
+    await getRedis()
+        .set(siteMovedKey(acctScope, slug), new Date().toISOString(), { nx: true })
+        .catch((e) => console.error(`[lead-admit] could not mark ${slug} as moved over`, e));
 }
 
 /* ── Turnstile ──────────────────────────────────────────────────────────── */
@@ -97,7 +92,13 @@ export type Verification =
     | { kind: "failed"; codes: string[] }
     | { kind: "unavailable" };
 
-export async function verifyTurnstile(token: string, ip: string | null, hostnames: string[]): Promise<Verification> {
+/**
+ * Ask Cloudflare about one token. `host` is the host the client site's own `/api/contact` was
+ * called on: the form posts to its own origin, so a token solved anywhere else (another of our
+ * client sites; they can share a widget) is refused. This needs no stored list of each site's
+ * domains, which would go stale the day a custom domain is attached.
+ */
+export async function verifyTurnstile(token: string, ip: string | null, host: string | null): Promise<Verification> {
     const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
     if (!secret) {
         console.error("[lead-admit] TURNSTILE_SECRET_KEY not set: no human check, so no AI calls");
@@ -129,10 +130,7 @@ export async function verifyTurnstile(token: string, ip: string | null, hostname
 
     if (out.action !== "lead") return { kind: "failed", codes: ["wrong-action"] };
     const hostname = (out.hostname ?? "").toLowerCase();
-    if (hostnames.length > 0 && !hostnames.includes(hostname)) {
-        // Solved on another of our client sites (they can share a widget), then brought here.
-        return { kind: "failed", codes: ["wrong-hostname"] };
-    }
+    if (host && hostname !== host) return { kind: "failed", codes: ["wrong-hostname"] };
     return { kind: "passed", hostname };
 }
 
@@ -177,13 +175,18 @@ export interface AdmitInput {
     phone: string | null;
     email: string | null;
     wantsCallback: boolean;
+    /** The host the visitor's browser posted to, as the client site saw it. */
+    host: string | null;
+    /** The client site's `VERCEL_ENV`: only "production" moves the site over. */
+    deployment: string | null;
 }
 
 export async function admit(input: AdmitInput): Promise<AdmitResult> {
     const L = admitLimits();
     const { acctScope, slug } = input;
-    const gate = await getSiteGate(acctScope, slug);
-    const v = await verifyTurnstile(input.turnstileToken ?? "", input.ip, gate?.hostnames ?? []);
+    if (input.deployment === "production") await markSiteMoved(acctScope, slug);
+    const host = input.host ? input.host.toLowerCase().replace(/:\d+$/, "") : null;
+    const v = await verifyTurnstile(input.turnstileToken ?? "", input.ip, host);
     if (v.kind === "failed") {
         console.warn(`[lead-admit] ${slug}: human check failed (${v.codes.join(",") || "no code"})`);
         return { ok: false, error: "not-verified" };

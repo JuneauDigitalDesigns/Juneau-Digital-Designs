@@ -30,7 +30,7 @@ const { POST: admitPOST } = await import("../app/api/ingest/admit/route.ts");
 const { POST: consentPOST } = await import("../app/api/ingest/call-consent/route.ts");
 const { POST: leadPOST } = await import("../app/api/ingest/lead/route.ts");
 const { listLeads } = await import("../app/lib/portal-leads.ts");
-const { siteGateKey } = await import("../app/lib/lead-admit.ts");
+const { siteMovedKey } = await import("../app/lib/lead-admit.ts");
 
 const ACCT = "acct_1";
 const SLUG = "arthurs-plumbing";
@@ -87,7 +87,6 @@ beforeEach(() => {
     process.env.TURNSTILE_SECRET_KEY = SECRET;
     delete process.env.INGEST_REQUIRE_ADMISSION;
     for (const k of Object.keys(process.env)) if (k.startsWith("GATE_")) delete process.env[k];
-    redis.kv.set(siteGateKey(ACCT, SLUG), { value: JSON.stringify({ hostnames: [HOST, "www.arthursplumbing.com"], enforce: true }), exp: null });
     globalThis.fetch = async (input, init = {}) => {
         if (redis.owns(input)) return redis.handle(input, init);
         if (String(input) === "https://challenges.cloudflare.com/turnstile/v0/siteverify") {
@@ -118,6 +117,8 @@ const admit = (over = {}, token) =>
         ip: "203.0.113.9",
         phone: "+12073181838",
         wantsCallback: true,
+        host: HOST,
+        deployment: "production",
         ...over,
     }, token);
 
@@ -197,6 +198,7 @@ test("a token issued for another purpose is refused", async () => {
 /* ── a token alone writes nothing ─────────────────────────────────────────── */
 
 test("with the site moved over, a leaked ingest token alone can't save a consent or a lead", async () => {
+    await admit({ turnstileToken: "garbage" }); // its production route has asked once: moved over
     assert.equal((await consent("+12073181838")).status, 403);
     assert.equal((await lead({ phone: "+12073181838" })).status, 403);
     assert.equal((await lead({ phone: "+12073181838", admissionId: "f".repeat(32) })).status, 403);
@@ -226,13 +228,28 @@ test("an admission expires after 10 minutes", async () => {
 });
 
 test("a site still on the old route keeps working until it is moved over", async () => {
-    redis.kv.set(siteGateKey(ACCT, SLUG), { value: JSON.stringify({ hostnames: [HOST], enforce: false }), exp: null });
+    // Nothing from this site has asked for an admission, so nothing marks it as moved.
     assert.equal((await consent("+12073181838")).status, 200, "the old route's consent, with the claim");
     assert.equal((await consent("+12073181838")).status, 429, "and the claim still holds the second call");
     assert.equal((await lead({ phone: "+14075550001" })).status, 200);
 
     process.env.INGEST_REQUIRE_ADMISSION = "on";
     assert.equal((await lead({ phone: "+14075550002" })).status, 403, "the global switch moves every site");
+});
+
+test("only the production route moves a site over: a preview asking leaves production working", async () => {
+    await admit({ deployment: "preview", wantsCallback: false });
+    assert.equal(redis.get(siteMovedKey(ACCT, SLUG)), undefined);
+    assert.equal((await lead({ phone: "+14075550003" })).status, 200, "production, still on the old route, records leads");
+
+    await admit({ deployment: "production", wantsCallback: false });
+    assert.equal((await lead({ phone: "+14075550004" })).status, 403);
+});
+
+test("a token is checked against the host the form was posted to", async () => {
+    assert.equal((await admit({ host: "www.arthursplumbing.com", turnstileToken: solved("www.arthursplumbing.com") })).status, 200, "a custom domain needs no setup here");
+    assert.equal((await admit({ host: "ArthursPlumbing.vercel.app:443", phone: "+14075550005" })).status, 200, "case and port don't matter");
+    assert.equal((await admit({ host: "www.arthursplumbing.com", phone: "+14075550006" })).status, 403, "solved on the vercel.app host, spent on the domain");
 });
 
 /* ── fail safe ────────────────────────────────────────────────────────────── */

@@ -70,6 +70,8 @@ export async function POST(request: Request) {
             phone: phoneRaw ? normalizeE164(phoneRaw) : null,
             email: str(body.email, 320),
             wantsCallback: body.wantsCallback === true,
+            host: str(body.host, 253),
+            deployment: str(body.deployment, 20),
         });
         if (!result.ok) {
             return NextResponse.json({ error: result.error }, { status: result.error === "too-many" ? 429 : 403 });
