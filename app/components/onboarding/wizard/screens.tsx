@@ -5,8 +5,8 @@
  * (onboarding copy deck, 2026-11-04). Change none of them without that approval.
  *
  * The service details, online profiles and address-question strings (approved word for word,
- * 2026-11-10) live in `copy-service-details.ts`; the suggestion chips in `service-suggestions.ts`,
- * one trade per approved batch (the HVAC sample is approved).
+ * 2026-11-10) live in `copy-service-details.ts`. The suggestion chips come from @jdd/schema's
+ * `serviceSuggestions` (via `service-suggestions.ts`), one approved batch per trade.
  */
 
 import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
