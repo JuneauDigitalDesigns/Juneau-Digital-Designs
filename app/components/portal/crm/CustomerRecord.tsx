@@ -25,6 +25,7 @@ import {
     type TaskRow,
     type TimelineEvent,
 } from "./stages";
+import QuickReplies from "./QuickReplies";
 
 /**
  * The customer record.
@@ -468,6 +469,13 @@ export default function CustomerRecord({
             {/* composer / the A2P wait */}
             <div id="crm-composer" className={`${pad} py-4 border-t min-w-0`} style={{ borderColor: "var(--rule)" }}>
                 {data?.messagingState === "ready" ? (
+                    <>
+                    {/* Inside this gate only: quick replies are a texting tool, and texting is
+                        Growth/Enterprise with A2P verified. Draws nothing until the
+                        reply-templates route exists. */}
+                    {customer.phone && (
+                        <QuickReplies siteSlug={siteSlug} name={customer.name} onPick={setDraft} />
+                    )}
                     <div
                         className="flex gap-2 items-end p-3 rounded-xl border min-w-0"
                         style={{ background: "var(--bg)", borderColor: "var(--rule)" }}
@@ -499,6 +507,7 @@ export default function CustomerRecord({
                             {sending ? "Sending…" : "Send"}
                         </button>
                     </div>
+                    </>
                 ) : data?.messagingState === "not-on-plan" ? (
                     <Pending>Texting your customers comes with Growth.</Pending>
                 ) : (
