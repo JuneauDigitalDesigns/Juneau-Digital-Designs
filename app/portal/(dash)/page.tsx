@@ -230,7 +230,7 @@ async function LeadsBlock({ site, raw, account }: BlockProps) {
 
     const { nowMs, timeZone, week } = overviewClock();
     const hours = clientHours(raw);
-    const waiting = needsYou(inbox.items, { hours, timeZone });
+    const waiting = needsYou(inbox.items, { hours, timeZone, nowMs });
     const thisWeek = leadWeek(inbox.items, week, { hours, timeZone });
 
     return (
@@ -291,7 +291,7 @@ async function TilesBlock({ site, raw, account }: BlockProps) {
         if (caught !== null) tiles.push(afterHoursTile(caught));
         const thisWeek = leadWeek(items, week, { hours, timeZone });
         tiles.push(handledTile(thisWeek.handled, thisWeek.total));
-        const oldest = needsYou(items, { hours, timeZone }).oldest;
+        const oldest = needsYou(items, { hours, timeZone, nowMs }).oldest;
         const oldestMs = msOf(oldest?.at);
         if (oldest && oldestMs !== null) {
             tiles.push(

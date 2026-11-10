@@ -1,4 +1,4 @@
-import { filterInbox, groupInbox, type InboxItem } from "./crm-contacts";
+import { groupInbox, type InboxItem } from "./crm-contacts";
 import {
     dayIndexInWeek,
     inWindow,
@@ -14,7 +14,7 @@ import {
  * Built on `buildInbox` output on purpose. The Overview and the Inbox answer the same question
  * from two pages — "who still needs me" — and if they derive it separately, they will
  * eventually disagree, and the client will trust neither. So "needs you" is the Inbox's own
- * worklist rule (`filterInbox`) and its rows are the Inbox's own repeat-caller grouping
+ * "Needs you" rule (see `needsYou`) and its rows are the Inbox's own repeat-caller grouping
  * (`groupInbox`), not a second reading of the raw sources.
  *
  * Pure. `test/portal-overview.test.mjs` pins it.
@@ -110,8 +110,17 @@ export interface NeedsYou {
  * Starter "Longest wait" tile, rather than by pinning a two-day-old hang-up above this
  * morning's burst pipe.
  *
- * The rule for *what* waits is `filterInbox(items, "unread")` — not read, not archived ("Done"),
- * not promoted — verbatim, so the Overview can never count something the Inbox has cleared.
+ * The rule for *what* waits is the Inbox's "Needs you" rule: not done (archived), not
+ * promoted, and not reminded to a time still to come. **Read state plays no part.** Nothing in
+ * the portal ever marks a lead read, and having seen a lead is not having handled it — a client
+ * who opened a call and has not rung back still owes that caller. The Inbox rework (#89) made
+ * the same change, so the two pages agree.
+ *
+ * Inlined rather than imported because the Inbox's predicate, `isNeedsYou()` in
+ * `crm-contacts.ts`, arrives with #89 and must not be a dependency of whichever PR merges
+ * first. Once #89 is on master, call `isNeedsYou()` here instead. `remindAt` is read through a
+ * cast for the same reason: it is not on `InboxItem` on master yet.
+ *
  * The rows are `groupInbox` over that, so three calls from one person are one row here too.
  */
 export function needsYou(
@@ -120,9 +129,14 @@ export function needsYou(
         limit = 5,
         hours = null,
         timeZone,
-    }: { limit?: number; hours?: WeeklyHours | null; timeZone: string },
+        nowMs = Date.now(),
+    }: { limit?: number; hours?: WeeklyHours | null; timeZone: string; nowMs?: number },
 ): NeedsYou {
-    const waiting = filterInbox(items, "unread");
+    const waiting = items.filter((i) => {
+        if (i.archived || i.promoted) return false;
+        const remindAt = msOf((i as { remindAt?: string | null }).remindAt);
+        return remindAt === null || remindAt <= nowMs;
+    });
     const groups = groupInbox(waiting);
 
     const rows = groups.slice(0, limit).map((g): NeedsYouRow => {
@@ -168,7 +182,10 @@ export interface LeadWeek {
     web: number;
     /** Null when the client's hours are unknown — the row and tile are hidden, not zeroed. */
     afterHours: number | null;
-    /** Called back (read), marked done, or promoted. Starter's "Handled this week". */
+    /**
+     * Marked done or promoted. Starter's "Handled this week". Read state does not count, for
+     * the reason `needsYou` gives: nothing marks a lead read, and seen is not handled.
+     */
     handled: number;
 }
 
@@ -206,7 +223,7 @@ export function leadWeek(
         if (item.source === "call") calls += 1;
         else web += 1;
         if (hours && isAfterHours(t as number, hours, timeZone)) afterHours += 1;
-        if (item.read || item.archived || item.promoted) handled += 1;
+        if (item.archived || item.promoted) handled += 1;
     }
 
     return {

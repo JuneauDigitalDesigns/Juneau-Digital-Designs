@@ -303,16 +303,40 @@ test("callback speed ignores enquiries with no callback, and last week's", () =>
 
 /* ── needs you ────────────────────────────────────────────────────────────── */
 
-test("needs you is the Inbox worklist: not read, not done, not promoted", () => {
+test("needs you is the Inbox's Needs you: not done, not promoted — and read does not count as handled", () => {
     const items = [
         item({ id: "keep", phone: "+15125550111" }),
+        // Seen is not handled: nothing marks a lead read, and opening one is not ringing back.
         item({ id: "read", phone: "+15125550112", read: true }),
         item({ id: "done", phone: "+15125550113", archived: true }),
         item({ id: "promoted", phone: "+15125550114", promoted: true }),
     ];
-    const n = needsYou(items, { timeZone: TZ });
-    assert.equal(n.total, 1);
-    assert.deepEqual(n.rows.map((r) => r.id), ["contact:+15125550111"]);
+    const n = needsYou(items, { timeZone: TZ, nowMs: NOW });
+    assert.equal(n.total, 2);
+    assert.deepEqual(n.rows.map((r) => r.id).sort(), ["contact:+15125550111", "contact:+15125550112"]);
+});
+
+test("a lead reminded to a later time leaves Needs you until then", () => {
+    const items = [
+        item({ id: "later", phone: "+15125550121", remindAt: iso(NOW + HOUR) }),
+        item({ id: "due", phone: "+15125550122", remindAt: iso(NOW - HOUR) }),
+        item({ id: "none", phone: "+15125550123", remindAt: null }),
+    ];
+    const n = needsYou(items, { timeZone: TZ, nowMs: NOW });
+    assert.deepEqual(
+        n.rows.map((r) => r.id).sort(),
+        ["contact:+15125550122", "contact:+15125550123"],
+    );
+    // Once the reminder time passes, it is back.
+    assert.equal(needsYou(items, { timeZone: TZ, nowMs: NOW + 2 * HOUR }).total, 3);
+});
+
+test("the longest wait counts a read lead that nobody has handled", () => {
+    const items = [
+        item({ id: "new", phone: "+15125550131", at: iso(NOW - HOUR) }),
+        item({ id: "seen", phone: "+15125550132", read: true, at: iso(NOW - 2 * DAY) }),
+    ];
+    assert.equal(needsYou(items, { timeZone: TZ, nowMs: NOW }).oldest.at, iso(NOW - 2 * DAY));
 });
 
 test("needs you is newest first, capped, and counts every row", () => {
@@ -380,15 +404,17 @@ test("the week card counts every item that arrived, by channel and by day", () =
         item({ id: "a", at: iso(est(9, 9, 0)) }), // Mon
         item({ id: "b", at: iso(est(9, 15, 0)), archived: true }), // Mon, done — still a lead
         item({ id: "c", source: "web-form", at: iso(est(11, 7, 0)), promoted: true }), // Wed
+        item({ id: "r", at: iso(est(10, 9, 0)), read: true }), // Tue, read but not handled
         item({ id: "d", at: iso(est(4, 9, 0)) }), // last Wednesday, inside the comparison span
         item({ id: "e", at: iso(est(6, 9, 0)) }), // last Friday, outside it
     ];
     const w = leadWeek(items, week, { timeZone: TZ });
-    assert.equal(w.total, 3);
+    assert.equal(w.total, 4);
     assert.equal(w.previousTotal, 1);
-    assert.deepEqual(w.perDay, [2, 0, 1, 0, 0, 0, 0]);
-    assert.equal(w.calls, 2);
+    assert.deepEqual(w.perDay, [2, 1, 1, 0, 0, 0, 0]);
+    assert.equal(w.calls, 3);
     assert.equal(w.web, 1);
+    // Done and promoted are handled; read alone is not.
     assert.equal(w.handled, 2);
 });
 
