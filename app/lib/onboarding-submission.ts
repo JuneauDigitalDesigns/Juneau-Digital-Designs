@@ -11,8 +11,9 @@
  * Everything is sanitized and length-capped; nothing is defaulted that the client didn't give.
  */
 
-import type { BrandIntakeSubmission, Intake, PalettePick, ServiceEntry } from "@jdd/schema";
+import { PROFILE_KINDS, type BrandIntakeSubmission, type Intake, type PalettePick, type ProfileKind, type ServiceEntry } from "@jdd/schema";
 import { isValidBlobUrl } from "./blob-url";
+import { normaliseProfileLink } from "./profile-links";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
 type Body = Partial<Record<string, unknown>>;
@@ -77,12 +78,74 @@ function sanitizePalette(raw: unknown): PalettePick {
     };
 }
 
-function sanitizeServiceList(raw: unknown): ServiceEntry[] {
+/** What one service's page shows at most; the wizard caps to the same numbers. */
+const SERVICE_CAPS = { included: 8, typicalJobs: 6, brands: 8, questions: 5, photos: 3 } as const;
+
+function sanitizeQuestions(raw: unknown, max: number): { q: string; a: string }[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((x) => {
+            const o = (x ?? {}) as Record<string, unknown>;
+            return { q: sanitize(o.q, 140), a: sanitize(o.a, 300) };
+        })
+        .filter((x) => x.q)
+        .slice(0, max);
+}
+
+/**
+ * A service with its optional page facts (v1.32.0). Every list is trimmed, de-blanked and capped
+ * to what the service page shows; photos must be our own blob URLs. Blank facts are left out, so
+ * the mapper flags them in `_meta.missing_fields` rather than storing empties.
+ */
+function sanitizeService(raw: unknown, withFacts: boolean): ServiceEntry {
+    const o = (raw ?? {}) as Record<string, unknown>;
+    const entry: ServiceEntry = { name: sanitize(o.name, 120), tag: sanitize(o.tag, 80) };
+    if (!withFacts) return entry;
+    const included = sanitizeStringArray(o.included, 40, 80).slice(0, SERVICE_CAPS.included);
+    const typicalJobs = sanitizeStringArray(o.typicalJobs, 40, 80).slice(0, SERVICE_CAPS.typicalJobs);
+    const areas = sanitizeStringArray(o.areas, 20, 80);
+    const brands = sanitizeStringArray(o.brands, 40, 80).slice(0, SERVICE_CAPS.brands);
+    const priceFrom = sanitize(o.priceFrom, 40);
+    const duration = sanitize(o.duration, 40);
+    const photos = (Array.isArray(o.photos) ? o.photos : [])
+        .map(sanitizeImageMeta)
+        .filter((x): x is { url: string; filename: string; alt: string } => x !== null)
+        .slice(0, SERVICE_CAPS.photos);
+    const questions = sanitizeQuestions(o.questions, SERVICE_CAPS.questions);
+    return {
+        ...entry,
+        ...(included.length ? { included } : {}),
+        ...(typicalJobs.length ? { typicalJobs } : {}),
+        ...(areas.length ? { areas } : {}),
+        ...(brands.length ? { brands } : {}),
+        ...(priceFrom ? { priceFrom } : {}),
+        ...(duration ? { duration } : {}),
+        ...(photos.length ? { photos } : {}),
+        ...(questions.length ? { questions } : {}),
+    };
+}
+
+function sanitizeServiceList(raw: unknown, withFacts = true): ServiceEntry[] {
     if (!Array.isArray(raw)) return [];
     return raw
         .slice(0, MAX_SERVICES)
-        .map((s) => ({ name: sanitize((s as Record<string, unknown>)?.name, 120), tag: sanitize((s as Record<string, unknown>)?.tag, 80) }))
+        .map((s) => sanitizeService(s, withFacts))
         .filter((s) => s.name);
+}
+
+/** Profile links: a known kind, a link on the right site, not a search page, one per kind. */
+function sanitizeProfiles(raw: unknown): { kind: ProfileKind; url: string }[] {
+    if (!Array.isArray(raw)) return [];
+    const kinds = new Set<string>(PROFILE_KINDS);
+    const out: { kind: ProfileKind; url: string }[] = [];
+    for (const item of raw.slice(0, 16)) {
+        const o = (item ?? {}) as Record<string, unknown>;
+        const kind = sanitize(o.kind, 20);
+        if (!kinds.has(kind) || out.some((p) => p.kind === kind)) continue;
+        const url = normaliseProfileLink(kind as ProfileKind, sanitize(o.url, 500));
+        if (url) out.push({ kind: kind as ProfileKind, url });
+    }
+    return out;
 }
 
 /** `{key, value, label}` stat entries; blank values dropped (the mapper drops them too). */
@@ -184,7 +247,7 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
                       phone: sanitize(o.phone, 60),
                       address: sanitize(o.address, 300),
                       businessHours: sanitize(o.businessHours, 300),
-                      serviceList: sanitizeServiceList(o.serviceList),
+                      serviceList: sanitizeServiceList(o.serviceList, false),
                       palette: sanitizePalette(o.palette),
                       brandDirection: {
                           differentiators: sanitize(sbd.differentiators, 800),
@@ -202,6 +265,8 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
 
     const serviceRadiusMiles = sanitize(body.serviceRadiusMiles, 20);
     const offerBadge = sanitize(body.offerBadge, 120);
+    const profiles = sanitizeProfiles(body.profiles);
+    const customerQuestions = sanitizeQuestions(body.customerQuestions, 10);
 
     const submission: BrandIntakeSubmission = {
         selectedPlan,
@@ -243,6 +308,10 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
         seasons: sanitizeSeasons(body.seasons),
         ...(serviceRadiusMiles ? { serviceRadiusMiles } : {}),
         ...(offerBadge ? { offerBadge } : {}),
+        // v1.32.0. Only a real boolean is an answer; anything else stays "not asked".
+        ...(typeof body.serviceAreaBusiness === "boolean" ? { serviceAreaBusiness: body.serviceAreaBusiness } : {}),
+        ...(profiles.length ? { profiles } : {}),
+        ...(customerQuestions.length ? { customerQuestions } : {}),
         additionalSites: selectedPlan === "enterprise" ? additionalSites : undefined,
     };
     return { ok: true, submission };
