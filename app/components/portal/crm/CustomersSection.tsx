@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CaretLeft, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { PortalSiteProps } from "@/app/portal/types";
@@ -52,7 +52,6 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     );
 
     const isMobile = useIsMobile();
-    const [openId, setOpenId] = useState<string | null>(params.get("open"));
     const [reviewFor, setReviewFor] = useState<CustomerRow | null>(null);
     const [collapsed, setCollapsed] = useState<Set<StageKey>>(new Set(COLLAPSED_BY_DEFAULT));
     const [adding, setAdding] = useState(false);
@@ -75,6 +74,55 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
         },
         [params, router],
     );
+
+    /**
+     * Which record is open is the URL's `?open=`, and nothing else.
+     *
+     * It used to be `useState(params.get("open"))` — read from the URL once, at mount, and never
+     * again. Opening a card set the state without touching the URL, so the record's "All
+     * customers" link pointed at the URL already showing: Next.js navigated to the same place,
+     * the state never changed, and the button did nothing. Deriving it means anything that
+     * changes the URL (that link, the rail's Customers tab, the browser's own Back) closes the
+     * record, and a refresh reopens the one you were on.
+     */
+    const openId = params.get("open") || null;
+
+    /** True while the record on screen was opened from this board, so Back can return to it. */
+    const openedHere = useRef(false);
+    useEffect(() => {
+        if (!openId) openedHere.current = false;
+    }, [openId]);
+
+    // Opening pushes a history entry, so a phone's back gesture or the browser's Back closes
+    // the record rather than leaving the Customers tab.
+    const openRecord = useCallback(
+        (id: string) => {
+            const next = new URLSearchParams(params.toString());
+            next.set("open", id);
+            openedHere.current = true;
+            router.push(`?${next.toString()}`, { scroll: false });
+        },
+        [params, router],
+    );
+
+    /** Where "All customers" points: this board, filters intact, nothing open. */
+    const boardHref = useMemo(() => {
+        const next = new URLSearchParams(params.toString());
+        next.delete("open");
+        return `?${next.toString()}`;
+    }, [params]);
+
+    // Closing a record we opened steps back over the entry `openRecord` pushed, so history does
+    // not fill up with board → record → board. One that arrived by deep link (the Inbox's
+    // promote, an owner's text) has no board entry behind it to step back to, so it replaces.
+    const closeRecord = useCallback(() => {
+        if (openedHere.current) {
+            openedHere.current = false;
+            router.back();
+            return;
+        }
+        router.replace(boardHref, { scroll: false });
+    }, [router, boardHref]);
 
     const all = useMemo(
         () =>
@@ -110,7 +158,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
      * is not.
      */
     const handleNotFound = useCallback(() => {
-        setOpenId(null);
+        openedHere.current = false;
         setParam("open", "");
     }, [setParam]);
 
@@ -219,6 +267,8 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                     onChanged={refresh}
                     onRequestReview={(c) => setReviewFor(c)}
                     onNotFound={handleNotFound}
+                    backHref={boardHref}
+                    onBack={closeRecord}
                 />
                 {reviewDialog}
             </>
@@ -306,7 +356,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
             {all.length === 0 ? (
                 <FeatureState feature="crm" availability={{ state: "ready" }} />
             ) : view === "table" ? (
-                <TableView rows={rows} onOpen={setOpenId} />
+                <TableView rows={rows} onOpen={openRecord} />
             ) : (
                 <>
                     {/* Desktop board */}
@@ -350,7 +400,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                                         setCollapsed((c) => new Set(c).add(s.key))
                                     }
                                     onDrop={(id) => move(id, s.key)}
-                                    onOpen={setOpenId}
+                                    onOpen={openRecord}
                                 />
                             ),
                         )}
@@ -359,7 +409,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                     {/* Mobile: stage-filtered list */}
                     <div data-tour="crm-list" className="lg:hidden space-y-3">
                         {rows.map((c) => (
-                            <MobileCard key={c.customerId} row={c} onOpen={() => setOpenId(c.customerId)} onMove={move} />
+                            <MobileCard key={c.customerId} row={c} onOpen={() => openRecord(c.customerId)} onMove={move} />
                         ))}
                         {rows.length === 0 && (
                             <p className="py-8 text-center text-sm" style={{ color: "var(--fg-3)" }}>
@@ -374,10 +424,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                 so the sheet is only ever mounted on a phone. */}
             <CustomerDrawer
                 open={openId !== null}
-                onClose={() => {
-                    setOpenId(null);
-                    setParam("open", "");
-                }}
+                onClose={closeRecord}
                 customerId={openId}
                 siteSlug={site.slug}
                 onChanged={refresh}
@@ -394,7 +441,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                     onCreated={(id) => {
                         setAdding(false);
                         refresh();
-                        setOpenId(id);
+                        openRecord(id);
                     }}
                 />
             )}

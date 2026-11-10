@@ -21,8 +21,9 @@ import { buildTourPlan, type TourTier } from "./steps";
  *     has to drive the UI, not just annotate it — the anchors for the back half of the tour do
  *     not exist until a customer is open.
  *
- * Progress persists to Clerk `publicMetadata` so it survives devices; dismissing early saves the
- * step but not completion, so the next visit resumes rather than restarting.
+ * Progress persists to Clerk `publicMetadata` so it survives devices. Leaving the tour by any
+ * route — Done, close, Esc — marks it seen, so it never auto-launches again. A visit that ends
+ * with the tab closed mid-tour saved its step but not "seen", and the next visit resumes there.
  */
 
 const TOUR_EVENT = "jdd:start-tour";
@@ -42,12 +43,22 @@ export default function TourController({
     const driverRef = useRef<Driver | null>(null);
     const startedRef = useRef(false);
 
+    /**
+     * Writes go out one at a time, in order.
+     *
+     * The route reads the user's metadata, merges, and writes it back. Fired in parallel, a
+     * step-progress write that read the old metadata could land after the "seen" write and put
+     * `completed: false` back — which is exactly the tour-every-visit bug, by a second route.
+     */
+    const queueRef = useRef<Promise<unknown>>(Promise.resolve());
     const postTour = useCallback((payload: { completed?: boolean; lastStepIndex?: number }) => {
-        void fetch("/api/portal/tour", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        }).catch(() => {});
+        queueRef.current = queueRef.current.then(() =>
+            fetch("/api/portal/tour", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            }).catch(() => {}),
+        );
     }, []);
 
     /** Poll for an anchor rather than assuming it exists on the next tick. */
@@ -89,14 +100,20 @@ export default function TourController({
                 prevBtnText: "Back",
                 doneBtnText: "Done",
                 steps: plan.steps,
-                onHighlighted: () => {
-                    const i = driverRef.current?.getActiveIndex();
+                onHighlighted: (_el, _step, opts) => {
+                    const i = opts.state.activeIndex;
                     if (typeof i === "number") postTour({ lastStepIndex: i });
                 },
-                onDestroyed: () => {
-                    const i = driverRef.current?.getActiveIndex() ?? 0;
-                    if (i >= plan.steps.length - 1) postTour({ completed: true });
-                    else postTour({ lastStepIndex: i });
+                onDestroyed: (_el, _step, opts) => {
+                    // Read the index from the hook's snapshot, never from the driver: driver.js
+                    // resets its state *before* calling onDestroyed, so `getActiveIndex()` is
+                    // always undefined here. It used to be read that way, fell back to 0, and so
+                    // "completed" was never saved — the tour auto-launched on every visit.
+                    //
+                    // Any way out counts as seen: Done, the close button, Esc, or navigating
+                    // away. Someone who closed it has seen it; the Help button replays it.
+                    const i = opts.state.activeIndex ?? 0;
+                    postTour({ completed: true, lastStepIndex: i });
                     // Drop the tour flag so the demo content disappears.
                     const next = new URLSearchParams(window.location.search);
                     next.delete("tour");

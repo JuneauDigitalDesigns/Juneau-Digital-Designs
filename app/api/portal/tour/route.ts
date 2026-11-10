@@ -38,8 +38,11 @@ export async function POST(request: Request) {
     const user = await client.users.getUser(userId);
     const prev = (user.publicMetadata?.tour ?? {}) as TourMeta;
 
+    // "Seen" only ever goes one way. Nothing in the portal un-sees the tour (the Help button
+    // replays it without re-arming auto-launch), so a stray `completed: false`, or a write that
+    // raced past this one, must not bring it back on every visit.
     const tour: TourMeta = {
-        completed: typeof body.completed === "boolean" ? body.completed : (prev.completed ?? false),
+        completed: body.completed === true || prev.completed === true,
         lastStepIndex:
             typeof body.lastStepIndex === "number"
                 ? body.lastStepIndex
