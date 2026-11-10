@@ -1,43 +1,54 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-    Archive,
-    ArrowCounterClockwise,
-    CaretDown,
-    CaretUp,
-    Envelope,
-    MagnifyingGlass,
-    PhoneCall,
-    Plus,
-    Trash,
-} from "@phosphor-icons/react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { PortalSiteProps } from "@/app/portal/types";
-import { SectionHeader, Card, CardLabel } from "./ui/Card";
+import { SectionHeader, Card } from "./ui/Card";
 import { FeatureState, FeatureError } from "./ui/FeatureState";
 import Drawer from "./ui/Drawer";
-import { useCachedFetch, CLIENT_TTL } from "./PortalDataProvider";
-import { freshness } from "./ui/format";
-import { duration } from "@/app/lib/duration";
+import { useCachedFetch, useInvalidate, CLIENT_TTL } from "./PortalDataProvider";
 import {
     filterInbox,
-    groupForItem,
-    groupInbox,
     groupItemIds,
     inboxItemForDeepLink,
-    promotionInput,
+    parseInboxFilter,
     type InboxFilter,
-    type InboxGroup,
     type InboxItem,
 } from "@/app/lib/crm-contacts";
+import {
+    handledThisWeek,
+    inboxCounts,
+    inboxRows,
+    neighbourRow,
+    remindToast,
+    sectionRows,
+    stepRow,
+    tomorrowMorning,
+    type InboxRow,
+} from "./inbox/model";
+import * as api from "./inbox/api";
+import InboxToolbar from "./inbox/InboxToolbar";
+import InboxList, { CaughtUp, NothingMatches, dialNumber } from "./inbox/InboxList";
+import LeadDetail from "./inbox/LeadDetail";
+import UndoToast, { type UndoState } from "./inbox/UndoToast";
+import { ShortcutHelp } from "./inbox/ShortcutHelp";
 
 /**
- * The Inbox — every call and web enquiry, newest first.
+ * The Inbox — every call and web enquiry, sorted into what still needs the owner and what
+ * does not.
  *
- * Follows mockup M1a/M1b: a flat single-line list that reads like an email inbox, and a side
- * drawer for detail. Nothing expands inline — an earlier revision did, and a two-column block
- * opening inside a list row read as a chat bubble rather than a record.
+ * Follows the approved Inbox mockups (desktop split view, phone list with a lead screen that
+ * slides in). This file holds the state and the actions; the pieces it draws live in
+ * `./inbox/`, and every rule worth testing — status, sections, counts, reminder times — is in
+ * `./inbox/model.ts` and `app/lib/crm-contacts.ts`, away from React.
+ *
+ * **The URL is the state** for anything a link or a reload should land back on: `?f=` (the
+ * view), `?q=` (search) and `?open=` (the lead). The owner's text links to one enquiry —
+ * `/portal/l/<id>` redirects here with `?open=` — so that one has to work from a cold load.
+ * On a phone, opening a lead *pushes* a history entry, so the phone's back gesture closes it
+ * instead of leaving the Inbox (as #82 did for customers); on desktop, moving between leads
+ * replaces, so j/k does not fill the history.
  */
 
 interface InboxData {
@@ -48,254 +59,399 @@ interface InboxData {
     error?: string;
 }
 
+type Override = Partial<Pick<InboxItem, "archived" | "remindAt">>;
+
+/** The split view starts where the rail does; below it the layout is the phone one. */
+const DESKTOP = "(min-width: 1024px)";
+
 /**
- * `promoted` is a view of what has already left, not another slice of the worklist — see
- * `filterInbox`, which owns the rule that the other four hide promoted leads entirely.
+ * Which layout, or null before the browser has said.
+ *
+ * Not `useMediaQuery`, which answers `false` until an effect runs: arriving on the Inbox from
+ * another tab renders the cached list synchronously, so a desktop with `?open=` would flash
+ * the phone's full-screen lead for a frame first. This reads the real value on a client
+ * render and holds both layouts back only for the hydration pass, where the server cannot know.
  */
-const FILTERS = ["all", "unread", "calls", "forms", "promoted", "archived"] as const;
-
-/** Compact relative time — the list has one column of room for it. */
-function shortAgo(iso: string | null): string {
-    if (!iso) return "";
-    const t = new Date(iso).getTime();
-    if (Number.isNaN(t)) return "";
-    const mins = Math.floor((Date.now() - t) / 60_000);
-    if (mins < 1) return "now";
-    if (mins < 60) return `${mins} min`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs} hour${hrs === 1 ? "" : "s"}`;
-    const days = Math.floor(hrs / 24);
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days} days`;
-    return new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function fullWhen(iso: string | null): string {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+function useIsDesktop(): boolean | null {
+    return useSyncExternalStore(
+        (onChange) => {
+            const mql = window.matchMedia(DESKTOP);
+            mql.addEventListener("change", onChange);
+            return () => mql.removeEventListener("change", onChange);
+        },
+        () => window.matchMedia(DESKTOP).matches,
+        () => null,
+    );
 }
 
 export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const router = useRouter();
     const params = useSearchParams();
-    /**
-     * Seeded from the URL so a deep link survives a cold load and a refresh.
-     *
-     * The owner's text links to one enquiry (`/portal/l/<id>` redirects here with `?open=`),
-     * and this used to start at null and read no parameter at all — so the link opened the
-     * inbox and nothing else, which is the one thing it was for. Read as the initial value,
-     * not synced from the param on every render: once the drawer is open the client owns it,
-     * and a `router.replace` must not fight them.
-     */
-    const [openId, setOpenId] = useState<string | null>(params.get("open"));
-    const [promoting, setPromoting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    /** Which grouped rows are showing their individual calls. Keyed by group id. */
-    const [expanded, setExpanded] = useState<Set<string>>(new Set());
-    /**
-     * Archive state applied before the server has caught up.
-     *
-     * The row has to leave the instant it is archived — waiting on a round trip to put
-     * something away feels like the click missed. Reverted if the write fails.
-     */
-    const [pending, setPending] = useState<Record<string, boolean>>({});
-    const [undo, setUndo] = useState<{ ids: string[]; label: string } | null>(null);
-    const [confirmDelete, setConfirmDelete] = useState<InboxItem | null>(null);
-    const [deleting, setDeleting] = useState(false);
+    const layout = useIsDesktop();
+    const isDesktop = layout === true;
+    const reduceMotion = useReducedMotion();
+    const invalidate = useInvalidate();
 
-    const { data, isLoading, fetchedAt, refresh } = useCachedFetch<InboxData>(
+    const { data, isLoading, refresh } = useCachedFetch<InboxData>(
         `inbox:${site.slug}`,
         `/api/portal/inbox?site=${encodeURIComponent(site.slug)}`,
         CLIENT_TTL.calls,
     );
 
-    const filter = (params.get("f") ?? "all") as InboxFilter;
-    const search = (params.get("q") ?? "").trim().toLowerCase();
+    const filter = parseInboxFilter(params.get("f"));
+    const rawSearch = params.get("q") ?? "";
+    const search = rawSearch.trim().toLowerCase();
+    const urlOpen = params.get("open") || null;
 
-    const setParam = (key: string, value: string) => {
-        const next = new URLSearchParams(params.toString());
-        if (value) next.set(key, value);
-        else next.delete(key);
-        router.replace(`?${next.toString()}`, { scroll: false });
-    };
+    /**
+     * The clock the list is read against, ticking once a minute: a reminder that comes due
+     * while the page is open moves back into Needs you, and "Today" rolls over at midnight,
+     * without a refetch.
+     */
+    const [nowMs, setNowMs] = useState(() => Date.now());
+    useEffect(() => {
+        const t = window.setInterval(() => setNowMs(Date.now()), 60_000);
+        return () => window.clearInterval(t);
+    }, []);
+    const now = useMemo(() => new Date(nowMs), [nowMs]);
 
-    /** Open an item and say so in the URL, so a reload lands back on it. */
-    const openItem = (id: string | null) => {
-        setOpenId(id);
-        setParam("open", id ?? "");
-    };
+    /**
+     * Done / Remind me state applied before the server has caught up.
+     *
+     * The row has to leave the instant it is handled — waiting on a round trip to put
+     * something away feels like the click missed. Reverted if the write fails.
+     */
+    const [overrides, setOverrides] = useState<Record<string, Override>>({});
+    const [error, setError] = useState<string | null>(null);
+    const [toast, setToast] = useState<UndoState | null>(null);
+    const toastSeq = useRef(0);
+    const [checked, setChecked] = useState<Set<string>>(new Set());
+    const [remindOpen, setRemindOpen] = useState(false);
+    const [help, setHelp] = useState(false);
+    const [promoting, setPromoting] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState<InboxItem | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    /** Set once a remind call 404s, so the controls go away instead of failing again. */
+    const [remindGone, setRemindGone] = useState(false);
+    const searchRef = useRef<HTMLInputElement>(null);
 
     const all = useMemo(() => {
         const base = data?.items ?? [];
-        const keys = Object.keys(pending);
-        if (keys.length === 0) return base;
-        return base.map((i) => (i.id in pending ? { ...i, archived: pending[i.id] } : i));
-    }, [data, pending]);
+        if (Object.keys(overrides).length === 0) return base;
+        return base.map((i) => (i.id in overrides ? { ...i, ...overrides[i.id] } : i));
+    }, [data, overrides]);
 
     /**
-     * Filter, then group — never the other way round.
-     *
-     * Grouping what the current view holds is what lets the archived view accumulate: archive
-     * three calls today and a fourth next week and it reads as one row of four, because the
-     * archived view groups the archived items. Grouping first would split that number across
-     * two rows the moment one of its calls was put away.
+     * Reminders are live only when the inbox payload carries `remindAt` (null or a time). Until
+     * the backend change lands the key is absent on every item, and Remind me, the Reminders
+     * view and the bulk "Remind me tomorrow" are simply not drawn.
      */
-    const items = useMemo(() => filterInbox(all, filter, search), [all, filter, search]);
-    const groups = useMemo(() => groupInbox(items), [items]);
+    const remindSupported = !remindGone && all.some((i) => i.remindAt !== undefined);
+    const canPromote = Boolean(data?.canPromote);
+
+    const rows = useMemo(() => inboxRows(all, filter, search, nowMs), [all, filter, search, nowMs]);
+    const sections = useMemo(() => sectionRows(rows, now), [rows, now]);
+    const counts = useMemo(() => inboxCounts(all, nowMs), [all, nowMs]);
 
     /**
-     * The row a deep link landed in, when the link named something other than its newest call.
-     *
-     * An owner's text points at one particular call. If that call is the third in a run, the
-     * row above the drawer shows the *newest* one, and closing the drawer would leave them
-     * looking at a summary they never asked about. Expanding that row shows where the call
-     * they tapped actually sits. Derived rather than stored, so it collapses again on close.
+     * Which lead is on screen. A deep link names one (any status — an archived or promoted lead
+     * still opens, it is just not in the worklist); otherwise the desktop pane shows the top
+     * row, and a phone shows the list alone.
      */
-    const linked = openId ? groupForItem(groups, openId) : null;
-    const linkedRun = linked && linked.count > 1 && linked.lead.id !== openId ? linked.id : null;
+    const linked = inboxItemForDeepLink(all, urlOpen);
+    const selected: InboxItem | null = linked ?? (isDesktop ? (rows[0]?.lead ?? null) : null);
+    const selectedRow: InboxRow | null = selected
+        ? (rows.find((r) => r.items.some((i) => i.id === selected.id)) ?? null)
+        : null;
+
+    /* ── the URL ──────────────────────────────────────────────────────────── */
+
+    const href = useCallback(
+        (mutate: (p: URLSearchParams) => void) => {
+            const next = new URLSearchParams(params.toString());
+            mutate(next);
+            return `?${next.toString()}`;
+        },
+        [params],
+    );
+
+    const setParam = (key: string, value: string) => {
+        router.replace(href((p) => (value ? p.set(key, value) : p.delete(key))), { scroll: false });
+    };
+
+    const setFilter = (f: InboxFilter) => setParam("f", f === "needs" ? "" : f);
+
+    /** True while the lead on a phone screen was opened from this list, so Back returns to it. */
+    const openedHere = useRef(false);
+    useEffect(() => {
+        if (!urlOpen) openedHere.current = false;
+    }, [urlOpen]);
+
+    const openLead = (id: string) => {
+        setRemindOpen(false);
+        const to = href((p) => p.set("open", id));
+        if (window.matchMedia(DESKTOP).matches) {
+            router.replace(to, { scroll: false });
+        } else {
+            openedHere.current = true;
+            router.push(to, { scroll: false });
+        }
+    };
+
+    // Closing a lead we opened steps back over the entry `openLead` pushed. One that arrived by
+    // deep link (an owner's text) has no list entry behind it to step back to, so it replaces.
+    const closeLead = () => {
+        setRemindOpen(false);
+        if (openedHere.current) {
+            openedHere.current = false;
+            router.back();
+            return;
+        }
+        router.replace(href((p) => p.delete("open")), { scroll: false });
+    };
 
     /**
-     * Resolves a nested callback to the enquiry it was folded into, so a link to the call the
-     * receptionist made opens the enquiry that caused it rather than nothing.
-     *
-     * Searches every item, including ones promoted away. The *list* hides those — it is a
-     * worklist — but a link naming one by id is not the list, and the drawer already says
-     * "Already in your customers" rather than offering to promote it twice. The redirect
-     * sends promoted ids to the customer record anyway; this is the direct-link case.
+     * After a row leaves the view, where the screen goes: on desktop the pane moves to the
+     * row below (or above), the way an email client does; on a phone the lead screen closes.
      */
-    const open = inboxItemForDeepLink(all, openId);
-    // Every count is of the worklist, so none includes what has left it.
-    const working = useMemo(() => all.filter((i) => !i.promoted && !i.archived), [all]);
-    const unreadCount = working.filter((i) => !i.read).length;
-    const promotedCount = all.filter((i) => i.promoted).length;
-    const archivedCount = all.filter((i) => i.archived && !i.promoted).length;
-    const viewingArchive = filter === "archived";
+    const moveOff = (leavingRowIds: string[], ids: string[], patch: Override) => {
+        if (!selected || !ids.includes(selected.id)) return;
+        const after = all.map((i) => (ids.includes(i.id) ? { ...i, ...patch } : i));
+        const stays = filterInbox(after, filter, search, nowMs).some((i) => i.id === selected.id);
+        if (stays) return;
+        if (!window.matchMedia(DESKTOP).matches) {
+            if (urlOpen) closeLead();
+            return;
+        }
+        const next = neighbourRow(rows, leavingRowIds);
+        router.replace(
+            href((p) => (next ? p.set("open", next.lead.id) : p.delete("open"))),
+            { scroll: false },
+        );
+    };
 
-    /**
-     * Put a row away, or bring it back.
-     *
-     * Takes every id the row stands for, because a grouped row is one person's whole run of
-     * calls and archiving it has to be one action and one undo. Archiving records the ids that
-     * exist now rather than the number: the next call from someone who rang three times last
-     * week is new work, not something already dealt with.
-     */
-    async function archiveIds(ids: string[], archived: boolean, label: string) {
+    /* ── actions ──────────────────────────────────────────────────────────── */
+
+    const apply = (ids: string[], patch: Override) =>
+        setOverrides((o) => ({
+            ...o,
+            ...Object.fromEntries(ids.map((id) => [id, { ...o[id], ...patch }])),
+        }));
+
+    /** Put the overrides for these ids back to what they were before an action. */
+    const revert = (ids: string[], before: Record<string, Override>) =>
+        setOverrides((o) => {
+            const next = { ...o };
+            for (const id of ids) {
+                if (before[id]) next[id] = before[id];
+                else delete next[id];
+            }
+            return next;
+        });
+
+    const say = (label: string, undo: () => void) =>
+        setToast({ key: ++toastSeq.current, label, undo });
+
+    async function markDone(ids: string[], label: string, rowIds: string[]) {
         if (ids.length === 0) return;
         setError(null);
-        setPending((p) => ({ ...p, ...Object.fromEntries(ids.map((id) => [id, archived])) }));
-        setUndo(archived ? { ids, label } : null);
-
-        const res = await fetch(
-            `/api/portal/inbox/archive?site=${encodeURIComponent(site.slug)}`,
-            {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ids, archived }),
-            },
-        ).catch(() => null);
-
-        if (!res?.ok) {
-            setPending((p) => {
-                const next = { ...p };
-                for (const id of ids) delete next[id];
-                return next;
-            });
-            setUndo(null);
-            setError(
-                archived
-                    ? "We couldn't put that away. Please try again."
-                    : "We couldn't bring that back. Please try again.",
-            );
+        const before = { ...overrides };
+        moveOff(rowIds, ids, { archived: true });
+        apply(ids, { archived: true });
+        say(label, () => void restore(ids, ids[0]));
+        if (!(await api.setDone(site.slug, ids, true))) {
+            revert(ids, before);
+            setToast(null);
+            setError("We couldn't put that away. Please try again.");
             return;
         }
         refresh();
     }
 
+    /** Undo for Done, and the Done view's Restore to inbox. */
+    async function restore(ids: string[], reselect?: string) {
+        setError(null);
+        setToast(null);
+        const before = { ...overrides };
+        apply(ids, { archived: false });
+        if (reselect && window.matchMedia(DESKTOP).matches) {
+            router.replace(href((p) => p.set("open", reselect)), { scroll: false });
+        }
+        if (!(await api.setDone(site.slug, ids, false))) {
+            revert(ids, before);
+            setError("We couldn't bring that back. Please try again.");
+            return;
+        }
+        refresh();
+    }
+
+    async function remindIds(ids: string[], at: Date, label: string, rowIds: string[]) {
+        if (ids.length === 0 || !remindSupported) return;
+        setError(null);
+        const before = { ...overrides };
+        const patch = { remindAt: at.toISOString() };
+        moveOff(rowIds, ids, patch);
+        apply(ids, patch);
+        say(label, () => void unremind(ids, ids[0]));
+        const r = await api.remind(site.slug, ids, at);
+        if (!r.ok) {
+            revert(ids, before);
+            setToast(null);
+            if (r.unsupported) setRemindGone(true);
+            else setError(r.error ?? "That change didn't save. Please try again.");
+            return;
+        }
+        refresh();
+    }
+
+    async function unremind(ids: string[], reselect?: string) {
+        setError(null);
+        setToast(null);
+        const before = { ...overrides };
+        apply(ids, { remindAt: null });
+        if (reselect && window.matchMedia(DESKTOP).matches) {
+            router.replace(href((p) => p.set("open", reselect)), { scroll: false });
+        }
+        const r = await api.cancelRemind(site.slug, ids);
+        if (!r.ok) {
+            revert(ids, before);
+            if (r.unsupported) setRemindGone(true);
+            else setError(r.error ?? "That change didn't save. Please try again.");
+            return;
+        }
+        refresh();
+    }
+
+    /** What a lead's own buttons act on: its whole row when it is one, else just itself. */
+    const selectedIds = (): string[] => {
+        if (!selected) return [];
+        return selectedRow ? groupItemIds(selectedRow) : [selected.id];
+    };
+
+    const rowDone = (row: InboxRow) => void markDone(groupItemIds(row), "Marked done", [row.id]);
+
+    const checkedRows = rows.filter((r) => checked.has(r.id));
+    const bulkDone = () => {
+        const n = checkedRows.length;
+        void markDone(checkedRows.flatMap(groupItemIds), `${n} marked done`, checkedRows.map((r) => r.id));
+        setChecked(new Set());
+    };
+    const bulkRemind = () => {
+        const n = checkedRows.length;
+        void remindIds(
+            checkedRows.flatMap(groupItemIds),
+            tomorrowMorning(now),
+            `${n} will come back tomorrow at 7 AM`,
+            checkedRows.map((r) => r.id),
+        );
+        setChecked(new Set());
+    };
+
+    async function promote() {
+        if (!selected) return;
+        setPromoting(true);
+        setError(null);
+        const r = await api.promote(site.slug, selected);
+        setPromoting(false);
+        if (!r.ok) {
+            setError(r.error ?? "We couldn't add that customer. Please try again.");
+            return;
+        }
+        refresh();
+        invalidate("customers:");
+        router.push(`/portal/customers?site=${encodeURIComponent(site.slug)}&open=${r.value}`);
+    }
+
     async function deleteLead(item: InboxItem) {
         setDeleting(true);
         setError(null);
-        try {
-            const res = await fetch(
-                `/api/portal/inbox/delete?site=${encodeURIComponent(site.slug)}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id: item.id }),
-                },
-            );
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                setError(json?.error ?? "We couldn't delete that. Please try again.");
-                return;
-            }
-            setConfirmDelete(null);
-            refresh();
-        } catch {
-            setError("We couldn't delete that. Please try again.");
-        } finally {
-            setDeleting(false);
+        const r = await api.deleteLead(site.slug, item.id);
+        setDeleting(false);
+        if (!r.ok) {
+            setError(r.error ?? "We couldn't delete that. Please try again.");
+            return;
         }
+        setConfirmDelete(null);
+        if (urlOpen === item.id) closeLead();
+        refresh();
     }
 
-    function toggleGroup(id: string) {
-        setExpanded((s) => {
-            const n = new Set(s);
-            if (n.has(id)) n.delete(id);
-            else n.add(id);
-            return n;
-        });
-    }
+    /* ── keyboard (desktop) ───────────────────────────────────────────────── */
 
-    /** "3 calls from Dale Whitcombe", or just the name — what the undo toast says. */
-    function groupLabel(g: InboxGroup): string {
-        const who = g.lead.name ?? g.lead.phoneDisplay;
-        return g.count > 1 ? `${g.count} calls from ${who}` : who;
-    }
+    /**
+     * j/k/Enter/c/e/h/,/,? — attached to `window` only while this component is mounted on a
+     * desktop, and removed on unmount, so none of it reaches another portal page. Ignored
+     * while typing anywhere and whenever a modifier is held (Cmd-K, Ctrl-F and the browser's
+     * own shortcuts are not ours).
+     *
+     * The handler reads the latest render through a ref, so the listener is attached once
+     * rather than on every keystroke-driven render.
+     */
+    const keys = useRef<(e: KeyboardEvent) => void>(() => {});
+    useEffect(() => {
+        keys.current = (e: KeyboardEvent) => {
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            const t = e.target as HTMLElement | null;
+            if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+            if (help || confirmDelete) return;
 
-    async function promote() {
-        if (!open) return;
-        setPromoting(true);
-        setError(null);
-        try {
-            const res = await fetch(`/api/portal/customers?site=${encodeURIComponent(site.slug)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                // What travels is decided in one testable place, not inlined here — four of
-                // these fields used to be missing and nothing could see that they were.
-                body: JSON.stringify(promotionInput(open)),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) {
-                setError(json?.error ?? "We couldn't add that customer. Please try again.");
-                return;
+            const click = (action: string) =>
+                document.querySelector<HTMLElement>(`[data-inbox-action="${action}"]`)?.click();
+
+            switch (e.key) {
+                case "j":
+                case "k": {
+                    const next = stepRow(rows, selectedRow?.id ?? null, e.key === "j" ? 1 : -1);
+                    if (!next) return;
+                    e.preventDefault();
+                    openLead(next.lead.id);
+                    document
+                        .querySelector(`[data-row-id="${CSS.escape(next.id)}"]`)
+                        ?.scrollIntoView({ block: "nearest" });
+                    return;
+                }
+                case "Enter":
+                    if (!selected) return;
+                    e.preventDefault();
+                    document.querySelector<HTMLElement>("[data-inbox-pane] a, [data-inbox-pane] button")?.focus();
+                    return;
+                case "c": {
+                    const dial = selected ? dialNumber(selected) : null;
+                    if (dial) window.location.href = `tel:${dial}`;
+                    return;
+                }
+                case "e":
+                    e.preventDefault();
+                    click("done");
+                    return;
+                case "h":
+                    e.preventDefault();
+                    click("remind");
+                    return;
+                case "/":
+                    e.preventDefault();
+                    searchRef.current?.focus();
+                    return;
+                case "?":
+                    e.preventDefault();
+                    setHelp(true);
+                    return;
             }
-            setOpenId(null);
-            refresh();
-            router.push(
-                `/portal/customers?site=${encodeURIComponent(site.slug)}&open=${json.customer.customerId}`,
-            );
-        } catch {
-            setError("We couldn't add that customer. Please try again.");
-        } finally {
-            setPromoting(false);
-        }
-    }
+        };
+    });
+    useEffect(() => {
+        if (!isDesktop) return;
+        const onKey = (e: KeyboardEvent) => keys.current(e);
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [isDesktop]);
 
-    const header = (
-        <SectionHeader
-            title="Inbox"
-            meta={freshness(
-                `${unreadCount} new · ${working.length} to work`,
-                fetchedAt,
-            )}
-        />
-    );
+    /* ── states before there is a list ────────────────────────────────────── */
 
     if (isLoading && !data) {
         return (
             <div className="space-y-6">
-                {header}
+                <SectionHeader title="Inbox" />
                 <Card density="none" className="divide-y" style={{ borderColor: "var(--rule)" }}>
                     {[0, 1, 2, 3, 4].map((i) => (
                         <div key={i} className="h-14 animate-pulse" style={{ background: "var(--surface)" }} />
@@ -308,7 +464,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     if (!data || data.state === "error") {
         return (
             <div className="space-y-6">
-                {header}
+                <SectionHeader title="Inbox" />
                 <FeatureError message={data?.error} onRetry={refresh} />
             </div>
         );
@@ -326,490 +482,125 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     if (all.length === 0) {
         return (
             <div className="space-y-6">
-                {header}
+                <SectionHeader title="Inbox" />
                 <FeatureState feature="leads" availability={{ state: "ready" }} />
             </div>
         );
     }
 
+    const empty =
+        rows.length > 0 ? null : filter === "needs" && !search ? (
+            <CaughtUp handled={handledThisWeek(all, nowMs)} onShowAll={() => setFilter("all")} />
+        ) : (
+            <NothingMatches />
+        );
+
+    const detail = selected && (
+        <LeadDetail
+            key={selected.id}
+            item={selected}
+            row={selectedRow}
+            now={now}
+            isDesktop={isDesktop}
+            canPromote={canPromote}
+            remindSupported={remindSupported}
+            promoting={promoting}
+            remindOpen={remindOpen}
+            setRemindOpen={setRemindOpen}
+            error={error}
+            actions={{
+                onDone: () => void markDone(selectedIds(), "Marked done", selectedRow ? [selectedRow.id] : []),
+                onRestore: () => void restore(selectedIds()),
+                onRemind: (at) =>
+                    void remindIds(selectedIds(), at, remindToast(at, now), selectedRow ? [selectedRow.id] : []),
+                onPromote: () => void promote(),
+                onDelete: () => setConfirmDelete(selected),
+                onOpenItem: openLead,
+                onBack: closeLead,
+            }}
+        />
+    );
+
     return (
-        <div className="space-y-5">
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-                {header}
-                <div
-                    className="inline-flex rounded-lg overflow-hidden border"
-                    style={{ borderColor: "var(--rule-strong)", background: "var(--elev-1)" }}
-                    role="tablist"
-                    aria-label="Filter inbox"
-                >
-                    {FILTERS.map((f) => {
-                        // Nothing has been promoted yet: the tab would only ever open an empty
-                        // list, and on a new account it is a word the client has no use for.
-                        if (f === "promoted" && promotedCount === 0) return null;
-                        if (f === "archived" && archivedCount === 0) return null;
-                        return (
-                            <button
-                                key={f}
-                                type="button"
-                                role="tab"
-                                aria-selected={filter === f}
-                                onClick={() => setParam("f", f === "all" ? "" : f)}
-                                className="px-3.5 py-1.5 text-xs uppercase tracking-wide cursor-pointer"
-                                style={{
-                                    fontFamily: "var(--font-mono)",
-                                    background: filter === f ? "var(--accent)" : "transparent",
-                                    color: filter === f ? "var(--on-accent)" : "var(--fg-3)",
-                                }}
-                            >
-                                {f === "promoted"
-                                    ? `promoted · ${promotedCount}`
-                                    : f === "archived"
-                                      ? `archived · ${archivedCount}`
-                                      : f}
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
+        <div className="space-y-4">
+            <InboxToolbar
+                filter={filter}
+                counts={counts}
+                remindSupported={remindSupported}
+                search={rawSearch}
+                onSearch={(q) => setParam("q", q)}
+                onFilter={setFilter}
+                selected={checkedRows.length}
+                onBulkDone={bulkDone}
+                onBulkRemind={bulkRemind}
+                onBulkClear={() => setChecked(new Set())}
+                searchRef={searchRef}
+                isDesktop={isDesktop}
+            />
 
-            <div data-tour="inbox-filters"
-                className="flex items-center gap-2 rounded-lg border px-3 py-2 max-w-md"
-                style={{ background: "var(--bg)", borderColor: "var(--rule-strong)" }}>
-                <MagnifyingGlass size={14} style={{ color: "var(--fg-3)" }} />
-                <input
-                    type="search"
-                    value={params.get("q") ?? ""}
-                    onChange={(e) => setParam("q", e.target.value)}
-                    placeholder="Search name, number, or message…"
-                    className="bg-transparent outline-none text-sm w-full"
-                    style={{ color: "var(--fg)" }}
-                />
-            </div>
-
-            {error && (
+            {error && !(selected && isDesktop) && (
                 <p className="text-sm" style={{ color: "var(--chart-neg)" }}>
                     {error}
                 </p>
             )}
 
-            {undo && (
+            <div className="portal-elev overflow-hidden lg:flex lg:h-[calc(100dvh-196px)] lg:min-h-[520px]">
                 <div
-                    role="status"
-                    className="flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm max-w-md"
-                    style={{ background: "var(--fg)", color: "var(--elev-1)" }}
+                    data-tour="inbox-list"
+                    className="min-w-0 lg:w-[460px] lg:flex-none lg:border-r"
+                    style={{ borderColor: "var(--rule)" }}
                 >
-                    <span className="min-w-0 truncate">Archived {undo.label}.</span>
-                    <button
-                        type="button"
-                        onClick={() => archiveIds(undo.ids, false, undo.label)}
-                        className="ml-auto shrink-0 font-semibold underline underline-offset-2 cursor-pointer"
-                        style={{ color: "#9dc0ff" }}
-                    >
-                        Undo
-                    </button>
+                    <InboxList
+                        sections={sections}
+                        selectedRowId={isDesktop ? (selectedRow?.id ?? null) : null}
+                        checked={checked}
+                        onToggleCheck={(id) =>
+                            setChecked((s) => {
+                                const n = new Set(s);
+                                if (n.has(id)) n.delete(id);
+                                else n.add(id);
+                                return n;
+                            })
+                        }
+                        onOpen={(row) => openLead(row.lead.id)}
+                        onDone={rowDone}
+                        onRemind={(row) => {
+                            openLead(row.lead.id);
+                            setRemindOpen(true);
+                        }}
+                        remindSupported={remindSupported}
+                        now={now}
+                        empty={empty}
+                    />
                 </div>
+                {isDesktop && (
+                    <div data-inbox-pane className="flex-1 min-w-0 min-h-0 relative">
+                        {detail}
+                    </div>
+                )}
+            </div>
+
+            {/* Phone: the lead fills the screen, over the tab bar, and slides in from the right.
+                Fixed inside `.portal-scope`, so it reads the tokens like everything else. */}
+            {layout === false && detail && (
+                <motion.section
+                    aria-label={selected?.name ?? selected?.phoneDisplay ?? "Lead"}
+                    data-inbox-pane
+                    initial={reduceMotion ? false : { x: "100%" }}
+                    animate={{ x: 0 }}
+                    transition={{ duration: 0.28, ease: [0.22, 0.8, 0.24, 1] }}
+                    className="fixed inset-0 z-50 flex flex-col overscroll-contain"
+                    style={{ background: "var(--bg)" }}
+                >
+                    {detail}
+                </motion.section>
             )}
 
-            <Card density="none" className="overflow-hidden" data-tour="inbox-list">
-                {groups.map((g, i) => {
-                    const item = g.lead;
-                    const isOpen = expanded.has(g.id) || g.id === linkedRun;
-                    const ids = groupItemIds(g);
-                    return (
-                        <div
-                            key={g.id}
-                            style={{ borderTop: i === 0 ? undefined : "1px solid var(--rule)" }}
-                        >
-                            <div
-                                className="flex items-center"
-                                style={{ background: g.unread ? "rgba(37,99,235,0.025)" : undefined }}
-                            >
-                                <button
-                                    type="button"
-                                    onClick={() => openItem(item.id)}
-                                    className="flex-1 min-w-0 flex flex-wrap md:flex-nowrap items-center gap-x-3 gap-y-1 px-4 py-3.5 text-left cursor-pointer transition-colors"
-                                >
-                                    <span
-                                        className="shrink-0 rounded-full"
-                                        style={{
-                                            width: 7,
-                                            height: 7,
-                                            background: g.unread ? "var(--accent)" : "transparent",
-                                        }}
-                                        aria-hidden="true"
-                                    />
-                                    <span
-                                        className="shrink-0 w-[30px] h-[30px] rounded-lg flex items-center justify-center"
-                                        style={{
-                                            background:
-                                                item.source === "web-form"
-                                                    ? "rgba(37,99,235,0.1)"
-                                                    : "var(--surface)",
-                                            color:
-                                                item.source === "web-form"
-                                                    ? "var(--accent)"
-                                                    : "var(--fg-3)",
-                                        }}
-                                    >
-                                        {item.source === "web-form" ? (
-                                            <Envelope size={15} />
-                                        ) : (
-                                            <PhoneCall size={15} />
-                                        )}
-                                    </span>
-                                    <span
-                                        className="shrink-0 max-w-[132px] truncate text-sm"
-                                        style={{
-                                            color: item.name ? "var(--fg)" : "var(--fg-3)",
-                                            fontWeight: g.unread ? 700 : 600,
-                                        }}
-                                    >
-                                        {item.name ?? "Unknown caller"}
-                                    </span>
-                                    {/* The count is what makes a row a group. Only shown when
-                                        there is more than one, so a single call reads exactly
-                                        as it did before. */}
-                                    {g.count > 1 && (
-                                        <span
-                                            className="shrink-0 text-[10.5px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                                            style={{
-                                                fontFamily: "var(--font-mono)",
-                                                background: "rgba(22,163,74,0.12)",
-                                                color: "var(--chart-pos)",
-                                            }}
-                                        >
-                                            {g.count} calls
-                                        </span>
-                                    )}
-                                    {/* On a phone the name, the count and the time already fill
-                                        the line, and a message squeezed into what is left reads
-                                        as one or two characters. It wraps to its own line below
-                                        them instead, and sits inline again from `md` up. */}
-                                    <span
-                                        className="basis-full order-last pl-10 truncate text-[13px] md:basis-0 md:flex-1 md:order-none md:pl-0 min-w-0"
-                                        style={{ color: g.unread ? "var(--fg-2)" : "var(--fg-3)" }}
-                                    >
-                                        {item.preview ?? "No message"}
-                                    </span>
-                                    <span className="shrink-0 hidden md:flex gap-1.5">
-                                        {g.count === 1 && (
-                                            <Tag>
-                                                {item.source === "web-form"
-                                                    ? "Web form"
-                                                    : `Call · ${duration(item.durationSeconds) ?? "—"}`}
-                                            </Tag>
-                                        )}
-                                        {item.callback && (
-                                            <Tag tone="pos">
-                                                ☎ {duration(item.callback.durationSeconds) ?? "—"}
-                                            </Tag>
-                                        )}
-                                        {item.promoted && <Tag tone="pos">✓ Promoted</Tag>}
-                                    </span>
-                                    <span
-                                        className="shrink-0 w-[72px] text-right text-xs"
-                                        style={{
-                                            fontFamily: "var(--font-mono)",
-                                            color: "var(--fg-3)",
-                                        }}
-                                    >
-                                        {shortAgo(g.at)}
-                                    </span>
-                                </button>
-
-                                <span className="shrink-0 flex items-center gap-1 pr-3 pl-1">
-                                    {viewingArchive ? (
-                                        <>
-                                            <RowButton
-                                                label="Restore"
-                                                onClick={() =>
-                                                    archiveIds(ids, false, groupLabel(g))
-                                                }
-                                            >
-                                                <ArrowCounterClockwise size={14} />
-                                            </RowButton>
-                                            {/* Only a web enquiry is ours to destroy. A call is
-                                                a row in the client's own Airtable log with a
-                                                recording on it. */}
-                                            {item.source === "web-form" ? (
-                                                <RowButton
-                                                    label="Delete"
-                                                    danger
-                                                    onClick={() => setConfirmDelete(item)}
-                                                >
-                                                    <Trash size={14} />
-                                                </RowButton>
-                                            ) : (
-                                                <span
-                                                    className="hidden lg:inline text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                                                    style={{
-                                                        fontFamily: "var(--font-mono)",
-                                                        background: "var(--surface)",
-                                                        color: "var(--fg-3)",
-                                                    }}
-                                                >
-                                                    stays in your call log
-                                                </span>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <RowButton
-                                            label={g.count > 1 ? `Archive all ${g.count}` : "Archive"}
-                                            onClick={() => archiveIds(ids, true, groupLabel(g))}
-                                        >
-                                            <Archive size={14} />
-                                        </RowButton>
-                                    )}
-                                    {g.count > 1 && (
-                                        <RowButton
-                                            label={isOpen ? "Hide calls" : `Show all ${g.count} calls`}
-                                            onClick={() => toggleGroup(g.id)}
-                                        >
-                                            {isOpen ? <CaretUp size={14} /> : <CaretDown size={14} />}
-                                        </RowButton>
-                                    )}
-                                </span>
-                            </div>
-
-                            {/* Each call keeps its own time, length and summary. Nothing is
-                                merged away; the row is a way of reading the list. */}
-                            {isOpen &&
-                                g.items.map((sub) => (
-                                    <div
-                                        key={sub.id}
-                                        className="flex items-center gap-3 py-2.5 pr-3 pl-6 md:pl-14"
-                                        style={{
-                                            background: "var(--bg)",
-                                            borderTop: "1px solid var(--rule-weak)",
-                                        }}
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() => openItem(sub.id)}
-                                            className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer"
-                                        >
-                                            <span
-                                                className="shrink-0 text-[10.5px] w-[108px]"
-                                                style={{
-                                                    fontFamily: "var(--font-mono)",
-                                                    color: "var(--fg-3)",
-                                                }}
-                                            >
-                                                {shortAgo(sub.at)}
-                                            </span>
-                                            <span
-                                                className="shrink-0 text-[10.5px] w-[52px]"
-                                                style={{
-                                                    fontFamily: "var(--font-mono)",
-                                                    color: "var(--fg-3)",
-                                                }}
-                                            >
-                                                {duration(sub.durationSeconds) ?? "—"}
-                                            </span>
-                                            <span
-                                                className="flex-1 min-w-0 truncate text-[12.5px]"
-                                                style={{ color: "var(--fg-2)" }}
-                                            >
-                                                {sub.preview ?? "No message"}
-                                            </span>
-                                        </button>
-                                        <RowButton
-                                            label={viewingArchive ? "Restore this call" : "Archive this call"}
-                                            onClick={() =>
-                                                archiveIds(
-                                                    [sub.id],
-                                                    !viewingArchive,
-                                                    sub.name ?? sub.phoneDisplay,
-                                                )
-                                            }
-                                        >
-                                            {viewingArchive ? (
-                                                <ArrowCounterClockwise size={13} />
-                                            ) : (
-                                                <Archive size={13} />
-                                            )}
-                                        </RowButton>
-                                    </div>
-                                ))}
-                        </div>
-                    );
-                })}
-                {groups.length === 0 && (
-                    <div className="px-4 py-10 text-center text-sm" style={{ color: "var(--fg-3)" }}>
-                        {viewingArchive
-                            ? "Nothing archived yet. Anything you put away waits here."
-                            : "Nothing matches that."}
-                    </div>
-                )}
-            </Card>
-
-            <Drawer
-                open={open !== null}
-                onClose={() => openItem(null)}
-                title={open?.name ?? "Enquiry"}
-                width="lg"
-                surface="raised"
-            >
-                {open && (
-                    <div className="space-y-6">
-                        <p className="text-sm" style={{ color: "var(--fg-3)" }}>
-                            {fullWhen(open.at)} · {open.source === "web-form" ? "web form" : "phone call"}
-                        </p>
-
-                        {open.preview && (
-                            <section className="space-y-2.5">
-                                <CardLabel>
-                                    {open.source === "web-form" ? "What they asked for" : "What was said"}
-                                </CardLabel>
-                                <div
-                                    className="rounded-xl border p-4 text-sm leading-relaxed"
-                                    style={{ background: "var(--bg)", borderColor: "var(--rule)" }}
-                                >
-                                    {open.preview}
-                                </div>
-                            </section>
-                        )}
-
-                        {open.callback && (
-                            <section className="space-y-2.5">
-                                <CardLabel>What happened next</CardLabel>
-                                <div className="flex gap-3">
-                                    <span
-                                        className="shrink-0 w-[26px] h-[26px] rounded-full flex items-center justify-center"
-                                        style={{ background: "rgba(22,163,74,0.1)", color: "var(--chart-pos)" }}
-                                    >
-                                        <PhoneCall size={13} />
-                                    </span>
-                                    <div className="flex-1 text-sm">
-                                        <div style={{ color: "var(--fg)" }}>
-                                            Your receptionist called them back
-                                        </div>
-                                        {open.callback.summary && (
-                                            <p className="mt-1 text-[13px] leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                                                {open.callback.summary}
-                                            </p>
-                                        )}
-                                        {open.callback.recordingUrl && (
-                                            <audio controls preload="none" src={open.callback.recordingUrl} className="mt-2 w-full" />
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-                        )}
-
-                        {open.recordingUrl && !open.callback && (
-                            <section className="space-y-2.5">
-                                <CardLabel>Recording</CardLabel>
-                                <audio controls preload="none" src={open.recordingUrl} className="w-full" />
-                            </section>
-                        )}
-
-                        <section className="space-y-2.5">
-                            <CardLabel>Contact details</CardLabel>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Fact label="Phone">
-                                    {open.phone ? (
-                                        <a href={`tel:${open.phone}`} style={{ color: "var(--accent)" }}>
-                                            {open.phoneDisplay}
-                                        </a>
-                                    ) : (
-                                        "No number"
-                                    )}
-                                </Fact>
-                                <Fact label="Email">
-                                    {open.email ? (
-                                        <a href={`mailto:${open.email}`} style={{ color: "var(--accent)" }}>
-                                            {open.email}
-                                        </a>
-                                    ) : (
-                                        "—"
-                                    )}
-                                </Fact>
-                                {open.callbackPhone && (
-                                    <Fact label="Callback number">
-                                        <a href={`tel:${open.callbackPhone}`} style={{ color: "var(--accent)" }}>
-                                            {open.callbackPhoneDisplay}
-                                        </a>
-                                    </Fact>
-                                )}
-                                <Fact label="Source">
-                                    {open.source === "web-form" ? "Website form" : "Phone call"}
-                                </Fact>
-                                <Fact label="Received">{fullWhen(open.at)}</Fact>
-                            </div>
-                        </section>
-
-                        <div className="pt-1">
-                            {data.canPromote ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        onClick={promote}
-                                        data-tour="inbox-promote"
-                                        disabled={promoting || open.promoted}
-                                        className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                                        style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                                    >
-                                        <Plus size={15} weight="bold" />
-                                        {open.promoted
-                                            ? "Already in your customers"
-                                            : promoting
-                                              ? "Adding…"
-                                              : "Promote to customer"}
-                                    </button>
-                                    <p className="mt-2 text-xs text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                                        Creates a customer record with this enquiry already attached.
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <a
-                                        href={
-                                            (open.callbackPhone ?? open.phone)
-                                                ? `tel:${open.callbackPhone ?? open.phone}`
-                                                : undefined
-                                        }
-                                        className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
-                                        style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                                    >
-                                        <PhoneCall size={15} weight="bold" />
-                                        Call them back
-                                    </a>
-                                    <p className="mt-2 text-xs text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                                        Customer records and follow-up texting come with Growth.
-                                    </p>
-                                </>
-                            )}
-                        </div>
-
-                        <div className="pt-1">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const label = open.name ?? open.phoneDisplay;
-                                    archiveIds([open.id], !open.archived, label);
-                                    openItem(null);
-                                }}
-                                className="w-full rounded-lg border px-4 py-2.5 text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer"
-                                style={{ borderColor: "var(--rule-strong)", color: "var(--fg-2)" }}
-                            >
-                                {open.archived ? (
-                                    <>
-                                        <ArrowCounterClockwise size={15} /> Restore to inbox
-                                    </>
-                                ) : (
-                                    <>
-                                        <Archive size={15} /> Archive
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </Drawer>
+            <UndoToast toast={toast} onDismiss={() => setToast(null)} />
+            {help && <ShortcutHelp onClose={() => setHelp(false)} />}
 
             {/* The one destructive path in the inbox, and the only one with a confirmation:
-                archive is reversible and a dialog on a reversible action teaches people to
+                Done is reversible and a dialog on a reversible action teaches people to
                 dismiss dialogs. This says what survives, because a client deleting an enquiry
                 is entitled to know the call log and the consent record are not going with it. */}
             <Drawer
@@ -830,7 +621,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                             <button
                                 type="button"
                                 onClick={() => setConfirmDelete(null)}
-                                className="rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer"
+                                className="rounded-lg border px-4 py-2.5 min-h-11 text-sm font-medium cursor-pointer"
                                 style={{ borderColor: "var(--rule-strong)", color: "var(--fg)" }}
                             >
                                 Keep it
@@ -839,7 +630,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                                 type="button"
                                 onClick={() => deleteLead(confirmDelete)}
                                 disabled={deleting}
-                                className="rounded-lg px-4 py-2.5 text-sm font-semibold cursor-pointer disabled:opacity-60"
+                                className="rounded-lg px-4 py-2.5 min-h-11 text-sm font-semibold cursor-pointer disabled:opacity-60"
                                 style={{ background: "var(--chart-neg)", color: "#ffffff" }}
                             >
                                 {deleting ? "Deleting…" : "Delete permanently"}
@@ -848,68 +639,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                     </div>
                 )}
             </Drawer>
-        </div>
-    );
-}
-
-/**
- * A small, square-ish action on a row.
- *
- * Icon-only so a row of three does not crowd out the message, with the words on the tooltip
- * and on the accessible name — the two places that still have room for them.
- */
-function RowButton({
-    label,
-    onClick,
-    danger,
-    children,
-}: {
-    label: string;
-    onClick: () => void;
-    danger?: boolean;
-    children: React.ReactNode;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            title={label}
-            aria-label={label}
-            className="portal-hit shrink-0 w-8 h-8 rounded-lg inline-flex items-center justify-center cursor-pointer transition-colors"
-            style={{ color: danger ? "var(--chart-neg)" : "var(--fg-3)" }}
-        >
-            {children}
-        </button>
-    );
-}
-
-function Tag({ children, tone }: { children: React.ReactNode; tone?: "pos" }) {
-    return (
-        <span
-            className="text-[10.5px] px-2 py-0.5 rounded-full whitespace-nowrap"
-            style={{
-                fontFamily: "var(--font-mono)",
-                background: tone === "pos" ? "rgba(22,163,74,0.1)" : "var(--surface)",
-                color: tone === "pos" ? "var(--chart-pos)" : "var(--fg-2)",
-            }}
-        >
-            {children}
-        </span>
-    );
-}
-
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <div
-                className="text-[10px] uppercase tracking-wider mb-1"
-                style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}
-            >
-                {label}
-            </div>
-            <div className="text-sm" style={{ color: "var(--fg)" }}>
-                {children}
-            </div>
         </div>
     );
 }

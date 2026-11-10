@@ -55,6 +55,17 @@ export interface InboxItem {
      * leaves the log alone.
      */
     archived: boolean;
+    /**
+     * "Remind me": out of Needs you until this time, then back in it. ISO, or null.
+     *
+     * Optional because the store behind it is being built in a separate change (see
+     * `inbox-snooze-templates-api-shape.md`): `buildInbox` does not set it, and an inbox
+     * payload without the key at all is how the UI knows reminders are not live yet and hides
+     * the controls rather than offering a button that 404s.
+     */
+    remindAt?: string | null;
+    /** Set when a new call or form from the same contact cleared the reminder early. */
+    remindCancelledBy?: "new-contact" | null;
     durationSeconds: number | null;
     recordingUrl: string | null;
     /**
@@ -272,7 +283,81 @@ export function buildInbox({
 
 /* ── what the inbox shows ─────────────────────────────────────────────────── */
 
-export type InboxFilter = "all" | "unread" | "calls" | "forms" | "promoted" | "archived";
+/**
+ * The views the Inbox offers, one per chip.
+ *
+ * `needs` is the worklist and the default. `all`, `calls` and `forms` are everything still in
+ * the inbox — handled or not, so a lead marked Done by mistake is one chip away — and
+ * `reminders`, `promoted` and `done` are the three states something leaves Needs you for.
+ * "Done" is the UI's name for the stored `archived` flag; the field kept its name.
+ */
+export type InboxFilter =
+    | "needs"
+    | "all"
+    | "calls"
+    | "forms"
+    | "reminders"
+    | "promoted"
+    | "done"
+    /**
+     * @deprecated The old "unread" view, now exactly Needs you. Kept as an alias so a caller
+     * written against it (the Overview's `needsYou()` on #87) keeps meaning "what still needs
+     * the owner" rather than silently becoming All. Nothing marks items read today, so the
+     * old read-based meaning was never what anyone got anyway.
+     */
+    | "unread";
+
+const INBOX_FILTERS: readonly InboxFilter[] = [
+    "needs",
+    "all",
+    "calls",
+    "forms",
+    "reminders",
+    "promoted",
+    "done",
+];
+
+/**
+ * `?f=` to a view. Anything missing or unknown is Needs you.
+ *
+ * The two retired values still land somewhere sensible, because they are in bookmarks: the
+ * old `unread` view was the nearest thing to Needs you, and `archived` is what Done is.
+ */
+export function parseInboxFilter(raw: string | null | undefined): InboxFilter {
+    if (raw === "unread") return "needs";
+    if (raw === "archived") return "done";
+    return INBOX_FILTERS.includes(raw as InboxFilter) ? (raw as InboxFilter) : "needs";
+}
+
+/** Where an item stands. Exactly one applies, decided in this order. */
+export type InboxStatus = "promoted" | "done" | "reminded" | "needs";
+
+/**
+ * The status rule, in one place.
+ *
+ * Promoted wins over Done when an item is somehow both, because "it became a customer" is the
+ * more useful thing to be told. A reminder only holds while it is in the future: once
+ * `remindAt` passes, the item is back in Needs you without anything having to write that down,
+ * which is the whole point of storing a time rather than a flag.
+ */
+export function inboxStatus(item: InboxItem, now: number = Date.now()): InboxStatus {
+    if (item.promoted) return "promoted";
+    if (item.archived) return "done";
+    if (item.remindAt) {
+        const t = new Date(item.remindAt).getTime();
+        if (!Number.isNaN(t) && t > now) return "reminded";
+    }
+    return "needs";
+}
+
+/**
+ * The canonical Needs-you predicate: not Done (`archived`), not promoted, not reminded to a
+ * future time. Read/unread plays no part — nothing marks a call or lead read today, and
+ * opening a lead is not handling it. The Overview and the Inbox both count by this.
+ */
+export function isNeedsYou(item: InboxItem, now: number = Date.now()): boolean {
+    return inboxStatus(item, now) === "needs";
+}
 
 /**
  * The inbox is a worklist, so a promoted lead leaves it.
@@ -280,9 +365,13 @@ export type InboxFilter = "all" | "unread" | "calls" | "forms" | "promoted" | "a
  * It used to stay, marked with a "✓ Promoted" tag, because `buildInbox` only ever *flagged*
  * promotion and nothing downstream filtered on the flag. That made the inbox look like it never
  * empties: the one list whose whole job is "what still needs working" kept showing the items
- * that had been worked. Every filter here except `promoted` now hides them, and the `promoted`
- * filter shows nothing else — so there is still a way back to something promoted by mistake,
+ * that had been worked. Every view here except `promoted` still hides them, and the `promoted`
+ * view shows nothing else — so there is still a way back to something promoted by mistake,
  * which is the only reason not to drop them outright.
+ *
+ * Done and reminded items are different: they are still the client's inbox, just not today's
+ * work. Needs you hides them; All, Calls and Forms show them (the list mutes them), and each
+ * has a view of its own.
  *
  * Pure, and the filter the component used to inline, so the rule is testable away from React.
  */
@@ -290,19 +379,22 @@ export function filterInbox(
     items: InboxItem[],
     filter: InboxFilter,
     search = "",
+    now: number = Date.now(),
 ): InboxItem[] {
     const q = search.trim().toLowerCase();
     return items.filter((i) => {
-        // Two views of what has left the worklist, and four slices of what is still in it.
-        // Promoted wins over archived when an item is somehow both, because "it became a
-        // customer" is the more useful thing to be told.
+        const status = inboxStatus(i, now);
         if (filter === "promoted") {
-            if (!i.promoted) return false;
-        } else if (filter === "archived") {
-            if (!i.archived || i.promoted) return false;
+            if (status !== "promoted") return false;
+        } else if (status === "promoted") {
+            return false;
+        } else if (filter === "needs" || filter === "unread") {
+            if (status !== "needs") return false;
+        } else if (filter === "reminders") {
+            if (status !== "reminded") return false;
+        } else if (filter === "done") {
+            if (status !== "done") return false;
         } else {
-            if (i.promoted || i.archived) return false;
-            if (filter === "unread" && i.read) return false;
             if (filter === "calls" && i.source !== "call") return false;
             if (filter === "forms" && i.source !== "web-form") return false;
         }
