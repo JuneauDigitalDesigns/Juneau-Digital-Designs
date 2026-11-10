@@ -32,8 +32,10 @@ import {
     classifyDeepLink,
     filterInbox,
     inboxItemForDeepLink,
+    inboxStatus,
     isDeepLinkId,
     markOrigin,
+    parseInboxFilter,
     promotionInput,
 } from "../app/lib/crm-contacts.ts";
 
@@ -382,7 +384,7 @@ test("every ordinary filter hides a promoted lead", () => {
     const items = mixedInbox();
     assert.ok(items.some((i) => i.id === "recDone" && i.promoted), "fixture really is promoted");
 
-    for (const f of ["all", "unread", "calls", "forms"]) {
+    for (const f of ["needs", "all", "calls", "forms", "reminders", "done"]) {
         assert.ok(
             !filterInbox(items, f).some((i) => i.id === "recDone"),
             `the "${f}" filter still showed a promoted lead`,
@@ -403,7 +405,8 @@ test("the ordinary filters still filter", () => {
     const items = mixedInbox();
 
     assert.deepEqual(ids(filterInbox(items, "all")), ["recOpen", "lead:Lform"]);
-    assert.deepEqual(ids(filterInbox(items, "unread")), ["recOpen"], "the form lead is read");
+    // Opening a lead is not handling it: the read form lead still needs the owner.
+    assert.deepEqual(ids(filterInbox(items, "needs")), ["recOpen", "lead:Lform"]);
     assert.deepEqual(ids(filterInbox(items, "calls")), ["recOpen"]);
     assert.deepEqual(ids(filterInbox(items, "forms")), ["lead:Lform"]);
 });
@@ -771,12 +774,12 @@ test("grouping runs after filtering, which is what makes the archive accumulate"
         archived: new Set(["recFirst", "recSecond", "recThird", "recFourth"]),
     });
 
-    const archivedView = groupInbox(filterInbox(items, "archived"));
+    const archivedView = groupInbox(filterInbox(items, "done"));
     assert.equal(archivedView.length, 1);
     assert.equal(archivedView[0].count, 4);
 
     // And the worklist is empty, rather than showing a row of nothing.
-    assert.deepEqual(groupInbox(filterInbox(items, "all")), []);
+    assert.deepEqual(groupInbox(filterInbox(items, "needs")), []);
 });
 
 test("a partly archived run splits between the two views", () => {
@@ -788,8 +791,8 @@ test("a partly archived run splits between the two views", () => {
         archived: new Set(["recGone"]),
     });
 
-    const working = groupInbox(filterInbox(items, "all"));
-    const archived = groupInbox(filterInbox(items, "archived"));
+    const working = groupInbox(filterInbox(items, "needs"));
+    const archived = groupInbox(filterInbox(items, "done"));
 
     assert.deepEqual(groupItemIds(working[0]), ["recKeep"]);
     assert.deepEqual(groupItemIds(archived[0]), ["recGone"]);
@@ -797,20 +800,43 @@ test("a partly archived run splits between the two views", () => {
 
 /* ── archived ─────────────────────────────────────────────────────────────── */
 
-test("every ordinary filter hides an archived item", () => {
+test("Needs you hides a Done item; All and its slices still show it", () => {
+    /**
+     * Done (stored as `archived`) is out of today's work, not out of the inbox. It used to
+     * vanish from every view but its own, so a lead put away by mistake was only findable by
+     * someone who knew to look in the archive. All, Calls and Forms now keep it (muted, with a
+     * Done chip), and Needs you and Reminders do not.
+     */
     const items = buildInbox({
         calls: [call({ id: "recOpen", date: at(0), callerNumber: "+19305551111" })],
         leads: [lead({ leadId: "Lgone", phone: "+19305552222", phoneRaw: null })],
         archived: new Set(["lead:Lgone"]),
     });
 
-    for (const f of ["all", "unread", "calls", "forms"]) {
+    for (const f of ["needs", "reminders"]) {
         assert.ok(
             !filterInbox(items, f).some((i) => i.id === "lead:Lgone"),
-            `the "${f}" filter still showed an archived item`,
+            `the "${f}" view still showed a Done item`,
         );
     }
-    assert.deepEqual(ids(filterInbox(items, "archived")), ["lead:Lgone"]);
+    for (const f of ["all", "forms"]) {
+        assert.ok(
+            filterInbox(items, f).some((i) => i.id === "lead:Lgone"),
+            `the "${f}" view lost a Done item`,
+        );
+    }
+    assert.deepEqual(ids(filterInbox(items, "done")), ["lead:Lgone"]);
+});
+
+test("the retired ?f= values still land on the view they became", () => {
+    assert.equal(parseInboxFilter("unread"), "needs");
+    assert.equal(parseInboxFilter("archived"), "done");
+    assert.equal(parseInboxFilter(null), "needs");
+    assert.equal(parseInboxFilter(""), "needs");
+    assert.equal(parseInboxFilter("<script>"), "needs");
+    for (const f of ["needs", "all", "calls", "forms", "reminders", "promoted", "done"]) {
+        assert.equal(parseInboxFilter(f), f);
+    }
 });
 
 test("an item that is both promoted and archived reads as promoted", () => {
@@ -822,7 +848,8 @@ test("an item that is both promoted and archived reads as promoted", () => {
     });
 
     assert.deepEqual(ids(filterInbox(items, "promoted")), ["recCall"]);
-    assert.deepEqual(ids(filterInbox(items, "archived")), []);
+    assert.deepEqual(ids(filterInbox(items, "done")), []);
+    assert.equal(inboxStatus(items[0]), "promoted");
 });
 
 test("an archived item is still reachable by deep link", () => {
@@ -830,7 +857,7 @@ test("an archived item is still reachable by deep link", () => {
     // dead end — the item is out of the worklist, not gone.
     const items = buildInbox({ calls: [call()], archived: new Set(["recCall"]) });
 
-    assert.deepEqual(ids(filterInbox(items, "all")), [], "hidden from the worklist");
+    assert.deepEqual(ids(filterInbox(items, "needs")), [], "hidden from the worklist");
     assert.equal(inboxItemForDeepLink(items, "recCall").id, "recCall", "still reachable");
     assert.equal(items[0].archived, true);
 });
@@ -868,9 +895,15 @@ test("a callback collapsed into its form lead still carries the corrected number
 });
 
 test("the record shows it, and the call button rings it", () => {
-    const src = readFileSync(new URL("../app/components/portal/InboxSection.tsx", import.meta.url), "utf8");
+    // The lead pane moved to `inbox/LeadDetail.tsx` when the Inbox was split up. Every call
+    // control there — Call back, the row's hover action, the swipe and the `c` key — dials
+    // through `dialNumber`, so the rule is pinned in that one place.
+    const src = readFileSync(new URL("../app/components/portal/inbox/LeadDetail.tsx", import.meta.url), "utf8");
     assert.match(src, /<Fact label="Callback number">/);
-    assert.match(src, /tel:\$\{open\.callbackPhone \?\? open\.phone\}/);
+    assert.match(src, /const dial = dialNumber\(item\)/);
+    assert.match(src, /tel:\$\{dial\}/);
+    const list = readFileSync(new URL("../app/components/portal/inbox/InboxList.tsx", import.meta.url), "utf8");
+    assert.match(list, /return item\.callbackPhone \?\? item\.phone;/);
     const calls = readFileSync(new URL("../app/lib/airtable-calls.ts", import.meta.url), "utf8");
     assert.match(calls, /callbackNumber: str\(r\.fields\["Callback number"\]\)/);
     assert.match(calls, /const KNOWN_FIELDS[^;]*"Callback number"/s, "a base without the column must not be asked for it");
