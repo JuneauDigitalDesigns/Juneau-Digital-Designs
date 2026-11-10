@@ -75,6 +75,9 @@ test("every text colour Clerk renders clears WCAG AA on every surface it sits on
     assert.equal(v.colorForeground, AGENCY_HEX.fg);
     assert.equal(v.colorMutedForeground, AGENCY_HEX.fg2);
     assert.equal(v.colorBackground, AGENCY_HEX.card);
+    // The agency body face, not the portal's Inter: sign-in matches the agency site.
+    assert.match(v.fontFamily, /^var\(--font-hanken\)/);
+    assert.match(read("app/portal/sign-in/_auth/AuthShell.module.css"), /font-family: var\(--font-hanken\)/);
     // --fg-3 fails on cream at the sizes Clerk uses for muted text.
     assert.ok(!Object.values(v).includes("#7a715a"), "--fg-3 is not AA on cream");
 });

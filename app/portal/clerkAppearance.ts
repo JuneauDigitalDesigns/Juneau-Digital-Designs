@@ -178,8 +178,11 @@ export const clerkAppearance = {
         colorSuccess: AGENCY_HEX.success,
         colorWarning: AGENCY_HEX.warning,
         borderRadius: "6px",
-        fontFamily: "var(--font-inter), 'Inter', system-ui, sans-serif",
-        fontFamilyButtons: "var(--font-inter), 'Inter', system-ui, sans-serif",
+        // The agency body face (`--font-body` in `:root`), named by its next/font variable rather
+        // than `var(--font-body)`: `.portal-scope` redefines `--font-body`, and the UserButton
+        // trigger sits inside it. Hanken is loaded at 400-600, so a 700 renders at 600.
+        fontFamily: "var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif",
+        fontFamilyButtons: "var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif",
     },
     elements: {
         // ── The account popover (ClerkMenu mockup) ──────────────────────────────────────────
