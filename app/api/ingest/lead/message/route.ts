@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
-import { appendLeadMessage, resolveIngestToken } from "@/app/lib/portal-leads";
+import { appendLeadMessage, resolveIngestToken, takeFollowUp } from "@/app/lib/portal-leads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +9,11 @@ export const dynamic = "force-dynamic";
  * A visitor's message for a lead already in the portal, sent by a client site's `/api/contact`
  * when the AI callback couldn't be placed. The site comes from the token, so a site can only
  * ever reach its own leads. No owner text: the one for the lead has already gone.
+ *
+ * One message per submission, within 30 minutes of it (operator decision, 2026-11-09). The lead
+ * id is only ever given to the visitor who just submitted, so it is the proof this follows a real
+ * submission, and the message box asks for no second human check. Without the limit, anyone
+ * holding a lead id could post into that lead forever.
  */
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -47,6 +52,9 @@ export async function POST(request: Request) {
     }
 
     try {
+        if (!(await takeFollowUp(owner.acctScope, owner.slug, leadId))) {
+            return NextResponse.json({ error: "No message is open for this lead" }, { status: 409 });
+        }
         const lead = await appendLeadMessage(owner.acctScope, owner.slug, leadId, message);
         if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
         return NextResponse.json({ ok: true });

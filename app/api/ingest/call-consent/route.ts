@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { recordCallConsent } from "@/app/lib/call-consent";
+import { claimCallback } from "@/app/lib/lead-gate";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
 import { resolveIngestToken } from "@/app/lib/portal-leads";
 import { normalizeE164 } from "@/app/lib/phone";
@@ -15,6 +16,11 @@ export const dynamic = "force-dynamic";
  *
  * Any non-2xx means the site must not place the call. It records the lead instead, so a failure
  * here costs a callback, never the lead.
+ *
+ * **This is also where a callback is claimed** (`claimCallback`): one call per number per site in
+ * 24 h, two across all sites, 100 per site per day. Every deployed `/api/contact` dials only after
+ * a 2xx from here, so claiming here protects each live callback site without redeploying it. A
+ * refused claim is a 429 and no record: no call is placed, so there is nothing to prove.
  */
 
 const MAX_BODY_BYTES = 8 * 1024;
@@ -72,6 +78,12 @@ export async function POST(request: Request) {
     // A record whose hash doesn't cover its own words proves nothing, so it is never stored.
     if (hashConsentText(text) !== textHash) {
         return NextResponse.json({ error: "Hash does not match wording" }, { status: 400 });
+    }
+
+    const claim = await claimCallback(owner.acctScope, owner.slug, phone);
+    if (!claim.ok) {
+        console.warn(`[ingest/call-consent] callback held for ${owner.slug}: ${claim.reason}`);
+        return NextResponse.json({ error: "Callback held", reason: claim.reason }, { status: 429 });
     }
 
     try {

@@ -12,6 +12,7 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { register } from "node:module";
+import { fakeUpstash } from "./fake-upstash.mjs";
 
 register("./server-only-hook.mjs", import.meta.url);
 register("./next-server-hook.mjs", import.meta.url);
@@ -35,47 +36,20 @@ const TEXT =
     "I agree that Acme Plumbing may call me back at the number I entered, about this request, using an automated system and an AI-generated voice. The call may be recorded. I don't have to agree in order to buy anything, and I can phone instead.";
 const HASH = createHash("sha256").update(TEXT).digest("hex");
 
-const kv = new Map();
-const lists = new Map();
-const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
-
-function upstash(command) {
-    const [op, ...args] = command;
-    switch (op.toLowerCase()) {
-        case "get":
-            if (TOKEN_KEY_MATCH.test(args[0]) && args[0].includes(TOKEN)) {
-                return b64(JSON.stringify({ acctScope: "acct_1", slug: SLUG }));
-            }
-            return kv.has(args[0]) ? b64(kv.get(args[0])) : null;
-        case "rpush": {
-            const list = lists.get(args[0]) ?? [];
-            list.push(...args.slice(1));
-            lists.set(args[0], list);
-            return list.length;
-        }
-        case "lrange":
-            return (lists.get(args[0]) ?? []).map(b64);
-        // @upstash/ratelimit's fixed-window script: [count so far, ms until reset].
-        case "evalsha":
-        case "eval":
-            return [1, 60_000];
-        default:
-            throw new Error(`fake upstash: unhandled ${op}`);
-    }
-}
+// Real SET NX / INCR: this route now claims the callback before it saves the consent.
+const redis = fakeUpstash({
+    url: KV_URL,
+    resolve: (key) => (TOKEN_KEY_MATCH.test(key) && key.includes(TOKEN) ? { acctScope: "acct_1", slug: SLUG } : undefined),
+});
+const { kv, lists } = redis;
 
 const realFetch = globalThis.fetch;
 
 beforeEach(() => {
-    kv.clear();
-    lists.clear();
+    redis.reset();
     globalThis.fetch = async (input, init = {}) => {
-        const url = String(input);
-        if (!url.startsWith(KV_URL)) throw new Error(`unexpected fetch: ${url}`);
-        const body = JSON.parse(init.body);
-        return url.endsWith("/pipeline")
-            ? Response.json(body.map((cmd) => ({ result: upstash(cmd) })))
-            : Response.json({ result: upstash(body) });
+        if (!redis.owns(input)) throw new Error(`unexpected fetch: ${input}`);
+        return redis.handle(input, init);
     };
 });
 
@@ -125,9 +99,16 @@ test("a consent is kept whole, under the site the token belongs to, with our own
 
 test("consent is append-only and writes nothing a portal inbox reads", async () => {
     await send(proof());
+    // A second consent for the same number the same day is refused: that number's one call
+    // has been claimed (lead-gate.test.mjs). A day later it is a new call and a new record.
+    redis.advance(24 * 60 * 60 * 1000 + 1000);
     await send(proof());
     assert.equal((await getCallConsentLog(SLUG, "+12073181838")).length, 2);
-    assert.deepEqual([...kv.keys()], [], "no lead or any other record was written");
+    assert.deepEqual(
+        [...kv.keys()].filter((k) => k.startsWith("portal:lead")),
+        [],
+        "no lead was written; the only other keys are the callback claim's counters",
+    );
     assert.deepEqual([...lists.keys()], [`call:consent:log:${SLUG}:+12073181838`]);
 });
 
