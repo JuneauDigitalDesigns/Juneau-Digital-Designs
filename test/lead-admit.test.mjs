@@ -59,11 +59,15 @@ const redis = fakeUpstash({
 let cloudflare = "up";
 const spent = new Set();
 let siteverifyCalls = 0;
+/** Secrets Cloudflare knows: the hand-made widget's (env) and each pool widget's. */
+const POOL_SECRET = "pool-widget-2-secret";
+let secretsUsed = [];
 function siteverify(form) {
     siteverifyCalls++;
     if (cloudflare === "down") return new Response("bad gateway", { status: 502 });
     if (cloudflare === "throw") throw new TypeError("fetch failed");
-    if (form.get("secret") !== process.env.LEAD_FORM_TURNSTILE_SECRET_KEY) {
+    secretsUsed.push(form.get("secret"));
+    if (![process.env.LEAD_FORM_TURNSTILE_SECRET_KEY, POOL_SECRET].includes(form.get("secret"))) {
         return Response.json({ success: false, "error-codes": ["invalid-input-secret"] });
     }
     const token = form.get("response") ?? "";
@@ -75,6 +79,7 @@ function siteverify(form) {
 }
 
 const realFetch = globalThis.fetch;
+let opsEmails = [];
 let tokenSeq = 0;
 /** A token as the widget would hand it over after a solve on `host`. */
 const solved = (host = HOST) => `pass:${host}:lead:${++tokenSeq}`;
@@ -83,12 +88,20 @@ beforeEach(() => {
     redis.reset();
     spent.clear();
     siteverifyCalls = 0;
+    secretsUsed = [];
+    opsEmails = [];
+    process.env.RESEND_API_KEY = "re_test";
+    process.env.QUOTE_TO_EMAIL = "ops@juneaudigitaldesigns.com";
     cloudflare = "up";
     process.env.LEAD_FORM_TURNSTILE_SECRET_KEY = SECRET;
     delete process.env.INGEST_REQUIRE_ADMISSION;
     for (const k of Object.keys(process.env)) if (k.startsWith("GATE_")) delete process.env[k];
     globalThis.fetch = async (input, init = {}) => {
         if (redis.owns(input)) return redis.handle(input, init);
+        if (String(input) === "https://api.resend.com/emails") {
+            opsEmails.push(JSON.parse(init.body));
+            return Response.json({ id: "email_1" });
+        }
         if (String(input) === "https://challenges.cloudflare.com/turnstile/v0/siteverify") {
             return siteverify(new URLSearchParams(String(init.body)));
         }
@@ -138,8 +151,8 @@ const lead = (body, token) => post(leadPOST, "/api/ingest/lead", body, token);
  * What the new `/api/contact` does, step for step: admit; on "allowed" save consent and dial;
  * otherwise record the lead with the admission.
  */
-async function submit({ ip = "203.0.113.9", phone = "+12073181838", turnstileToken = solved() } = {}) {
-    const a = await admit({ ip, phone, turnstileToken });
+async function submit({ ip = "203.0.113.9", phone = "+12073181838", turnstileToken = solved(), ...rest } = {}) {
+    const a = await admit({ ip, phone, turnstileToken, ...rest });
     if (a.status !== 200) return { refused: a.body.error };
     if (a.body.callback === "allowed") {
         const c = await consent(phone, a.body.admissionId);
@@ -275,10 +288,70 @@ test("a site without a site key yet: its leads are recorded and nobody is called
     assert.equal(siteverifyCalls, 0);
 });
 
-test("once a site has passed a real check, it can't claim to have none", async () => {
+/* ── never lose a lead (operator decision, 2026-11-09) ─────────────────────────
+ * A host missing from the site's widget makes Cloudflare refuse to render it (error 110200), so
+ * the form has no token. Until this, the agency refused every lead from that host with message A:
+ * attaching a custom domain without adding it to the widget silently turned the site's leads away.
+ */
+
+test("the widget couldn't load: the lead is recorded, nobody is called", async () => {
+    const out = await submit({ turnstileToken: "", humanCheck: "widget-error" });
+    assert.deepEqual(out, { called: false, lead: 200 });
+    const [lead] = await listLeads(ACCT, SLUG);
+    assert.equal(lead.fields.verification, "unavailable");
+    assert.equal(siteverifyCalls, 0);
+});
+
+test("a widget error after the site has passed real checks still keeps the lead", async () => {
     assert.equal((await admit({ wantsCallback: false })).status, 200);
-    const off = await admit({ humanCheck: "off", turnstileToken: undefined, phone: "+14075550007" });
-    assert.deepEqual([off.status, off.body.error], [403, "not-verified"], "a leaked token can't switch the check off");
+    const r = await admit({ humanCheck: "widget-error", turnstileToken: undefined, phone: "+14075550007", ip: "198.51.100.77" });
+    assert.equal(r.status, 200);
+    assert.deepEqual([r.body.callback, r.body.verification], ["held", "unavailable"]);
+});
+
+test("widget errors: one per visitor per 10 minutes, and JDD is emailed once a day per host", async () => {
+    const first = await submit({ turnstileToken: "", humanCheck: "widget-error", phone: "+14075550011" });
+    const second = await submit({ turnstileToken: "", humanCheck: "widget-error", phone: "+14075550012" });
+    assert.deepEqual([first.lead, second.refused], [200, "too-many"]);
+    await submit({ turnstileToken: "", humanCheck: "widget-error", phone: "+14075550013", ip: "198.51.100.40" });
+    assert.equal(opsEmails.length, 1, "one email, however many leads");
+    assert.match(opsEmails[0].subject, new RegExp(`${SLUG}.*${HOST.replace(/\./g, "\\.")}`));
+
+    await admit({ turnstileToken: "", humanCheck: "widget-error", host: "www.arthursplumbing.com", ip: "198.51.100.41" });
+    assert.equal(opsEmails.length, 2, "a second host is its own finding");
+});
+
+test("a widget error that still carries a token is checked like any other", async () => {
+    const r = await admit({ turnstileToken: "garbage", humanCheck: "widget-error" });
+    assert.equal(r.status, 403, "claiming an error doesn't excuse a bad token");
+});
+
+/* ── the widget pool's secrets ─────────────────────────────────────────────── */
+
+test("a pool widget's token is verified with that widget's own secret", async () => {
+    redis.kv.set(`portal:gate:v1:widget-secret:0x4AAAAAAApool2`, { value: POOL_SECRET, exp: null });
+    const r = await admit({ siteKey: "0x4AAAAAAApool2", wantsCallback: false });
+    assert.equal(r.status, 200);
+    assert.deepEqual(secretsUsed, [POOL_SECRET]);
+});
+
+test("a site key with no stored secret falls back to the first widget's env secret", async () => {
+    assert.equal((await admit({ siteKey: "0x4AAAAAAAhandmade", wantsCallback: false })).status, 200);
+    assert.equal((await admit({ siteKey: "../../etc", wantsCallback: false, phone: "+14075550021" })).status, 200);
+    assert.deepEqual(secretsUsed, [SECRET, SECRET]);
+});
+
+test("a widget secret never leaves the agency: not in a response, not in a log line", async (t) => {
+    redis.kv.set(`portal:gate:v1:widget-secret:0x4AAAAAAApool2`, { value: POOL_SECRET, exp: null });
+    const lines = [];
+    for (const m of ["log", "warn", "error"]) t.mock.method(console, m, (...a) => lines.push(a.map(String).join(" ")));
+    cloudflare = "down";
+    const r = await admit({ siteKey: "0x4AAAAAAApool2", wantsCallback: false });
+    cloudflare = "up";
+    const r2 = await admit({ siteKey: "0x4AAAAAAApool2", turnstileToken: "garbage", phone: "+14075550031" });
+    for (const body of [r.body, r2.body]) assert.doesNotMatch(JSON.stringify(body), new RegExp(POOL_SECRET));
+    assert.ok(lines.length > 0, "the failures were logged");
+    for (const l of lines) assert.doesNotMatch(l, new RegExp(POOL_SECRET));
 });
 
 test("no Turnstile secret on the agency: nobody is called, nobody is refused", async () => {
@@ -301,4 +374,12 @@ test("10 submissions per visitor per site a day", async (t) => {
         t.mock.timers.tick(11 * 60 * 1000);
     }
     assert.deepEqual(statuses, [...Array(10).fill(200), 429]);
+});
+
+test("a widget whose secret we don't hold is our mistake: the lead is kept, nobody is called", async () => {
+    // A stored secret Cloudflare doesn't recognise for the widget: it answers invalid-input-secret.
+    redis.kv.set(`portal:gate:v1:widget-secret:0x4AAAAAAAorphan`, { value: "stale-secret", exp: null });
+    const out = await submit({ siteKey: "0x4AAAAAAAorphan" });
+    assert.deepEqual(out, { called: false, lead: 200 });
+    assert.equal((await listLeads(ACCT, SLUG))[0].fields.verification, "unavailable");
 });
