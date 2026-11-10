@@ -28,6 +28,7 @@ const LABEL: Record<InboxFilter, string> = {
     reminders: "Reminders",
     promoted: "Promoted",
     done: "Done",
+    unread: "Needs you", // deprecated alias; `parseInboxFilter` never returns it
 };
 
 export default function InboxToolbar({
@@ -70,7 +71,7 @@ export default function InboxToolbar({
 
     /** All, Calls and Forms carry no number: a count of everything is not a to-do. */
     const count = (f: InboxFilter): number | null =>
-        f === "all" || f === "calls" || f === "forms" ? null : counts[f];
+        f === "all" || f === "calls" || f === "forms" ? null : counts[f === "unread" ? "needs" : f];
 
     return (
         // The tour's "Find anything fast" stop spotlights search and chips together.

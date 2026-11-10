@@ -13,7 +13,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { filterInbox, inboxStatus } from "../app/lib/crm-contacts.ts";
+import { filterInbox, inboxStatus, isNeedsYou } from "../app/lib/crm-contacts.ts";
 import {
     callbackGap,
     firstName,
@@ -253,9 +253,32 @@ test("the time column: a clock today, the weekday this week, a date before", () 
 
 test("the reason chip comes from what the item carries, nothing invented", () => {
     assert.equal(reasonFor(item()), "callback");
+    assert.equal(reasonFor(item({ source: "web-form", preview: null })), "web");
+});
+
+test("hung up: no summary, under 15 seconds, or Outcome says so (the Overview's rule)", () => {
     assert.equal(reasonFor(item({ preview: null })), "missed");
     assert.equal(reasonFor(item({ preview: "   " })), "missed");
-    assert.equal(reasonFor(item({ source: "web-form", preview: null })), "web");
+    assert.equal(reasonFor(item({ durationSeconds: 9 })), "missed");
+    assert.equal(reasonFor(item({ durationSeconds: 14 })), "missed");
+    assert.equal(reasonFor(item({ durationSeconds: 15 })), "callback", "15s is a real call");
+    assert.equal(reasonFor(item({ durationSeconds: null })), "callback", "unknown length is not short");
+    assert.equal(reasonFor(item({ outcome: "Hung up" })), "missed");
+    assert.equal(reasonFor(item({ outcome: "Qualified" })), "callback");
+});
+
+test("Needs you ignores read state entirely", () => {
+    const now = NOW.getTime();
+    assert.equal(isNeedsYou(item({ read: true }), now), true, "opened is not handled");
+    assert.equal(isNeedsYou(item({ read: false, archived: true }), now), false);
+    assert.equal(isNeedsYou(item({ remindAt: local(10, 7) }), now), false);
+    assert.equal(isNeedsYou(item({ promoted: true }), now), false);
+    // The retired "unread" view is an alias of Needs you, for callers written against it.
+    const items = [item({ read: true }), item({ archived: true }), item({ remindAt: local(10, 7) })];
+    assert.deepEqual(
+        filterInbox(items, "unread", "", now).map((i) => i.id),
+        filterInbox(items, "needs", "", now).map((i) => i.id),
+    );
 });
 
 /* ── Remind me ────────────────────────────────────────────────────────────── */

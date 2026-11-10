@@ -187,12 +187,21 @@ export type Reason = "callback" | "web" | "missed";
  * Why the lead is waiting, from what the item actually carries.
  *
  * There is no intent or urgency field in the payload, so this does not pretend to one: a web
- * form is a web enquiry; a call the receptionist summarised left a message to answer; a call
- * with no summary at all is someone who hung up before saying anything.
+ * form is a web enquiry; a call is "hung up" when it has no summary, lasted under 15 seconds,
+ * or Airtable's Outcome says "Hung up"; any other call left a message to answer.
+ *
+ * The same rule as the Overview's `needsReason()` (#87, `app/lib/portal-overview-leads.ts`),
+ * so the two screens never label one lead differently. To be deduplicated once both land.
  */
+export const HUNG_UP_UNDER_SECONDS = 15;
+
 export function reasonFor(item: InboxItem): Reason {
     if (item.source === "web-form") return "web";
-    return item.preview?.trim() ? "callback" : "missed";
+    const hungUp =
+        !item.preview?.trim() ||
+        (item.durationSeconds !== null && item.durationSeconds < HUNG_UP_UNDER_SECONDS) ||
+        item.outcome?.trim().toLowerCase() === "hung up";
+    return hungUp ? "missed" : "callback";
 }
 
 export const REASON_LABEL: Record<Reason, string> = {

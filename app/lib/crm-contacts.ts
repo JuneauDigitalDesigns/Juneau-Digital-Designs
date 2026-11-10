@@ -298,7 +298,14 @@ export type InboxFilter =
     | "forms"
     | "reminders"
     | "promoted"
-    | "done";
+    | "done"
+    /**
+     * @deprecated The old "unread" view, now exactly Needs you. Kept as an alias so a caller
+     * written against it (the Overview's `needsYou()` on #87) keeps meaning "what still needs
+     * the owner" rather than silently becoming All. Nothing marks items read today, so the
+     * old read-based meaning was never what anyone got anyway.
+     */
+    | "unread";
 
 const INBOX_FILTERS: readonly InboxFilter[] = [
     "needs",
@@ -344,6 +351,15 @@ export function inboxStatus(item: InboxItem, now: number = Date.now()): InboxSta
 }
 
 /**
+ * The canonical Needs-you predicate: not Done (`archived`), not promoted, not reminded to a
+ * future time. Read/unread plays no part — nothing marks a call or lead read today, and
+ * opening a lead is not handling it. The Overview and the Inbox both count by this.
+ */
+export function isNeedsYou(item: InboxItem, now: number = Date.now()): boolean {
+    return inboxStatus(item, now) === "needs";
+}
+
+/**
  * The inbox is a worklist, so a promoted lead leaves it.
  *
  * It used to stay, marked with a "✓ Promoted" tag, because `buildInbox` only ever *flagged*
@@ -372,7 +388,7 @@ export function filterInbox(
             if (status !== "promoted") return false;
         } else if (status === "promoted") {
             return false;
-        } else if (filter === "needs") {
+        } else if (filter === "needs" || filter === "unread") {
             if (status !== "needs") return false;
         } else if (filter === "reminders") {
             if (status !== "reminded") return false;
