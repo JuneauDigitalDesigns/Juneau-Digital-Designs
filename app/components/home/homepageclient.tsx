@@ -130,131 +130,85 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    Three sections that each take one part of the system and spend a screen on it: the
    website, the receptionist, then the portal where every lead lands. Their headings read
    as one sentence — "A website that makes the phone ring." / "Then someone picks up." /
-   "And nothing slips." Copy and visual alternate sides at ≥900px and always stack
-   copy-first below it — see `.journey-grid` in globals.css, which flips the columns with
-   `order` rather than DOM position so the mobile reading order survives the flip. The
-   portal section is the exception: the demo is the section, so it has a layout of its own
-   (<PortalSection>). */
+   "And nothing slips."
 
-function JourneySection({
-  heading,
-  body,
-  outcomes,
-  visual,
-  visualFirst = false,
-}: {
-  heading: string;
-  /** Optional: the website section dropped its paragraph and runs heading then outcomes. */
-  body?: string;
-  outcomes: string[];
-  visual: React.ReactNode;
-  visualFirst?: boolean;
-}) {
-  const outcomeList = (
-    <div className="journey-outcomes">
-      {outcomes.map((o) => (
-        <span key={o} className="journey-outcome">
-          {o}
-        </span>
-      ))}
-    </div>
-  );
+   Since 9 Nov 2026 the first two (and the calculator and closing sections after them) are
+   built on `.slab`, the sand panel in globals.css: copy sits on it, the visual rests over
+   its edge. Each fills the same 1320px content width (`.journey-section`). Layouts approved
+   by Xander from a mockup in five rounds. */
 
+/* ── 01 · The website ─────────────────────────────────────────
+   Caption slab: the laptop is the hero, and a slab holding the heading, one line and one
+   promise overlaps its lower-right corner. The three outcome lines it replaced ("You answer
+   a few questions." / "It goes live in less than a week." / "Never again worry about your
+   website.") ran as ruled rows beside the laptop. Copy approved word for word, 9 Nov 2026. */
+function WebsiteSection() {
   return (
     <section className="journey-section">
-      <div className={`journey-grid${visualFirst ? " journey-grid--flip" : ""}`}>
-        {/* Copy is always first in DOM: it is what should be read first when the grid
-            collapses to one column, and it is step 0 of the stagger either way. */}
-        {/* No kicker. Both headings now name their own subject, so a label reading "The
-            Website" above "A website that makes the phone ring" was saying it twice. */}
-        <JourneyReveal delay={0}>
-          <h2 style={{ fontWeight: 800, fontSize: "clamp(30px,4.2vw,54px)", lineHeight: 0.98, letterSpacing: ".01em", textTransform: "uppercase", maxWidth: "16ch" }}>
-            {heading}
-          </h2>
-          {body && (
-            <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--fg-2)", maxWidth: "48ch", marginTop: 18 }}>
-              {body}
-            </p>
-          )}
-          {/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page,
-              carrying the most specific facts we have. The hierarchy was inverted against
-              the value of the content, so these are now full-contrast sentences. */}
-          {outcomeList}
-        </JourneyReveal>
-
-        <JourneyReveal delay={1} className="journey-visual">
-          {visual}
-        </JourneyReveal>
-      </div>
+      <JourneyReveal className="site-caption">
+        <div className="site-caption-visual">
+          <DemoSiteFrame />
+        </div>
+        <div className="slab slab-lift site-caption-slab">
+          {/* Leads with the outcome and hands straight off to section 02, which answers it
+              with "Then someone picks up." */}
+          <h2 className="site-caption-heading">A website that makes the phone ring.</h2>
+          <p className="site-caption-line">
+            You answer a few questions. We write it, build it and host it. After that, there&apos;s nothing for you to do.
+          </p>
+          {/* The promise: the writing, which is what stalls owners for months, and the one
+              thing the line above doesn't already say. */}
+          <p className="slab-chip">Written for your trade</p>
+        </div>
+        {/* Says "could look like" rather than claiming it's live — it's a captured
+            screenshot, and the old "running live" line stopped being true the moment the
+            iframe became an image. */}
+        <span className="site-caption-note">What yours could look like.</span>
+      </JourneyReveal>
     </section>
   );
 }
 
-/* ── 01 · The website ───────────────────────────────────────── */
-function WebsiteSection() {
-  return (
-    <JourneySection
-      /* Leads with the outcome and hands straight off to section 02, which answers it with
-         "Then someone picks up." The old heading described how we work; this one describes
-         what the reader gets. */
-      heading="A website that makes the phone ring."
-      /* No body paragraph since 9 Nov 2026 (Xander's call): "We write it, build it, and host
-         it…" said what the three outcomes below already say, so the heading hands straight
-         to them. */
-      outcomes={[
-        "You answer a few questions.",
-        "It goes live in less than a week.",
-        "Never again worry about your website.",
-      ]}
-      visualFirst
-      visual={
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <DemoSiteFrame />
-          {/* Says "could look like" rather than claiming it's live — it's a captured
-              screenshot, and the old "running live" line stopped being true the moment
-              the iframe became an image. */}
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, letterSpacing: ".08em", color: "var(--fg-3)", lineHeight: 1.5 }}>
-            What yours could look like.
-          </span>
-        </div>
-      }
-    />
-  );
-}
-
 /* ── 02 · The receptionist ──────────────────────────────────────
-   The film that used to sit in its own <TheHandoff> section now argues for the
-   receptionist directly, beside the copy that names it. It showed the handoff there and
-   it shows the handoff here; what it lost was a heading that restated the section it
-   was already inside. */
+   Night slab: the whole section is the slab, because this is the two-in-the-morning
+   section. Copy on the left, the film on the right (centred, stacked, on a phone), and the
+   three lines as cards resting over the slab's bottom edge. The film labels its two phones
+   with a switch under the device (see `.film-switch` and <SiteToCallPanel>). */
+const RECEPTIONIST_OUTCOMES = [
+  "It asks the questions you'd ask, in English or in Spanish.",
+  "It captures the lead's name, number and what the job is.",
+  /* Where the lead goes. It used to end at a text with the details; the lead now lands in
+     the portal on every plan, and the text tells the owner it is there. */
+  "Then the lead goes straight into your portal, and you get a text saying it’s there.",
+];
+
 function ReceptionistSection() {
   return (
-    <JourneySection
-      /* The sequel to section 01's heading, and the middle of the sentence the three
-         journey headings make. The old heading said "Books the job. Texts you.", which the
-         body and two bullets then said again. */
-      heading="Then someone picks up."
-      /* LOAD-BEARING TAIL. "Or it's two in the morning" is this section's only
-         availability claim, since the outcomes carry none. Remove it and the section never
-         says the thing people buy this for. (An earlier "Nights and weekends too" went
-         missing exactly that way, with this warning left standing over nothing.) The hour
-         matches the film's 2:13 AM HVAC call.
-
-         Deliberately industry-neutral: this page sells to any service business, so no
-         ladders, roofs or vans. */
-      body="You’re with a customer, or it’s two in the morning. Either way, it picks up."
-      /* The third outcome is where the lead goes. It used to end at a text with the
-         details; the lead now lands in the portal on every plan, and the text tells the
-         owner it is there. */
-      outcomes={[
-        "It asks the questions you'd ask, in English or in Spanish.",
-        "It captures the lead's name, number and what the job is.",
-        "Then the lead goes straight into your portal, and you get a text saying it’s there.",
-      ]}
-      /* No CTA on this panel by design. The calculator and the pricing rail carry the
-         asks; the film's own Get Started went with the recap block it lived in. */
-      visual={<SiteToCallPanel />}
-    />
+    <section className="journey-section">
+      <JourneyReveal>
+        <div className="slab night-slab">
+          <div>
+            {/* The sequel to section 01's heading, and the middle of the sentence the three
+                journey headings make. */}
+            <h2 className="night-heading">Then someone picks up.</h2>
+            {/* LOAD-BEARING TAIL. "Or it's two in the morning" is this section's only
+                availability claim, since the cards carry none. Remove it and the section
+                never says the thing people buy this for. The hour matches the film's 2:13 AM
+                HVAC call. Deliberately industry-neutral: this page sells to any service
+                business, so no ladders, roofs or vans. */}
+            <p className="night-body">You&apos;re with a customer, or it&apos;s two in the morning. Either way, it picks up.</p>
+          </div>
+          {/* No CTA on this panel by design. The calculator and the closing section carry the
+              asks. */}
+          <SiteToCallPanel />
+        </div>
+        <ul className="night-cards">
+          {RECEPTIONIST_OUTCOMES.map((o) => (
+            <li key={o} className="night-card slab-lift">{o}</li>
+          ))}
+        </ul>
+      </JourneyReveal>
+    </section>
   );
 }
 
@@ -415,7 +369,9 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
        worth?"). Lenis glides same-page anchors (see SmoothScroll). */
     <section className="calc-section" id={MISSED_CALLS_ID}>
       <div className="aurora-grid" />
-      <div style={{ position: "relative", zIndex: 2, maxWidth: 1240, margin: "0 auto", padding: "0 max(24px, 4vw)" }}>
+      {/* The band (9 Nov 2026): the heading sits on a slab, and the calculator rests on a card
+          over its bottom edge, spanning the band. See `.calc-band*` in globals.css. */}
+      <div className="calc-band" style={{ position: "relative", zIndex: 2 }}>
         {/* No kicker here, unlike the two sections above it. Those name a thing we sell;
             this one is about the reader's own business, and labelling it "The Numbers"
             would file it alongside the products as a third thing to buy. */}
@@ -425,13 +381,13 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
             things three labelled sliders and a button marked Calculate already make
             obvious, and cost this panel — the tallest of the three — a paragraph plus its
             margin. */}
-        <JourneyReveal style={{ textAlign: "center", marginBottom: 56 }}>
-          <h2 style={{ marginTop: 16, marginBottom: 0, textTransform: "uppercase" }}>
-            How much are your <span style={{ color: "var(--accent-2)" }}>missed calls</span> worth?
-          </h2>
-        </JourneyReveal>
-
-        <JourneyReveal delay={1}>
+        <JourneyReveal>
+          <div className="slab calc-band-slab">
+            <h2 className="calc-band-heading">
+              How much are your <span>missed calls</span> worth?
+            </h2>
+          </div>
+          <div className="calc-band-card slab-lift">
           {/* All three views stay mounted, stacked in one grid cell. That is what fixes the
               card's size without a magic number: `visibility: hidden` still contributes to
               layout, so the cell is always as tall as the tallest view and the box cannot
@@ -653,6 +609,7 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
 
             </div>
           </div>
+          </div>
         </JourneyReveal>
       </div>
     </section>
@@ -713,7 +670,7 @@ function ClosingSection({ onOpenForm }: { onOpenForm: () => void }) {
     <section className="closing-section">
       <JourneyReveal>
         <div className="closing">
-          <div className="closing-slab">
+          <div className="slab closing-slab">
             <h2 className="closing-heading">Every plan starts here.</h2>
             <div className="closing-base">
               {EVERY_PLAN.map(({ Icon, label, title, detail }) => (

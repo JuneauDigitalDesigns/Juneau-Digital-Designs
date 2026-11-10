@@ -78,6 +78,18 @@
   --invert-fg-2: #d6ccb2;
   --invert-accent: #ff8a4a;
 
+  /* The slab (see `.slab`): sand a shade deeper than the page, dark type, teal bars,
+     coral highlights. */
+  --slab-bg: #e3d1aa;
+  --slab-fg: #14120c;
+  --slab-fg-2: #3e3a28;
+  --slab-fg-3: #6b624a;
+  --slab-rule: rgba(20, 18, 12, 0.14);
+  --slab-line: #1f6f78;
+  --slab-hot: #c2471f;
+  --slab-edge: #d2542f;
+  --slab-pill: rgba(20, 18, 12, 0.06);
+
   /* fonts */
   --font-display: var(--font-big-shoulders), 'Big Shoulders', sans-serif;
   --font-body:    var(--font-hanken), 'Hanken Grotesk', sans-serif;
@@ -180,6 +192,18 @@
   --invert-fg: #14120c;
   --invert-fg-2: #43402c;
   --invert-accent: #d2542f;
+
+  /* The slab on the dark page: a warm dark tan, a few steps above the ground, so it still
+     reads as a raised panel. */
+  --slab-bg: #3a3122;
+  --slab-fg: #f0e7d2;
+  --slab-fg-2: #ddd0b4;
+  --slab-fg-3: #a99b7d;
+  --slab-rule: rgba(240, 231, 210, 0.14);
+  --slab-line: #5cc3cc;
+  --slab-hot: #ff7a52;
+  --slab-edge: #ff6b4a;
+  --slab-pill: rgba(240, 231, 210, 0.07);
 
   /* Chart palette, lifted for the dark surface. Same roles, same order. */
   --chart-pos: #6fcf97;
@@ -1653,74 +1677,6 @@ select option {
   padding: clamp(56px, 7vw, 120px) 0;
   overflow: hidden;
 }
-.journey-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: clamp(32px, 4vw, 64px);
-  align-items: center;
-}
-
-/* Let the headline wrap instead of forcing the track wider than its share. */
-.journey-grid > * { min-width: 0; }
-
-@media (min-width: 900px) {
-  .journey-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(380px, 1.05fr);
-    gap: clamp(40px, 5vw, 80px);
-  }
-
-  /* Flipped sections: visual takes column 1, copy column 2. Both tracks keep their
-     widths, so the visual column stays the wider of the two either way. */
-  .journey-grid--flip {
-    grid-template-columns: minmax(380px, 1.05fr) minmax(0, 1fr);
-  }
-  .journey-grid--flip > .journey-visual { order: -1; }
-}
-
-/* Was `.journey-bullets`: 13px mono at --fg-3, the dimmest token on the page, sitting
-   under the body paragraph at 16.5px/--fg-2. The most specific and most persuasive
-   content in each section was rendered in the least visible type on it, so the visual
-   hierarchy ran against the value hierarchy. These are now full-contrast sentences and
-   the arrow prefix is gone with the list framing.
-
-   The rule above them stays: it is what separates the claim from its proof.
-
-   They are rows now, not a stack. As three same-weight sentences 10px apart they read
-   as text that happened to land there; as ruled rows with a marker in a fixed left
-   column they read as a finite, deliberate set. Type is untouched at 18px/--fg — the
-   fix is structure around the sentences, not less voice in them. */
-.journey-outcomes {
-  font-size: 18px;
-  line-height: 1.45;
-  color: var(--fg);
-  display: flex;
-  flex-direction: column;
-  margin-top: 22px;
-  border-top: 1px solid var(--rule);
-}
-
-/* Row padding replaces the container's `gap` and `padding-top`: the rule has to run the
-   full width between rows, which a gap cannot draw. Container border-top + one
-   border-bottom per row gives four rules across three rows. */
-.journey-outcome {
-  display: grid;
-  grid-template-columns: 2px 1fr;
-  gap: 16px;
-  align-items: start;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-/* --accent (teal), not --accent-2. The coral is spoken for: it carries the recoverable
-   figure in the calculator and the primary CTAs, and it stops meaning "this is the
-   number" the moment it also means "this is a list item". */
-.journey-outcome::before {
-  content: "";
-  align-self: stretch;
-  background: var(--accent);
-  border-radius: 1px;
-}
-
 /* ── Home pricing cards ──────────────────────────────────────
    Three plans, three weights. Growth is the plan this page is written to sell, so it
    carries the accent border and the glow; Starter is a full-strength alternative beside
@@ -1889,6 +1845,259 @@ select option {
   }
 }
 
+/* ── The slab ─────────────────────────────────────────────────
+   The homepage's one framing device (9 Nov 2026): a sand panel a shade deeper than the page,
+   with a soft coral edge along its top, that a section's copy sits on and its visual rests
+   over. Used by the website caption, the receptionist's night slab, the calculator band and
+   "Every plan starts here." Sand rather than a dark block in both themes: Xander's call,
+   after near-black and deep teal were both tried and dropped. Colours are the --slab-*
+   tokens at the top of this file, so the dark theme gets its own warm tan. Only the slab
+   takes them; cards and buttons resting on it keep the page's own colours. */
+.slab {
+  position: relative;
+  background: var(--slab-bg);
+  color: var(--slab-fg);
+  border: 1px solid var(--slab-rule);
+  border-radius: 12px;
+}
+.slab::before {
+  content: "";
+  position: absolute;
+  inset: -1px 0 auto;
+  height: 5px;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(90deg, transparent, var(--slab-edge), transparent);
+  opacity: 0.75;
+  pointer-events: none;
+}
+/* Whatever rests over a slab's edge gets the same lift, so every overlap reads alike. */
+.slab-lift { box-shadow: 0 22px 44px -18px rgba(20, 18, 12, 0.4); }
+[data-theme="dark"] .slab-lift { box-shadow: 0 22px 44px -18px rgba(0, 0, 0, 0.6); }
+/* A single promise, set apart from the sentence above it. */
+.slab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--slab-rule);
+  background: var(--slab-pill);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--slab-fg);
+}
+.slab-chip::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--slab-hot);
+  box-shadow: 0 0 10px var(--slab-hot);
+}
+
+/* ── Website section: caption slab ───────────────────────────
+   The laptop is the hero, nine of twelve columns; the slab holding the heading, the line and
+   the promise overlaps its lower-right corner. On a phone the slab overlaps the laptop's
+   bottom edge instead. See <WebsiteSection>. */
+.site-caption { display: grid; }
+.site-caption > * { min-width: 0; }
+.site-caption-slab {
+  position: relative;
+  z-index: 1;
+  margin: -36px 14px 0;
+  padding: clamp(24px, 3vw, 44px);
+}
+.site-caption-heading {
+  font-size: clamp(30px, 3.8vw, 54px);
+  font-weight: 800;
+  line-height: 0.96;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--slab-fg);
+  max-width: 16ch;
+}
+.site-caption-line {
+  margin: 16px 0 20px;
+  font-size: clamp(16.5px, 1.35vw, 19px);
+  line-height: 1.6;
+  color: var(--slab-fg-2);
+  max-width: 44ch;
+}
+.site-caption-note {
+  margin-top: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+@media (min-width: 900px) {
+  .site-caption {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    padding-bottom: 44px;
+  }
+  .site-caption-visual { grid-column: 1 / span 9; grid-row: 1; }
+  .site-caption-slab { grid-column: 7 / span 6; grid-row: 1; align-self: end; margin: 0 0 -44px; }
+  .site-caption-note { grid-column: 1 / span 5; grid-row: 2; margin-top: 18px; }
+}
+
+/* ── Receptionist section: night slab ────────────────────────
+   The whole section is the slab. Narrow: heading and line centred over the film. From
+   1000px the copy takes the left half and the film is centred in the right, so the slab's
+   width is used rather than one column floating in the middle. The three lines rest over
+   its bottom edge as cards. See <ReceptionistSection>. */
+.night-slab {
+  display: grid;
+  gap: 32px;
+  text-align: center;
+  padding: clamp(32px, 4vw, 56px) clamp(18px, 3vw, 48px) clamp(96px, 10vw, 140px);
+}
+.night-slab > * { min-width: 0; }
+.night-heading {
+  font-size: clamp(30px, 5vw, 72px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--slab-fg);
+  max-width: 14ch;
+  margin: 0 auto;
+}
+.night-body {
+  margin: 16px auto 0;
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--slab-fg-2);
+  max-width: 40ch;
+}
+.night-cards {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  margin: calc(-1 * clamp(56px, 7vw, 90px)) 14px 0;
+  padding: 0;
+  list-style: none;
+}
+.night-card {
+  display: grid;
+  grid-template-columns: 2px 1fr;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 16.5px;
+  line-height: 1.45;
+  color: var(--fg);
+}
+.night-card::before {
+  content: "";
+  align-self: stretch;
+  background: var(--accent);
+  border-radius: 1px;
+}
+@media (min-width: 760px) {
+  .night-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-left: clamp(20px, 3.6vw, 56px);
+    margin-right: clamp(20px, 3.6vw, 56px);
+  }
+}
+@media (min-width: 1000px) {
+  .night-slab {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 48px;
+    align-items: center;
+    text-align: left;
+    padding-left: clamp(48px, 6vw, 96px);
+  }
+  .night-heading, .night-body { margin-left: 0; }
+}
+/* The film's "Their phone / Your phone" switch: both phones named, the one on screen lit.
+   Was a lone mono caption under the phone that read as stray text. */
+.film-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--slab-rule);
+  background: var(--slab-pill);
+}
+.film-switch span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--slab-fg-3);
+  transition: background 300ms ease, color 300ms ease;
+}
+.film-switch span::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+}
+.film-switch span[aria-current="true"] {
+  background: var(--slab-fg);
+  color: var(--slab-bg);
+}
+.film-switch span[aria-current="true"]::before {
+  background: var(--slab-hot);
+  opacity: 1;
+  box-shadow: 0 0 8px var(--slab-hot);
+}
+@media (prefers-reduced-motion: reduce) {
+  .film-switch span { transition: none; }
+}
+
+/* ── Calculator: band ────────────────────────────────────────
+   The slab carries the heading; the calculator rests on a card over its bottom edge,
+   spanning the band rather than a narrow column. Inside the card the results panel drops
+   its own frame, which would be a box inside a box. See <MissedCallsCalculator>. */
+.calc-band {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 0 clamp(18px, 4vw, 56px);
+}
+.calc-band-slab {
+  text-align: center;
+  padding: clamp(36px, 4vw, 56px) clamp(18px, 3vw, 48px) clamp(110px, 12vw, 160px);
+}
+.calc-band-heading {
+  margin: 0 auto;
+  max-width: 22ch;
+  font-size: clamp(28px, 4.4vw, 64px);
+  font-weight: 800;
+  line-height: 0.98;
+  text-transform: uppercase;
+  color: var(--slab-fg);
+}
+.calc-band-heading span { color: var(--slab-hot); }
+.calc-band-card {
+  position: relative;
+  z-index: 1;
+  margin: calc(-1 * clamp(80px, 9vw, 120px)) 14px 0;
+  padding: clamp(22px, 3.4vw, 48px);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--bg);
+}
+@media (min-width: 760px) {
+  .calc-band-card { margin-left: clamp(20px, 4vw, 64px); margin-right: clamp(20px, 4vw, 64px); }
+}
+.calc-band-card .calc-card { max-width: none; }
+.calc-band-card .calc-panel { border: 0; background: none; padding: 0; }
+
 /* ── Portal section (homepage, "And nothing slips.") ─────────
    The demo is the section: heading and cue centred over the window, the window full width,
    its rail under it, then the one line about the plans. See <PortalSection>. */
@@ -1942,52 +2151,26 @@ select option {
 
 /* ── Closing section (homepage) ──────────────────────────────
    "Every plan starts here.", the plans and the ask, as one section (option D, "slab split").
-   The base is a dark slab in both themes: what every plan stands on. From 900px it is the
-   left column and the plan cards lean over its right edge as rows; below that the cards
-   overlap its bottom edge. The ask (`.rail-cta`) runs the full width underneath.
-   See <ClosingSection>. */
+   The base is a `.slab`: what every plan stands on. From 900px it is the left column and
+   the plan cards lean over its right edge as rows; below that the cards overlap its bottom
+   edge. The ask (`.rail-cta`) runs the full width underneath. Only the slab takes the sand:
+   the plan cards and the ask keep the page's own colours. Fills the same 1320px content
+   width as every other homepage section. See <ClosingSection>. */
 .closing-section {
   max-width: 1320px;
   margin: 0 auto;
   padding: clamp(64px, 7vw, 120px) clamp(18px, 4vw, 56px);
 }
 .closing {
-  max-width: 1160px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
 .closing-slab {
-  position: relative;
   display: grid;
   gap: 22px;
   align-content: start;
   padding: clamp(24px, 3.4vw, 40px) clamp(22px, 3.4vw, 40px) clamp(56px, 6vw, 64px);
-  border-radius: 12px;
-  border: 1px solid rgba(240, 231, 210, 0.14);
-  background: var(--slab-bg);
-  color: var(--slab-fg);
-  /* Dark in both themes, so not the --invert-* tokens (which flip to cream in dark mode):
-     the base reads as the heaviest thing in the section either way. Its own small palette,
-     each value taken from the dark theme's tokens. */
-  --slab-bg: #14120c;
-  --slab-fg: #f0e7d2;
-  --slab-fg-2: #d6ccb2;
-  --slab-teal: #5cc3cc;
-  --slab-coral: #ff8a4a;
-}
-/* On the dark page the slab drops a step darker, so it still sits below the cards. */
-[data-theme="dark"] .closing-slab { --slab-bg: #0a0906; }
-/* The one warm edge: a coral glow along the top, so the slab reads as lit from above rather
-   than as a black box dropped on the page. */
-.closing-slab::before {
-  content: "";
-  position: absolute;
-  inset: -1px 0 auto;
-  height: 6px;
-  border-radius: 12px 12px 0 0;
-  background: linear-gradient(90deg, transparent, var(--accent-2), transparent);
-  opacity: 0.7;
 }
 .closing-heading {
   font-size: clamp(30px, 4vw, 48px);
@@ -2003,7 +2186,7 @@ select option {
   display: grid;
   gap: 4px;
   padding-left: 14px;
-  border-left: 2px solid var(--slab-teal);
+  border-left: 2px solid var(--slab-line);
 }
 .closing-base-label {
   display: flex;
@@ -2013,7 +2196,7 @@ select option {
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--slab-teal);
+  color: var(--slab-line);
 }
 .closing-base-label svg { flex-shrink: 0; }
 .closing-base-title {
@@ -2035,7 +2218,7 @@ select option {
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--slab-coral);
+  color: var(--slab-hot);
 }
 /* The plan cards: on the page's own ground, lifted off the slab where they overlap it. */
 .closing-plans {
@@ -2068,7 +2251,7 @@ select option {
 }
 @media (min-width: 900px) {
   .closing {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
     align-items: stretch;
   }
   .closing-slab { padding-right: clamp(48px, 5vw, 72px); }
@@ -2321,13 +2504,6 @@ select option {
 [data-theme="dark"] .film-phone--customer .film-notch { background: #6e6e73; }
 [data-theme="dark"] .film-phone--owner .film-notch { background: #d8c8a4; }
 
-.film-device-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-}
 /* LOAD-BEARING that this is absolute. Both the pre-film gate and the post-film replay
    render into this slot, so the stage occupies the same height at every phase. The
    `.film-recap` block this replaced was a sibling BELOW the phone, which grew the stage
