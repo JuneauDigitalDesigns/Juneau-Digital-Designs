@@ -1,6 +1,6 @@
 import { after, NextResponse } from "next/server";
 import { notifyOwnerOfLead } from "@/app/lib/lead-alert";
-import { recordLead, resolveIngestToken } from "@/app/lib/portal-leads";
+import { recordLeadOnce, resolveIngestToken } from "@/app/lib/portal-leads";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
 
 export const runtime = "nodejs";
@@ -117,8 +117,9 @@ export async function POST(request: Request) {
     const name = str(body.name, CAP.name);
 
     let lead;
+    let merged = false;
     try {
-        lead = await recordLead({
+        ({ lead, merged } = await recordLeadOnce({
             acctScope: owner.acctScope,
             slug: owner.slug,
             name,
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
             message: str(body.message, CAP.message),
             fields,
             callbackPlaced: body.callbackPlaced === true,
-        });
+        }));
     } catch (e) {
         console.error(`[ingest/lead] write failed for ${owner.slug}`, e);
         return NextResponse.json({ error: "Could not record the lead" }, { status: 502 });
@@ -136,7 +137,13 @@ export async function POST(request: Request) {
     // Only once the lead is stored, and after the response. Outside the try on purpose: the
     // owner's text is best-effort, and nothing about it may turn a recorded lead into a 502 —
     // the visitor would be told it didn't send and post it again.
-    after(() => notifyOwnerOfLead({ acctScope: owner.acctScope, slug: owner.slug, name, leadId: lead.leadId }));
+    //
+    // A repeat from the same person within 24 h joined their earlier lead: that lead's text has
+    // already gone, so a second would only be noise (one enquiry, one text). The visitor is
+    // answered the same either way.
+    if (!merged) {
+        after(() => notifyOwnerOfLead({ acctScope: owner.acctScope, slug: owner.slug, name, leadId: lead.leadId }));
+    }
 
     return NextResponse.json({ ok: true, leadId: lead.leadId });
 }

@@ -3,6 +3,7 @@ import { findAccountEmailByScope } from "./account-store";
 import { getOwnerEmail, setOwnerEmail } from "./portal-crm";
 import { getConsentStateForAccount, isDeliverable } from "./sms-consent";
 import { sendSms } from "./twilio";
+import { takeOwnerText } from "./lead-gate";
 import { ownerItemLink } from "./owner-links";
 
 /**
@@ -20,7 +21,7 @@ import { ownerItemLink } from "./owner-links";
 
 export type LeadAlertResult =
     | { sent: true; sid: string | null }
-    | { sent: false; reason: "no-owner-email" | "no-consent" | "failed" };
+    | { sent: false; reason: "no-owner-email" | "no-consent" | "throttled" | "failed" };
 
 /**
  * Long enough for a full name, short enough for one segment. The em dash is outside GSM-7, so
@@ -130,6 +131,10 @@ export async function textAccountOwner({
         // YES all mean silence.
         const consent = await getConsentStateForAccount(email);
         if (!isDeliverable(consent)) return { sent: false, reason: "no-consent" };
+
+        // Counted only for a text that would actually go out, so an owner without consent never
+        // uses up the budget. Held means the lead is in the inbox and only the text waits.
+        if (!(await takeOwnerText(acctScope, slug))) return { sent: false, reason: "throttled" };
 
         const { sid } = await sendSms({ lane: "account", to: consent.phone, body });
         return { sent: true, sid };

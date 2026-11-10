@@ -125,17 +125,156 @@ export interface RecordLeadInput {
 /**
  * Persist one lead and index it.
  *
- * `leadId` is random rather than derived from the content: two identical enquiries from the same
- * person an hour apart are two leads, not one. Ordering comes from the index's score, not the id,
- * so it does not need to be sortable — which is why this uses the built-in `randomUUID()` instead
- * of adding a ULID dependency.
+ * `leadId` is random rather than derived from the content. Ordering comes from the index's score,
+ * not the id, so it does not need to be sortable — which is why this uses the built-in
+ * `randomUUID()` instead of adding a ULID dependency.
+ *
+ * The web-form ingest uses `recordLeadOnce`, which joins a repeat from the same person onto the
+ * earlier lead. This always writes a new one.
  */
 export async function recordLead(input: RecordLeadInput): Promise<WebLead> {
+    return writeLead(input, randomUUID());
+}
+
+/* ── one person, one lead ────────────────────────────────────────────────── */
+
+/**
+ * How long a submission from the same phone or email joins the earlier lead instead of making a
+ * new one (operator decision, 2026-11-09: 24 h). Long enough to absorb a double-click, a refresh
+ * and resubmit, and the hero form plus the CTA form on one page; short enough that the same
+ * customer asking about something else next week is a new lead.
+ */
+const MERGE_WINDOW_SECONDS = 60 * 60 * 24;
+/** How long after a submission its follow-up message box may post, and only once. */
+export const FOLLOW_UP_WINDOW_SECONDS = 30 * 60;
+
+const recentContactKey = (acct: string, slug: string, contact: string) =>
+    `portal:lead:recent:v1:${acct}:${slug}:${contact}`;
+const timesSentKey = (acct: string, slug: string, leadId: string) =>
+    `portal:lead:times-sent:v1:${acct}:${slug}:${leadId}`;
+const followUpOpenKey = (acct: string, slug: string, leadId: string) =>
+    `portal:lead:followup-open:v1:${acct}:${slug}:${leadId}`;
+
+/** Phone first: it is the CRM's contact identity, and the one a callback is placed to. */
+function contactKeys(phone: string | null, email: string | null): string[] {
+    const keys: string[] = [];
+    if (phone) keys.push(`p:${phone}`);
+    if (email) keys.push(`e:${email.trim().toLowerCase()}`);
+    return keys;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Record a lead, or add this submission to the lead the same person sent in the last 24 hours.
+ *
+ * `merged: true` means no new lead exists, so the caller must not text the owner again: one
+ * enquiry, one text. The visitor is answered exactly as for a new lead.
+ *
+ * A burst of identical submissions races on one SET NX for the contact: the winner writes the
+ * lead, every loser joins it. A loser can arrive before the winner's write lands, so it waits
+ * briefly for the record; if the winner never wrote one, the loser records the lead itself.
+ */
+export async function recordLeadOnce(input: RecordLeadInput): Promise<{ lead: WebLead; merged: boolean }> {
+    const redis = getRedis();
+    const phoneRaw = input.phoneRaw?.trim() || null;
+    const contacts = contactKeys(phoneRaw ? normalizeE164(phoneRaw) : null, input.email?.trim() || null);
+    const keys = contacts.map((c) => recentContactKey(input.acctScope, input.slug, c));
+
+    let holder: string | null = null;
+    /** Lost the claim to a submission still being written, rather than found an earlier lead. */
+    let raced = false;
+    const leadId = randomUUID();
+    if (keys.length > 0) {
+        for (const key of keys) {
+            holder = await redis.get<string>(key);
+            if (holder) break;
+        }
+        if (!holder) {
+            const won = await redis.set(keys[0], leadId, { nx: true, ex: MERGE_WINDOW_SECONDS });
+            if (won !== "OK") {
+                holder = await redis.get<string>(keys[0]);
+                raced = true;
+            }
+        }
+    }
+
+    if (holder) {
+        // Only a race waits. An earlier lead that is gone (the owner deleted it) is replaced at once.
+        for (let i = 0; i < (raced ? 10 : 1); i++) {
+            if (i > 0) await sleep(100);
+            const merged = await mergeIntoLead(input, holder);
+            if (merged) {
+                await openFollowUp(input.acctScope, input.slug, merged.leadId);
+                return { lead: merged, merged: true };
+            }
+        }
+        // The lead the key names never appeared: its writer failed. This submission takes over.
+    }
+
+    const lead = await writeLead(input, holder ? randomUUID() : leadId);
+    for (const key of keys) await redis.set(key, lead.leadId, { ex: MERGE_WINDOW_SECONDS });
+    await openFollowUp(input.acctScope, input.slug, lead.leadId);
+    return { lead, merged: false };
+}
+
+/**
+ * Join a repeat submission onto the earlier lead: its message added if it says something new,
+ * anything it adds that the lead lacks filled in, the count of sends raised, and back to unread
+ * so the owner sees they asked again. Null when that lead doesn't exist.
+ */
+async function mergeIntoLead(input: RecordLeadInput, leadId: string): Promise<WebLead | null> {
+    const existing = await getLead(input.acctScope, input.slug, leadId);
+    if (!existing) return null;
+    const message = input.message?.trim() || null;
+    const said = existing.message ?? "";
+    // Counted apart from the record: a burst merges concurrently, and a read-modify-write count
+    // would lose most of the increments. 1 is the original submission.
+    const sent = await getRedis().incr(timesSentKey(input.acctScope, input.slug, leadId));
+    await getRedis().expire(timesSentKey(input.acctScope, input.slug, leadId), MERGE_WINDOW_SECONDS);
+    const next: WebLead = {
+        ...existing,
+        name: existing.name ?? (input.name?.trim() || null),
+        email: existing.email ?? (input.email?.trim() || null),
+        message:
+            message && !said.includes(message)
+                ? [existing.message, message].filter(Boolean).join("\n\n").slice(0, MAX_MESSAGE_CHARS)
+                : existing.message,
+        fields: {
+            ...(input.fields ?? {}),
+            ...existing.fields,
+            timesSent: String(sent + 1),
+        },
+        readAt: null,
+    };
+    await getRedis().set(leadKey(input.acctScope, input.slug, leadId), next, { ex: LEAD_TTL });
+    return next;
+}
+
+async function openFollowUp(acctScope: string, slug: string, leadId: string): Promise<void> {
+    await getRedis()
+        .set(followUpOpenKey(acctScope, slug, leadId), 1, { ex: FOLLOW_UP_WINDOW_SECONDS })
+        .catch((e) => console.error("[portal-leads] could not open the follow-up window", e));
+}
+
+/**
+ * Use up the one follow-up message a submission allows. True once per submission, within
+ * `FOLLOW_UP_WINDOW_SECONDS`; false after that, or for a lead nobody just submitted.
+ *
+ * The lead id is the capability: only the visitor who submitted was given it. So the message
+ * box needs no second human check (operator decision, 2026-11-09).
+ */
+export async function takeFollowUp(acctScope: string, slug: string, leadId: string): Promise<boolean> {
+    const v = await getRedis().getdel(followUpOpenKey(acctScope, slug, leadId));
+    return v !== null && v !== undefined;
+}
+
+async function writeLead(input: RecordLeadInput, leadId: string): Promise<WebLead> {
     const now = new Date();
     const phoneRaw = input.phoneRaw?.trim() || null;
 
     const lead: WebLead = {
-        leadId: randomUUID(),
+        leadId,
         slug: input.slug,
         name: input.name?.trim() || null,
         phone: phoneRaw ? normalizeE164(phoneRaw) : null,
