@@ -262,3 +262,22 @@ test("drafts from the first layout land on the new screens", () => {
     assert.equal(s.screen, "google");
     assert.equal(s.detailStep, "included", "an open service from the old panel resumes at its first step");
 });
+
+test("suggestion chips come from @jdd/schema, the one source the console reads too", async () => {
+    const { INDUSTRY_MENUS, serviceSuggestions } = await import("@jdd/schema");
+    const { suggestionsFor } = await import("../app/components/onboarding/wizard/service-suggestions.ts");
+    let withChips = 0;
+    for (const menu of INDUSTRY_MENUS) {
+        for (const sv of menu.services) {
+            const ours = suggestionsFor(menu.id, sv.label);
+            const theirs = serviceSuggestions(menu.id, sv.label);
+            assert.deepEqual(ours, theirs, `${menu.id} / ${sv.label}`);
+            if (theirs.included.length) {
+                withChips++;
+                assert.equal(ours.included, theirs.included, "the very same list, not a copy kept in the agency repo");
+            }
+        }
+    }
+    assert.ok(withChips >= 2, "the approved HVAC sample is in the schema");
+    assert.deepEqual(suggestionsFor("hvac", "Something they typed"), { included: [], jobs: [], questions: [] });
+});
