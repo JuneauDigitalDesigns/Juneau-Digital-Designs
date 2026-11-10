@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Check, PlayCircle } from "@phosphor-icons/react";
 import type { PortalSiteProps } from "@/app/portal/types";
 import { upgradeHref } from "@/app/portal/types";
 import { SectionHeader } from "../ui/Card";
 import { STAGES } from "./stages";
-import { runGrowthShowcase } from "../tour/showcase";
+import GrowthDemo from "../growth-demo/GrowthDemo";
+
+/** `/portal/customers?site=…&demo=growth` opens the demo on arrival (the Overview links here). */
+const DEMO_PARAM = "demo";
+const DEMO_GROWTH = "growth";
 
 /**
  * What a Starter client sees on Customers — mockup M6a.
@@ -19,9 +24,33 @@ import { runGrowthShowcase } from "../tour/showcase";
  * see every call in your Inbox"), and the primary action is a guided walkthrough rather than a
  * pricing page — someone who has seen the loop work is a far better-qualified upgrade than
  * someone who read a feature list.
+ *
+ * That walkthrough is the Growth demo (`growth-demo/GrowthDemo.tsx`), a full-screen takeover
+ * that plays the loop on sample data. It replaced a driver.js popover tour over the ghost board
+ * below, which could only describe the loop in words.
  */
 export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
+    const params = useSearchParams();
     const [running, setRunning] = useState(false);
+    const launcher = useRef<HTMLButtonElement>(null);
+    const stop = useCallback(() => setRunning(false), []);
+
+    /*
+     * The Overview's Starter panel links to `?demo=growth`. Open on arrival, then drop the
+     * parameter, so a refresh or a shared link from here does not replay it, and Back does not
+     * land on a URL that reopens it. `history.replaceState` rather than `router.replace`: Next
+     * keeps `useSearchParams` in step with it, and it skips a server round trip for a page
+     * that has nothing new to render.
+     */
+    const autoOpen = params.get(DEMO_PARAM) === DEMO_GROWTH;
+    useEffect(() => {
+        if (!autoOpen) return;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- opening on arrival is the point
+        setRunning(true);
+        const url = new URL(window.location.href);
+        url.searchParams.delete(DEMO_PARAM);
+        window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    }, [autoOpen]);
 
     return (
         <div className="space-y-6">
@@ -66,13 +95,11 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
 
                 <div className="flex flex-col gap-2.5 min-w-[260px]">
                     <button
+                        ref={launcher}
                         type="button"
-                        onClick={() => {
-                            setRunning(true);
-                            runGrowthShowcase(upgradeHref(site.slug), () => setRunning(false));
-                        }}
-                        disabled={running}
-                        className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                        onClick={() => setRunning(true)}
+                        aria-haspopup="dialog"
+                        className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                     >
                         <PlayCircle size={16} weight="fill" />
@@ -86,7 +113,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         Compare plans
                     </Link>
                     <p className="text-[11.5px] text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                        A 90-second walkthrough. Nothing changes on your account.
+                        A one-minute demo with sample customers. Nothing changes on your account.
                     </p>
                 </div>
             </div>
@@ -115,7 +142,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                 each holding customer cards.
             </p>
 
-            <div className="portal-ghost p-4" aria-hidden="true" data-tour="showcase-board">
+            <div className="portal-ghost p-4" aria-hidden="true">
                 <div className="flex gap-3 items-start overflow-hidden">
                     {STAGES.map((s) => (
                         <div key={s.key} className="flex-1 min-w-[150px]">
@@ -148,6 +175,8 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                     ))}
                 </div>
             </div>
+
+            {running && <GrowthDemo upgradeUrl={upgradeHref(site.slug)} onClose={stop} returnFocusTo={launcher} />}
         </div>
     );
 }
