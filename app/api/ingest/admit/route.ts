@@ -72,7 +72,11 @@ export async function POST(request: Request) {
             wantsCallback: body.wantsCallback === true,
             host: str(body.host, 253),
             deployment: str(body.deployment, 20),
-            humanCheck: body.humanCheck === "off" ? "off" : body.humanCheck === "on" ? "on" : null,
+            humanCheck:
+                body.humanCheck === "off" || body.humanCheck === "on" || body.humanCheck === "widget-error"
+                    ? body.humanCheck
+                    : null,
+            siteKey: str(body.siteKey, 80),
         });
         if (!result.ok) {
             return NextResponse.json({ error: result.error }, { status: result.error === "too-many" ? 429 : 403 });

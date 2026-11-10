@@ -93,15 +93,42 @@ export type Verification =
     | { kind: "unavailable" };
 
 /**
+ * Client sites share a POOL of Turnstile widgets (jdd-ops `lib/turnstile-pool.js`), because a free
+ * widget holds 10 hostnames. Each widget has its own secret, which Cloudflare reveals once, when the
+ * widget is created. onboard.js stores it here, under the widget's public site key, and nowhere
+ * else. It is never logged, returned, or sent anywhere but Cloudflare's siteverify.
+ *
+ * The first widget was made by hand before the pool existed; its secret is the env var
+ * `LEAD_FORM_TURNSTILE_SECRET_KEY`, used for any site key with no stored secret.
+ */
+export const widgetSecretKey = (siteKey: string) => `portal:gate:v1:widget-secret:${siteKey}`;
+const SITE_KEY = /^[0-9A-Za-z_-]{8,80}$/;
+
+async function secretFor(siteKey: string | null): Promise<string | null> {
+    if (siteKey && SITE_KEY.test(siteKey)) {
+        const stored = await getRedis()
+            .get<string>(widgetSecretKey(siteKey))
+            .catch(() => null);
+        if (typeof stored === "string" && stored.trim()) return stored.trim();
+    }
+    return process.env.LEAD_FORM_TURNSTILE_SECRET_KEY?.trim() || null;
+}
+
+/**
  * Ask Cloudflare about one token. `host` is the host the client site's own `/api/contact` was
  * called on: the form posts to its own origin, so a token solved anywhere else (another of our
  * client sites; they can share a widget) is refused. This needs no stored list of each site's
  * domains, which would go stale the day a custom domain is attached.
  */
-export async function verifyTurnstile(token: string, ip: string | null, host: string | null): Promise<Verification> {
-    const secret = process.env.LEAD_FORM_TURNSTILE_SECRET_KEY?.trim();
+export async function verifyTurnstile(
+    token: string,
+    ip: string | null,
+    host: string | null,
+    siteKey: string | null = null,
+): Promise<Verification> {
+    const secret = await secretFor(siteKey);
     if (!secret) {
-        console.error("[lead-admit] LEAD_FORM_TURNSTILE_SECRET_KEY not set: no human check, so no AI calls");
+        console.error("[lead-admit] no secret for this site key and LEAD_FORM_TURNSTILE_SECRET_KEY not set: no human check, so no AI calls");
         return { kind: "unavailable" };
     }
     if (!token) return { kind: "failed", codes: ["missing-input-response"] };
@@ -180,15 +207,19 @@ export interface AdmitInput {
     /** The client site's `VERCEL_ENV`: only "production" moves the site over. */
     deployment: string | null;
     /**
-     * "off" when the client site has no Turnstile site key, so its form renders no widget. Such a
-     * site is admitted as `unavailable` (no call; the lead recorded) rather than refused, or a site
-     * deployed before its key was set would refuse every lead. Once a site has passed a real check
-     * it can't claim "off" again: a leaked token must not be a way to switch the check off.
+     * Why there may be no token. "off": the site has no Turnstile site key, so its form renders no
+     * widget. "widget-error": the widget couldn't run on this page, most often because the host
+     * isn't on the site's widget (Cloudflare refuses to render it, error 110200).
+     *
+     * Both are admitted as `unavailable`: the lead is recorded, no AI call is placed, one per
+     * visitor per 10 minutes, owner texts capped as always, and JDD is emailed once a day naming
+     * the site and host (operator decision, 2026-11-09: "never lose a lead"). What that gives up:
+     * a script can claim either and get leads into the inbox at that rate. It can never get a call.
      */
-    humanCheck: "on" | "off" | null;
+    humanCheck: "on" | "off" | "widget-error" | null;
+    /** The site key the form rendered, so the right widget's secret verifies its token. */
+    siteKey: string | null;
 }
-
-const siteVerifiedKey = (acctScope: string, slug: string) => `portal:gate:v1:site-verified:${acctScope}:${slug}`;
 
 export async function admit(input: AdmitInput): Promise<AdmitResult> {
     const L = admitLimits();
@@ -196,16 +227,12 @@ export async function admit(input: AdmitInput): Promise<AdmitResult> {
     if (input.deployment === "production") await markSiteMoved(acctScope, slug);
     const host = input.host ? input.host.toLowerCase().replace(/:\d+$/, "") : null;
     let v: Verification;
-    if (input.humanCheck === "off") {
-        v = (await getRedis().get(siteVerifiedKey(acctScope, slug)))
-            ? { kind: "failed", codes: ["check-switched-off"] }
-            : { kind: "unavailable" };
-        if (v.kind === "unavailable") console.error(`[lead-admit] ${slug} has no Turnstile site key: no human check, no AI calls`);
+    const noToken = !input.turnstileToken;
+    if (noToken && (input.humanCheck === "off" || input.humanCheck === "widget-error")) {
+        v = { kind: "unavailable" };
+        await noticeNoCheck(acctScope, slug, input.humanCheck, host).catch(() => {});
     } else {
-        v = await verifyTurnstile(input.turnstileToken ?? "", input.ip, host);
-        if (v.kind === "passed") {
-            await getRedis().set(siteVerifiedKey(acctScope, slug), new Date().toISOString(), { nx: true }).catch(() => {});
-        }
+        v = await verifyTurnstile(input.turnstileToken ?? "", input.ip, host, input.siteKey);
     }
     if (v.kind === "failed") {
         console.warn(`[lead-admit] ${slug}: human check failed (${v.codes.join(",") || "no code"})`);
@@ -247,6 +274,24 @@ export async function admit(input: AdmitInput): Promise<AdmitResult> {
     };
     await getRedis().set(K.admission(admissionId), admission, { ex: ADMISSION_TTL_SECONDS });
     return { ok: true, admissionId, callback: callback ? "allowed" : "held", verification: v.kind };
+}
+
+/** One email a day per site and host: the check isn't running there, so leads arrive unchecked. */
+async function noticeNoCheck(acctScope: string, slug: string, why: "off" | "widget-error", host: string | null) {
+    const day = new Date().toISOString().slice(0, 10);
+    const where = host || "an unknown host";
+    const first = await getRedis().set(K.noticeOnce(`no-check:${why}`, `${acctScope}:${slug}:${where}`, day), 1, {
+        nx: true,
+        ex: 2 * DAY,
+    });
+    if (first !== "OK") return;
+    console.error(`[lead-admit] ${slug}: no human check on ${where} (${why})`);
+    await sendOpsNotice(`[JDD] ${slug}: lead form human check not running on ${where}`, [
+        why === "off"
+            ? `${slug} has no Turnstile site key, so its lead form on ${where} renders no human check.`
+            : `The lead form's human check couldn't load on ${where} for ${slug}. Most likely ${where} isn't on the site's Turnstile widget.`,
+        `Leads from it are still being recorded, but no AI call is placed for them. Fix: run the console's Turnstile check for ${slug}, or re-run onboard.js for it.`,
+    ]);
 }
 
 async function noticeIfBusy(acctScope: string, slug: string, now: Date, L: ReturnType<typeof admitLimits>) {
