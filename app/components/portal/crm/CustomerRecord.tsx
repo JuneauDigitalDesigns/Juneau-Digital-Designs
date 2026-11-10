@@ -29,11 +29,12 @@ import {
 /**
  * The customer record.
  *
- * Two shells, one body. On a desktop it **is** the content area beside the rail (`variant="page"`),
- * and on a phone it stays the bottom sheet it has always been (`variant="sheet"`, wrapped by
- * `CustomerDrawer`). It used to be a 760px drawer on both, which was never enough room for a
- * details panel beside a full timeline — and the layout did not actually fit in it: see the
- * `minmax(0, …)` note on the grid below.
+ * Two shells, one body. On a desktop it fills the wide panel that slides over the board
+ * (`variant="panel"`, inside `CustomerPanel`), and on a phone it stays the bottom sheet it has
+ * always been (`variant="sheet"`, wrapped by `CustomerDrawer`). It used to be a 760px drawer on
+ * both, which was never enough room for a details panel beside a full timeline — and the layout
+ * did not actually fit in it: see the `minmax(0, …)` note on the grid below. Between the two it
+ * replaced the board outright (`variant="page"`), which lost the board you came from.
  *
  * Nothing here is a floating card. The record sits straight on the surface, divided by hairlines,
  * because a stack of bordered boxes inside a bordered panel inside a page reads as debris. The
@@ -95,8 +96,8 @@ export default function CustomerRecord({
 }: {
     customerId: string | null;
     siteSlug: string;
-    /** `page` fills the content area; `sheet` is the body of the mobile drawer. */
-    variant: "page" | "sheet";
+    /** `panel` fills the desktop slide-in panel; `sheet` is the body of the mobile drawer. */
+    variant: "panel" | "sheet";
     /** The board this record was opened from. Defaults to the bare Customers tab. */
     backHref?: string;
     /** Closes the record. When given, "All customers" calls it instead of navigating. */
@@ -240,7 +241,7 @@ export default function CustomerRecord({
     }
     if (!customer) return null;
 
-    const page = variant === "page";
+    const page = variant === "panel";
     const pad = page ? "px-7" : "px-5";
 
     const details = (
@@ -256,7 +257,7 @@ export default function CustomerRecord({
             }}
             onRequestReview={onRequestReview}
             showReviewButton={!page}
-            className={`${pad} py-1 ${page ? "lg:border-r" : ""}`}
+            className={`${pad} py-1 ${page ? "@3xl:border-r" : ""}`}
         />
     );
 
@@ -465,7 +466,7 @@ export default function CustomerRecord({
             </div>
 
             {/* composer / the A2P wait */}
-            <div className={`${pad} py-4 border-t min-w-0`} style={{ borderColor: "var(--rule)" }}>
+            <div id="crm-composer" className={`${pad} py-4 border-t min-w-0`} style={{ borderColor: "var(--rule)" }}>
                 {data?.messagingState === "ready" ? (
                     <div
                         className="flex gap-2 items-end p-3 rounded-xl border min-w-0"
@@ -524,13 +525,18 @@ export default function CustomerRecord({
      * a 744px panel — 782px of horizontal overflow, and the activity column pushed clean off the
      * side. On a phone the single `auto` column did the same thing: 1206px inside 390px.
      *
-     * The two columns only exist at `lg`. Forcing them narrower does not help — tried at 390px,
-     * it still left 241px over — because the fix is the floor, not the split.
+     * Forcing the columns narrower does not help — tried at 390px, it still left 241px over —
+     * because the fix is the floor, not the split.
+     *
+     * The two columns key off the panel's own width (`@3xl`, 768px, against `CustomerPanel`'s
+     * `@container`), not the viewport's. The panel is the content area less a 132px strip, so a
+     * 1024px window with the full rail gives it about 660px: two columns there would leave the
+     * timeline 320px. From a 1280px window up it is wide enough for both.
      */
     const body = (
         <div
             className={`grid grid-cols-[minmax(0,1fr)] min-h-0 min-w-0 ${
-                page ? "lg:grid-cols-[340px_minmax(0,1fr)]" : ""
+                page ? "@3xl:grid-cols-[340px_minmax(0,1fr)]" : ""
             }`}
         >
             <div className="min-w-0" style={{ borderColor: "var(--rule)" }}>
@@ -545,15 +551,11 @@ export default function CustomerRecord({
     /**
      * One surface, not a tray of cards.
      *
-     * `.portal-stage` keeps its own 32px gutter and 1280px ceiling, so this is as edge-to-edge
-     * as the content area gets; the border and radius are what every other portal surface has,
-     * and are the reason this reads as the page rather than as something floating on it.
+     * The panel paints the surface and draws the edge, so the record runs to it: a bordered,
+     * rounded card inside a bordered panel would be a box in a box.
      */
     return (
-        <div
-            className="min-w-0 rounded-2xl border overflow-hidden"
-            style={{ background: "var(--elev-1)", borderColor: "var(--rule)" }}
-        >
+        <div className="min-w-0">
             <RecordHeader
                 customer={customer}
                 patch={patch}
@@ -566,12 +568,12 @@ export default function CustomerRecord({
     );
 }
 
-/* ── the page header ──────────────────────────────────────────────────────── */
+/* ── the panel header ─────────────────────────────────────────────────────── */
 
 /**
- * Who they are and what you can do about it, at the top of the content area.
+ * Who they are and what you can do about it, at the top of the panel.
  *
- * Only the page variant has this; the sheet gets the drawer's own title bar, where a phone has
+ * Only the panel variant has this; the sheet gets the drawer's own title bar, where a phone has
  * no room for a second one. Call / Text / Request a review sit here rather than at the bottom of
  * a details column, because they are the reason the record was opened.
  */
@@ -594,18 +596,34 @@ function RecordHeader({
         .map((w) => w[0]?.toUpperCase() ?? "")
         .join("");
 
+    /**
+     * Focus lands on "All customers" once there is one.
+     *
+     * `CustomerPanel` focuses itself the moment it opens, because the record is still loading
+     * and this link does not exist yet. When it arrives, focus moves here — but only if it is
+     * still on the bare panel. Anyone who has already tabbed somewhere, and the tour, whose
+     * popover holds focus, are left alone.
+     */
+    const backRef = useRef<HTMLAnchorElement>(null);
+    useEffect(() => {
+        if (document.activeElement?.hasAttribute("data-customer-panel")) {
+            backRef.current?.focus({ preventScroll: true });
+        }
+    }, []);
+
     return (
         <header className="px-7 pt-5 border-b" style={{ borderColor: "var(--rule)" }}>
             {/* A real link, so it can be opened in a new tab; a plain click closes the record in
                 place, which lets the board step back over the history entry opening it pushed. */}
             <Link
+                ref={backRef}
                 href={backHref}
                 onClick={(e) => {
                     if (!onBack || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
                     e.preventDefault();
                     onBack();
                 }}
-                className="inline-flex items-center gap-1.5 text-[12.5px] mb-3.5"
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold mb-3.5 -ml-1 px-1 py-1 rounded-md"
                 style={{ color: "var(--accent)" }}
             >
                 <ArrowLeft size={13} weight="bold" />
@@ -622,12 +640,13 @@ function RecordHeader({
                 </span>
 
                 <div className="flex-1 min-w-0" style={{ flexBasis: "280px" }}>
-                    <h1
+                    {/* h2: the board behind keeps the page's h1, "Customers". */}
+                    <h2
                         className="text-[22px] font-bold leading-tight m-0 mb-1 truncate"
                         style={{ fontFamily: "var(--font-display)", color: "var(--fg)" }}
                     >
                         {customer.name ?? "Customer"}
-                    </h1>
+                    </h2>
                     <p
                         className="m-0 text-[13px] flex flex-wrap gap-x-2.5 gap-y-1"
                         style={{ color: "var(--fg-2)" }}
@@ -667,6 +686,18 @@ function RecordHeader({
                     {customer.phone && (
                         <a
                             href="#crm-sms"
+                            onClick={(e) => {
+                                // Scrolled and focused by hand rather than by the hash. Following
+                                // it would push a `#crm-sms` history entry, and "All customers"
+                                // steps back over the entry opening the record pushed — it would
+                                // land on that hash entry instead, with the record still open.
+                                e.preventDefault();
+                                const target =
+                                    document.getElementById("crm-sms") ??
+                                    document.getElementById("crm-composer");
+                                target?.scrollIntoView({ block: "center" });
+                                target?.focus({ preventScroll: true });
+                            }}
                             className="portal-hit inline-flex items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-medium"
                             style={{
                                 minHeight: 44,

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion, type PanInfo } from "framer-motion";
+import { CaretLeft } from "@phosphor-icons/react";
 import { useIsMobile } from "./useMediaQuery";
 
 /**
@@ -42,6 +43,7 @@ export default function Drawer({
     width = "md",
     padded = true,
     surface = "page",
+    back,
     children,
 }: {
     open: boolean;
@@ -64,6 +66,13 @@ export default function Drawer({
      * default would make the existing drawers' white content cards invisible against it.
      */
     surface?: "page" | "raised";
+    /**
+     * A back link in place of the title and the close button: "‹ All customers" on the phone
+     * customer sheet. For a sheet that is a step into something, where "back to where I was"
+     * is the plain reading and an ✕ in the far corner is the one place a thumb cannot reach.
+     * The title still names the dialog for assistive tech; it just is not drawn.
+     */
+    back?: string;
     children: React.ReactNode;
 }) {
     const panelRef = useRef<HTMLDivElement>(null);
@@ -196,21 +205,35 @@ export default function Drawer({
                             }`}
                             style={{ borderColor: "var(--rule)", background: panelBg }}
                         >
-                            <h2
-                                className="text-base font-semibold truncate"
-                                style={{ fontFamily: "var(--font-display)" }}
-                            >
-                                {title}
-                            </h2>
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                aria-label="Close"
-                                className="portal-hit shrink-0 w-8 h-8 rounded flex items-center justify-center cursor-pointer transition-colors"
-                                style={{ color: "var(--fg-2)", background: "var(--surface)" }}
-                            >
-                                ✕
-                            </button>
+                            {back ? (
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="portal-hit -ml-2.5 inline-flex items-center gap-1 h-11 px-2.5 rounded-lg text-[14px] font-semibold cursor-pointer"
+                                    style={{ color: "var(--accent)" }}
+                                >
+                                    <CaretLeft size={16} weight="bold" aria-hidden="true" />
+                                    {back}
+                                </button>
+                            ) : (
+                                <>
+                                    <h2
+                                        className="text-base font-semibold truncate"
+                                        style={{ fontFamily: "var(--font-display)" }}
+                                    >
+                                        {title}
+                                    </h2>
+                                    <button
+                                        type="button"
+                                        onClick={onClose}
+                                        aria-label="Close"
+                                        className="portal-hit shrink-0 w-8 h-8 rounded flex items-center justify-center cursor-pointer transition-colors"
+                                        style={{ color: "var(--fg-2)", background: "var(--surface)" }}
+                                    >
+                                        ✕
+                                    </button>
+                                </>
+                            )}
                         </div>
                         {padded ? <div className="px-5 py-5">{children}</div> : children}
                     </motion.div>
