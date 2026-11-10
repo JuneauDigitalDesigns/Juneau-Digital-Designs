@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import {
     ArrowCounterClockwise,
     CaretLeft,
-    ChatText,
     Check,
     Clock,
     Phone,
@@ -14,10 +12,8 @@ import {
 import type { InboxItem } from "@/app/lib/crm-contacts";
 import { duration } from "@/app/lib/duration";
 import { Chip, StatusChip, kindLabel } from "./chips";
-import { callbackGap, fullWhen, greeting, type InboxRow } from "./model";
-import { textLead, type ReplyTemplate } from "./api";
+import { callbackGap, fullWhen, type InboxRow } from "./model";
 import { RemindPopover, RemindSheet } from "./RemindMenu";
-import Composer, { QuickReplySheet } from "./Composer";
 import { dialNumber } from "./InboxList";
 
 /**
@@ -25,8 +21,12 @@ import { dialNumber } from "./InboxList";
  *
  * Call back is the primary action on every plan. It used to be replaced by Promote on Growth,
  * which made the thing the owner most needs to do with a lead the second-most-visible button
- * (the research note's first gap). Promote now sits at the end of the row; Text, Remind me and
- * Done sit between.
+ * (the research note's first gap). Promote now sits at the end of the row; Remind me and Done
+ * sit between.
+ *
+ * There is deliberately no Text here, on any plan. Texting is a Growth/Enterprise feature
+ * reached only from the customer card once A2P registration has completed (Xander,
+ * 2026-11-09) — to text a lead, promote them first.
  *
  * "What they want" carries the preview the payload already has — the call summary or the form
  * message. There is no separate AI one-line intent in the data, so the card does not invent
@@ -41,85 +41,36 @@ export interface LeadActions {
     onDelete: () => void;
     onOpenItem: (id: string) => void;
     onBack: () => void;
-    onTextSent: () => void;
 }
 
 export default function LeadDetail({
-    site,
     item,
     row,
     now,
     isDesktop,
     canPromote,
-    canText,
     remindSupported,
     promoting,
     remindOpen,
     setRemindOpen,
-    composerOpen,
-    setComposerOpen,
-    templates,
     error,
     actions,
 }: {
-    site: string;
     item: InboxItem;
     row: InboxRow | null;
     now: Date;
     isDesktop: boolean;
     canPromote: boolean;
-    canText: boolean;
     remindSupported: boolean;
     promoting: boolean;
     remindOpen: boolean;
     setRemindOpen: (v: boolean) => void;
-    composerOpen: boolean;
-    setComposerOpen: (v: boolean) => void;
-    templates: { state: "loading" | "ready" | "unsupported"; templates: ReplyTemplate[]; reload: () => void };
     error: string | null;
     actions: LeadActions;
 }) {
     const status = row?.status ?? (item.promoted ? "promoted" : item.archived ? "done" : "needs");
     const dial = dialNumber(item);
     const name = item.name ?? item.phoneDisplay;
-
-    const [draft, setDraft] = useState("");
-    const [sending, setSending] = useState(false);
-    const [sendError, setSendError] = useState<string | null>(null);
-    const [replySheet, setReplySheet] = useState(false);
-
-    const openComposer = (text?: string) => {
-        setDraft(text ?? (draft || greeting(item.name)));
-        setSendError(null);
-        setComposerOpen(true);
-    };
-
-    const onText = () => {
-        if (composerOpen && isDesktop) {
-            setComposerOpen(false);
-            return;
-        }
-        if (!isDesktop && templates.state === "ready" && templates.templates.length > 0) {
-            setReplySheet(true);
-            return;
-        }
-        openComposer();
-    };
-
-    async function send() {
-        if (!draft.trim()) return;
-        setSending(true);
-        setSendError(null);
-        const r = await textLead(site, item, draft.trim());
-        setSending(false);
-        if (!r.ok) {
-            setSendError(r.error ?? "We couldn't send that just now. Please try again in a moment.");
-            return;
-        }
-        setDraft("");
-        setComposerOpen(false);
-        actions.onTextSent();
-    }
 
     const canDone = status !== "done" && status !== "promoted";
     const canRemind = remindSupported && status !== "done" && status !== "promoted";
@@ -175,11 +126,6 @@ export default function LeadDetail({
             >
                 <Phone size={15} weight="bold" /> Call back <Key>C</Key>
             </a>
-            {canText && (
-                <ActionButton onClick={onText} pressed={composerOpen} action="text">
-                    <ChatText size={14} /> Text <Key>T</Key>
-                </ActionButton>
-            )}
             {canRemind && (
                 <span className="relative">
                     <ActionButton onClick={() => setRemindOpen(!remindOpen)} pressed={remindOpen} remindToggle action="remind">
@@ -221,11 +167,6 @@ export default function LeadDetail({
                 <Phone size={18} weight="bold" /> Call back
             </a>
             <div className="grid grid-flow-col auto-cols-fr gap-2">
-                {canText && (
-                    <TileButton onClick={onText}>
-                        <ChatText size={18} /> Text
-                    </TileButton>
-                )}
                 {canRemind && (
                     <TileButton onClick={() => setRemindOpen(true)}>
                         <Clock size={18} /> Remind me
@@ -276,19 +217,6 @@ export default function LeadDetail({
                     <p className="text-sm" style={{ color: "var(--chart-neg)" }}>
                         {error}
                     </p>
-                )}
-
-                {canText && composerOpen && (
-                    <Composer
-                        site={site}
-                        name={item.name}
-                        draft={draft}
-                        setDraft={setDraft}
-                        templates={templates}
-                        sending={sending}
-                        error={sendError}
-                        onSend={send}
-                    />
                 )}
 
                 <Card>
@@ -415,17 +343,6 @@ export default function LeadDetail({
                     onClose={() => setRemindOpen(false)}
                 />
             )}
-            {replySheet && (
-                <QuickReplySheet
-                    name={item.name}
-                    templates={templates.templates}
-                    onClose={() => setReplySheet(false)}
-                    onPick={(text) => {
-                        setReplySheet(false);
-                        openComposer(text ?? greeting(item.name));
-                    }}
-                />
-            )}
         </div>
     );
 }
@@ -450,8 +367,8 @@ function ActionButton({
     onClick: () => void;
     pressed?: boolean;
     remindToggle?: boolean;
-    /** What the e / h / t shortcuts click, so a shortcut and its button can never disagree. */
-    action?: "text" | "remind" | "done";
+    /** What the e / h shortcuts click, so a shortcut and its button can never disagree. */
+    action?: "remind" | "done";
     children: React.ReactNode;
 }) {
     return (

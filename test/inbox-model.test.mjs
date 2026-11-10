@@ -16,15 +16,12 @@ import { readFileSync } from "node:fs";
 import { filterInbox, inboxStatus, isNeedsYou } from "../app/lib/crm-contacts.ts";
 import {
     callbackGap,
-    firstName,
     fullWhen,
-    greeting,
     handledThisWeek,
     inboxCounts,
     inboxRows,
     neighbourRow,
     parsePickedTime,
-    prefillReply,
     reasonFor,
     remindChip,
     remindPresets,
@@ -335,19 +332,6 @@ test("a picked time must be in the future", () => {
     assert.equal(parsePickedTime("2026-11-12T15:00", NOW).getTime(), new Date(2026, 10, 12, 15, 0).getTime());
 });
 
-/* ── quick replies ────────────────────────────────────────────────────────── */
-
-test("a quick reply is greeted by first name and reads as one sentence", () => {
-    assert.equal(
-        prefillReply("Dave Kowalski", "On a job right now. I'll call you back by 5."),
-        "Hi Dave, on a job right now. I'll call you back by 5.",
-    );
-    assert.equal(prefillReply("Dave", "I'm on my way."), "Hi Dave, I'm on my way.", "I stays I");
-    assert.equal(prefillReply(null, "Can you send a photo of it?"), "Hi, can you send a photo of it?");
-    assert.equal(greeting("(512) 555-0147"), "Hi, ", "a number is not a name");
-    assert.equal(firstName("  Carol  Ostrander "), "Carol");
-});
-
 /* ── the callback line ────────────────────────────────────────────────────── */
 
 test("how long after the form the receptionist rang", () => {
@@ -391,6 +375,26 @@ test("the swipe leaves vertical scrolling to the browser and respects reduced mo
     assert.match(src, /touchAction: "pan-y"/);
     assert.match(src, /useReducedMotion/);
     assert.match(src, /e\.pointerType === "mouse"/);
+});
+
+test("the Inbox does not text anyone, on any plan", () => {
+    // Xander, 2026-11-09: texting is Growth/Enterprise only and reached from the customer card
+    // once A2P registration has completed — never from the Inbox.
+    const files = [
+        "InboxSection.tsx",
+        "inbox/InboxList.tsx",
+        "inbox/InboxToolbar.tsx",
+        "inbox/LeadDetail.tsx",
+        "inbox/ShortcutHelp.tsx",
+        "inbox/api.ts",
+    ];
+    for (const f of files) {
+        const src = read(f);
+        assert.doesNotMatch(src, /\/api\/portal\/messages/, `${f} calls the messages route`);
+        assert.doesNotMatch(src, /reply-templates/, `${f} reaches for quick replies`);
+        assert.doesNotMatch(src, /Composer|textLead|canText|data-inbox-action="text"|case "t"/, f);
+    }
+    assert.doesNotMatch(read("inbox/ShortcutHelp.tsx"), /<Kbd>t<\/Kbd>|\["t"\]/);
 });
 
 test("Archive is called Done everywhere the client can see it", () => {

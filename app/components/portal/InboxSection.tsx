@@ -33,7 +33,6 @@ import InboxList, { CaughtUp, NothingMatches, dialNumber } from "./inbox/InboxLi
 import LeadDetail from "./inbox/LeadDetail";
 import UndoToast, { type UndoState } from "./inbox/UndoToast";
 import { ShortcutHelp } from "./inbox/ShortcutHelp";
-import { useReplyTemplates } from "./inbox/useReplyTemplates";
 
 /**
  * The Inbox — every call and web enquiry, sorted into what still needs the owner and what
@@ -128,7 +127,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const toastSeq = useRef(0);
     const [checked, setChecked] = useState<Set<string>>(new Set());
     const [remindOpen, setRemindOpen] = useState(false);
-    const [composerOpen, setComposerOpen] = useState(false);
     const [help, setHelp] = useState(false);
     const [promoting, setPromoting] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState<InboxItem | null>(null);
@@ -150,8 +148,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
      */
     const remindSupported = !remindGone && all.some((i) => i.remindAt !== undefined);
     const canPromote = Boolean(data?.canPromote);
-    const canText = canPromote && site.features.messaging?.state === "ready";
-    const templates = useReplyTemplates(site.slug, canText);
 
     const rows = useMemo(() => inboxRows(all, filter, search, nowMs), [all, filter, search, nowMs]);
     const sections = useMemo(() => sectionRows(rows, now), [rows, now]);
@@ -193,7 +189,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
 
     const openLead = (id: string) => {
         setRemindOpen(false);
-        setComposerOpen(false);
         const to = href((p) => p.set("open", id));
         if (window.matchMedia(DESKTOP).matches) {
             router.replace(to, { scroll: false });
@@ -207,7 +202,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     // deep link (an owner's text) has no list entry behind it to step back to, so it replaces.
     const closeLead = () => {
         setRemindOpen(false);
-        setComposerOpen(false);
         if (openedHere.current) {
             openedHere.current = false;
             router.back();
@@ -385,7 +379,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     /* ── keyboard (desktop) ───────────────────────────────────────────────── */
 
     /**
-     * j/k/Enter/c/e/h/t/,/,? — attached to `window` only while this component is mounted on a
+     * j/k/Enter/c/e/h/,/,? — attached to `window` only while this component is mounted on a
      * desktop, and removed on unmount, so none of it reaches another portal page. Ignored
      * while typing anywhere and whenever a modifier is held (Cmd-K, Ctrl-F and the browser's
      * own shortcuts are not ours).
@@ -433,10 +427,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 case "h":
                     e.preventDefault();
                     click("remind");
-                    return;
-                case "t":
-                    e.preventDefault();
-                    click("text");
                     return;
                 case "/":
                     e.preventDefault();
@@ -508,20 +498,15 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const detail = selected && (
         <LeadDetail
             key={selected.id}
-            site={site.slug}
             item={selected}
             row={selectedRow}
             now={now}
             isDesktop={isDesktop}
             canPromote={canPromote}
-            canText={canText}
             remindSupported={remindSupported}
             promoting={promoting}
             remindOpen={remindOpen}
             setRemindOpen={setRemindOpen}
-            composerOpen={composerOpen}
-            setComposerOpen={setComposerOpen}
-            templates={templates}
             error={error}
             actions={{
                 onDone: () => void markDone(selectedIds(), "Marked done", selectedRow ? [selectedRow.id] : []),
@@ -532,10 +517,6 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 onDelete: () => setConfirmDelete(selected),
                 onOpenItem: openLead,
                 onBack: closeLead,
-                onTextSent: () => {
-                    refresh();
-                    invalidate("customers:");
-                },
             }}
         />
     );

@@ -25,7 +25,10 @@ export function Kbd({ children }: { children: React.ReactNode }) {
     );
 }
 
-/** Approved copy: "j k move · c call · e done · h remind · t text · ? all". */
+/**
+ * Approved copy: "j k move · c call · e done · h remind · t text · ? all", less "t text" —
+ * texting was taken out of the Inbox (Xander, 2026-11-09).
+ */
 export function KeysBar() {
     return (
         <div
@@ -45,9 +48,6 @@ export function KeysBar() {
                 <Kbd>h</Kbd> remind
             </span>
             <span>
-                <Kbd>t</Kbd> text
-            </span>
-            <span>
                 <Kbd>?</Kbd> all
             </span>
         </div>
@@ -64,7 +64,6 @@ const ALL: [string[], string][] = [
     [["c"], "call"],
     [["e"], "done"],
     [["h"], "remind"],
-    [["t"], "text"],
     [["/"], "search"],
     [["Esc"], "close"],
 ];

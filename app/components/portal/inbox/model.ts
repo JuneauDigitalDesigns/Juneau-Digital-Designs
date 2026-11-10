@@ -328,37 +328,6 @@ export function tomorrowMorning(now: Date): Date {
     return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 7, 0, 0, 0);
 }
 
-/* ── texting ──────────────────────────────────────────────────────────────── */
-
-/**
- * The first name to greet, or null.
- *
- * Null for an unknown caller — `name` is null — and for a "name" that is really a number,
- * which some call logs write into the name column. "Hi (512)," is worse than "Hi,".
- */
-export function firstName(name: string | null): string | null {
-    const n = name?.trim();
-    if (!n || /^[\d(+]/.test(n)) return null;
-    return n.split(/\s+/)[0] ?? null;
-}
-
-/** "Hi Dave, " — what the composer opens with. */
-export function greeting(name: string | null): string {
-    const first = firstName(name);
-    return first ? `Hi ${first}, ` : "Hi, ";
-}
-
-/**
- * A quick reply, greeted: "Hi Dave, " + the body with its first letter lowered so it reads as
- * one sentence. A body that opens with "I" keeps it, because "Hi Dave, i'll" is a typo.
- */
-export function prefillReply(name: string | null, body: string): string {
-    const text = body.trim();
-    const keep = /^I(\b|['’])/.test(text);
-    const joined = keep || !text ? text : text.charAt(0).toLowerCase() + text.slice(1);
-    return greeting(name) + joined;
-}
-
 /* ── the callback line ────────────────────────────────────────────────────── */
 
 /** "41 seconds", "3 minutes": how long after the form the receptionist rang. Null if unknown. */
