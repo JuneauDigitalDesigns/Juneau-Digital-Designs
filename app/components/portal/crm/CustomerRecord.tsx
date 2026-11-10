@@ -90,11 +90,17 @@ export default function CustomerRecord({
     onChanged,
     onRequestReview,
     onNotFound,
+    backHref,
+    onBack,
 }: {
     customerId: string | null;
     siteSlug: string;
     /** `page` fills the content area; `sheet` is the body of the mobile drawer. */
     variant: "page" | "sheet";
+    /** The board this record was opened from. Defaults to the bare Customers tab. */
+    backHref?: string;
+    /** Closes the record. When given, "All customers" calls it instead of navigating. */
+    onBack?: () => void;
     onChanged: () => void;
     onRequestReview: (c: CustomerRow) => void;
     /**
@@ -550,9 +556,10 @@ export default function CustomerRecord({
         >
             <RecordHeader
                 customer={customer}
-                siteSlug={siteSlug}
                 patch={patch}
                 onRequestReview={onRequestReview}
+                backHref={backHref ?? tabHref("customers", siteSlug)}
+                onBack={onBack}
             />
             {body}
         </div>
@@ -570,14 +577,16 @@ export default function CustomerRecord({
  */
 function RecordHeader({
     customer,
-    siteSlug,
     patch,
     onRequestReview,
+    backHref,
+    onBack,
 }: {
     customer: CustomerRow;
-    siteSlug: string;
     patch: (body: Record<string, unknown>) => Promise<boolean>;
     onRequestReview: (c: CustomerRow) => void;
+    backHref: string;
+    onBack?: () => void;
 }) {
     const initials = (customer.name ?? "?")
         .split(/\s+/)
@@ -587,8 +596,15 @@ function RecordHeader({
 
     return (
         <header className="px-7 pt-5 border-b" style={{ borderColor: "var(--rule)" }}>
+            {/* A real link, so it can be opened in a new tab; a plain click closes the record in
+                place, which lets the board step back over the history entry opening it pushed. */}
             <Link
-                href={tabHref("customers", siteSlug)}
+                href={backHref}
+                onClick={(e) => {
+                    if (!onBack || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                    e.preventDefault();
+                    onBack();
+                }}
                 className="inline-flex items-center gap-1.5 text-[12.5px] mb-3.5"
                 style={{ color: "var(--accent)" }}
             >
