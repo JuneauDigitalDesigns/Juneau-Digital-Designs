@@ -99,9 +99,9 @@ export type Verification =
  * domains, which would go stale the day a custom domain is attached.
  */
 export async function verifyTurnstile(token: string, ip: string | null, host: string | null): Promise<Verification> {
-    const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+    const secret = process.env.LEAD_FORM_TURNSTILE_SECRET_KEY?.trim();
     if (!secret) {
-        console.error("[lead-admit] TURNSTILE_SECRET_KEY not set: no human check, so no AI calls");
+        console.error("[lead-admit] LEAD_FORM_TURNSTILE_SECRET_KEY not set: no human check, so no AI calls");
         return { kind: "unavailable" };
     }
     if (!token) return { kind: "failed", codes: ["missing-input-response"] };

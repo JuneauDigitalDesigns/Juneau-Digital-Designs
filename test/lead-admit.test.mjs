@@ -63,7 +63,7 @@ function siteverify(form) {
     siteverifyCalls++;
     if (cloudflare === "down") return new Response("bad gateway", { status: 502 });
     if (cloudflare === "throw") throw new TypeError("fetch failed");
-    if (form.get("secret") !== process.env.TURNSTILE_SECRET_KEY) {
+    if (form.get("secret") !== process.env.LEAD_FORM_TURNSTILE_SECRET_KEY) {
         return Response.json({ success: false, "error-codes": ["invalid-input-secret"] });
     }
     const token = form.get("response") ?? "";
@@ -84,7 +84,7 @@ beforeEach(() => {
     spent.clear();
     siteverifyCalls = 0;
     cloudflare = "up";
-    process.env.TURNSTILE_SECRET_KEY = SECRET;
+    process.env.LEAD_FORM_TURNSTILE_SECRET_KEY = SECRET;
     delete process.env.INGEST_REQUIRE_ADMISSION;
     for (const k of Object.keys(process.env)) if (k.startsWith("GATE_")) delete process.env[k];
     globalThis.fetch = async (input, init = {}) => {
@@ -269,7 +269,7 @@ for (const state of ["down", "throw"]) {
 }
 
 test("no Turnstile secret on the agency: nobody is called, nobody is refused", async () => {
-    delete process.env.TURNSTILE_SECRET_KEY;
+    delete process.env.LEAD_FORM_TURNSTILE_SECRET_KEY;
     assert.deepEqual(await submit(), { called: false, lead: 200 });
     assert.equal(siteverifyCalls, 0);
 });
