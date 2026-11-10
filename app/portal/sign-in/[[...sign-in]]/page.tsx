@@ -1,8 +1,8 @@
 import { SignIn } from "@clerk/nextjs";
-import PortalScope from "@/app/components/portal/PortalScope";
 import { safeRedirectPath } from "@/app/lib/safe-redirect";
 import { postAuthRedirect } from "@/app/lib/post-auth-redirect";
-import { portalClerkAppearance } from "../../clerkAppearance";
+import { clerkAuthAppearance } from "../../clerkAppearance";
+import AuthShell from "../_auth/AuthShell";
 
 export default async function PortalSignInPage({
     searchParams,
@@ -14,17 +14,17 @@ export default async function PortalSignInPage({
     // and why it has to be `forceRedirectUrl`.
     const redirectUrl = safeRedirectPath((await searchParams).redirect_url);
 
+    // Agency brand, not `<PortalScope>`: see AuthShell. The card's title and subtitle come from
+    // `clerkLocalization` on the provider in app/portal/layout.tsx.
     return (
-        <PortalScope>
-            <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg)" }}>
-                <SignIn
-                    path="/portal/sign-in"
-                    routing="path"
-                    signUpUrl={`/portal/sign-up?redirect_url=${encodeURIComponent(redirectUrl)}`}
-                    forceRedirectUrl={postAuthRedirect(redirectUrl)}
-                    appearance={portalClerkAppearance}
-                />
-            </div>
-        </PortalScope>
+        <AuthShell>
+            <SignIn
+                path="/portal/sign-in"
+                routing="path"
+                signUpUrl={`/portal/sign-up?redirect_url=${encodeURIComponent(redirectUrl)}`}
+                forceRedirectUrl={postAuthRedirect(redirectUrl)}
+                appearance={clerkAuthAppearance}
+            />
+        </AuthShell>
     );
 }

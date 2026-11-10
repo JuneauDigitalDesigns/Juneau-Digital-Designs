@@ -29,9 +29,14 @@ a consequence of that decision, not the cause.
 | Route | Scoped? | Theme |
 |---|---|---|
 | `/portal` and all `(dash)` routes | yes | product |
-| `/portal/sign-in`, `/portal/sign-up` | yes | product |
+| **`/portal/sign-in`, `/portal/sign-up`** | **no** | **agency, pinned light** |
 | **`/portal/onboarding`** | **no** | **agency** |
 | everything else | no | agency |
+
+Sign-in and sign-up moved to the agency brand on 2026-11-09 (Xander, Q6: "Sign-in uses the
+AGENCY palette and the JDD lockup"). They render inside `AuthShell`
+(`app/portal/sign-in/_auth/`), which restates the light `:root` tokens on its own root so the
+page stays cream when next-themes has followed the OS into the dark agency theme.
 
 `<PortalScope>` is applied per-route, **not** in `app/portal/layout.tsx`. That layout also
 wraps onboarding, which is a sales funnel and deliberately stays on the agency brand —
@@ -40,25 +45,34 @@ cream, coral, grain and all. Putting the scope there would silently re-theme it.
 Two consequences worth knowing:
 
 - **Grain and chrome have different boundaries.** `MarketingChrome` strips the navbar and
-  footer from everything under `/portal` (onboarding included — it has always been a focused
-  flow), but strips the *grain* only from the product routes. Gate new texture on
-  `isPortalProduct`, not on the `/portal` prefix, or onboarding lands in a third state that
-  is neither theme.
-- **Clerk's provider spans the whole boundary.** `app/portal/layout.tsx` wraps every
-  `/portal/**` route in `<ClerkProvider appearance={portalClerkAppearance}>`, onboarding
-  included. That is currently harmless only because onboarding's sole Clerk import is the
-  server-side `auth()` helper and it renders no Clerk UI. **If you add Clerk UI to
-  onboarding, it will arrive wearing the product palette** — revisit this first.
+  footer from everything under `/portal` (onboarding and sign-in included — focused flows),
+  but strips the *grain* only from the product routes. Gate new texture on
+  `isPortalProduct`, not on the `/portal` prefix, or onboarding and sign-in land in a third
+  state that is neither theme. `isPortalAuth` (sign-in, sign-up) also repaints the canvas
+  cream, the agency counterpart of `PortalCanvas`.
+- **Clerk's provider spans the whole boundary, and every Clerk surface is agency.**
+  `app/portal/layout.tsx` wraps every `/portal/**` route in
+  `<ClerkProvider appearance={clerkAppearance}>`, onboarding included. Since 2026-11-09 that
+  appearance is the agency palette in literal hex: the sign-in and sign-up cards, the account
+  popover and the Manage account modal are all cream and coral, even though the popover opens
+  over the cool dashboard. That is the approved ClerkMenu design, not a leak. Clerk UI added to
+  onboarding would now arrive matching it. The sign-in and sign-up cards layer
+  `clerkAuthAppearance` on top at the component.
+- **Clerk's CSS is in a cascade layer.** `cssLayerName: "clerk"`, ordered by the `@layer` line
+  at the top of globals.css between `base` and `components`. So Tailwind classes passed in
+  `appearance.elements` win over Clerk's styles, and **so does every unlayered rule in
+  globals.css**, whatever its specificity. A new unlayered element selector (`button`, `a`,
+  `input`…) will restyle Clerk's internals; scope it.
 
 ## What the scope does not reach
 
 - **Inline styles.** They beat everything here. This is why `ui/Card.tsx` and
   `SettingsSection.tsx` needed real edits rather than re-theming for free.
-- **Anything React-portals into `<body>`.** In practice that is only Clerk's `<UserButton>`
-  popover. It is why `clerkAppearance.ts` carries **literal hex** instead of `var()` — a
-  `var()` evaluated at `<body>` resolves against `:root` and comes back cream and coral.
-  Keep those hexes in step with the scoped block by hand; each line names the token it
-  mirrors.
+- **Anything React-portals into `<body>`.** Clerk's `<UserButton>` popover and its Manage
+  account modal. `clerkAppearance.ts` carries **literal hex** instead of `var()`: a `var()`
+  evaluated at `<body>` resolves against `:root`, which is the agency palette *and follows the
+  OS into dark mode*. Clerk is agency-themed on purpose now, but pinned light, so its hexes
+  mirror the light `:root` block, not the scoped one. Each value names the token it mirrors.
 - **Ancestors.** A scope cannot style `<body>`. `body { background: var(--bg) }` resolves at
   `:root`, so portal routes would show cream in the overscroll gutter. `MarketingChrome`
   emits a small `<style>` for portal routes to repaint the canvas. It is server rendered
@@ -125,9 +139,15 @@ back wearing the agency cream and coral. Those files hand-copy the portal values
 | File | Mirrors | Why it cannot use `var()` |
 |---|---|---|
 | `app/globals.css` → `.portal-scope` | the source of truth | — |
-| `app/portal/clerkAppearance.ts` | `--fg`, `--fg-3`, `--accent`, `--online` … | Clerk's `<UserButton/>` popover portals into `<body>` |
+| `app/portal/clerkAppearance.ts` | **agency light `:root`**: `--bg`, `--panel-header`, `--elev-2`, `--fg`, `--fg-2`, `--accent`, `--accent-2`, `--chart-neg`, `--chart-pos` (in `AGENCY_HEX` and in the `elements` class strings) | Clerk's popover and modal portal into `<body>`, and `:root` goes dark with the OS while Clerk stays cream |
+| `app/portal/sign-in/_auth/AuthShell.module.css` | **agency light `:root`**: `--bg`, `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--accent-2`, `--accent-glow`, `--on-accent-2`, `--panel`, `--panel-header`, `--elev-2`, `--rule*`, `--surface` | the sign-in page is cream-only; `:root` follows the OS into the dark agency theme |
+| `app/components/MarketingChrome.tsx` → `AuthCanvas` | agency light `--bg` | paints `<html>`/`<body>`, which no scope reaches |
 | `app/components/portal/tour/tour-theme.css` | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--rule-strong` | driver.js popovers render into `<body>` |
 | `app/components/home/PortalDemo.module.css` (the `.pop*` tour-card rules) | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--chart-warn` | the homepage demo's tour card sits over the window, outside `.portal-scope` |
+
+Rows marked **agency light `:root`** mirror the top of globals.css, not the scoped block: they
+are agency-branded surfaces that must not follow `[data-theme="dark"]`. Check them when an
+agency token changes.
 
 **Adding a mirror? Add a row here in the same PR**, so the table arrives true rather than
 aspirational. Keep it to files that genuinely hand-copy values: anything rendered inside a real
@@ -173,8 +193,10 @@ The scale is **fixed px, no `clamp()`**. Marketing type is viewport-driven becau
 `public/jdd-lockup-portal.png`, in a full-bleed cream strip at the top of the rail, linking
 to the agency site.
 
-**This is the only agency branding anywhere in the portal, and the only warm surface.** That
-is the whole idea: one branded object, everything else product-neutral. The lockup contains
+**This is the only agency branding in the portal's own UI, and its only warm surface.** That
+is the whole idea: one branded object, everything else product-neutral. (The one exception
+is Clerk's account popover, cream and coral per the approved ClerkMenu mockup; see the scope
+section.) The lockup contains
 the agency coral `#d95430` — that is deliberate and is the one sanctioned exception to the
 cool palette. Don't "fix" it.
 

@@ -1,0 +1,244 @@
+/* The sign-in / sign-up page, agency brand. See AuthShell.tsx.
+
+   Contrast (WCAG 2, computed), every text pair on this page:
+     --fg     #14120c on --bg #f4ecd8 15.90, on --panel-header #f0e6cd 15.07, on #fffdf5 18.39
+     --fg-2   #43402c on #f4ecd8 8.88, on #f0e6cd 8.42, on #fffdf5 10.27
+     --accent #1f6f78 (links) on #f4ecd8 4.95, on #f0e6cd 4.69; hover #14525a on #f0e6cd 7.09
+     eyebrow  #b8441f on #fffdf5 5.31  (the mockup's #d2542f is 4.08: too low at 11px)
+     badge    #9c3a1c on coral 12% over #fffdf5 5.84; #1f6f78 on teal 12% over #fffdf5 4.84
+     peek btn #fffdf5 on #b8441f 5.31  (the mockup's #d2542f is 4.08: too low at 14px)
+   `--fg-3` #7a715a is 4.11 on cream and is not used for text here. It is restated below only
+   because the global input rule reads it for placeholders, which sit on white (4.84). */
+
+.shell {
+    /* The light agency tokens, restated so a visitor whose OS is in dark mode still gets the
+       cream page. Mirrors the light `:root` block at the top of globals.css; a row in the
+       PORTAL-DESIGN.md mirror table. */
+    --bg: #f4ecd8;
+    --fg: #14120c;
+    --fg-2: #43402c;
+    --fg-3: #7a715a;
+    --accent: #1f6f78;
+    --accent-2: #d2542f;
+    --accent-glow: rgba(210, 84, 47, 0.28);
+    --on-accent-2: #f4ecd8;
+    --panel: #fbf5e6;
+    --panel-header: #f0e6cd;
+    --elev-2: #fffdf5;
+    --rule: rgba(20, 18, 12, 0.16);
+    --rule-weak: rgba(20, 18, 12, 0.06);
+    --rule-strong: rgba(20, 18, 12, 0.28);
+    --surface: rgba(20, 18, 12, 0.04);
+    color-scheme: light;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    color: var(--fg);
+    /* The agency body face, as `--font-body` in `:root` (Hanken Grotesk). */
+    font-family: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
+    font-size: 14px;
+}
+
+/* Our links only. A bare `.shell a` is unlayered, so it would outrank Clerk's own link styles
+   (in the `clerk` layer) and restyle every link inside the card. */
+.foot a,
+.links a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.foot a:hover {
+    color: #14525a;
+}
+
+/* ── Brand: a band on phones, the left panel from 1024px ─────────────────────────────── */
+
+.brand {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 26px 22px 28px;
+    background: var(--panel-header);
+    border-bottom: 1px solid rgba(20, 18, 12, 0.1);
+}
+
+/* 10:3, the asset's own ratio. Light grounds only: the art is near-black. */
+.lockup {
+    display: block;
+    width: 170px;
+    height: auto;
+}
+
+/* Big Shoulders 900, uppercase: the agency display voice, as on the homepage. */
+.headline {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 44px;
+    line-height: 0.92;
+    letter-spacing: -0.005em;
+    text-transform: uppercase;
+    color: var(--fg);
+}
+
+.sub,
+.peek,
+.foot {
+    display: none;
+}
+
+.side {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    /* Tucks the card up over the band's bottom edge, as in the phone mockup. */
+    padding: 0 14px;
+    margin-top: -12px;
+}
+
+.stack {
+    width: 100%;
+    max-width: 404px;
+}
+
+.links {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding: 18px;
+    font-size: 12.5px;
+}
+.links a {
+    color: var(--fg-2);
+}
+.links a:hover {
+    color: var(--fg);
+}
+
+@media (min-width: 1024px) {
+    .shell {
+        flex-direction: row;
+    }
+
+    .brand {
+        flex: none;
+        width: clamp(420px, 43vw, 620px);
+        box-sizing: border-box;
+        min-height: 100vh;
+        min-height: 100dvh;
+        gap: 22px;
+        padding: 44px clamp(36px, 3.9vw, 56px);
+        border-bottom: 0;
+        border-right: 1px solid rgba(20, 18, 12, 0.1);
+    }
+
+    .lockup {
+        width: 220px;
+    }
+
+    /* `margin-top: auto` drops the headline and everything after it to the bottom of the
+       panel, leaving the lockup alone at the top. */
+    .headline {
+        margin-top: auto;
+        font-size: clamp(56px, 5.3vw, 76px);
+    }
+
+    .sub {
+        display: block;
+        margin: 0;
+        max-width: 440px;
+        font-size: 16px;
+        line-height: 1.55;
+        color: var(--fg-2);
+    }
+
+    .peek {
+        display: block;
+        width: 100%;
+        max-width: 400px;
+        overflow: hidden;
+        background: var(--elev-2);
+        border: 1px solid rgba(20, 18, 12, 0.1);
+        border-radius: 10px;
+        box-shadow: 0 18px 40px rgba(20, 18, 12, 0.1);
+    }
+
+    .foot {
+        display: flex;
+        gap: 16px;
+        font-size: 12.5px;
+        color: var(--fg-2);
+    }
+
+    .side {
+        align-items: center;
+        padding: 48px 24px;
+        margin-top: 0;
+    }
+
+    .links {
+        padding: 14px 0 0;
+    }
+}
+
+/* ── The peek card (decorative, aria-hidden) ─────────────────────────────────────────── */
+
+.peekRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    font-size: 13px;
+    border-top: 1px solid rgba(20, 18, 12, 0.06);
+}
+.peekRow:first-child {
+    border-top: 0;
+}
+
+.eyebrow {
+    /* The agency mono, as `--font-mono` in `:root` (DM Mono). */
+    font-family: var(--font-dm-mono), "DM Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #b8441f;
+}
+
+.why {
+    display: inline-flex;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(210, 84, 47, 0.12);
+    color: #9c3a1c;
+}
+.whyWeb {
+    background: rgba(31, 111, 120, 0.12);
+    color: var(--accent);
+}
+
+.callBack {
+    margin-left: auto;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #b8441f;
+    color: #fffdf5;
+}
+
+/* ── Agency classes rendered inside the shell ────────────────────────────────────────────
+   Sign-up's "signed in to another account" state (InviteOtherAccount) uses the marketing
+   `.btn.primary`: cream on #d2542f, 3.53:1 at 16px, which fails AA. Inside this page it takes
+   the deeper coral instead, 4.59:1. Its hover (cream on ink) is 15.90:1 and is left alone. */
+.shell :global(.btn.primary:not(:hover)) {
+    background: #b8441f;
+    border-color: #b8441f;
+}
