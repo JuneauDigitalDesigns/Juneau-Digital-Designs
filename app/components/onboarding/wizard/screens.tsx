@@ -123,7 +123,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
         case "radius": return { q: "How far do you travel for mobile service?", help: "In miles. Leave blank if you don't offer mobile service." };
         case "offer": return { q: "Any current promotional offer?", help: "Shown as a small ribbon on the site. Leave blank if none." };
         case "logo": return { q: "Do you have a logo?", help: "PNG, JPG or WebP, up to 10 MB. A clear, high-quality version is best." };
-        case "photos": return { q: "Show us your work", help: "Real photos of your jobs, vans and team beat stock photos every time. Add what you have." };
+        case "photos": return { q: C.photosQ, help: C.photosHelp }; // P1, P2 (2026-11-11)
         case "voice": return { q: "How should your site sound?", help: "Pick up to three. It steers how we write." };
         case "setup": return { q: "How will calls reach your receptionist?", help: "Your receptionist never answers before you do. It only picks up when nobody else does." };
         case "hours": return { q: "When are you open?", help: "Shown on your site, and your receptionist can tell callers." };
@@ -270,6 +270,8 @@ function FilePicker({ accept, multiple, onFiles, children, className, ariaLabel 
     const [over, setOver] = useState(false);
     const onDrop = (e: DragEvent) => {
         e.preventDefault();
+        // A "+" tile sits inside a PhotoBox, which also takes drops: handle it here only once.
+        e.stopPropagation();
         setOver(false);
         const files = Array.from(e.dataTransfer.files ?? []);
         if (files.length) onFiles(multiple ? files : files.slice(0, 1));
@@ -305,6 +307,73 @@ function FilePicker({ accept, multiple, onFiles, children, className, ariaLabel 
 
 const ACCEPT = "image/png,image/jpeg,image/webp";
 
+/** True while a drag carries files (not text or a link dragged from the page). */
+function draggingFiles(e: DragEvent): boolean {
+    return Array.from(e.dataTransfer?.types ?? []).includes("Files");
+}
+
+/**
+ * A photo box (2026-11-11): the whole box takes a drag and drop, not just its "+" tile, and lights
+ * up while files are dragged over it. Tapping the hint row (or the "+" tile inside `children`)
+ * still opens the file chooser. `room` is how many more photos fit; at 0 the hint row is hidden and
+ * a drop is ignored. The window-level guard in onboardingpageclient.tsx stops a drop outside every
+ * box from opening the photo in the tab. File type and size are checked where the upload runs.
+ */
+function PhotoBox({ room, multiple, onFiles, busy, hint = true, children }: {
+    room: number; multiple?: boolean; onFiles: (f: File[]) => void; busy?: boolean; hint?: boolean; children: ReactNode;
+}) {
+    const ref = useRef<HTMLInputElement | null>(null);
+    const [over, setOver] = useState(false);
+    const open = room > 0;
+    return (
+        <div
+            className={`${s.zone} ${over ? s.dropOver : ""}`}
+            onDragOver={(e) => {
+                if (!open || !draggingFiles(e)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+                if (!over) setOver(true);
+            }}
+            onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+            }}
+            onDrop={(e) => {
+                if (!open || !draggingFiles(e)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setOver(false);
+                const files = Array.from(e.dataTransfer.files ?? []);
+                if (files.length) onFiles(multiple ? files : files.slice(0, 1));
+            }}
+        >
+            {children}
+            {open && hint ? (
+                <>
+                    <button type="button" className={s.zoneHint} onClick={() => ref.current?.click()} disabled={busy}>
+                        <span className={s.zoneIc} aria-hidden="true">⤒</span>
+                        <span>
+                            <b>{busy ? "Uploading…" : C.dropHint}</b>
+                            <small>{C.dropLimits}</small>
+                        </span>
+                    </button>
+                    <input
+                        ref={ref}
+                        type="file"
+                        accept={ACCEPT}
+                        multiple={multiple}
+                        className={s.hidden}
+                        onChange={(e) => {
+                            const files = Array.from(e.target.files ?? []);
+                            e.target.value = "";
+                            if (files.length) onFiles(files);
+                        }}
+                    />
+                </>
+            ) : null}
+        </div>
+    );
+}
+
 // ── Screens ──────────────────────────────────────────────────────────────────
 
 export function ScreenBody(p: ScreenProps) {
@@ -315,7 +384,7 @@ export function ScreenBody(p: ScreenProps) {
                 <div className={`${s.callout} ${s.narrow}`}>
                     <b>Good to have nearby</b>
                     <br />
-                    Your logo and a few photos of your work. No logo or photos yet? That&apos;s fine, we&apos;ll sort it.
+                    {C.welcomePhotos}
                     {p.prefill ? <><br /><br />{PREFILL_WELCOME}</> : null}
                 </div>
             );
@@ -871,34 +940,36 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
             break;
         case "photos":
             q = C.qPhotos; help = C.hPhotos; earn = C.addsPhotos;
-            body = (
-                <>
-                    <div className={s.thumbs}>
-                        {f.photos.map((img, i) => (
-                            <span key={img.url} className={`${s.thumb} ${s.thumbBig}`}>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
-                                <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
-                            </span>
-                        ))}
-                        {f.photos.length < SERVICE_CAPS.photos ? (
-                            <FilePicker
-                                accept={ACCEPT}
-                                multiple
-                                onFiles={(files) => {
-                                    if (files.length > SERVICE_CAPS.photos - f.photos.length) toast(C.photosCap);
-                                    uploads.service(sv.name, files.slice(0, SERVICE_CAPS.photos - f.photos.length));
-                                }}
-                                className={`${s.thumb} ${s.thumbBig} ${s.thumbAdd}`}
-                                ariaLabel={C.qPhotos}
-                            >
-                                {uploads.busy.has(slot) ? "…" : "+"}
-                            </FilePicker>
-                        ) : null}
-                    </div>
-                    {uploads.errors[slot] ? <p className={s.err} role="alert">{uploads.errors[slot]}</p> : null}
-                </>
-            );
+            {
+                const room = SERVICE_CAPS.photos - f.photos.length;
+                const addPhotos = (files: File[]) => {
+                    if (files.length > room) toast(C.photosCap);
+                    uploads.service(sv.name, files.slice(0, room));
+                };
+                body = (
+                    <>
+                        <PhotoBox room={room} multiple onFiles={addPhotos} busy={uploads.busy.has(slot)}>
+                            {f.photos.length ? (
+                                <div className={s.thumbs}>
+                                    {f.photos.map((img, i) => (
+                                        <span key={img.url} className={`${s.thumb} ${s.thumbBig}`}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
+                                            <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
+                                        </span>
+                                    ))}
+                                    {room > 0 ? (
+                                        <FilePicker accept={ACCEPT} multiple onFiles={addPhotos} className={`${s.thumb} ${s.thumbBig} ${s.thumbAdd}`} ariaLabel={C.qPhotos}>
+                                            {uploads.busy.has(slot) ? "…" : "+"}
+                                        </FilePicker>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </PhotoBox>
+                        {uploads.errors[slot] ? <p className={s.err} role="alert">{uploads.errors[slot]}</p> : null}
+                    </>
+                );
+            }
             break;
         case "brands": {
             q = C.qBrands; help = C.hBrands; earn = C.adds("Brands we work with");
@@ -1009,27 +1080,36 @@ function LogoScreen({ state, update, uploads }: ScreenProps) {
     );
 }
 
-function PhotosScreen({ state, update, uploads }: ScreenProps) {
+function PhotosScreen({ state, update, uploads, toast }: ScreenProps) {
     const slides = state.images.heroSlides;
     const team = state.images.aboutFeature;
+    const room = MAX_WORK_PHOTOS - slides.length;
+    const addWork = (files: File[]) => {
+        if (files.length > room) toast(C.workCap);
+        uploads.work(files.slice(0, room));
+    };
     return (
         <>
             <div className={s.grp}>
-                <span className={s.lab}>Your work <small>Up to 10. Used across your homepage.</small></span>
-                <div className={s.thumbs}>
-                    {slides.map((img, i) => (
-                        <span key={img.url} className={s.thumb}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={img.url} alt={`Upload ${i + 1}`} />
-                            <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => update({ images: { ...state.images, heroSlides: slides.filter((_, j) => j !== i) } })}>✕</button>
-                        </span>
-                    ))}
-                    {slides.length < MAX_WORK_PHOTOS ? (
-                        <FilePicker accept={ACCEPT} multiple onFiles={uploads.work} className={`${s.thumb} ${s.thumbAdd}`} ariaLabel="Add photos">
-                            {uploads.busy.has("hero") ? "…" : "+"}
-                        </FilePicker>
+                <span className={s.lab}>{C.photosLabel} <small>{C.photosLabelNote}</small></span>
+                <PhotoBox room={room} multiple onFiles={addWork} busy={uploads.busy.has("hero")}>
+                    {slides.length ? (
+                        <div className={s.thumbs}>
+                            {slides.map((img, i) => (
+                                <span key={img.url} className={s.thumb}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={img.url} alt={`Upload ${i + 1}`} />
+                                    <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => update({ images: { ...state.images, heroSlides: slides.filter((_, j) => j !== i) } })}>✕</button>
+                                </span>
+                            ))}
+                            {room > 0 ? (
+                                <FilePicker accept={ACCEPT} multiple onFiles={addWork} className={`${s.thumb} ${s.thumbAdd}`} ariaLabel="Add photos">
+                                    {uploads.busy.has("hero") ? "…" : "+"}
+                                </FilePicker>
+                            ) : null}
+                        </div>
                     ) : null}
-                </div>
+                </PhotoBox>
                 {uploads.errors.hero ? <p className={s.err} role="alert">{uploads.errors.hero}</p> : null}
             </div>
             <div className={s.grp}>
