@@ -37,7 +37,9 @@ export default async function PortalSignUpPage({
     // Agency brand, not `<PortalScope>`: see AuthShell. Same page as sign-in, so a client who
     // follows "Sign up" from the sign-in card stays in the same place.
     //
-    // The card keeps Clerk's own title: no sign-up string has been approved yet. The explainer
+    // The first step keeps Clerk's own title: no string for it has been approved. The continue
+    // step, where an invited client creates a password, is localized on the provider (see
+    // `clerkLocalization`), since Clerk takes no per-component localization. The explainer
     // that used to sit beside the card ("Create your portal login" and two bullets) is replaced
     // by the shared brand panel, whose wording is approved.
     return (

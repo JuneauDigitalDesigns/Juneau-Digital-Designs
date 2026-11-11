@@ -1,0 +1,225 @@
+{
+  "_recorded": {
+    "from": "GET https://clerk.juneaudigitaldesigns.com/v1/environment",
+    "at": "2026-11-11",
+    "kept": "user_settings, as returned"
+  },
+  "instance_environment_type": "production",
+  "user_settings": {
+    "attributes": {
+      "email_address": {
+        "enabled": true,
+        "required": true,
+        "used_for_first_factor": true,
+        "first_factors": [
+          "email_code"
+        ],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [
+          "email_code"
+        ],
+        "verify_at_sign_up": true,
+        "immutable": false
+      },
+      "phone_number": {
+        "enabled": false,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "username": {
+        "enabled": false,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "web3_wallet": {
+        "enabled": false,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "first_name": {
+        "enabled": true,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "last_name": {
+        "enabled": true,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "password": {
+        "enabled": true,
+        "required": true,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "authenticator_app": {
+        "enabled": false,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "ticket": {
+        "enabled": true,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "backup_code": {
+        "enabled": false,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      },
+      "passkey": {
+        "enabled": false,
+        "required": false,
+        "used_for_first_factor": false,
+        "first_factors": [],
+        "used_for_second_factor": false,
+        "second_factors": [],
+        "verifications": [],
+        "verify_at_sign_up": false,
+        "immutable": false
+      }
+    },
+    "sign_in": {
+      "second_factor": {
+        "required": false
+      }
+    },
+    "sign_up": {
+      "captcha_enabled": true,
+      "captcha_widget_type": "smart",
+      "custom_action_required": false,
+      "progressive": true,
+      "mode": "public",
+      "legal_consent_enabled": false,
+      "mfa": {
+        "required": false
+      }
+    },
+    "restrictions": {
+      "allowlist": {
+        "enabled": false
+      },
+      "blocklist": {
+        "enabled": false
+      },
+      "allowlist_blocklist_disabled_on_sign_in": {
+        "enabled": true
+      },
+      "block_email_subaddresses": {
+        "enabled": false
+      },
+      "block_disposable_email_domains": {
+        "enabled": false
+      }
+    },
+    "username_settings": {
+      "min_length": 4,
+      "max_length": 64,
+      "allow_extended_special_characters": false,
+      "allow_numeric_usernames": false
+    },
+    "actions": {
+      "delete_self": true,
+      "create_organization": true,
+      "create_organizations_limit": null
+    },
+    "attack_protection": {
+      "user_lockout": {
+        "enabled": true,
+        "max_attempts": 10,
+        "duration_in_minutes": 60
+      },
+      "pii": {
+        "enabled": true
+      },
+      "email_link": {
+        "require_same_client": true
+      },
+      "enumeration_protection": {
+        "enabled": false
+      }
+    },
+    "passkey_settings": {
+      "allow_autofill": true,
+      "show_sign_in_button": true,
+      "satisfies_second_factor": false
+    },
+    "social": {},
+    "password_settings": {
+      "disable_hibp": false,
+      "disable_password_reverification": false,
+      "min_length": 15,
+      "max_length": 0,
+      "require_special_char": false,
+      "require_numbers": false,
+      "require_uppercase": false,
+      "require_lowercase": false,
+      "show_zxcvbn": false,
+      "min_zxcvbn_strength": 0,
+      "enforce_hibp_on_sign_in": true,
+      "allowed_special_characters": "!\"#$%&'()*+,-./:;<=>?@[]^_`{|}~"
+    },
+    "saml": {
+      "enabled": false
+    },
+    "enterprise_sso": {
+      "enabled": false,
+      "self_serve_sso": false,
+      "self_serve_directory_sync": true
+    }
+  }
+}

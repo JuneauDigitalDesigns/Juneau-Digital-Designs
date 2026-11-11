@@ -6,9 +6,10 @@ import { clerkClient } from "@clerk/nextjs/server";
  *
  * **Invitation only. No temporary passwords, ever, for real clients** (orchestrator decision,
  * 2026-11-03). Nothing here — or anywhere on this path — generates, sets, stores, logs or emails
- * a password. Clerk's invitation lets the client choose a password, an email code or Google
- * when they accept it; the link goes inside our own welcome email (`notify: false`), so the
- * client gets one email, not two.
+ * a password. The client creates their own password when they accept the invitation: the ticket
+ * verifies their email, and a password is the one thing sign-up still asks for (dev also offers
+ * Google there; production has no social sign-in). The link goes inside our own welcome email
+ * (`notify: false`), so the client gets one email, not two.
  *
  * Accepting creates a Clerk user with a *verified* email, which is exactly what the portal
  * already keys on: `resolveAccountForUser` finds the email-keyed account fulfilment wrote, and
