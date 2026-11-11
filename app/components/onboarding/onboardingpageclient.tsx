@@ -71,9 +71,11 @@ function portalStorageKey(clerkUserId: string, siteRef: string): string | null {
  * dropped, orientation applied, the long edge capped at 2560px, the logo's transparency kept.
  * The client still sees the name of the file they picked.
  */
-async function uploadFile(file: File, kind: PrepKind): Promise<ImageMeta> {
+async function uploadFile(file: File, kind: PrepKind, siteRef: string): Promise<ImageMeta> {
     const clean = await prepareImage(file, kind);
-    const blob = await upload(clean.name, clean, { access: "public", handleUploadUrl: "/api/upload" });
+    // /api/upload needs the signed-in client and checks the site is theirs (2026-11-11).
+    const handleUploadUrl = siteRef ? `/api/upload?site=${encodeURIComponent(siteRef)}` : "/api/upload";
+    const blob = await upload(clean.name, clean, { access: "public", handleUploadUrl });
     return { url: blob.url, filename: file.name, alt: "" };
 }
 
@@ -353,7 +355,7 @@ export default function OnboardingPageClient({
         markBusy(slot, true);
         const kind: PrepKind = slot === "logo" ? "logo" : "photo";
         try {
-            apply(await Promise.all(files.map((f) => uploadFile(f, kind))));
+            apply(await Promise.all(files.map((f) => uploadFile(f, kind, siteRef))));
         } catch (e) {
             setUploadError(slot, e instanceof PrepError ? e.message : "Upload failed. Please try again.");
         } finally {
