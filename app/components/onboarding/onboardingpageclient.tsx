@@ -254,6 +254,27 @@ export default function OnboardingPageClient({
         return () => window.removeEventListener("popstate", onPop);
     }, []);
 
+    // A photo dropped outside every photo box used to open in the tab and leave the wizard
+    // (2026-11-11). The boxes call preventDefault on their own drags, so anything still undecided
+    // when it reaches the window is a stray file drop: show "no drop" and ignore it.
+    useEffect(() => {
+        const carriesFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+        const onDragOver = (e: DragEvent) => {
+            if (e.defaultPrevented || !carriesFiles(e)) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+        };
+        const onDrop = (e: DragEvent) => {
+            if (!e.defaultPrevented && carriesFiles(e)) e.preventDefault();
+        };
+        window.addEventListener("dragover", onDragOver);
+        window.addEventListener("drop", onDrop);
+        return () => {
+            window.removeEventListener("dragover", onDragOver);
+            window.removeEventListener("drop", onDrop);
+        };
+    }, []);
+
     useEffect(() => {
         if (def.id === "review") reviewShownAtRef.current = Date.now();
     }, [def.id]);

@@ -12,6 +12,10 @@
  * The page headings quoted in the "Adds …" lines ("What's included", "Signs it's time to call",
  * "What to expect", "Starting at", "Common questions", "Brands we work with", "Areas we serve")
  * were approved on 2026-11-10 for the service page itself (service-page-spec.md §3).
+ *
+ * ── PHOTOS, APPROVED WORD FOR WORD by Xander, 2026-11-11 ("Approve as drafted") ─────
+ * Mockup https://claude.ai/artifact/P1VQn1Ry22JgnkdXEVAfQ5, items P1 to P7 and S1 to S4. P5, P6,
+ * S2 and S4 were kept as they were. Each string carries its item id.
  */
 
 import type { ProfileKind } from "@jdd/schema";
@@ -94,7 +98,7 @@ export const C = {
     addDuration: "Something else, like 2 to 3 hours", // #51
     qQuestions: "What do customers ask about this?", // #32
     hQuestions: "Tap the questions you hear. Add a short answer in your own words if you like. We only use what you tell us.", // #36
-    qPhotos: "Photos of this job", // #32
+    qPhotos: "Photos of you doing this work", // S1 (2026-11-11; was #32 "Photos of this job")
     hPhotos: "Up to 3. The first one becomes this service's picture across your site. The rest show on its page.", // #37
     photosCap: "Up to 3 photos per service.", // #37
     listCap: (n: number) => `Up to ${n} for each service.`, // #37
@@ -134,7 +138,17 @@ export const C = {
     ghostPrice: '+ "Starting at": add a starting price', // #45
     ghostQuestions: '+ "Common questions": add what customers ask', // #45
     ghostAreas: '+ "Areas we serve": only if it\'s some of your towns', // #45
-    ghostPhotos: "+ Photos of this job", // #45
+    ghostPhotos: "+ Photos of you doing this work", // S3 (2026-11-11; was #45 "+ Photos of this job")
+    // The general Photos step and every photo box (P1 to P4, P7)
+    photosQ: "Do you have photos of your completed work or your business?", // P1
+    photosHelp: "Finished jobs, your trucks, your shop, your team at work. Add what you have.", // P2
+    photosLabel: "Your photos", // P3
+    photosLabelNote: "Up to 10. These go at the top of your homepage.", // P3
+    dropHint: "Drag photos here or tap to choose", // P4
+    dropLimits: "PNG, JPG or WebP, up to 10 MB each.", // P4
+    workCap: "Up to 10 photos.", // P3's limit, shown when a drop holds more photos than fit
+    welcomePhotos: "Your logo and some photos of your work or your business. No logo or photos yet? That's fine, we'll sort it.", // P7
+
     profilesPlaceholder: "Google · Facebook · Yelp", // #54
 } as const;
 
