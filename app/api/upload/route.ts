@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { getUploadRatelimit } from "@/app/lib/portal-kv";
+import { accountKey, safeBasename } from "@/app/lib/upload-guard";
 
 /**
  * Issues the Vercel Blob client token the onboarding wizard uploads each photo with (the
@@ -28,17 +28,6 @@ export const runtime = "nodejs";
 const ALLOWED_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10_485_760; // 10 MB, the wizard's own cap (app/lib/image-prep.ts)
 const IMAGE_NAME = /\.(jpe?g|png|webp)$/i;
-
-/** An opaque, stable per-account path segment. The email is the account key but is never public. */
-function accountKey(email: string): string {
-    return createHash("sha256").update(`jdd-upload:${email.trim().toLowerCase()}`).digest("hex").slice(0, 16);
-}
-
-/** Basename only, with path traversal and null bytes stripped. */
-function safeBasename(pathname: string | null | undefined): string {
-    const rawBase = (pathname ?? "upload").replace(/\\/g, "/").split("/").pop() ?? "upload";
-    return rawBase.replace(/\.\./g, "").replace(/\0/g, "").trim() || "upload";
-}
 
 const bad = (status: number, error: string) => NextResponse.json({ error }, { status });
 

@@ -46,12 +46,23 @@ const STUBS = {
         export const getCachedAccountByUserId = async (userId) => ${STATE}.accounts[userId] ?? null;
         export const getAccount = async () => null;
     `,
+    // The showcase upload (/api/portal/featured/upload) stores through put() after resizing.
+    "@vercel/blob": `
+        export const put = async (pathname, bytes, options) => {
+            ${STATE}.puts.push({ pathname, options });
+            return { url: "https://blob.test/" + pathname };
+        };
+    `,
+    // sharp is not needed to test the route: the resize is a recorder that passes bytes through.
+    "@/app/lib/image-resize": `
+        export const resizeToCard = async (input) => ({ bytes: input, contentType: "image/webp" });
+    `,
 };
 
 const stub = (name) => ({ url: `data:text/javascript,${encodeURIComponent(STUBS[name])}`, format: "module", shortCircuit: true });
 
 export async function resolve(specifier, context, next) {
-    if (specifier === "@clerk/nextjs/server" || specifier === "@vercel/blob/client") return stub(specifier);
+    if (specifier === "@clerk/nextjs/server" || specifier === "@vercel/blob/client" || specifier === "@vercel/blob" || specifier === "@/app/lib/image-resize") return stub(specifier);
     if (specifier === "@/app/lib/portal-kv" || (specifier === "./portal-kv" && context.parentURL?.endsWith("/portal-account.ts"))) return stub("portal-kv");
     if (specifier === "./account-store" && context.parentURL?.endsWith("/portal-account.ts")) return stub("account-store");
     return next(specifier, context);

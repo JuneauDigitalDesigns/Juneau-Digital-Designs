@@ -176,7 +176,8 @@ function FeaturedSection({
         try {
             const form = new FormData();
             form.append("file", file);
-            const res = await fetch("/api/portal/featured/upload", {
+            // The route checks the site belongs to the signed-in account (2026-11-11).
+            const res = await fetch(`/api/portal/featured/upload${siteParam}`, {
                 method: "POST",
                 body: form,
             });
