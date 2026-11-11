@@ -20,7 +20,7 @@ import { saveAccount } from "@/app/lib/account-store";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { isHeldForPlanChange } from "@/app/lib/held-agreement";
 import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
-import { SMS_CONSENT_TEXT_VERSION } from "@/app/lib/sms-consent-text";
+import { smsConsentCopyForVersion } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import { acceptanceMethod, validateAgreementSubmission } from "@/app/lib/agreement-validate.mjs";
 import type {
@@ -76,6 +76,17 @@ export async function POST(req: Request) {
   // The rules live in agreement-validate.mjs so the test suite runs the same ones.
   const err = validateAgreementSubmission(body);
   if (err) return NextResponse.json({ error: err }, { status: 400 });
+
+  // The SMS wording the page showed beside the box, named by the page itself, so the consent
+  // record is those exact words even if the campaign switched while the page was open. A version
+  // this deploy doesn't know can't be proven, so nothing is recorded against it.
+  const consentCopy = body.smsConsent ? smsConsentCopyForVersion(body.smsConsentVersion) : null;
+  if (body.smsConsent && !consentCopy) {
+    return NextResponse.json(
+      { error: "This agreement has changed. Reload the page to read the current version." },
+      { status: 400 },
+    );
+  }
 
   const id = randomUUID();
   const signedAt = new Date();
@@ -260,7 +271,7 @@ export async function POST(req: Request) {
   // Written after the agreement is safely stored, and never allowed to fail the request.
   // A signature is the artefact that has to survive; losing one because a secondary write
   // errored would be a far worse outcome than a client having to re-tick a box.
-  if (body.smsConsent) {
+  if (body.smsConsent && consentCopy) {
     const alertPhone = normalizeE164(body.alertPhone);
     if (alertPhone) {
       try {
@@ -272,8 +283,8 @@ export async function POST(req: Request) {
           // consent and the signature can never disagree about who was at the keyboard.
           ip: audit.ip,
           userAgent: audit.userAgent,
-          consentTextHash: hashConsentText(),
-          consentTextVersion: SMS_CONSENT_TEXT_VERSION,
+          consentTextHash: hashConsentText(consentCopy.text),
+          consentTextVersion: consentCopy.version,
           signerEmail: body.signerEmail,
         });
       } catch (e) {

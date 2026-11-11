@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { splitConsentText } from "@/app/lib/sms-consent-text";
+import { smsConsentCopy, splitConsentText } from "@/app/lib/sms-consent-text";
 
 export const metadata = {
     title: "SMS Terms | Juneau Digital Designs",
@@ -34,7 +34,9 @@ export const metadata = {
  * The consent sentence is rendered from `splitConsentText()`, never retyped. It was hardcoded
  * here as literal JSX, which meant the sentence existed twice — so editing the real one and
  * forgetting this copy would leave the public disclosure quoting words no client was ever shown,
- * on the page whose entire job is proving what they were shown.
+ * on the page whose entire job is proving what they were shown. It is the wording the live
+ * campaign shows (`smsConsentCopy()`, the `OWNER_TEXT_CAMPAIGN` switch), the same one the
+ * agreement pages render beside the box.
  */
 
 type Section = { heading: string; content: ReactNode };
@@ -120,6 +122,27 @@ const OPENING: Section = {
         </>
     ),
 };
+
+/**
+ * The consent sentence, read when the page renders rather than when this module loads, so it is
+ * always the wording the campaign switch picks. (The page is prerendered, so in production that
+ * is the deploy's env, the same as every other reader of the switch.)
+ */
+function ConsentQuote() {
+    return (
+        <>
+            {splitConsentText(smsConsentCopy().text).map((seg, i) =>
+                seg.kind === "link" ? (
+                    <a key={i} href={seg.href} style={linkStyle}>
+                        {seg.value}
+                    </a>
+                ) : (
+                    <span key={i}>{seg.value}</span>
+                ),
+            )}
+        </>
+    );
+}
 
 /* ── Program One — the account lane ─────────────────────────────────────────── */
 
@@ -228,15 +251,7 @@ const PROGRAM_ONE: Section[] = [
                         color: "var(--fg)",
                     }}
                 >
-                    {splitConsentText().map((seg, i) =>
-                        seg.kind === "link" ? (
-                            <a key={i} href={seg.href} style={linkStyle}>
-                                {seg.value}
-                            </a>
-                        ) : (
-                            <span key={i}>{seg.value}</span>
-                        ),
-                    )}
+                    <ConsentQuote />
                 </blockquote>
                 <p style={{ marginBottom: 14 }}>
                     The box starts unchecked and is separate from the checkbox accepting the service agreement.

@@ -91,6 +91,12 @@ export interface AgreementSubmission {
   /** E.164 destination for call alerts. Only meaningful when smsConsent is true. */
   alertPhone?: string;
   /**
+   * The version of the consent wording shown beside the box (`SmsConsentCopy.version`), sent
+   * with `smsConsent`. Absent from a page loaded before the wording followed the campaign switch,
+   * which showed v2.
+   */
+  smsConsentVersion?: string;
+  /**
    * How the client wants their phone handled, chosen on the signing page.
    *
    * Required for a new Starter/Growth purchase (not upgrades, and not Enterprise, which defers

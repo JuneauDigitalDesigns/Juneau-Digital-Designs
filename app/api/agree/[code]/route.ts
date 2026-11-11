@@ -1,6 +1,8 @@
 import { NextResponse, after } from "next/server";
 import { AgreementLinkError, acceptAgreementLink, resolveAgreementLink } from "@/app/lib/agreement-link";
-import { AGREE_CODE, agreementSubmissionError } from "@/app/lib/agreement-link.mjs";
+import { AGREE_CODE, agreementConsentError, agreementSubmissionError } from "@/app/lib/agreement-link.mjs";
+import { normalizeE164 } from "@/app/lib/phone";
+import { smsConsentCopyForVersion } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import { shortAgreeUrl } from "@/app/lib/order-checkout";
 import { stripLastPage } from "@/app/lib/pdf-signer";
@@ -22,8 +24,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
     if (view.state === "inactive") return inactive();
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    const problem = agreementSubmissionError(body ?? {}, view.termsHash);
+    const problem = agreementSubmissionError(body ?? {}, view.termsHash) ?? agreementConsentError(body ?? {}, view.order);
     if (problem) return NextResponse.json({ error: problem }, { status: 400 });
+
+    // The optional SMS opt-in, recorded against the words the page showed beside the box. A
+    // version this deploy doesn't know can't be proven, so nothing is recorded against it.
+    let smsConsent: { phone: string; copy: NonNullable<ReturnType<typeof smsConsentCopyForVersion>> } | undefined;
+    if (body?.smsConsent === true) {
+        const copy = smsConsentCopyForVersion(body.smsConsentVersion);
+        const phone = normalizeE164(String(body.alertPhone));
+        if (!copy) {
+            return NextResponse.json({ error: "This agreement has changed. Reload the page to read the current version." }, { status: 400 });
+        }
+        if (phone) smsConsent = { phone, copy };
+    }
 
     try {
         const { order, result } = await acceptAgreementLink(normalized, {
@@ -32,7 +46,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
             ip: clientIp(request),
             userAgent: request.headers.get("user-agent") || "unknown",
             path: shortAgreeUrl(normalized),
-        });
+        }, smsConsent);
         if (result) {
             after(() =>
                 stripLastPage(result.pdfBytes)

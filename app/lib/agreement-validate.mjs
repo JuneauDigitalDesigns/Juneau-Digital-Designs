@@ -128,12 +128,12 @@ export function validateAgreementSubmission(body) {
   // Replaces the old Starter-wide block: since the 2026-10-12 reprice every plan includes the
   // receptionist, and the one case with no calls is the website-only choice, not the tier.
   if (body.smsConsent && body.receptionistMode === "declined") {
-    return "Call alert texts require a receptionist";
+    return "Text alerts require a receptionist";
   }
   // Consent without a reachable number is not consent to anything. Checked in the UI too,
   // but a record claiming permission to text an unparseable string is worse than no record.
   if (body.smsConsent && !normalizeE164(body.alertPhone)) {
-    return "A valid mobile number is required to enable call alert texts";
+    return "A valid mobile number is required to enable text alerts";
   }
   return null;
 }

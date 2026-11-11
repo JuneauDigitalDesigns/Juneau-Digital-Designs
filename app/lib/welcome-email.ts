@@ -7,6 +7,7 @@ import type { PlanSlug } from "./agreement-types";
 import { brandedEmailHtml } from "./email-template";
 import { EMAIL, EMAIL_FONT } from "./email-tokens";
 import { formatUsPhone, normalizeE164 } from "./phone";
+import { ownerTextCampaign } from "./owner-text-campaign";
 
 const SITE_URL = "https://juneaudigitaldesigns.com";
 
@@ -142,8 +143,14 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
  * who opts in and never saves it can miss every alert. The number is the account-lane sender
  * (`TWILIO_NOTIFICATION_NUMBER`), read rather than typed; when it isn't set, that sentence is
  * left out instead of guessed.
+ *
+ * Left out entirely under the v1 campaign (`OWNER_TEXT_CAMPAIGN` unset): it sends the client to
+ * turn texts on in Settings, which v1 does not allow (consent is collected on the agreement page
+ * only), and it promises new-lead texts, which v1 does not send. `OWNER_TEXT_CAMPAIGN=v2` brings
+ * it back unchanged.
  */
 function textAlertsPanel(webOnly: boolean): string {
+  if (ownerTextCampaign() === "v1") return "";
   const raw = process.env.TWILIO_NOTIFICATION_NUMBER?.trim();
   const e164 = raw ? normalizeE164(raw) : null;
   const number = e164 ? formatUsPhone(e164) : null;

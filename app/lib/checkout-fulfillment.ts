@@ -179,9 +179,32 @@ export async function provisionPaidSession(
     console.error("[fulfillment] could not persist agreement", agreementId, e),
   );
 
-  // Payment cleared, so any consent held since signing becomes real. Its own try/catch: a
-  // client who paid must still get their site record even if the consent promotion fails, and
-  // the failure is recoverable by hand from the pending key.
+  await activateHeldConsent(agreementId, email);
+
+  return {
+    slug,
+    email,
+    plan,
+    ...(agreement.receptionistMode ? { receptionistMode: agreement.receptionistMode } : {}),
+    ...(agreement.forwardingNumber ? { forwardingNumber: agreement.forwardingNumber } : {}),
+    clientLegalName: agreement.clientLegalName,
+    signerName: agreement.signerName,
+    signerEmail: agreement.signerEmail,
+  };
+}
+
+/**
+ * Payment cleared, so any SMS consent held since the agreement was accepted becomes real.
+ *
+ * Shared by both kinds of purchase: the self-serve `/agreement` holds a ticked box against its
+ * agreement id, and so does an order's private agreement link (`/agree/[code]`). Idempotent,
+ * because `promotePendingConsent` reads and deletes the pending key in one step, so a replayed
+ * webhook or a second caller finds nothing. A no-op when the box was never ticked.
+ *
+ * Never throws: a client who paid must still get their site even if the promotion fails, and the
+ * failure is recoverable by hand from the pending key.
+ */
+async function activateHeldConsent(agreementId: string, email: string): Promise<void> {
   try {
     const promoted = await promotePendingConsent(agreementId, email);
     if (promoted) {
@@ -206,17 +229,6 @@ export async function provisionPaidSession(
   } catch (e) {
     console.error("[fulfillment] sms consent promotion failed", agreementId, e);
   }
-
-  return {
-    slug,
-    email,
-    plan,
-    ...(agreement.receptionistMode ? { receptionistMode: agreement.receptionistMode } : {}),
-    ...(agreement.forwardingNumber ? { forwardingNumber: agreement.forwardingNumber } : {}),
-    clientLegalName: agreement.clientLegalName,
-    signerName: agreement.signerName,
-    signerEmail: agreement.signerEmail,
-  };
 }
 
 /**
@@ -360,6 +372,9 @@ async function fulfilHoldingLock(orderId: string, payment: OperatorPayment): Pro
     await persistAgreement(order.agreementId, email).catch((e) =>
       console.error("[fulfillment] could not persist agreement", order.agreementId, e),
     );
+    // A text opt-in ticked on the order's agreement link, held until now exactly as a
+    // self-serve one is. Nothing to do when the terms were read aloud or the box was left empty.
+    await activateHeldConsent(order.agreementId, email);
   }
 
   // Order → paid. A cancelled order that still got paid (a race with Cancel) is not refused:

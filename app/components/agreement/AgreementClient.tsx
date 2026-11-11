@@ -1,16 +1,16 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeE164 } from "@/app/lib/phone";
 import { makeSessionFetch } from "@/app/lib/session-fetch";
-import { splitConsentText } from "@/app/lib/sms-consent-text";
+import type { SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import { RECEPTIONIST_FAILED, RECEPTIONIST_SESSION_EXPIRED } from "@/app/lib/plan-change-copy";
 import PlanChip from "./PlanChip";
 import TermsReader from "./TermsReader";
+import SmsOptIn, { SMS_OPT_IN_PHONE_ERROR } from "./SmsOptIn";
 
 interface Props {
     plan: PlanSlug;
@@ -24,6 +24,12 @@ interface Props {
     billingPeriod: "monthly" | "annual";
     sections: Section[];
     version: string;
+    /**
+     * The SMS consent wording beside the optional opt-in box, chosen on the server by the
+     * campaign switch (`smsConsentCopy()`). Its version goes back with a ticked box so the
+     * consent record names exactly these words.
+     */
+    smsConsentCopy: SmsConsentCopy;
     /**
      * The Website-Only terms, sent only for a Starter master. When the client picks "website
      * only" the reader swaps to these instead of the standard Starter terms, so the document
@@ -128,6 +134,7 @@ export default function AgreementClient({
     billingPeriod,
     sections,
     version,
+    smsConsentCopy,
     webOnlySections,
     webOnlyVersion,
     upgradeSlug = null,
@@ -286,9 +293,7 @@ export default function AgreementClient({
         // was typed, so no number we have no permission to text is ever transmitted.
         const alertPhone = effectiveSmsConsent ? normalizeE164(form.alertPhone) : null;
         if (effectiveSmsConsent && !alertPhone) {
-            setError(
-                "Enter a valid mobile number for call alerts, or uncheck the text alerts box.",
-            );
+            setError(SMS_OPT_IN_PHONE_ERROR);
             return;
         }
 
@@ -324,7 +329,9 @@ export default function AgreementClient({
                     // Omitted entirely when the box is unchecked, rather than sent as false
                     // with a number attached. Nothing to discard server-side if it never
                     // leaves the browser.
-                    ...(alertPhone ? { smsConsent: true, alertPhone } : {}),
+                    ...(alertPhone
+                        ? { smsConsent: true, alertPhone, smsConsentVersion: smsConsentCopy.version }
+                        : {}),
                     // Tells the signing route to hold the client email until the upgrade
                     // below actually goes through. Not an authorization claim — the upgrade
                     // endpoint re-resolves this slug against the signed-in account.
@@ -729,71 +736,13 @@ export default function AgreementClient({
                         the receptionist, so the one case with no calls is the website-only choice.
                     */}
                     {hasReceptionist && (
-                        <div style={{ marginTop: 16 }}>
-                            <div className="kicker" style={{ marginBottom: 10 }}>
-                                ━ OPTIONAL · CALL ALERT TEXTS
-                            </div>
-                            <div style={{ marginBottom: 12 }}>
-                                <Field
-                                    label="Mobile number for call alerts"
-                                    type="tel"
-                                    placeholder="(907) 555-0142"
-                                    value={form.alertPhone}
-                                    onChange={(v) => update("alertPhone", v)}
-                                    hint="Optional. Used only if you turn on call summary texts below."
-                                />
-                            </div>
-                            <label
-                                style={{
-                                    display: "flex",
-                                    alignItems: "flex-start",
-                                    gap: 12,
-                                    padding: "16px 18px",
-                                    background: "transparent",
-                                    border: "1px dashed var(--rule)",
-                                    borderRadius: 10,
-                                    cursor: "pointer",
-                                }}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={smsConsent}
-                                    onChange={(e) => setSmsConsent(e.target.checked)}
-                                    style={{
-                                        marginTop: 2,
-                                        width: 18,
-                                        height: 18,
-                                        accentColor: "var(--accent)",
-                                        cursor: "pointer",
-                                    }}
-                                />
-                                <span style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                                    {/*
-                                        Rendered from the same constant that gets hashed into the
-                                        consent record, so the words on screen and the words we can
-                                        prove they saw cannot drift apart.
-                                    */}
-                                    {splitConsentText().map((seg, i) =>
-                                        seg.kind === "link" ? (
-                                            <Link
-                                                key={i}
-                                                href={seg.href}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                // Inside a <label>, a click would otherwise toggle
-                                                // the box on the way to opening the link.
-                                                onClick={(e) => e.stopPropagation()}
-                                                style={{ color: "var(--accent)", textDecoration: "underline" }}
-                                            >
-                                                {seg.value}
-                                            </Link>
-                                        ) : (
-                                            <span key={i}>{seg.value}</span>
-                                        ),
-                                    )}
-                                </span>
-                            </label>
-                        </div>
+                        <SmsOptIn
+                            copy={smsConsentCopy}
+                            phone={form.alertPhone}
+                            onPhoneChange={(v) => update("alertPhone", v)}
+                            checked={smsConsent}
+                            onCheckedChange={setSmsConsent}
+                        />
                     )}
 
                     {error && (
