@@ -44,8 +44,10 @@ import { formatUsPhone, normalizeE164 } from "./phone";
  * number in front of the owner by saying it as their name. The About line is Retell's analysed
  * summary, which is model-written prose about what a stranger said, so `callBriefSummary` strips
  * URLs, domains, e-mail addresses and anything resembling a phone number, reduces it to plain
- * GSM-7 and caps it near 100 characters. The phone number is the one Make posts (`caller_number`,
- * the other party on the call), shown only when it parses as a real number.
+ * GSM-7 and caps it near 100 characters. The phone number is the one the caller asked to be
+ * called back on (Retell's `callback_number`, from the same get-call read) when it parses as a
+ * real number, otherwise the line the call was on as Make posts it (`caller_number`); see
+ * `callBriefPhoneFor`.
  */
 
 /** The two Priority choices the Call Log column accepts. Anything else is a callback. */
@@ -84,6 +86,23 @@ export function callBriefPhone(raw: string | null | undefined): string {
     const e164 = normalizeE164(trimmed);
     if (!e164 || WITHHELD_CALLER_IDS.has(e164)) return PHONE_NOT_AVAILABLE;
     return e164.startsWith("+1") ? formatUsPhone(e164) : e164;
+}
+
+/**
+ * Which number the Phone line shows (Xander, 2026-11-11): the callback number the caller asked
+ * for, when it parses as a real number, otherwise the line the call was on. Told "no, use my
+ * cell", the agent records the cell as `callback_number`; texting the owner the number the caller
+ * just refused is the bug the Call Log's `Callback number` column was added for (2026-11-05).
+ */
+export function callBriefPhoneFor({
+    callbackNumber,
+    callerNumber,
+}: {
+    callbackNumber: string | null | undefined;
+    callerNumber: string | null | undefined;
+}): string {
+    const asked = callBriefPhone(callbackNumber);
+    return asked !== PHONE_NOT_AVAILABLE ? asked : callBriefPhone(callerNumber);
 }
 
 /** Roughly the sample's length: enough for a reason, short enough that the brief stays two segments. */
@@ -142,17 +161,21 @@ const STATUS_LABEL: Record<Priority, string> = { emergency: "Urgent", callback: 
 /**
  * The v1 brief: the approved campaign's registered sample, line for line. The About line is
  * left out, rather than filled with a stand-in, when there is no usable summary: every line that
- * goes out is then a fact about the call.
+ * goes out is then a fact about the call. The Phone line prefers the callback number the caller
+ * asked for (`callBriefPhoneFor`).
  */
 export function callBriefBody({
     callerName,
     priority,
     callerNumber,
+    callbackNumber,
     summary,
 }: {
     callerName: string | null | undefined;
     priority: string | null | undefined;
     callerNumber: string | null | undefined;
+    /** Retell's `custom_analysis_data.callback_number`, when one was read. */
+    callbackNumber?: string | null;
     summary: string | null | undefined;
 }): string {
     const about = callBriefSummary(summary);
@@ -160,7 +183,7 @@ export function callBriefBody({
         CALL_BRIEF_HEADER,
         `Name: ${callBriefName(callerName)}`,
         `Status: ${STATUS_LABEL[callBriefPriority(priority)]}`,
-        `Phone: ${callBriefPhone(callerNumber)}`,
+        `Phone: ${callBriefPhoneFor({ callbackNumber, callerNumber })}`,
         ...(about ? [`About: ${about}`] : []),
         OWNER_TEXT_STOP_LINE,
     ].join("\n");
@@ -191,7 +214,7 @@ export function callBriefBodyV2(
 /** An Airtable record id — the call's Inbox item id. Sent by Make as `airtable_record_id`. */
 export const AIRTABLE_RECORD_ID = /^rec[A-Za-z0-9]{14}$/;
 
-/* ── the summary, from Retell ─────────────────────────────────────────────── */
+/* ── the summary and callback number, from Retell ─────────────────────────── */
 
 /** Make posts once the call is analysed, so Retell already holds the summary; never wait long. */
 const RETELL_TIMEOUT_MS = 8000;
@@ -199,24 +222,46 @@ const RETELL_TIMEOUT_MS = 8000;
 interface RetellCall {
     call_id?: string;
     agent_id?: string;
-    call_analysis?: { call_summary?: unknown };
+    call_analysis?: {
+        call_summary?: unknown;
+        custom_analysis_data?: { callback_number?: unknown } | null;
+    };
 }
 
+/** What the brief takes from Retell. Both null whenever the call can't be read or isn't ours. */
+interface RetellDetails {
+    summary: string | null;
+    callbackNumber: string | null;
+}
+
+const NO_DETAILS: RetellDetails = { summary: null, callbackNumber: null };
+
+/** Same number, however it is written. */
+const sameNumber = (a: string | null | undefined, b: string | null | undefined) => {
+    const na = normalizeE164(a ?? "");
+    return Boolean(na) && na === normalizeE164(b ?? "");
+};
+
 /**
- * Retell's summary of this call, or null. **Never throws**: a Retell problem costs the About
- * line, never the brief.
+ * Retell's summary of this call and the callback number the caller asked for. **Never throws**:
+ * a Retell problem costs the About line and the callback number, never the brief.
  *
  * The call is read from the master Retell account, which holds every client's calls, so the id
  * alone is not proof the call is this owner's. It must be on this site's own agent, as the
- * portal's account record names it; a site with no agent on record gets no summary at all.
+ * portal's account record names it; a site with no agent on record gets nothing from Retell.
+ *
+ * A callback number equal to the site's own Twilio number is dropped: on a callback the agent
+ * placed, that is the client's line, not the caller's (the extraction once fell back to "the
+ * number they called from"), and the brief then falls back to Make's `caller_number`.
  */
-async function summaryFromRetell({ email, slug, callId }: { email: string; slug: string; callId: string }): Promise<string | null> {
+async function detailsFromRetell({ email, slug, callId }: { email: string; slug: string; callId: string }): Promise<RetellDetails> {
     const apiKey = process.env.RETELL_API_KEY?.trim();
-    if (!apiKey) return null;
+    if (!apiKey) return NO_DETAILS;
     try {
         const account = await getAccount(email);
-        const agentId = account?.sites.find((s) => s.slug === slug)?.retellAgentId ?? null;
-        if (!agentId) return null;
+        const site = account?.sites.find((s) => s.slug === slug);
+        const agentId = site?.retellAgentId ?? null;
+        if (!agentId) return NO_DETAILS;
 
         const res = await fetch(`https://api.retellai.com/v2/get-call/${encodeURIComponent(callId)}`, {
             headers: { Authorization: `Bearer ${apiKey}` },
@@ -225,18 +270,23 @@ async function summaryFromRetell({ email, slug, callId }: { email: string; slug:
         });
         if (!res.ok) {
             console.warn(`[call-brief] Retell get-call ${res.status} for ${slug}; sending without About`);
-            return null;
+            return NO_DETAILS;
         }
         const call = (await res.json()) as RetellCall | null;
         if (call?.call_id !== callId || call.agent_id !== agentId) {
             console.warn(`[call-brief] ${callId} is not on ${slug}'s agent; sending without About`);
-            return null;
+            return NO_DETAILS;
         }
         const summary = call.call_analysis?.call_summary;
-        return typeof summary === "string" ? summary : null;
+        const callback = call.call_analysis?.custom_analysis_data?.callback_number;
+        return {
+            summary: typeof summary === "string" ? summary : null,
+            callbackNumber:
+                typeof callback === "string" && !sameNumber(callback, site?.twilioNumber) ? callback : null,
+        };
     } catch (e) {
         console.warn(`[call-brief] Retell lookup failed for ${slug}; sending without About`, e);
-        return null;
+        return NO_DETAILS;
     }
 }
 
@@ -287,7 +337,7 @@ export async function notifyOwnerOfCall({
     callId: string;
     callerName: string | null;
     priority: string | null;
-    /** The other party on the call, as Make posts it. v1's Phone line. */
+    /** The other party on the call, as Make posts it. v1's Phone line when Retell has no usable callback number. */
     callerNumber: string | null;
     /** The call's Airtable record id = its Inbox item id. Only used for v2's link, when links are on. */
     recordId?: string | null;
@@ -311,13 +361,10 @@ export async function notifyOwnerOfCall({
                   const itemId = recordId && AIRTABLE_RECORD_ID.test(recordId) ? recordId : null;
                   return callBriefBodyV2({ callerName, priority }, await ownerItemLink({ acctScope, slug, itemId }));
               }
-            : async ({ email }) =>
-                  callBriefBody({
-                      callerName,
-                      priority,
-                      callerNumber,
-                      summary: await summaryFromRetell({ email, slug, callId }),
-                  }),
+            : async ({ email }) => {
+                  const { summary, callbackNumber } = await detailsFromRetell({ email, slug, callId });
+                  return callBriefBody({ callerName, priority, callerNumber, callbackNumber, summary });
+              },
     });
     if (!result.sent && result.reason === "failed") {
         await getRedis().del(key).catch(() => {});

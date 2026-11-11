@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/portal-crm";
 import { publicWebhookUrl, validateTwilioSignature } from "@/app/lib/twilio";
 import { notifyOwnerOfCustomerReply } from "@/app/lib/lead-alert";
+import { smsKeywordRules } from "@/app/lib/owner-text-campaign";
 
 export const runtime = "nodejs";
 
@@ -34,16 +35,14 @@ export const runtime = "nodejs";
  * path and set SMS_WEBHOOK_URL to the same absolute URL so signature validation matches.
  */
 
-const CONFIRM_WORDS = new Set(["YES", "START", "UNSTOP", "CONTINUE"]);
-const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"]);
-const HELP_WORDS = new Set(["HELP", "INFO"]);
-
-const HELP_REPLY =
-  "Juneau Digital Designs Call Alerts: we text you a summary after each call your " +
-  "receptionist handles. Msg & data rates may apply. Reply STOP to opt out. " +
-  "Help: support@juneaudigitaldesigns.com";
+/*
+ * Keywords and replies come from the live campaign (`OWNER_TEXT_CAMPAIGN`, see
+ * owner-text-campaign.ts): v1 answers in the approved campaign's registered words, v2 in the
+ * replacement plan's. Read per request, so a cutover is an env edit plus a redeploy.
+ */
 
 export async function POST(request: Request) {
+  const rules = smsKeywordRules();
   const raw = await request.text();
 
   // Parse before validating: the signature is computed over these same parameters, so
@@ -85,7 +84,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (STOP_WORDS.has(keyword)) {
+  if (rules.optOut.has(keyword)) {
     const state = await getConsentState(from);
     // Only append a revocation to a consent that exists. A STOP from a stranger is noise,
     // and inventing a consent record to revoke would be worse than ignoring it.
@@ -109,7 +108,7 @@ export async function POST(request: Request) {
     return twiml();
   }
 
-  if (CONFIRM_WORDS.has(keyword)) {
+  if (rules.optIn.has(keyword)) {
     const state = await getConsentState(from);
     if (!state) return twiml();
 
@@ -125,11 +124,11 @@ export async function POST(request: Request) {
       status: "granted",
     });
     console.log("[twilio-sms] consent confirmed by keyword", from);
-    return twiml("You're set. Juneau Digital Designs will text you a summary after each call.");
+    return twiml(rules.optInReply);
   }
 
-  if (HELP_WORDS.has(keyword)) {
-    return twiml(HELP_REPLY);
+  if (rules.help.has(keyword)) {
+    return twiml(rules.helpReply);
   }
 
   // Not a keyword — so it is a customer replying to their tradesperson. Thread it.

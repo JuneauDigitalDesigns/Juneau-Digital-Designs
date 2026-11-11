@@ -21,6 +21,7 @@ import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { register } from "node:module";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { createHmac } from "node:crypto";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { fakeUpstash } from "./fake-upstash.mjs";
@@ -38,6 +39,9 @@ const AGENT = "agent_4b6a1f0c2d8e9a7b3c5d1e2f";
 const CALL = "call_b3de924319b77a74deb3456cd1d";
 const TOKEN = "t".repeat(64);
 const RETELL_KEY = "key_test_retell";
+/** The client's own Twilio line. On a callback the agent placed, it is the "from" number. */
+const SITE_NUMBER = "+14075559876";
+const SMS_WEBHOOK_URL = "https://www.juneaudigitaldesigns.com/api/webhooks/twilio-sms";
 
 Object.assign(process.env, {
     KV_REST_API_URL: KV_URL,
@@ -47,6 +51,7 @@ Object.assign(process.env, {
     TWILIO_ACCOUNT_SID: `AC${"a".repeat(32)}`,
     TWILIO_AUTH_TOKEN: "test-auth",
     TWILIO_MESSAGING_SERVICE_SID: MASTER_SERVICE,
+    SMS_WEBHOOK_URL,
 });
 
 const { accountScope } = await import("../app/lib/portal-kv.ts");
@@ -62,6 +67,7 @@ const leadAlert = await import("../app/lib/lead-alert.ts");
 const { sendSms } = await import("../app/lib/twilio.ts");
 const { POST: leadPOST } = await import("../app/api/ingest/lead/route.ts");
 const { listLeads } = await import("../app/lib/portal-leads.ts");
+const { POST: smsPOST } = await import("../app/api/webhooks/twilio-sms/route.ts");
 
 /* ── the samples, exactly as registered / approved ────────────────────────── */
 
@@ -92,7 +98,7 @@ function seed(key, value) {
 function seedOwner({ agentId = AGENT, consent = "granted" } = {}) {
     seed(`jdd:account:${OWNER_EMAIL}`, {
         email: OWNER_EMAIL,
-        sites: [{ slug: SLUG, plan: "starter", status: "live", addedAt: 1, retellAgentId: agentId }],
+        sites: [{ slug: SLUG, plan: "starter", status: "live", addedAt: 1, retellAgentId: agentId, twilioNumber: SITE_NUMBER }],
         createdAt: 1,
         updatedAt: 1,
     });
@@ -105,10 +111,10 @@ function seedOwner({ agentId = AGENT, consent = "granted" } = {}) {
     });
 }
 
-const retellCall = (summary, agentId = AGENT) => (id) => ({
+const retellCall = (summary, agentId = AGENT, custom) => (id) => ({
     call_id: id,
     agent_id: agentId,
-    call_analysis: { call_summary: summary },
+    call_analysis: { call_summary: summary, ...(custom === undefined ? {} : { custom_analysis_data: custom }) },
 });
 
 beforeEach(() => {
@@ -461,6 +467,161 @@ test("v2: the web-form lead is recorded and the owner is texted", async () => {
     assert.equal((await listLeads(ACCT, SLUG)).length, 1);
     assert.equal(twilioCalls.length, 1);
     assert.match(twilioCalls[0].Body, /^New lead in your portal\nFrom: Maria Lopez\n/);
+});
+
+/* ══ v1 Phone line: the callback number the caller asked for wins ══════════ */
+
+test("v1: a callback number different from the calling line is the one the owner gets", async () => {
+    seedOwner();
+    retell = retellCall("AC out", AGENT, { callback_number: "407-555-0777" });
+    await callBrief.notifyOwnerOfCall(call({ callerNumber: "+15551234567" }));
+    assert.match(twilioCalls[0].Body, /\nPhone: \(407\) 555-0777\n/);
+    assert.doesNotMatch(twilioCalls[0].Body, /123-4567/);
+});
+
+for (const [label, custom] of [
+    ["empty", { callback_number: "" }],
+    ["garbage", { callback_number: "the number they called from" }],
+    ["too short", { callback_number: "12345" }],
+    ["not a string", { callback_number: 4075550777 }],
+    ["missing", {}],
+    ["no custom analysis at all", undefined],
+    ["the site's own Twilio line", { callback_number: SITE_NUMBER }],
+]) {
+    test(`v1: a ${label} callback number falls back to the line the call was on`, async () => {
+        seedOwner();
+        retell = retellCall("AC out", AGENT, custom);
+        await callBrief.notifyOwnerOfCall(call({ callerNumber: "+15551234567" }));
+        assert.match(twilioCalls[0].Body, /\nPhone: \(555\) 123-4567\n/);
+    });
+}
+
+test("v1: when Retell can't be read, the posted caller number is used", async () => {
+    seedOwner();
+    retell = () => "500";
+    await callBrief.notifyOwnerOfCall(call({ callerNumber: "+15551234567" }));
+    assert.match(twilioCalls[0].Body, /\nPhone: \(555\) 123-4567\n/);
+});
+
+test("v1: a callback number on a call that isn't this site's is ignored with the rest", async () => {
+    seedOwner();
+    retell = retellCall("AC out", "agent_someone_else_0000000000", { callback_number: "4075550777" });
+    await callBrief.notifyOwnerOfCall(call({ callerNumber: "+15551234567" }));
+    assert.match(twilioCalls[0].Body, /\nPhone: \(555\) 123-4567\n/);
+});
+
+test("callBriefPhoneFor: callback first, then the caller, then Not available", () => {
+    assert.equal(callBrief.callBriefPhoneFor({ callbackNumber: "+14075550777", callerNumber: "+15551234567" }), "(407) 555-0777");
+    assert.equal(callBrief.callBriefPhoneFor({ callbackNumber: "n/a", callerNumber: "+15551234567" }), "(555) 123-4567");
+    assert.equal(callBrief.callBriefPhoneFor({ callbackNumber: null, callerNumber: "anonymous" }), "Not available");
+});
+
+test("v2: the callback number changes nothing, since the v2 brief has no Phone line", async () => {
+    process.env.OWNER_TEXT_CAMPAIGN = "v2";
+    seedOwner();
+    retell = retellCall("AC out", AGENT, { callback_number: "4075550777" });
+    await callBrief.notifyOwnerOfCall(call({ callerName: "Santa Juno", priority: "callback" }));
+    assert.equal(twilioCalls[0].Body, `New call lead in your portal\nName: Santa Juno\nPriority: Callback\n${V2_STOP}`);
+});
+
+/* ══ keyword auto-replies, in the live campaign's own words ════════════════ */
+
+const KEYWORD_REPLIES = {
+    v1: {
+        optIn:
+            "Juneau Digital Designs: You are now opted in to receive call summaries and service alerts by text message. Message and data rates may apply. Message frequency varies based on call volume. For help, reply HELP. To opt out, reply STOP.",
+        help: "Reply STOP to unsubscribe. Msg&Data Rates May Apply.",
+        optInWords: ["START", "YES", "UNSTOP"],
+        optOutWords: ["CANCEL", "QUIT", "STOP", "OPTOUT", "UNSUBSCRIBE", "STOPALL", "REVOKE", "END"],
+    },
+    v2: {
+        optIn:
+            "Juneau Digital Designs: You are opted in to account alerts about your calls, leads and service. Msg & data rates may apply. Message frequency varies. Reply HELP for help, STOP to opt out.",
+        help: "Juneau Digital Designs account alerts: texts about your calls, leads and service. Msg & data rates may apply. Reply STOP to opt out. Help: support@juneaudigitaldesigns.com",
+        optInWords: ["START", "YES", "UNSTOP"],
+        optOutWords: ["STOP", "CANCEL", "QUIT", "OPTOUT", "UNSUBSCRIBE", "STOPALL", "REVOKE", "END"],
+    },
+};
+
+/** An inbound SMS as Twilio signs it, through the real route. Returns the reply text, or null. */
+async function inbound(body, from = OWNER_PHONE) {
+    const params = { From: from, To: NOTIFICATION_NUMBER, Body: body, MessageSid: `SM${"i".repeat(32)}` };
+    const payload = Object.keys(params).sort().reduce((acc, k) => acc + k + params[k], SMS_WEBHOOK_URL);
+    const signature = createHmac("sha1", process.env.TWILIO_AUTH_TOKEN).update(Buffer.from(payload, "utf8")).digest("base64");
+    const res = await smsPOST(
+        new Request(SMS_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "content-type": "application/x-www-form-urlencoded", "x-twilio-signature": signature },
+            body: new URLSearchParams(params).toString(),
+        }),
+    );
+    assert.equal(res.status, 200);
+    const xml = await res.text();
+    const m = xml.match(/<Message>([\s\S]*)<\/Message>/);
+    if (!m) return null;
+    return m[1]
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&");
+}
+
+const consentStatus = () => JSON.parse(redis.get(`sms:consent:state:${OWNER_PHONE}`)).status;
+
+for (const mode of ["v1", "v2"]) {
+    const want = KEYWORD_REPLIES[mode];
+    const setMode = () => {
+        if (mode === "v2") process.env.OWNER_TEXT_CAMPAIGN = "v2";
+    };
+
+    test(`${mode}: HELP and INFO get the ${mode === "v1" ? "registered" : "replacement plan's"} help message, word for word`, async () => {
+        setMode();
+        for (const word of ["HELP", "INFO", " help "]) assert.equal(await inbound(word), want.help, word);
+    });
+
+    test(`${mode}: every opt-in keyword gets the ${mode === "v1" ? "registered" : "replacement plan's"} opt-in message, word for word`, async () => {
+        setMode();
+        for (const word of want.optInWords) {
+            seedOwner({ consent: "revoked" });
+            assert.equal(await inbound(word), want.optIn, word);
+            assert.equal(consentStatus(), "granted", word);
+        }
+    });
+
+    test(`${mode}: CONTINUE is not an opt-in keyword`, async () => {
+        setMode();
+        seedOwner({ consent: "revoked" });
+        assert.equal(await inbound("CONTINUE"), null);
+        assert.equal(consentStatus(), "revoked");
+    });
+
+    test(`${mode}: every opt-out keyword, OPTOUT and REVOKE included, records the revocation and replies nothing`, async () => {
+        setMode();
+        for (const word of want.optOutWords) {
+            seedOwner({ consent: "granted" });
+            assert.equal(await inbound(word), null, `${word} must stay silent: Advanced Opt-Out replies`);
+            assert.equal(consentStatus(), "revoked", word);
+        }
+    });
+
+    test(`${mode}: an opt-in keyword from a number with no consent on record is silent`, async () => {
+        setMode();
+        assert.equal(await inbound("YES", "+14075550999"), null);
+    });
+}
+
+test("the keyword rules in code are exactly the ones these tests hold", async () => {
+    const { SMS_KEYWORD_RULES } = await import("../app/lib/owner-text-campaign.ts");
+    for (const mode of ["v1", "v2"]) {
+        const r = SMS_KEYWORD_RULES[mode];
+        const want = KEYWORD_REPLIES[mode];
+        assert.deepEqual([...r.optIn].sort(), [...want.optInWords].sort());
+        assert.deepEqual([...r.optOut].sort(), [...want.optOutWords].sort());
+        assert.deepEqual([...r.help].sort(), ["HELP", "INFO"]);
+        assert.equal(r.optInReply, want.optIn);
+        assert.equal(r.helpReply, want.help);
+    }
 });
 
 /* ══ the sender is env only, and every account-lane send is accounted for ═══ */

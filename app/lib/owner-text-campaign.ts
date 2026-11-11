@@ -58,6 +58,52 @@ export function ownerReplyAlertsEnabled(env: Env = process.env): boolean {
     return ownerTextCampaign(env) === "v2";
 }
 
+/* ── keyword auto-replies ─────────────────────────────────────────────────── */
+
+/**
+ * The keywords the inbound SMS webhook acts on, and what it answers, per campaign. Word for word
+ * as registered (v1, read live from Twilio 2026-11-10) or as planned for the replacement (v2),
+ * per Xander, 2026-11-11. Every opt-out keyword also records the revocation in our consent store;
+ * the webhook answers an opt-out with silence, because Twilio's Advanced Opt-Out sends the
+ * registered opt-out message itself.
+ */
+export interface SmsKeywordRules {
+    optIn: ReadonlySet<string>;
+    optOut: ReadonlySet<string>;
+    help: ReadonlySet<string>;
+    /** Sent when an opt-in keyword confirms (or re-grants) an existing consent. */
+    optInReply: string;
+    helpReply: string;
+}
+
+export const SMS_KEYWORD_RULES: Record<OwnerTextCampaign, SmsKeywordRules> = {
+    v1: {
+        optIn: new Set(["START", "YES", "UNSTOP"]),
+        optOut: new Set(["CANCEL", "QUIT", "STOP", "OPTOUT", "UNSUBSCRIBE", "STOPALL", "REVOKE", "END"]),
+        help: new Set(["HELP", "INFO"]),
+        optInReply:
+            "Juneau Digital Designs: You are now opted in to receive call summaries and service alerts by " +
+            "text message. Message and data rates may apply. Message frequency varies based on call volume. " +
+            "For help, reply HELP. To opt out, reply STOP.",
+        helpReply: "Reply STOP to unsubscribe. Msg&Data Rates May Apply.",
+    },
+    v2: {
+        optIn: new Set(["START", "YES", "UNSTOP"]),
+        optOut: new Set(["STOP", "CANCEL", "QUIT", "OPTOUT", "UNSUBSCRIBE", "STOPALL", "REVOKE", "END"]),
+        help: new Set(["HELP", "INFO"]),
+        optInReply:
+            "Juneau Digital Designs: You are opted in to account alerts about your calls, leads and service. " +
+            "Msg & data rates may apply. Message frequency varies. Reply HELP for help, STOP to opt out.",
+        helpReply:
+            "Juneau Digital Designs account alerts: texts about your calls, leads and service. Msg & data " +
+            "rates may apply. Reply STOP to opt out. Help: support@juneaudigitaldesigns.com",
+    },
+};
+
+export function smsKeywordRules(env: Env = process.env): SmsKeywordRules {
+    return SMS_KEYWORD_RULES[ownerTextCampaign(env)];
+}
+
 /**
  * Anything a carrier would read as a link: a scheme, `www.`, or a bare domain. Deliberately
  * broad (an e-mail address matches too), since the cost of a false positive is one held text
