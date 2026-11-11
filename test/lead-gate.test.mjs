@@ -31,6 +31,9 @@ Object.assign(process.env, {
     TWILIO_AUTH_TOKEN: "test-auth",
     TWILIO_MESSAGING_SERVICE_SID: `MG${"m".repeat(32)}`,
     TWILIO_NOTIFICATION_NUMBER: "+16893292464",
+    // The owner-text limits below only bite on the new-lead alert, which goes out under the
+    // replacement campaign alone (v1 pauses it; owner-text-campaign.test.mjs covers that).
+    OWNER_TEXT_CAMPAIGN: "v2",
 });
 
 const { POST: consentPOST } = await import("../app/api/ingest/call-consent/route.ts");

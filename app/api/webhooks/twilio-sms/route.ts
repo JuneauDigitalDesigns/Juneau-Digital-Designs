@@ -10,12 +10,12 @@ import {
   appendMessage,
   findCustomerByPhone,
   getNumberOwner,
-  getOwnerEmail,
   markReviewOptOut,
   type NumberOwner,
 } from "@/app/lib/portal-crm";
-import { publicWebhookUrl, sendSms, validateTwilioSignature } from "@/app/lib/twilio";
-import { getConsentStateForAccount, isDeliverable } from "@/app/lib/sms-consent";
+import { publicWebhookUrl, validateTwilioSignature } from "@/app/lib/twilio";
+import { notifyOwnerOfCustomerReply } from "@/app/lib/lead-alert";
+import { smsKeywordRules } from "@/app/lib/owner-text-campaign";
 
 export const runtime = "nodejs";
 
@@ -35,16 +35,14 @@ export const runtime = "nodejs";
  * path and set SMS_WEBHOOK_URL to the same absolute URL so signature validation matches.
  */
 
-const CONFIRM_WORDS = new Set(["YES", "START", "UNSTOP", "CONTINUE"]);
-const STOP_WORDS = new Set(["STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"]);
-const HELP_WORDS = new Set(["HELP", "INFO"]);
-
-const HELP_REPLY =
-  "Juneau Digital Designs Call Alerts: we text you a summary after each call your " +
-  "receptionist handles. Msg & data rates may apply. Reply STOP to opt out. " +
-  "Help: support@juneaudigitaldesigns.com";
+/*
+ * Keywords and replies come from the live campaign (`OWNER_TEXT_CAMPAIGN`, see
+ * owner-text-campaign.ts): v1 answers in the approved campaign's registered words, v2 in the
+ * replacement plan's. Read per request, so a cutover is an env edit plus a redeploy.
+ */
 
 export async function POST(request: Request) {
+  const rules = smsKeywordRules();
   const raw = await request.text();
 
   // Parse before validating: the signature is computed over these same parameters, so
@@ -86,7 +84,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (STOP_WORDS.has(keyword)) {
+  if (rules.optOut.has(keyword)) {
     const state = await getConsentState(from);
     // Only append a revocation to a consent that exists. A STOP from a stranger is noise,
     // and inventing a consent record to revoke would be worse than ignoring it.
@@ -110,7 +108,7 @@ export async function POST(request: Request) {
     return twiml();
   }
 
-  if (CONFIRM_WORDS.has(keyword)) {
+  if (rules.optIn.has(keyword)) {
     const state = await getConsentState(from);
     if (!state) return twiml();
 
@@ -126,11 +124,11 @@ export async function POST(request: Request) {
       status: "granted",
     });
     console.log("[twilio-sms] consent confirmed by keyword", from);
-    return twiml("You're set. Juneau Digital Designs will text you a summary after each call.");
+    return twiml(rules.optInReply);
   }
 
-  if (HELP_WORDS.has(keyword)) {
-    return twiml(HELP_REPLY);
+  if (rules.help.has(keyword)) {
+    return twiml(rules.helpReply);
   }
 
   // Not a keyword — so it is a customer replying to their tradesperson. Thread it.
@@ -160,33 +158,14 @@ export async function POST(request: Request) {
 /**
  * Tell the owner a customer replied — **the fact, not the message**.
  *
- * The portal is where they hold the conversation, so the alert's job is to get them there, not
- * to relay content to a second device. Keeping the body out also means a customer's words are
- * never forwarded somewhere the client did not expect.
- *
- * Account lane: JDD → the owner, on the already-approved notification campaign, so this works
- * day one and never waits on the client's own A2P registration. Honours the owner's existing
- * SMS consent; silent when they never opted in or have revoked.
+ * The text itself lives in `lead-alert.ts` with the other owner texts, because what it may say
+ * depends on the live campaign: under v1 (today's approved campaign, which describes only
+ * end-of-call summaries) it is paused; under `OWNER_TEXT_CAMPAIGN=v2` it is the replacement
+ * campaign's "New message in your portal" sample. Never throws, so a failed notification can't
+ * fail the webhook — Twilio would retry and we would thread the same inbound message twice.
  */
 async function notifyOwnerOfReply(owner: NumberOwner, customerName: string | null): Promise<void> {
-  try {
-    const email = await getOwnerEmail(owner.acctScope);
-    if (!email) return;
-
-    const consent = await getConsentStateForAccount(email);
-    if (!isDeliverable(consent)) return;
-
-    const who = customerName?.trim() || "a customer";
-    await sendSms({
-      lane: "account",
-      to: consent.phone,
-      body: `You have a new message from ${who} in your portal: https://juneaudigitaldesigns.com/portal/customers`,
-    });
-  } catch (e) {
-    // A failed notification must never fail the webhook — Twilio would retry and we would
-    // thread the same inbound message twice.
-    console.error("[twilio-sms] owner notification failed", e);
-  }
+  await notifyOwnerOfCustomerReply({ acctScope: owner.acctScope, slug: owner.slug, customerName });
 }
 
 /** Twilio expects TwiML, and an empty <Response/> means "say nothing back". */
