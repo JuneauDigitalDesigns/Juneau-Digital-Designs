@@ -11,7 +11,8 @@
  * Everything is sanitized and length-capped; nothing is defaulted that the client didn't give.
  */
 
-import { PROFILE_KINDS, type BrandIntakeSubmission, type Intake, type PalettePick, type ProfileKind, type ServiceEntry } from "@jdd/schema";
+import { PROFILE_KINDS, type BrandIntakeSubmission, type Intake, type OperatorOrder, type PalettePick, type ProfileKind, type ServiceEntry } from "@jdd/schema";
+import type { AgreementRecord } from "./agreement-types";
 import { isValidBlobUrl } from "./blob-url";
 import { normaliseProfileLink } from "./profile-links";
 
@@ -315,6 +316,56 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
         additionalSites: selectedPlan === "enterprise" ? additionalSites : undefined,
     };
     return { ok: true, submission };
+}
+
+/**
+ * The legal entity name the client signed under, from the records the site already carries.
+ *
+ * The signed agreement (`PortalSite.agreementId`) first: both paths write one, self-serve signing
+ * and a sales-call close, and it is the name on the contract. The operator order's legal name
+ * (`PortalSite.orderId`) covers a close whose agreement record can't be read. Exactly as signed:
+ * no suffix is built from `clientEntityType`, so a name typed without "LLC" stays without it.
+ * `null` when neither record has one.
+ */
+export function signedLegalName(input: {
+    agreement?: Pick<AgreementRecord, "clientLegalName"> | null;
+    order?: { client?: Pick<OperatorOrder["client"], "legalName"> } | null;
+}): string | null {
+    return sanitize(input.agreement?.clientLegalName, 200) || sanitize(input.order?.client?.legalName, 200) || null;
+}
+
+/**
+ * Put the signed legal name on every site as `brand.long`, the intake's "Legal name".
+ *
+ * The mapper sets `brand.long` from the business name the client typed into the wizard. The wizard
+ * opens with the agreement's legal name in that box, and a client who corrects it to the name they
+ * trade under ("Tracewell Heating & Air LLC" → "Tracewell Heating & Air") is right to: that is the
+ * name the site should show. But the legal name then reached the intake nowhere, so the console's
+ * Legal name, the site's copyright line and its local-business data all showed the trading name.
+ *
+ * With no signed name in hand (no agreement on the site, or it couldn't be read) `brand.long` keeps
+ * the mapper's value and is put on `_meta.missing_fields`, so the console shows it as not supplied
+ * rather than as the client's answer. Enterprise has one agreement for every site, so every site
+ * gets the same name. No schema change: `brand.long` and `missing_fields` already exist.
+ */
+export function applySignedLegalName(intake: Intake, legalName: string | null | undefined): Intake {
+    const name = sanitize(legalName, 200);
+    return {
+        ...intake,
+        sites: intake.sites.map((site) => {
+            const missing = site._meta.missing_fields ?? [];
+            if (name) {
+                return {
+                    ...site,
+                    brand: { ...site.brand, long: name },
+                    _meta: { ...site._meta, missing_fields: missing.filter((f) => f !== "brand.long") },
+                };
+            }
+            return missing.includes("brand.long")
+                ? site
+                : { ...site, _meta: { ...site._meta, missing_fields: [...missing, "brand.long"] } };
+        }),
+    };
 }
 
 /**
