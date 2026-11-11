@@ -239,6 +239,20 @@ export function getRecordingRatelimit(): Ratelimit {
     });
 }
 
+/**
+ * Onboarding photo uploads (`/api/upload`), one token request per file. A client can drop ten
+ * photos at once and has up to 3 per service besides, so this sits apart from the 30-a-minute
+ * portal bucket (which the wizard's autosave also spends) and allows a full wizard's worth of
+ * uploads, while stopping a signed-in account from filling the public Blob store.
+ */
+export function getUploadRatelimit(): Ratelimit {
+    return new Ratelimit({
+        redis: getRedis(),
+        limiter: Ratelimit.fixedWindow(60, "600s"),
+        prefix: "portal:rl:upload",
+    });
+}
+
 // 30 requests per minute per user across all portal API routes
 export function getPortalRatelimit(): Ratelimit {
     return new Ratelimit({
