@@ -143,7 +143,7 @@ export const C = {
     photosQ: "Do you have photos of your completed work or your business?", // P1
     photosHelp: "Finished jobs, your trucks, your shop, your team at work. Add what you have.", // P2
     photosLabel: "Your photos", // P3
-    photosLabelNote: "Up to 10. These go at the top of your homepage.", // P3
+    photosLabelNote: "Up to 10. The first one goes at the top of your homepage.", // P3 (Xander, 2026-11-11, "Yes, change it": only photo 1 shows in the hero)
     dropHint: "Drag photos here or tap to choose", // P4
     dropLimits: "PNG, JPG or WebP, up to 10 MB each.", // P4
     workCap: "Up to 10 photos.", // P3's limit, shown when a drop holds more photos than fit
