@@ -15,7 +15,7 @@ test("general Photos step wording (P1 to P4, P7)", () => {
     assert.equal(C.photosQ, "Do you have photos of your completed work or your business?");
     assert.equal(C.photosHelp, "Finished jobs, your trucks, your shop, your team at work. Add what you have.");
     assert.equal(C.photosLabel, "Your photos");
-    assert.equal(C.photosLabelNote, "Up to 10. These go at the top of your homepage.");
+    assert.equal(C.photosLabelNote, "Up to 10. The first one goes at the top of your homepage.");
     assert.equal(C.dropHint, "Drag photos here or tap to choose");
     assert.equal(C.dropLimits, "PNG, JPG or WebP, up to 10 MB each.");
     assert.equal(C.welcomePhotos, "Your logo and some photos of your work or your business. No logo or photos yet? That's fine, we'll sort it.");
