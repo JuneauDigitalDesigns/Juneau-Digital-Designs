@@ -358,15 +358,24 @@ export function isAround247(state: Pick<WizardState, "hours" | "emergency">): bo
 /** The town the address names (the part before the state), offered as the first town. */
 export function townFromAddress(address: string): string {
     const parts = (address || "").split(",").map((p) => p.trim()).filter(Boolean);
-    return parts.length >= 2 ? cleanEntry(parts[parts.length - 2]) : "";
+    return parts.length >= 2 ? cleanListItem(parts[parts.length - 2]) : "";
 }
 
 /**
- * Clean a chip the client typed. The mapper splits list fields on commas, semicolons and line
- * breaks, so an entry containing one would arrive as two; those characters become spaces.
+ * Clean a chip: one line, single spaces, at most 80 characters. Commas and semicolons stay, so
+ * "Upfront pricing, no surprises" arrives as the client picked it (finding F-B2b, 2026-11-11).
  */
 export function cleanEntry(raw: string): string {
-    return (raw || "").replace(/[,;\n\r]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    return (raw || "").replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+}
+
+/**
+ * Clean an item of a list sent as ONE text: towns (serviceArea), brands (brandsCarried) and
+ * certifications. The mapper splits those on commas, semicolons and line breaks, so an item
+ * containing one would arrive as two; those characters become spaces. Only these three.
+ */
+export function cleanListItem(raw: string): string {
+    return cleanEntry((raw || "").replace(/[,;]+/g, " "));
 }
 
 /** The text the site's hours line gets, or "" when the client gave none. */
@@ -468,8 +477,8 @@ export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): 
     const included = capList(f.included, SERVICE_CAPS.included);
     const typicalJobs = capList(f.typicalJobs, SERVICE_CAPS.typicalJobs);
     const brands = capList(f.brands, SERVICE_CAPS.brands);
-    const covered = towns.map(cleanEntry).filter(Boolean);
-    const areas = f.areasMode === "some" ? uniq(f.areas.map(cleanEntry).filter((a) => covered.includes(a))) : [];
+    const covered = towns.map(cleanListItem).filter(Boolean);
+    const areas = f.areasMode === "some" ? uniq(f.areas.map(cleanListItem).filter((a) => covered.includes(a))) : [];
     const keepAreas = areas.length > 0 && areas.length < uniq(covered).length;
     const priceFrom = f.priceFrom.trim().slice(0, 40);
     const duration = f.duration.trim().slice(0, 40);
@@ -585,7 +594,8 @@ export function profilesForPayload(profiles: ProfileEntry[]): { kind: ProfileKin
 
 // ── Submission ───────────────────────────────────────────────────────────────
 
-const list = (xs: string[]) => xs.map(cleanEntry).filter(Boolean).join("\n");
+/** Towns, brands and certifications: sent as one text the mapper splits, so no commas inside. */
+const list = (xs: string[]) => xs.map(cleanListItem).filter(Boolean).join("\n");
 
 /**
  * What the wizard sends. Same `BrandIntakeSubmission` shape the route and jdd-ops read today;
@@ -807,7 +817,7 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
             visited: strs(d.visited).length ? strs(d.visited) : [screen],
             skipped: strs(d.skipped),
             trade: str(d.trade), name: str(d.name), phone: str(d.phone), email: str(d.email) || base.email,
-            address: str(d.address), visitAddress, towns: strs(d.towns).map(cleanEntry).filter(Boolean), website: str(d.website),
+            address: str(d.address), visitAddress, towns: strs(d.towns).map(cleanListItem).filter(Boolean), website: str(d.website),
             profiles: readProfiles(d.profiles),
             services, diffs: strs(d.diffs), customers: strs(d.customers),
             established: str(d.established), license: str(d.license), owner: str(d.owner), response: str(d.response),

@@ -25,6 +25,7 @@ import {
     TRADE_OPTIONS,
     askedStats,
     cleanEntry,
+    cleanListItem,
     cleanQuestion,
     customerOptions,
     diffOptions,
@@ -458,7 +459,7 @@ export function ScreenBody(p: ScreenProps) {
                         {state.towns.map((t) => <Chip key={t} label={t} on removable onClick={() => update({ towns: state.towns.filter((x) => x !== t) })} />)}
                         {town && !state.towns.includes(town) ? <Chip ghost label={`+ ${town} (from your address)`} onClick={() => addTown(town)} /> : null}
                     </div>
-                    <AddRow placeholder="Add a town" onAdd={addTown} />
+                    <AddRow placeholder="Add a town" onAdd={addTown} clean={cleanListItem} />
                     <p className={`${s.hint} ${s.count}`}>{C.townsCount(state.towns.length)}</p>
                 </>
             );
@@ -537,7 +538,7 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <>
                     <ChipList options={BRAND_SUGGESTIONS[state.trade] ?? []} selected={state.brands} onToggle={(v) => update({ brands: toggleIn(state.brands, v) })} />
-                    <AddRow placeholder="Another brand you install or service" onAdd={(v) => !state.brands.includes(v) && update({ brands: [...state.brands, v] })} />
+                    <AddRow placeholder="Another brand you install or service" clean={cleanListItem} onAdd={(v) => !state.brands.includes(v) && update({ brands: [...state.brands, v] })} />
                 </>
             );
 
@@ -545,7 +546,7 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <>
                     <ChipList options={CERT_SUGGESTIONS[state.trade] ?? ["BBB accredited"]} selected={state.certs} onToggle={(v) => update({ certs: toggleIn(state.certs, v) })} />
-                    <AddRow placeholder="e.g. Best of Orlando 2024" onAdd={(v) => !state.certs.includes(v) && update({ certs: [...state.certs, v] })} />
+                    <AddRow placeholder="e.g. Best of Orlando 2024" clean={cleanListItem} onAdd={(v) => !state.certs.includes(v) && update({ certs: [...state.certs, v] })} />
                 </>
             );
 
