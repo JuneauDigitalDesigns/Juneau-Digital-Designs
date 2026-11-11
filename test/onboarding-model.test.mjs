@@ -13,6 +13,7 @@ import { zBrandIntakeSubmission, mapBrandIntakeToIntake } from "@jdd/schema";
 import {
     buildPayload,
     cleanEntry,
+    cleanListItem,
     hoursLine,
     initialState,
     modesFor,
@@ -118,9 +119,11 @@ test("derived values come only from the client's own answers", () => {
     assert.equal(hoursLine({ hours: "custom", customHours: " Tue to Sun, 9 to 4 ", emergency: false }), "Tue to Sun, 9 to 4");
 });
 
-test("custom entries can't be split into two by the mapper", () => {
-    assert.equal(cleanEntry("Lennox Premier Dealer, 2024"), "Lennox Premier Dealer 2024");
-    assert.equal(cleanEntry("  a;b\nc  "), "a b c");
+test("towns, brands and certifications can't be split into two by the mapper", () => {
+    assert.equal(cleanListItem("Lennox Premier Dealer, 2024"), "Lennox Premier Dealer 2024");
+    assert.equal(cleanListItem("  a;b\nc  "), "a b c");
+    // Every other chip keeps its commas (F-B2b, 2026-11-11); only line breaks go.
+    assert.equal(cleanEntry("  Upfront pricing, no surprises\n "), "Upfront pricing, no surprises");
 });
 
 test("the payload is the same intake shape, with custom brands and certifications", () => {
