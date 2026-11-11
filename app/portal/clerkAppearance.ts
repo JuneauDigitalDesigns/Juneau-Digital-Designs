@@ -271,14 +271,28 @@ export const clerkAuthAppearance = {
 /**
  * Clerk's built-in wording, overridden on the provider (`localization`).
  *
- * Approved in portal-ux-rework-copy-draft.md ("Sign in (Clerk) and account menu"). Sign-up keeps
- * Clerk's default title: no sign-up string has been approved yet.
+ * Approved in portal-ux-rework-copy-draft.md ("Sign in (Clerk) and account menu"). Sign-up's
+ * first step keeps Clerk's default title: no string for it has been approved.
+ *
+ * `signUp.continue` is the step an invited client lands on (F-F1, 2026-11-11). The invitation
+ * ticket verifies their email, and Clerk's continue step hides every field that is already
+ * filled or optional, so with both instances' settings the one field left is the password. The
+ * stock heading there was "Fill in missing fields". Clerk takes localization only on the
+ * provider, never per component, so this applies to every continue step. That holds only while
+ * a password is the one thing sign-up can be missing; `test/invite-signup-continue.test.mjs`
+ * checks it against the recorded instance settings.
  */
 export const clerkLocalization = {
     signIn: {
         start: {
             title: "Sign in to your client portal",
             subtitle: "Your leads, customers and site, all in one place",
+        },
+    },
+    signUp: {
+        continue: {
+            title: "Create your password",
+            subtitle: "You'll use it with your email to sign in to your client portal",
         },
     },
 };

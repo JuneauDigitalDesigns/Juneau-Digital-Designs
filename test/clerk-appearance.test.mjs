@@ -99,8 +99,9 @@ test("cream on coral is large-text only, so the coral button label stays large a
 test("approved card wording, through Clerk localization", () => {
     assert.equal(clerkLocalization.signIn.start.title, "Sign in to your client portal");
     assert.equal(clerkLocalization.signIn.start.subtitle, "Your leads, customers and site, all in one place");
-    // No sign-up string is approved yet: Clerk's default title stays.
-    assert.ok(!("signUp" in clerkLocalization));
+    // Sign-up's first step has no approved string, so Clerk's default title stays there. Only the
+    // continue step is localized (test/invite-signup-continue.test.mjs).
+    assert.deepEqual(Object.keys(clerkLocalization.signUp ?? {}), ["continue"]);
     assert.match(read("app/portal/layout.tsx"), /localization=\{clerkLocalization\}/);
 });
 
