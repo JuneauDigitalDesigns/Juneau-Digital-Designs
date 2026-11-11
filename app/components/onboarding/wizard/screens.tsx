@@ -51,6 +51,7 @@ import {
 } from "./model";
 import { PROFILE_KINDS, VOICE_OPTIONS, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
+import { ACCEPT_ATTR } from "@/app/lib/image-prep";
 import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
 import { suggestionsFor } from "./service-suggestions";
 import s from "./wizard.module.css";
@@ -305,7 +306,8 @@ function FilePicker({ accept, multiple, onFiles, children, className, ariaLabel 
     );
 }
 
-const ACCEPT = "image/png,image/jpeg,image/webp";
+/** PNG, JPEG, WebP, and HEIC where the browser can open it (app/lib/image-prep.ts). */
+const ACCEPT = ACCEPT_ATTR;
 
 /** True while a drag carries files (not text or a link dragged from the page). */
 function draggingFiles(e: DragEvent): boolean {

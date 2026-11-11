@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { upload } from "@vercel/blob/client";
+import { PrepError, precheck, prepareImage, type PrepKind } from "@/app/lib/image-prep";
 import type { ImageMeta } from "@jdd/schema";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { findTaxIdPaths } from "@/app/lib/tax-id-guard.mjs";
@@ -56,9 +57,6 @@ const AUTOSAVE_MS = 800;
 /** How long Send ignores clicks after Review appears, so a double-click on Next can't send. */
 const SEND_ARM_DELAY_MS = 600;
 
-const ALLOWED_UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_UPLOAD_BYTES = 10_485_760; // 10 MB
-
 /**
  * Scoped to the site, not just the user: a client can have two sites waiting for their wizard,
  * and one shared draft let the second show (and overwrite) the first one's answers.
@@ -68,14 +66,14 @@ function portalStorageKey(clerkUserId: string, siteRef: string): string | null {
     return siteRef ? `jdd-onboarding-portal-${clerkUserId}-${siteRef}` : `jdd-onboarding-portal-${clerkUserId}`;
 }
 
-function validateUploadFile(file: File): string | null {
-    if (!ALLOWED_UPLOAD_TYPES.includes(file.type)) return "Only JPEG, PNG, and WebP images are allowed.";
-    if (file.size > MAX_UPLOAD_BYTES) return "File must be 10 MB or smaller.";
-    return null;
-}
-
-async function uploadFile(file: File): Promise<ImageMeta> {
-    const blob = await upload(file.name, file, { access: "public", handleUploadUrl: "/api/upload" });
+/**
+ * Every image is cleaned in the browser before upload (app/lib/image-prep.ts): metadata and GPS
+ * dropped, orientation applied, the long edge capped at 2560px, the logo's transparency kept.
+ * The client still sees the name of the file they picked.
+ */
+async function uploadFile(file: File, kind: PrepKind): Promise<ImageMeta> {
+    const clean = await prepareImage(file, kind);
+    const blob = await upload(clean.name, clean, { access: "public", handleUploadUrl: "/api/upload" });
     return { url: blob.url, filename: file.name, alt: "" };
 }
 
@@ -348,15 +346,16 @@ export default function OnboardingPageClient({
         });
     async function runUpload(slot: string, files: File[], apply: (metas: ImageMeta[]) => void) {
         for (const f of files) {
-            const err = validateUploadFile(f);
+            const err = precheck(f);
             if (err) return setUploadError(slot, err);
         }
         setUploadError(slot, null);
         markBusy(slot, true);
+        const kind: PrepKind = slot === "logo" ? "logo" : "photo";
         try {
-            apply(await Promise.all(files.map(uploadFile)));
-        } catch {
-            setUploadError(slot, "Upload failed. Please try again.");
+            apply(await Promise.all(files.map((f) => uploadFile(f, kind))));
+        } catch (e) {
+            setUploadError(slot, e instanceof PrepError ? e.message : "Upload failed. Please try again.");
         } finally {
             markBusy(slot, false);
         }
