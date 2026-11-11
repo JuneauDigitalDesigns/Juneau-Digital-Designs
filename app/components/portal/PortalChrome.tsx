@@ -154,7 +154,12 @@ export default function PortalChrome({
 
     return (
         <div className="portal-shell" data-rail={collapsed ? "collapsed" : "expanded"}>
-            <TourController tourCompleted={tourCompleted} initialStep={tourInitialStep} tier={tourTier} />
+            <TourController
+                tourCompleted={tourCompleted}
+                initialStep={tourInitialStep}
+                tier={tourTier}
+                siteStatus={selected.status}
+            />
             {/* ── Mobile: slim topbar ──────────────────────────────────────────── */}
             <header className="portal-topbar">
                 <a
