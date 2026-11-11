@@ -22,6 +22,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { upload } from "@vercel/blob/client";
+import { SignOutButton } from "@clerk/nextjs";
+import { FINISH_LATER, SIGNED_OUT_URL } from "./wizard/finish-later";
 import { PrepError, precheck, prepareImage, type PrepKind } from "@/app/lib/image-prep";
 import type { ImageMeta } from "@jdd/schema";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
@@ -87,6 +89,7 @@ export default function OnboardingPageClient({
     prefill = null,
     clerkUserId = "",
     siteRef = "",
+    otherSiteSlug = null,
 }: {
     plan: PlanSlug;
     prefillEmail?: string;
@@ -106,6 +109,8 @@ export default function OnboardingPageClient({
     clerkUserId?: string;
     /** Which site this wizard fills in. Scopes the draft and is sent with the submission. */
     siteRef?: string;
+    /** Another site on the account that already has a dashboard, for "Finish later" (finish-later.ts). */
+    otherSiteSlug?: string | null;
 }) {
     const ctx = useMemo(() => ({ plan, signedMode: signedReceptionistMode }), [plan, signedReceptionistMode]);
     // The server render and first client render must match, so the draft is read in an effect.
@@ -119,6 +124,8 @@ export default function OnboardingPageClient({
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
     const [done, setDone] = useState<{ slug: string | null } | null>(null);
+    /** "Finish later" with no other site to go to: the "Saved" screen is showing. */
+    const [paused, setPaused] = useState(false);
     const [busy, setBusy] = useState<Set<string>>(new Set());
     const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
 
@@ -191,10 +198,9 @@ export default function OnboardingPageClient({
     }, []);
 
     // ── Draft autosave ──
-    useEffect(() => {
-        if (!didRestoreRef.current || done) return;
-        const id = setTimeout(() => {
-            const record = { ...state, savedAt: new Date().toISOString() };
+    const persistDraft = useCallback(
+        (current: WizardState) => {
+            const record = { ...current, savedAt: new Date().toISOString() };
             /**
              * The wizard collects no EIN at all; the operator types registration details in the
              * console. This value-shape tripwire stays so one can never be autosaved anyway (a
@@ -221,9 +227,14 @@ export default function OnboardingPageClient({
             })
                 .then((r) => r.ok && setSavedOnce(true))
                 .catch(() => {});
-        }, AUTOSAVE_MS);
+        },
+        [draftUrl, storageKey],
+    );
+    useEffect(() => {
+        if (!didRestoreRef.current || done) return;
+        const id = setTimeout(() => persistDraft(state), AUTOSAVE_MS);
         return () => clearTimeout(id);
-    }, [state, done, draftUrl, storageKey]);
+    }, [state, done, persistDraft]);
 
     // ── Screen changes and browser history ──
     /**
@@ -404,9 +415,18 @@ export default function OnboardingPageClient({
         }
     };
 
+    /**
+     * Saves now, then: another site that's already set up → its dashboard; otherwise the "Saved"
+     * screen, because /portal sends a pending site straight back here (F-B1b, 2026-11-11).
+     */
     const finishLater = () => {
-        showToast("Saved. Next time you'll pick up right here.");
-        setTimeout(() => window.location.assign("/portal"), 1400);
+        persistDraft(state);
+        if (otherSiteSlug) {
+            showToast(FINISH_LATER.toast);
+            setTimeout(() => window.location.assign(`/portal?site=${encodeURIComponent(otherSiteSlug)}`), 1400);
+            return;
+        }
+        setPaused(true);
     };
 
     // ── Render ──
@@ -472,7 +492,7 @@ export default function OnboardingPageClient({
                 {rail}
                 <div className={s.railFoot}>
                     {savedOnce ? <span className={s.saved}>Saved just now</span> : null}
-                    {!done ? <button type="button" className={`${s.lnk} ${s.lnkInline}`} onClick={finishLater}>Finish later</button> : null}
+                    {!done && !paused ? <button type="button" className={`${s.lnk} ${s.lnkInline}`} onClick={finishLater}>Finish later</button> : null}
                 </div>
             </aside>
 
@@ -492,6 +512,11 @@ export default function OnboardingPageClient({
                         <div className={`${s.scrIn} ${s.enterF}`}>
                             <h1 className={s.q}>{extra.firstName ? `Thank you, ${extra.firstName}. We're on it.` : "Thank you. We're on it."}</h1>
                             <p className={s.help}>You&apos;ll have a preview site within 72 hours. Your portal is where your calls and leads will live.</p>
+                        </div>
+                    ) : paused ? (
+                        <div className={`${s.scrIn} ${s.enterF}`}>
+                            <h1 className={s.q}>{FINISH_LATER.savedHeading}</h1>
+                            <p className={s.help}>{FINISH_LATER.savedBody}</p>
                         </div>
                     ) : (
                         <div key={def.id} className={`${s.scrIn} ${dir === "b" ? s.enterB : s.enterF}`}>
@@ -527,6 +552,14 @@ export default function OnboardingPageClient({
                         <>
                             <span className={s.barSp} />
                             <button type="button" className={s.btn} onClick={() => window.location.assign(portalTarget)}>Go to your portal</button>
+                        </>
+                    ) : paused ? (
+                        <>
+                            <SignOutButton redirectUrl={SIGNED_OUT_URL}>
+                                <button type="button" className={s.lnk}>{FINISH_LATER.signOut}</button>
+                            </SignOutButton>
+                            <span className={s.barSp} />
+                            <button type="button" className={s.btn} onClick={() => setPaused(false)}>{FINISH_LATER.keepGoing}</button>
                         </>
                     ) : (
                         <>
