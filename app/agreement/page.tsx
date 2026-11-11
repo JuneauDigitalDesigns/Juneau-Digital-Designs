@@ -12,6 +12,7 @@ import { billingPeriodOfSite, upgradeBlockReason } from "../lib/plan-billing";
 import { getPlanChange } from "../lib/plan-change";
 import { planConsolidation } from "../lib/consolidation";
 import type { PlanSlug } from "../lib/agreement-types";
+import { smsConsentCopy } from "../lib/sms-consent-text";
 
 const SIGNING_METADATA: Metadata = {
     title: "Sign Service Agreement | Juneau Digital Designs",
@@ -202,6 +203,7 @@ export default async function AgreementPage({
             billingPeriod={billingPeriod}
             sections={sections}
             version={version}
+            smsConsentCopy={smsConsentCopy()}
             webOnlySections={webOnly?.sections}
             webOnlyVersion={webOnly?.version}
             upgradeSlug={upgradeSlug}

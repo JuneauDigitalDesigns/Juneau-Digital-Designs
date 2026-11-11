@@ -3,7 +3,8 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import type { PortalSiteProps } from "@/app/portal/types";
-import { splitConsentText } from "@/app/lib/sms-consent-text";
+import { splitConsentText, type SmsConsentCopy } from "@/app/lib/sms-consent-text";
+import type { OwnerTextCampaign } from "@/app/lib/owner-text-campaign";
 import type { AccountAgreement } from "@/app/lib/portal-agreements";
 import { SectionCard, FieldRow, inputStyle } from "./ui/FormPrimitives";
 
@@ -17,6 +18,10 @@ interface SettingsSectionProps {
     accountEmail: string;
     accountProfile: { contactName?: string; contactPhone?: string } | null;
     smsConsent: SmsConsentProps | null;
+    /** `ownerTextCampaign()`, read on the server: v1 makes Text alerts turn-off only. */
+    smsCampaign: OwnerTextCampaign;
+    /** The consent wording a v2 opt-in here shows and records (`smsConsentCopy()`). */
+    smsConsentCopy: SmsConsentCopy;
     agreements: AccountAgreement[];
 }
 
@@ -456,15 +461,117 @@ function FeaturedSection({
  * against words the client actually saw at that moment, not words they saw months ago on
  * a page they no longer remember.
  */
-function SmsAlertsSection({ consent }: { consent: SmsConsentProps | null }) {
+function SmsAlertsSection({
+    consent,
+    campaign,
+    consentCopy,
+}: {
+    consent: SmsConsentProps | null;
+    campaign: OwnerTextCampaign;
+    consentCopy: SmsConsentCopy;
+}) {
     // Shown on every plan. It used to return null for Starter, on the pre-reprice belief that
     // Starter had no receptionist and so nothing would ever text. Since 2026-10-12 every tier
     // has one, and the new-lead text goes to every tier — web-only included. Consent is
     // account-wide, so a per-site plan is the wrong thing to gate it on anyway.
-    return <SmsAlertsControls consent={consent} />;
+    //
+    // What it offers follows the campaign, not the plan. The approved (v1) campaign registers
+    // the agreement page as the only place consent is collected, so under v1 an owner can turn
+    // texts off here and nothing else (Xander, 2026-11-11). The API refuses the rest too.
+    return campaign === "v1" ? (
+        <SmsAlertsOffOnly consent={consent} />
+    ) : (
+        <SmsAlertsControls consent={consent} consentCopy={consentCopy} />
+    );
 }
 
-function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
+/**
+ * Text alerts under the v1 campaign: the number they're on, and Turn off. No opt-in, no number
+ * change, no consent box, and no new wording: every string here is one the v2 controls already
+ * show. An owner with no active texts has nothing to turn off, so sees no card.
+ */
+function SmsAlertsOffOnly({ consent }: { consent: SmsConsentProps | null }) {
+    const active = consent?.status === "granted" || consent?.status === "pending-confirmation";
+    const [enabled, setEnabled] = useState(active);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    if (!consent || !active) return null;
+
+    async function turnOff() {
+        setSaving(true);
+        setError(null);
+        try {
+            const res = await fetch("/api/portal/sms-consent", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled: false }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error((data as { error?: string }).error ?? "Save failed");
+            }
+            setEnabled(false);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Save failed");
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    return (
+        <SectionCard title="Text alerts">
+            <div
+                style={{
+                    background: "color-mix(in srgb, var(--accent) 8%, transparent)",
+                    border: "1px solid var(--accent)",
+                    borderRadius: 6,
+                    padding: "12px 16px",
+                    marginBottom: 18,
+                    fontSize: 13,
+                    color: "var(--accent)",
+                }}
+            >
+                {!enabled
+                    ? "Preferences saved."
+                    : consent.status === "pending-confirmation"
+                      ? "Waiting on your reply to the confirmation text before alerts start."
+                      : "Text alerts are on."}
+            </div>
+
+            {enabled && (
+                <>
+                    <FieldRow label="Mobile number for alerts">
+                        <input value={consent.phone} readOnly disabled style={inputStyle} />
+                    </FieldRow>
+
+                    {error && (
+                        <p style={{ color: "var(--accent-2)", fontSize: 13, margin: "0 0 12px" }}>{error}</p>
+                    )}
+
+                    <button
+                        onClick={turnOff}
+                        disabled={saving}
+                        style={{
+                            padding: "8px 20px",
+                            borderRadius: 6,
+                            border: "1px solid var(--rule)",
+                            background: "transparent",
+                            color: "var(--fg-3)",
+                            fontSize: 14,
+                            cursor: saving ? "not-allowed" : "pointer",
+                            opacity: saving ? 0.6 : 1,
+                        }}
+                    >
+                        {saving ? "Saving…" : "Turn off"}
+                    </button>
+                </>
+            )}
+        </SectionCard>
+    );
+}
+
+function SmsAlertsControls({ consent, consentCopy }: { consent: SmsConsentProps | null; consentCopy: SmsConsentCopy }) {
     const active = consent?.status === "granted" || consent?.status === "pending-confirmation";
     const [enabled, setEnabled] = useState(active);
     const [phone, setPhone] = useState(consent?.phone ?? "");
@@ -573,7 +680,7 @@ function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
                     style={{ marginTop: 3, accentColor: "var(--accent)" }}
                 />
                 <span>
-                    {splitConsentText().map((seg, i) =>
+                    {splitConsentText(consentCopy.text).map((seg, i) =>
                         seg.kind === "link" ? (
                             <Link
                                 key={i}
@@ -612,7 +719,7 @@ function SmsAlertsControls({ consent }: { consent: SmsConsentProps | null }) {
                         opacity: saving || !agreed ? 0.6 : 1,
                     }}
                 >
-                    {saving ? "Saving…" : enabled ? "Update number" : "Turn on call alerts"}
+                    {saving ? "Saving…" : enabled ? "Update number" : "Turn on text alerts"}
                 </button>
                 {enabled && (
                     <button
@@ -698,6 +805,8 @@ export default function SettingsSection({
     accountEmail,
     accountProfile,
     smsConsent,
+    smsCampaign,
+    smsConsentCopy,
     agreements,
 }: SettingsSectionProps) {
     // Settings › Account. The order is the approved mockup's: the two things a client
@@ -706,7 +815,7 @@ export default function SettingsSection({
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
-            <SmsAlertsSection consent={smsConsent} />
+            <SmsAlertsSection consent={smsConsent} campaign={smsCampaign} consentCopy={smsConsentCopy} />
             <FeaturedSection site={site} />
             <AgreementsSection agreements={agreements} />
         </div>

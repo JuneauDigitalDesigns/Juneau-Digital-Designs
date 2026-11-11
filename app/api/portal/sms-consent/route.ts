@@ -3,10 +3,13 @@ import { resolvePortalRequest } from "@/app/lib/portal-account";
 import {
   consentRequestContext,
   getConsentStateForAccount,
+  hashConsentText,
   normalizeE164,
   recordConsentEvent,
   type ConsentState,
 } from "@/app/lib/sms-consent";
+import { ownerTextCampaign } from "@/app/lib/owner-text-campaign";
+import { smsConsentCopy } from "@/app/lib/sms-consent-text";
 
 export const runtime = "nodejs";
 
@@ -21,6 +24,13 @@ export const runtime = "nodejs";
  * Every change appends events rather than editing state. Moving to a new number is a
  * revocation of the old one and a grant of the new one, in that order, because that is
  * literally what happened and a log that says otherwise is not evidence.
+ *
+ * **Under the v1 campaign this only turns texts off** (`OWNER_TEXT_CAMPAIGN`, Xander 2026-11-11).
+ * The approved campaign registers one place consent is collected: the Service Agreement page,
+ * beside the mobile number field, before purchase. A grant from here, or a move to a new number
+ * (which is a grant of that number), is a flow the live campaign never declared, so it is refused
+ * here and not only hidden in the UI. Turning off is always allowed. Under v2 this works as it
+ * did before.
  */
 export async function GET(request: Request) {
   const ctx = await resolvePortalRequest(request);
@@ -73,6 +83,10 @@ export async function POST(request: Request) {
     });
   }
 
+  if (ownerTextCampaign() === "v1") {
+    return NextResponse.json({ error: "Not available.", code: "opt-in-closed" }, { status: 403 });
+  }
+
   // No plan gate, on purpose. There used to be one — `ctx.site.plan === "starter"` refused
   // the grant — and it was wrong twice over:
   //  - Since the 2026-10-12 reprice every tier has the receptionist, and the new-lead text
@@ -110,7 +124,8 @@ export async function POST(request: Request) {
   }
 
   // The consent text is re-shown in the portal UI at the moment of the change, so the
-  // default hash and version recorded here are the words they just read.
+  // live wording recorded here is the words they just read. Only v2 gets this far.
+  const copy = smsConsentCopy();
   await recordConsentEvent({
     phone: next,
     action: "granted",
@@ -118,6 +133,8 @@ export async function POST(request: Request) {
     ip,
     userAgent,
     accountEmail: email,
+    consentTextHash: hashConsentText(copy.text),
+    consentTextVersion: copy.version,
   });
 
   return NextResponse.json({

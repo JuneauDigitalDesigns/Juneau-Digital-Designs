@@ -8,6 +8,8 @@ import { accountFacts } from "./operator-order-input";
 import { getOrder, transitionOrder } from "./operator-orders";
 import { recordClickwrapOrderAcceptance, termsHashForOrder } from "./verbal-agreement";
 import { agreementLinkState, newAgreeCode, orderDocFingerprint } from "./agreement-link.mjs";
+import { hashConsentText, savePendingConsent } from "./sms-consent";
+import type { SmsConsentCopy } from "./sms-consent-text";
 
 /**
  * The private link an order's client uses to read and agree to the full agreement themselves,
@@ -127,10 +129,18 @@ export class AgreementLinkError extends Error {
 /**
  * The client ticked the box. Re-checks everything under the lock, records the agreement the same
  * way a verbal one is recorded, moves the order on, and marks the link used.
+ *
+ * `smsConsent` is the optional owner SMS opt-in, ticked beside the mobile number on the same page
+ * (Xander, 2026-11-11). It is held exactly as `/api/agreement` holds one: a pending consent keyed
+ * by the new agreement's id, carrying the acceptance's own time, IP and user agent and the
+ * version and hash of the words shown. Fulfilment promotes it into the account's consent
+ * (`sms:consent:*`) once the payment clears, so nobody is texted for a purchase that never
+ * happened, which is the flow the campaign registers.
  */
 export async function acceptAgreementLink(
     code: string,
     input: { pageOpenedAt: string; scrollCompletedAt: string; ip: string; userAgent: string; path: string },
+    smsConsent?: { phone: string; copy: SmsConsentCopy },
 ) {
     const link = await readLink(code);
     if (!link) throw new AgreementLinkError("This link is no longer active.", "inactive", 410);
@@ -156,6 +166,28 @@ export async function acceptAgreementLink(
             { agreementId: result.record.id, agreementKind: kind },
         );
         await getRedis().set(linkKey(code), { ...link, acceptedAt: Date.now() }, { ex: ACCEPTED_TTL_SECONDS });
+
+        // After the agreement and the order are safely written, and never allowed to fail the
+        // acceptance: losing a signature over a secondary write is far worse than an owner
+        // turning texts on later. Same rule as /api/agreement.
+        if (smsConsent) {
+            try {
+                await savePendingConsent({
+                    agreementId: result.record.id,
+                    phone: smsConsent.phone,
+                    // The acceptance's own facts, so the consent and the agreement can never
+                    // disagree about when, or who was at the keyboard.
+                    capturedAt: result.record.audit.signedAt,
+                    ip: result.record.audit.ip,
+                    userAgent: result.record.audit.userAgent,
+                    consentTextHash: hashConsentText(smsConsent.copy.text),
+                    consentTextVersion: smsConsent.copy.version,
+                    signerEmail: order.client.email,
+                });
+            } catch (e) {
+                console.error(`[agree] ${result.record.id} SMS consent write failed, alerts will stay off`, e);
+            }
+        }
         return { order: saved, result };
     });
     if (!outcome) throw new AgreementLinkError("This agreement is being recorded. Reload the page in a moment.", "in-progress");

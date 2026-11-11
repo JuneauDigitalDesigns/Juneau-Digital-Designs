@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { normalizeE164 } from "./phone.mjs";
 
 /**
  * The rules of an order's private agreement link. Pure, so the test runs the same code the
@@ -68,5 +69,23 @@ export function agreementSubmissionError(body, expectedTermsHash) {
   const valid = (v) => typeof v === "string" && !Number.isNaN(Date.parse(v));
   if (!valid(body.pageOpenedAt)) return "Missing page open timestamp.";
   if (!valid(body.scrollCompletedAt)) return "Agreement was not read to the end.";
+  return null;
+}
+
+/**
+ * Why the optional SMS opt-in can't be recorded, or null when it can (or wasn't given). The same
+ * two rules, and the same words, as the `/agreement` page's (`agreement-validate.mjs`): consent
+ * needs a receptionist to text about, and a number to text. Never a reason to refuse the
+ * agreement itself when the box is left unticked.
+ *
+ * @param {{ smsConsent?: unknown, alertPhone?: unknown }} body
+ * @param {{ receptionistMode?: string }} order
+ */
+export function agreementConsentError(body, order) {
+  if (body?.smsConsent !== true) return null;
+  if (order?.receptionistMode === "declined") return "Text alerts require a receptionist";
+  if (!normalizeE164(typeof body.alertPhone === "string" ? body.alertPhone : "")) {
+    return "A valid mobile number is required to enable text alerts";
+  }
   return null;
 }

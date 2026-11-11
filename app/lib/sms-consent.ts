@@ -2,7 +2,7 @@ import "server-only";
 import { Redis } from "@upstash/redis";
 import { createHash, randomUUID } from "node:crypto";
 import type { SmsAlerts } from "@jdd/schema";
-import { SMS_CONSENT_TEXT, SMS_CONSENT_TEXT_VERSION } from "./sms-consent-text";
+import { smsConsentCopy } from "./sms-consent-text";
 import { normalizeE164 } from "./phone";
 
 /**
@@ -87,9 +87,10 @@ export interface PendingConsent {
 
 /**
  * SHA-256 of the exact wording shown. Canonical whitespace so a reflow of the source
- * string can't change the hash of words nobody edited.
+ * string can't change the hash of words nobody edited. With no argument, the wording the live
+ * campaign shows (`smsConsentCopy()`).
  */
-export function hashConsentText(text: string = SMS_CONSENT_TEXT): string {
+export function hashConsentText(text: string = smsConsentCopy().text): string {
   const canon = text.replace(/\s+/g, " ").trim();
   return createHash("sha256").update(canon, "utf8").digest("hex");
 }
@@ -181,6 +182,10 @@ export async function recordConsentEvent(input: {
   const phone = normalizeE164(input.phone);
   if (!phone) throw new Error(`recordConsentEvent: not an E.164 number: ${input.phone}`);
 
+  // An event that names no wording is stamped with the one the live campaign shows: a portal
+  // grant under v2, a keyword re-grant, a revocation. Callers that captured a box tick pass the
+  // version and hash of the words on that screen.
+  const live = smsConsentCopy();
   const event: ConsentEvent = {
     id: randomUUID(),
     phone,
@@ -189,8 +194,8 @@ export async function recordConsentEvent(input: {
     occurredAt: input.occurredAt ?? new Date().toISOString(),
     ip: input.ip,
     userAgent: input.userAgent,
-    consentTextHash: input.consentTextHash ?? hashConsentText(),
-    consentTextVersion: input.consentTextVersion ?? SMS_CONSENT_TEXT_VERSION,
+    consentTextHash: input.consentTextHash ?? hashConsentText(live.text),
+    consentTextVersion: input.consentTextVersion ?? live.version,
     ...(input.agreementId ? { agreementId: input.agreementId } : {}),
     ...(input.accountEmail ? { accountEmail: input.accountEmail } : {}),
   };

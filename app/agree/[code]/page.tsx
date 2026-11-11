@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { resolveAgreementLink } from "@/app/lib/agreement-link";
 import { AGREE_CODE } from "@/app/lib/agreement-link.mjs";
+import { smsConsentCopy } from "@/app/lib/sms-consent-text";
 import AgreeLinkClient, { AgreeDone, AgreeInactive } from "@/app/components/agreement/AgreeLinkClient";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,8 @@ export default async function AgreePage({ params }: { params: Promise<{ code: st
                         businessLine={`${view.order.client.legalName} · ${view.order.plan.charAt(0).toUpperCase()}${view.order.plan.slice(1)} plan, billed ${view.order.period === "annual" ? "yearly" : "monthly"}`}
                         signerLine={`Signer: ${view.order.client.contactName}, ${view.order.client.contactTitle}, ${view.order.client.legalName}`}
                         email={view.order.client.email}
+                        smsConsentCopy={smsConsentCopy()}
+                        hasReceptionist={view.order.receptionistMode !== "declined"}
                     />
                 )}
             </article>

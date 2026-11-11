@@ -3,6 +3,8 @@ import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
 import { currentSite, resolveDashboard } from "@/app/lib/portal-dashboard";
 import { listAccountAgreements } from "@/app/lib/portal-agreements";
 import { getConsentStateForAccount } from "@/app/lib/sms-consent";
+import { ownerTextCampaign } from "@/app/lib/owner-text-campaign";
+import { smsConsentCopy } from "@/app/lib/sms-consent-text";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +34,9 @@ export default async function SettingsPage({
             accountEmail={ctx.account.email}
             agreements={agreements}
             smsConsent={consent ? { phone: consent.phone, status: consent.status } : null}
+            /* Read here, on the server: the browser has no OWNER_TEXT_CAMPAIGN. */
+            smsCampaign={ownerTextCampaign()}
+            smsConsentCopy={smsConsentCopy()}
             accountProfile={
                 ctx.account.profile
                     ? {
