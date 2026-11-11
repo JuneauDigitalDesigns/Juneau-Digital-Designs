@@ -5,13 +5,16 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { driver, type Driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import "./tour-theme.css";
+import type { PortalSiteStatus } from "@jdd/schema";
 import { buildTourPlan, type TourTier } from "./steps";
+import { shouldAutoLaunchTour, streamedRedirectPending } from "./auto-launch";
 
 /**
  * First-run spotlight tour.
  *
  * Auto-launches once per user (`!tourCompleted`), resuming where they left off, and replays
- * from the rail's Help button via the `jdd:start-tour` event.
+ * from the rail's Help button via the `jdd:start-tour` event. It does not auto-launch for a site
+ * still in onboarding or on a page that is redirecting; see `auto-launch.ts` for why.
  *
  * Two things make this more than a list of popovers:
  *
@@ -32,10 +35,13 @@ export default function TourController({
     tourCompleted,
     initialStep,
     tier,
+    siteStatus,
 }: {
     tourCompleted: boolean;
     initialStep: number;
     tier: TourTier;
+    /** The selected site's status. */
+    siteStatus: PortalSiteStatus;
 }) {
     const router = useRouter();
     const pathname = usePathname();
@@ -157,9 +163,15 @@ export default function TourController({
         [params, router, postTour, tier, waitFor],
     );
 
-    // Auto-launch once, on first login only.
+    // Auto-launch once, on first login only, and only on a page that is staying put.
     useEffect(() => {
-        if (tourCompleted || startedRef.current) return;
+        if (startedRef.current) return;
+        const launch = shouldAutoLaunchTour({
+            tourCompleted,
+            siteStatus,
+            redirectPending: streamedRedirectPending(document),
+        });
+        if (!launch) return;
         startedRef.current = true;
         void start(initialStep);
         // eslint-disable-next-line react-hooks/exhaustive-deps
