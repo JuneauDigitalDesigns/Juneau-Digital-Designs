@@ -73,6 +73,9 @@ export const DEMO_STEPS: DemoStep[] = [
  */
 export const DEMO_REVIEW_NOTE = "Change the message if you like before you send it.";
 
+/** The portal section's anchor on the homepage, where the receptionist film's "Show me" lands. */
+export const PORTAL_SECTION_ID = "where-leads-land";
+
 /** The missed-calls calculator's anchor on the homepage, where the closing screen's button lands. */
 export const MISSED_CALLS_ID = "missed-calls";
 

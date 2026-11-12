@@ -1,71 +1,61 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useReducedMotion, AnimatePresence, motion } from "framer-motion";
-import { ArrowCounterClockwise } from "@phosphor-icons/react";
-import { FILM_CALL, FILM_SITE, type CallScenario } from "@/app/data/switchboard-calls";
+import { ArrowCounterClockwise, ArrowDown, Pause, Play } from "@phosphor-icons/react";
+import { FILM_CALL, FILM_CALL_IN, FILM_COPY, FILM_SITE, type CallScenario } from "@/app/data/switchboard-calls";
+import { PORTAL_SECTION_ID } from "@/app/data/portal-demo";
+import { createDemoClock, type DemoClock } from "./demo-clock";
+import { lineMs } from "./film-timing";
 
 /**
- * The two-act film, retold on 9 Nov 2026 (approved by Xander from a mockup).
+ * The receptionist film, retold on 12 Nov 2026 (Xander, storyboard approved word for word).
  *
- * Act 1 is what the customer experiences: Dave is on Your HVAC Co.'s website (the real growth
- * template, the same site the laptop above shows), taps "Book a Free Estimate", fills in the
- * form, ticks the call consent and sends it. About a minute later, on Growth, the AI rings
- * him back. Act 2 is the owner's side: the post-call text, then the lead waiting in the Inbox.
+ * It plays the Starter story first, because that is what every plan does:
+ *   their phone: Dave on Your HVAC Co.'s site (the real growth template, the laptop's site) taps
+ *   the call button; your phone: it rings, you're busy; normally that is voicemail; instead the
+ *   receptionist answers on his phone, with subtitles; back on your phone, the post-call alert.
+ * It ends by offering the Growth story, the one thing Starter does not do: the same site, a
+ * callout on the number (customers can still call), the form filled in, a callout on the form,
+ * then "About a minute later" the receptionist rings him back, and the same alert. That one ends
+ * by pointing down the page at the portal section, where this lead is captured.
  *
- * Three things are load-bearing:
+ * Why this order: the old film opened on the form and the callback with an "On Growth" tag, under
+ * a heading every plan gets. The callback is Growth only, so the film now leads with the call
+ * every plan answers, and names its plan on its first card ("Every plan" / "On Growth").
  *
- * 1. It opens on the website, the real one. Every keystroke, tick and click lands on the
- *    screenshot's own fields (positions in `FILM_SITE`, measured from the live page).
- * 2. The callback is a Growth feature, and the film says so: the card between the form and
- *    the call reads "About a minute later" with an "On Growth" tag. "About a minute" matches
- *    the Growth card and the contract's "typically within sixty (60) seconds". Don't drop the
- *    tag: this section sits under "Then someone picks up.", which every plan gets.
- * 3. Act 2 shows real messages and real places, never invented ones. The text is the
- *    post-call brief in its actual shape (see `postCallBrief`), from JDD's notification
- *    sender, arriving after the call ends — which is when it sends. And the film ends in
- *    the Inbox, not on the pipeline: in CRM v2 a lead only becomes a pipeline card when the
- *    owner promotes them, so a lead landing on the board by itself would be a claim the
- *    product doesn't keep.
- *
- * It used to open on a drawn mock site, rotate five made-up businesses per replay, and show
- * the owner's phone ringing unanswered before the AI picked up. A web form doesn't ring the
- * owner, so that beat went with the switch to the form.
+ * Load-bearing:
+ * 1. The site is the real capture, and every tap, keystroke and tick lands on its own fields
+ *    (`FILM_SITE`, measured from the live page).
+ * 2. The owner's text is the real alert's shape (`postCallBrief`). The film never shows a nicer
+ *    message than the one the owner gets.
+ * 3. Click to pause (12 Nov 2026): every pause in the script is a wait on a pausable clock
+ *    (`demo-clock.ts`), the CSS animations hold through `data-paused`, and the page scroll and the
+ *    cursor are pinned mid-move. The next click carries on from exactly there.
+ * 4. Subtitles are timed by length (`film-timing.ts`), not a flat 2s: they were too fast to read.
  */
 
-type Phase =
-  | "idle"
-  | "act1card"
-  | "browse"
-  | "later"
-  | "ringIn"
-  | "call"
-  | "act2card"
-  | "text"
-  | "portalcard"
-  | "inbox"
-  | "recap";
+type Mode = "starter" | "growth";
+type Screen = "idle" | "site" | "dialing" | "ownerRing" | "ringIn" | "call" | "text";
+type Side = "their" | "your";
 
-/* ~34s total. The pauses are what make it read as real — resist tightening them. The pause
-   after the form is sent (`SITE_DONE` to the end of `browse`, then the "later" card) was asked
-   for: the callback arriving instantly read as too quick. */
+/* How long each beat holds, in ms of film time. The pauses are what make it read as real. */
 const T = {
-  act1card: 1600,
-  browse: 10600,
-  later: 2200,
+  card: 1600,
+  cardLong: 2200,
+  dialing: 2000,
+  ringBeforeBusy: 1800,
+  busy: 2400,
   ringIn: 2600,
-  callLine: 2000,
   callRest: 1200,
-  act2card: 1800,
-  text: 4000,
-  portalcard: 1400,
-  inbox: 1800,
+  text: 4500,
+  /* A callout's line draws, then its box: reading time follows its words (240ms each). */
+  callNumber: 5400,
+  fillForm: 6800,
 };
 
-/* The call beat runs ~7s but represents a real call of about a minute and a half. Driving the
-   on-screen timer from progress rather than wall clock keeps the clock believable. */
-const CALL_REPRESENTS_SEC = 94;
-
-const CUSTOMER_PHASES: Phase[] = ["idle", "act1card", "browse", "later", "ringIn", "call"];
+/* The calls run ~10s on screen but stand for real calls of a minute or more; the timer is
+   driven from the beat's progress so the clock stays believable. */
+const REPRESENTS_SEC: Record<Mode, number> = { starter: 78, growth: 94 };
 
 function fmtTimer(total: number): string {
   const m = Math.floor(total / 60);
@@ -73,7 +63,7 @@ function fmtTimer(total: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/* ── Act 1 · the website, and the form ───────────────────────── */
+/* ── the website ─────────────────────────────────────────────── */
 
 type Box = { x: number; y: number; w: number; h: number };
 const centre = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
@@ -82,11 +72,12 @@ interface SiteState {
   scroll: number;
   cursor: { x: number; y: number; on: boolean };
   clicks: number;
-  pressed: "hero" | "submit" | null;
+  pressed: "call" | "hero" | "submit" | null;
   focus: "name" | "phone" | null;
   name: string;
   phone: string;
   ticked: boolean;
+  callout: "call" | "form" | null;
 }
 
 const SITE_START: SiteState = {
@@ -98,19 +89,33 @@ const SITE_START: SiteState = {
   name: "",
   phone: "",
   ticked: false,
+  callout: null,
 };
 
 /**
- * The growth site on the customer's phone, at its real 390px layout, scaled to the screen.
- *
- * `play` runs the sequence once: the cursor clicks the hero's "Book a Free Estimate", the page
- * scrolls to the form, the name and number are typed in, consent is ticked, and the form is
- * sent. It ends on the sent form; the panel's own timeline moves on from there.
+ * A callout on the site: the thing it is about ringed in coral, a line drawn from it, and a box
+ * with the words. In the site's own 390px coordinates, relative to the screen (not the page).
  */
-function SiteFormScreen({ play }: { play: boolean }) {
+function Callout({ target, side, text }: { target: Box; side: "below" | "above"; text: string }) {
+  return (
+    <>
+      <span className="film-callout-ring" style={{ left: target.x - 5, top: target.y - 5, width: target.w + 10, height: target.h + 10 }} />
+      <div
+        className="film-callout"
+        data-side={side}
+        style={side === "below" ? { top: target.y + target.h + 5 } : { top: target.y - 5 }}
+      >
+        <i className="film-callout-line" />
+        <p className="film-callout-box">{text}</p>
+      </div>
+    </>
+  );
+}
+
+/** The growth site on the customer's phone at its real 390px layout, scaled to the screen. */
+function SiteScreen({ st }: { st: SiteState }) {
   const screenRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ scale: 0.72, h: 750 });
-  const [st, setSt] = useState<SiteState>(SITE_START);
 
   useEffect(() => {
     const el = screenRef.current;
@@ -125,47 +130,8 @@ function SiteFormScreen({ play }: { play: boolean }) {
     return () => ro.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!play) return;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
-    const set = (patch: Partial<SiteState> | ((s: SiteState) => Partial<SiteState>)) =>
-      setSt((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) }));
-    const moveTo = (p: { x: number; y: number }) => set((s) => ({ cursor: { x: p.x, y: p.y - s.scroll, on: true } }));
-    const click = () => set((s) => ({ clicks: s.clicks + 1 }));
-    const type = (field: "name" | "phone", text: string, start: number) => {
-      at(start - 200, () => set({ focus: field }));
-      for (let i = 1; i <= text.length; i++) at(start + i * 70, () => set({ [field]: text.slice(0, i) } as Partial<SiteState>));
-      at(start + text.length * 70 + 300, () => set({ focus: null }));
-    };
-    const hero = centre(FILM_SITE.heroEstimate);
-    const name = centre(FILM_SITE.name);
-    const phone = centre(FILM_SITE.phone);
-    const consent = centre(FILM_SITE.consent);
-    const submit = centre(FILM_SITE.submit);
-
-    setSt(SITE_START);
-    at(500, () => moveTo(hero));
-    at(1500, () => { click(); set({ pressed: "hero" }); });
-    at(1900, () => set({ pressed: null }));
-    // The cursor stays where it is on screen while the page moves under it.
-    at(2100, () => set({ scroll: FILM_SITE.formScroll }));
-    at(3300, () => moveTo({ x: name.x - 45, y: name.y }));
-    at(4100, click);
-    type("name", FILM_CALL.caller.name, 4300);
-    at(5500, () => moveTo({ x: phone.x - 45, y: phone.y }));
-    at(6200, click);
-    type("phone", FILM_CALL.ownerMessage.callback, 6400);
-    at(7700, () => moveTo(consent));
-    at(8400, () => { click(); set({ ticked: true }); });
-    at(8900, () => moveTo(submit));
-    at(9600, () => { click(); set({ pressed: "submit" }); });
-    at(10100, () => set({ pressed: null }));
-    at(10400, () => set((s) => ({ cursor: { ...s.cursor, on: false } })));
-    return () => timers.forEach(clearTimeout);
-  }, [play]);
-
   const box = (b: Box): React.CSSProperties => ({ left: b.x, top: b.y, width: b.w, height: b.h });
+  const onScreen = (b: Box): Box => ({ ...b, y: b.y - st.scroll });
 
   return (
     <div ref={screenRef} className="film-site">
@@ -175,12 +141,15 @@ function SiteFormScreen({ play }: { play: boolean }) {
               geometry, and the optimizer would resample it. The asset is a sized webp. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={FILM_SITE.src} alt="" width={FILM_SITE.width} height={FILM_SITE.height} draggable={false} />
+          <span className="film-press" data-on={st.pressed === "call"} style={box(FILM_SITE.heroCall)} />
           <span className="film-press" data-on={st.pressed === "hero"} style={box(FILM_SITE.heroEstimate)} />
           <span className="film-typed" data-focus={st.focus === "name"} style={box(FILM_SITE.name)}>{st.name}</span>
           <span className="film-typed" data-focus={st.focus === "phone"} style={box(FILM_SITE.phone)}>{st.phone}</span>
           <span className="film-tick" data-on={st.ticked} style={box(FILM_SITE.consent)} />
           <span className="film-press" data-on={st.pressed === "submit"} style={box(FILM_SITE.submit)} />
         </div>
+        {st.callout === "call" && <Callout target={onScreen(FILM_SITE.heroCall)} side="below" text={FILM_COPY.callNumber} />}
+        {st.callout === "form" && <Callout target={onScreen(FILM_SITE.formFields)} side="above" text={FILM_COPY.fillForm} />}
         <span className="film-cursor" data-on={st.cursor.on} style={{ left: st.cursor.x, top: st.cursor.y }}>
           <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
             <path d="M4 2.5 L4 19 L8.6 14.8 L11.6 21.5 L14.4 20.3 L11.5 13.7 L17.8 13.7 Z" fill="#0d1117" stroke="#fff" strokeWidth="1.4" strokeLinejoin="round" />
@@ -193,40 +162,116 @@ function SiteFormScreen({ play }: { play: boolean }) {
   );
 }
 
-/* ── Act 1 · the business rings him back ─────────────────────── */
-function CallbackScreen({ scenario }: { scenario: CallScenario }) {
+/* ── phone screens ───────────────────────────────────────────── */
+
+const DARK: React.CSSProperties = {
+  background: "linear-gradient(165deg, #1d2430 0%, #131820 100%)",
+  color: "#fff",
+  height: "100%",
+  display: "flex",
+  flexDirection: "column",
+  fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+};
+
+function Avatar({ label, pulse }: { label: string; pulse?: boolean }) {
   return (
-    <div style={{ background: "linear-gradient(165deg, #1d2430 0%, #131820 100%)", color: "#fff", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
-        <div className="phone-ring-pulse" style={{ width: 84, height: 84, borderRadius: 999, background: "#b4472b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 27, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-          YH
-        </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>{scenario.businessName}</div>
-          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 5 }}>Incoming Call</div>
-        </div>
+    <div
+      className={pulse ? "phone-ring-pulse" : undefined}
+      style={{ width: 84, height: 84, borderRadius: 999, background: "#b4472b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 27, fontWeight: 700, color: "#fff", flexShrink: 0 }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function CallButtons({ decline }: { decline?: boolean }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", gap: 52, paddingBottom: 34 }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(255,59,48,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>✕</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Decline</div>
       </div>
-      <div style={{ display: "flex", justifyContent: "center", gap: 52, paddingBottom: 34 }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(255,59,48,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>✕</div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Decline</div>
-        </div>
+      {!decline && (
         <div style={{ textAlign: "center" }}>
           <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(52,199,89,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 8px", fontSize: 24 }}>☎</div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Accept</div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Their phone, Starter: the call to the number on the site, ringing out. */
+function DialingScreen({ scenario }: { scenario: CallScenario }) {
+  return (
+    <div style={DARK}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+        <Avatar label="YH" />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>{scenario.businessName}</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 5 }}>{FILM_COPY.calling}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "center", paddingBottom: 34 }}>
+        <div style={{ width: 60, height: 60, borderRadius: 999, background: "rgba(255,59,48,0.9)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>✕</div>
       </div>
     </div>
   );
 }
 
-/* ── Act 1 · connected, with subtitles ───────────────────────── */
-function CallScreen({ scenario, lineIdx, seconds }: { scenario: CallScenario; lineIdx: number; seconds: number }) {
+/** Your phone, Starter: Dave's call ringing in, then the beep that says you can't take it. */
+function OwnerRingScreen({ scenario, busy }: { scenario: CallScenario; busy: boolean }) {
+  return (
+    <div style={{ ...DARK, position: "relative" }}>
+      <AnimatePresence>
+        {busy && (
+          <motion.div
+            key="busy"
+            className="film-busy"
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <span className="film-busy-beep" aria-hidden="true" />
+            {FILM_COPY.busy}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+        <Avatar label={scenario.caller.initials} pulse={!busy} />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>{scenario.ownerMessage.callback}</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 5 }}>Incoming Call</div>
+        </div>
+      </div>
+      <CallButtons />
+    </div>
+  );
+}
+
+/** Their phone, Growth: the business ringing him back. */
+function CallbackScreen({ scenario }: { scenario: CallScenario }) {
+  return (
+    <div style={DARK}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18 }}>
+        <Avatar label="YH" pulse />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.4 }}>{scenario.businessName}</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 5 }}>Incoming Call</div>
+        </div>
+      </div>
+      <CallButtons />
+    </div>
+  );
+}
+
+/** Their phone: connected, with subtitles. */
+function CallScreen({ scenario, lineIdx, seconds, paused }: { scenario: CallScenario; lineIdx: number; seconds: number; paused: boolean }) {
   const line = lineIdx >= 0 ? scenario.transcript[lineIdx] : null;
   const callerFirst = scenario.caller.name.split(" ")[0].toUpperCase();
 
   return (
-    <div style={{ background: "linear-gradient(165deg, #1d2430 0%, #131820 100%)", color: "#fff", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+    <div style={DARK}>
       <div style={{ padding: "34px 20px 0", textAlign: "center" }}>
         <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: -0.2 }}>{scenario.businessName}</div>
         <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 13, color: "#4ade80", marginTop: 5, letterSpacing: "0.04em" }}>
@@ -234,19 +279,19 @@ function CallScreen({ scenario, lineIdx, seconds }: { scenario: CallScenario; li
         </div>
       </div>
 
-      {/* voice bars — signals audio rather than chat */}
+      {/* voice bars, which say audio rather than chat. Still while paused. */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }} aria-hidden="true">
         {[0, 1, 2, 3, 4, 5, 6].map((i) => (
           <motion.span
             key={i}
-            animate={{ height: [7, 20 + (i % 3) * 9, 7] }}
-            transition={{ duration: 0.85 + (i % 3) * 0.15, repeat: Infinity, ease: "easeInOut", delay: i * 0.09 }}
+            animate={paused ? { height: 7 + (i % 3) * 4 } : { height: [7, 20 + (i % 3) * 9, 7] }}
+            transition={paused ? { duration: 0.2 } : { duration: 0.85 + (i % 3) * 0.15, repeat: Infinity, ease: "easeInOut", delay: i * 0.09 }}
             style={{ width: 3, borderRadius: 999, background: line?.role === "AI" ? "#60a5fa" : "rgba(255,255,255,0.4)" }}
           />
         ))}
       </div>
 
-      {/* subtitles — one line at a time, speaker-labelled */}
+      {/* subtitles: one line at a time, speaker-labelled */}
       <div style={{ minHeight: 128, padding: "0 16px 22px", display: "flex", alignItems: "flex-end" }}>
         <AnimatePresence mode="wait">
           {line && (
@@ -272,17 +317,15 @@ function CallScreen({ scenario, lineIdx, seconds }: { scenario: CallScenario; li
   );
 }
 
-/* ── Act 2 · the text ────────────────────────────────────────── */
-
 /**
- * The post-call brief, in the shape the real one has.
+ * The post-call alert, in the shape the real one has.
  *
  * Template from /sms-terms ("A typical call summary reads"), which is kept byte-identical
  * to what the Make post-call scenario sends:
  *   Juneau Digital Designs call alert: Callback requested. New lead Maria Alvarez,
  *   callback (930) 555-0117. Reply STOP to opt out.
- * If that sample changes, this changes with it. The film shows the message the owner
- * actually gets, never a nicer one.
+ * If that sample changes, this changes with it. It has no "check your portal" line because the
+ * real one has none (raised with Xander on 12 Nov 2026).
  */
 function postCallBrief(sc: CallScenario): string {
   return `Juneau Digital Designs call alert: ${sc.ownerMessage.reason}. New lead ${sc.caller.name}, callback ${sc.ownerMessage.callback}. Reply STOP to opt out.`;
@@ -319,59 +362,7 @@ function OwnerTextScreen({ scenario }: { scenario: CallScenario }) {
   );
 }
 
-/* ── Act 2 · the Inbox ───────────────────────────────────────── */
-
-/**
- * Where the brief points: the portal's Inbox on the owner's phone, with this lead on top.
- *
- * The Inbox rather than the pipeline, because that is where a lead lands on every plan;
- * the pipeline only holds leads the owner has promoted. The new row carries the website
- * form's icon, since that is how Dave came in (the portal demo below shows him the same
- * way). The two rows under it are deliberately blank bars with a source icon, so the beat
- * says "every door leads here" without inventing a second customer to read.
- */
-function InboxScreen({ scenario }: { scenario: CallScenario }) {
-  const ghost = (icon: string, key: string) => (
-    <div key={key} style={{ display: "flex", gap: 10, alignItems: "center", padding: "11px 12px", borderBottom: "1px solid rgba(20,18,12,0.07)", opacity: 0.55 }}>
-      <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(20,18,12,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>{icon}</div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-        <div style={{ height: 7, width: "48%", borderRadius: 4, background: "rgba(20,18,12,0.14)" }} />
-        <div style={{ height: 6, width: "78%", borderRadius: 4, background: "rgba(20,18,12,0.08)" }} />
-      </div>
-    </div>
-  );
-
-  return (
-    <div style={{ background: "#f6f3ea", color: "#14120c", height: "100%", display: "flex", flexDirection: "column", fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif" }}>
-      <div style={{ padding: "40px 14px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid rgba(20,18,12,0.1)" }}>
-        <div style={{ fontSize: 16, fontWeight: 700 }}>Inbox</div>
-        <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 9, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7a715a" }}>Your portal</div>
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: -14 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 12px", background: "#fffdf5", borderBottom: "1px solid rgba(20,18,12,0.1)", boxShadow: "inset 3px 0 0 #d2542f" }}
-      >
-        <div style={{ width: 24, height: 24, borderRadius: 7, background: "rgba(20,18,12,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>✉</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>{scenario.caller.name}</span>
-            <span style={{ fontSize: 9.5, color: "#7a715a" }}>{scenario.callTime}</span>
-          </div>
-          <div style={{ fontSize: 11.5, color: "#43402c", marginTop: 2 }}>{scenario.ownerMessage.summary}</div>
-          <div style={{ fontSize: 10.5, color: "#7a715a", marginTop: 2 }}>{scenario.ownerMessage.reason} · {scenario.ownerMessage.callback}</div>
-        </div>
-      </motion.div>
-
-      {ghost("☎", "call")}
-      {ghost("✉", "web")}
-    </div>
-  );
-}
-
-/* ── Interstitial cards ──────────────────────────────────────── */
+/* ── interstitial cards ──────────────────────────────────────── */
 function StageCard({ label, sub }: { label: string; sub?: string }) {
   return (
     <motion.div
@@ -385,11 +376,7 @@ function StageCard({ label, sub }: { label: string; sub?: string }) {
         background: "var(--bg)", padding: "0 16px",
       }}
     >
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-      >
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}>
         <div style={{ fontFamily: "var(--font-display)", fontWeight: 900, textTransform: "uppercase", fontSize: "clamp(20px,2.4vw,30px)", lineHeight: 1.02, letterSpacing: "0.01em", color: "var(--fg)" }}>
           {label}
         </div>
@@ -403,189 +390,412 @@ function StageCard({ label, sub }: { label: string; sub?: string }) {
   );
 }
 
-/* ── Panel ───────────────────────────────────────────────────── */
+/* ── the film ────────────────────────────────────────────────── */
 export default function SiteToCallPanel() {
   const reduce = useReducedMotion();
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [screen, setScreen] = useState<Screen>("idle");
+  const [side, setSide] = useState<Side>("their");
+  const [card, setCard] = useState<{ label: string; sub?: string } | null>(null);
+  const [site, setSite] = useState<SiteState>(SITE_START);
+  const [busy, setBusy] = useState(false);
   const [lineIdx, setLineIdx] = useState(-1);
   const [seconds, setSeconds] = useState(0);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [mode, setMode] = useState<Mode>("starter");
+  /** Which ending is up, once a story has finished. */
+  const [ended, setEnded] = useState<Mode | null>(null);
+  const [paused, setPaused] = useState(false);
 
-  const scenario = FILM_CALL;
-  const isCustomerPhone = CUSTOMER_PHASES.includes(phase);
+  const clockRef = useRef<DemoClock | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const phoneRef = useRef<HTMLDivElement>(null);
+  /** Inline styles the freeze overwrote, to put back on resume. */
+  const frozen = useRef<{ el: HTMLElement; transform: string; left: string; top: string; transition: string }[]>([]);
 
-  const clearAll = useCallback(() => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-    if (tick.current) { clearInterval(tick.current); tick.current = null; }
+  const stopTick = useCallback(() => {
+    if (tickRef.current) clearInterval(tickRef.current);
+    tickRef.current = null;
   }, []);
 
-  useEffect(() => clearAll, [clearAll]);
+  useEffect(
+    () => () => {
+      clockRef.current?.cancel();
+      stopTick();
+    },
+    [stopTick],
+  );
 
-  const at = useCallback((fn: () => void, ms: number) => {
-    timers.current.push(setTimeout(fn, ms));
+  /** Pins the page scroll and the cursor where they are mid-move; `thaw` sends them on. */
+  const freeze = useCallback(() => {
+    const root = phoneRef.current;
+    if (!root) return;
+    const els = Array.from(root.querySelectorAll<HTMLElement>(".film-site-page, .film-cursor"));
+    frozen.current = els.map((el) => {
+      const cs = getComputedStyle(el);
+      const saved = { el, transform: el.style.transform, left: el.style.left, top: el.style.top, transition: el.style.transition };
+      el.style.transition = "none";
+      el.style.transform = cs.transform === "none" ? "" : cs.transform;
+      el.style.left = cs.left;
+      el.style.top = cs.top;
+      return saved;
+    });
+  }, []);
+  const thaw = useCallback(() => {
+    const list = frozen.current;
+    frozen.current = [];
+    for (const f of list) restoreFrozen(f);
   }, []);
 
   /* Nothing but a click calls this. An effect that started the film ran it on every mount
      under StrictMode, so the film played itself with nobody having pressed anything. */
-  const run = useCallback(() => {
-    clearAll();
-    setLineIdx(-1);
-    setSeconds(0);
+  const run = useCallback(
+    async (m: Mode) => {
+      clockRef.current?.cancel();
+      stopTick();
+      thaw();
+      const clock = createDemoClock();
+      clockRef.current = clock;
+      const wait = (ms: number) => clock.wait(ms);
+      const patch = (p: Partial<SiteState> | ((s: SiteState) => Partial<SiteState>)) =>
+        setSite((s) => ({ ...s, ...(typeof p === "function" ? p(s) : p) }));
+      /** The cursor is in screen coordinates, so it stays put while the page moves under it. */
+      const moveTo = (p: { x: number; y: number }) => patch((s) => ({ cursor: { x: p.x, y: p.y - s.scroll, on: true } }));
+      const click = () => patch((s) => ({ clicks: s.clicks + 1 }));
+      const press = async (what: SiteState["pressed"]) => {
+        click();
+        patch({ pressed: what });
+        await wait(400);
+        patch({ pressed: null });
+      };
+      const type = async (field: "name" | "phone", text: string) => {
+        patch({ focus: field });
+        await wait(200);
+        for (let i = 1; i <= text.length; i++) {
+          await wait(70);
+          patch({ [field]: text.slice(0, i) } as Partial<SiteState>);
+        }
+        await wait(300);
+        patch({ focus: null });
+      };
+      const showCard = (label: string, sub?: string) => setCard({ label, sub });
+      const call = async (sc: CallScenario) => {
+        setLineIdx(-1);
+        setSeconds(0);
+        setScreen("call");
+        const total = sc.transcript.reduce((t, l) => t + lineMs(l.text), 0) + T.callRest;
+        const started = clock.elapsed();
+        // Read from the clock, so the timer stands still while the film is paused.
+        tickRef.current = setInterval(() => {
+          const p = Math.min(1, (clock.elapsed() - started) / total);
+          setSeconds(Math.floor(p * REPRESENTS_SEC[m]));
+        }, 120);
+        for (let i = 0; i < sc.transcript.length; i++) {
+          setLineIdx(i);
+          await wait(lineMs(sc.transcript[i].text));
+        }
+        await wait(T.callRest);
+        stopTick();
+        setSeconds(REPRESENTS_SEC[m]);
+      };
 
-    const lines = scenario.transcript.length;
-    const callMs = lines * T.callLine + T.callRest;
-    let t = 0;
+      const starter = async () => {
+        const sc = FILM_CALL_IN;
+        showCard(FILM_COPY.customerSees, FILM_COPY.everyPlan);
+        setScreen("site");
+        await wait(T.card);
+        setCard(null);
+        await wait(500);
+        moveTo(centre(FILM_SITE.heroCall));
+        await wait(900);
+        await press("call");
+        await wait(300);
+        patch((s) => ({ cursor: { ...s.cursor, on: false } }));
+        setScreen("dialing");
+        await wait(T.dialing);
 
-    setPhase("act1card");
+        showCard(FILM_COPY.meanwhile);
+        setSide("your");
+        setBusy(false);
+        setScreen("ownerRing");
+        await wait(T.cardLong);
+        setCard(null);
+        await wait(T.ringBeforeBusy);
+        setBusy(true);
+        await wait(T.busy);
+        showCard(FILM_COPY.voicemail);
+        await wait(T.cardLong);
 
-    t += T.act1card;
-    at(() => setPhase("browse"), t);
+        showCard(FILM_COPY.instead);
+        setSide("their");
+        await wait(T.cardLong);
+        // The call screen is up behind the card before the card lifts.
+        const talking = call(sc);
+        setCard(null);
+        await talking;
 
-    t += T.browse;
-    at(() => setPhase("later"), t);
+        showCard(FILM_COPY.backOnYours);
+        setSide("your");
+        setScreen("text");
+        await wait(T.card);
+        setCard(null);
+        await wait(T.text);
+      };
 
-    t += T.later;
-    at(() => setPhase("ringIn"), t);
+      const growth = async () => {
+        const sc = FILM_CALL;
+        showCard(FILM_COPY.customerSees, FILM_COPY.onGrowth);
+        setScreen("site");
+        await wait(T.card);
+        setCard(null);
+        await wait(700);
+        // Customers can still call: the number, with its callout.
+        patch({ callout: "call" });
+        await wait(T.callNumber);
+        patch({ callout: null });
+        await wait(500);
+        // Or the form.
+        moveTo(centre(FILM_SITE.heroEstimate));
+        await wait(1000);
+        await press("hero");
+        await wait(200);
+        patch({ scroll: FILM_SITE.formScroll });
+        await wait(1200);
+        const name = centre(FILM_SITE.name);
+        const phone = centre(FILM_SITE.phone);
+        moveTo({ x: name.x - 45, y: name.y });
+        await wait(800);
+        click();
+        await type("name", sc.caller.name);
+        await wait(300);
+        moveTo({ x: phone.x - 45, y: phone.y });
+        await wait(700);
+        click();
+        await type("phone", sc.ownerMessage.callback);
+        await wait(300);
+        moveTo(centre(FILM_SITE.consent));
+        await wait(700);
+        click();
+        patch({ ticked: true });
+        await wait(500);
+        moveTo(centre(FILM_SITE.submit));
+        await wait(700);
+        await press("submit");
+        await wait(300);
+        patch((s) => ({ cursor: { ...s.cursor, on: false } }));
+        // A beat, then the form's callout, with the page eased down to make room for its box.
+        await wait(700);
+        patch({ scroll: FILM_SITE.formCalloutScroll });
+        await wait(700);
+        patch({ callout: "form" });
+        await wait(T.fillForm);
+        patch({ callout: null });
+        await wait(400);
 
-    t += T.ringIn;
-    at(() => {
-      setPhase("call");
-      const started = Date.now();
-      tick.current = setInterval(() => {
-        const p = Math.min(1, (Date.now() - started) / callMs);
-        setSeconds(Math.floor(p * CALL_REPRESENTS_SEC));
-      }, 120);
-      for (let i = 0; i < lines; i++) at(() => setLineIdx(i), i * T.callLine);
-    }, t);
+        showCard(FILM_COPY.aMinuteLater);
+        await wait(T.cardLong);
+        setScreen("ringIn");
+        setCard(null);
+        await wait(T.ringIn);
+        await call(sc);
 
-    t += callMs;
-    at(() => {
-      if (tick.current) { clearInterval(tick.current); tick.current = null; }
-      setSeconds(CALL_REPRESENTS_SEC);
-      setPhase("act2card");
-    }, t);
+        showCard(FILM_COPY.meanwhile);
+        setSide("your");
+        setScreen("text");
+        await wait(T.card);
+        setCard(null);
+        await wait(T.text);
+      };
 
-    t += T.act2card;
-    at(() => setPhase("text"), t);
+      setMode(m);
+      setEnded(null);
+      setPaused(false);
+      setSite(SITE_START);
+      setBusy(false);
+      setLineIdx(-1);
+      setSeconds(0);
+      setSide("their");
+      try {
+        await (m === "starter" ? starter() : growth());
+        setEnded(m);
+      } catch {
+        // Cancelled by a newer run or an unmount, which owns the state from here.
+      }
+    },
+    [stopTick, thaw],
+  );
 
-    t += T.text;
-    at(() => setPhase("portalcard"), t);
-
-    t += T.portalcard;
-    at(() => setPhase("inbox"), t);
-
-    t += T.inbox;
-    at(() => setPhase("recap"), t);
-  }, [at, clearAll, scenario]);
-
-  function start() {
-    if (reduce) { setPhase("recap"); return; }
-    run();
+  /** Reduced motion skips the film and shows each story's last frame, its ending up. */
+  function start(m: Mode) {
+    if (reduce) {
+      clockRef.current?.cancel();
+      setMode(m);
+      setSide("your");
+      setCard(null);
+      setScreen("text");
+      setEnded(m);
+      return;
+    }
+    void run(m);
   }
 
-  const showRecap = phase === "recap";
+  function togglePause() {
+    const clock = clockRef.current;
+    if (!clock || clock.cancelled) return;
+    if (clock.paused) {
+      thaw();
+      clock.resume();
+      setPaused(false);
+    } else {
+      clock.pause();
+      freeze();
+      setPaused(true);
+    }
+  }
+
+  const playing = screen !== "idle" && ended === null && !reduce;
+  const scenario = mode === "starter" ? FILM_CALL_IN : FILM_CALL;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 26, width: "100%" }}>
-      {/* Stage — height reserved up front so act transitions never reflow the page.
-          `aria-hidden` belongs on the device, not the stage: the gate button lives in
-          here too, and a focusable control inside an aria-hidden subtree is
+      {/* Stage: height reserved up front so screen changes never reflow the page.
+          `aria-hidden` belongs on the device, not the stage: the gate and the pause button
+          live in here too, and a focusable control inside an aria-hidden subtree is
           unreachable by screen readers while still being tabbable. */}
-      <div className="film-stage">
-        <div
-          aria-hidden="true"
-          className={`film-phone ${isCustomerPhone ? "film-phone--customer" : "film-phone--owner"}`}
-        >
-          <div className="film-notch" />
+      <div className="film-stage" data-paused={paused ? "true" : undefined}>
+        <div className="film-device" data-pausable={playing ? "true" : undefined}>
+          <div ref={phoneRef} aria-hidden="true" className={`film-phone ${side === "their" ? "film-phone--customer" : "film-phone--owner"}`}>
+            <div className="film-notch" />
 
-          <AnimatePresence mode="wait">
-            {phase === "idle" && (
-              <motion.div key="idle" className="phone-screen" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-                <div style={{ filter: "blur(7px)", height: "100%", opacity: 0.55 }}>
-                  <SiteFormScreen play={false} />
-                </div>
-              </motion.div>
-            )}
+            <AnimatePresence mode="wait">
+              {screen === "idle" && (
+                <motion.div key="idle" className="phone-screen" exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <div style={{ filter: "blur(7px)", height: "100%", opacity: 0.55 }}>
+                    <SiteScreen st={SITE_START} />
+                  </div>
+                </motion.div>
+              )}
 
-            {(phase === "browse" || phase === "later") && (
-              <motion.div key="browse" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-                <SiteFormScreen play />
-              </motion.div>
-            )}
+              {screen === "site" && (
+                <motion.div key={`site-${mode}`} className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                  <SiteScreen st={site} />
+                </motion.div>
+              )}
 
-            {phase === "ringIn" && (
-              <motion.div key="ringIn" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-                <CallbackScreen scenario={scenario} />
-              </motion.div>
-            )}
+              {screen === "dialing" && (
+                <motion.div key="dialing" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                  <DialingScreen scenario={scenario} />
+                </motion.div>
+              )}
 
-            {phase === "call" && (
-              <motion.div key="call" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-                <CallScreen scenario={scenario} lineIdx={lineIdx} seconds={seconds} />
-              </motion.div>
-            )}
+              {screen === "ownerRing" && (
+                <motion.div key="ownerRing" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                  <OwnerRingScreen scenario={scenario} busy={busy} />
+                </motion.div>
+              )}
 
-            {(phase === "text" || phase === "portalcard") && (
-              <motion.div key="text" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
-                <OwnerTextScreen scenario={scenario} />
-              </motion.div>
-            )}
+              {screen === "ringIn" && (
+                <motion.div key="ringIn" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                  <CallbackScreen scenario={scenario} />
+                </motion.div>
+              )}
 
-            {(phase === "inbox" || phase === "recap") && (
-              <motion.div key="inbox" className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35 }}>
-                <InboxScreen scenario={scenario} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+              {screen === "call" && (
+                <motion.div key={`call-${mode}`} className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                  <CallScreen scenario={scenario} lineIdx={lineIdx} seconds={seconds} paused={paused} />
+                </motion.div>
+              )}
 
-          <AnimatePresence>
-            {phase === "act1card" && <StageCard key="c1" label="What your customer sees" />}
-            {/* Approved word for word. The tag is load-bearing: see point 2 at the top. */}
-            {phase === "later" && <StageCard key="c2" label="About a minute later" sub="On Growth" />}
-            {phase === "act2card" && <StageCard key="c3" label="Meanwhile, on your phone" sub={`Same call · ${scenario.callTime}`} />}
-            {phase === "portalcard" && <StageCard key="c4" label="In your portal" />}
-          </AnimatePresence>
+              {screen === "text" && (
+                <motion.div key={`text-${mode}`} className="phone-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.35 }}>
+                  <OwnerTextScreen scenario={scenario} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <AnimatePresence>{card && <StageCard key={card.label} label={card.label} sub={card.sub} />}</AnimatePresence>
+          </div>
+
+          {/* Click to pause: over the whole phone while a story plays. A real button beside the
+              aria-hidden phone, so it is reachable by keyboard and says what it will do. */}
+          {playing && (
+            <button
+              type="button"
+              className="film-toggle"
+              onClick={togglePause}
+              aria-label={paused ? "Play" : "Pause"}
+              aria-pressed={paused}
+              title={paused ? "Play" : "Pause"}
+            >
+              <span className="film-toggle-icon" aria-hidden="true">
+                {paused ? <Play size={18} weight="fill" /> : <Pause size={18} weight="fill" />}
+              </span>
+            </button>
+          )}
         </div>
 
-        {/* Whose phone this is, readable before the card is even parsed. A switch naming
-            both, with the one on screen lit, rather than a lone caption: it tells the
-            visitor up front that the story has two sides. Always rendered, so it costs no
-            height when it changes; nothing is lit before the film starts. */}
+        {/* Whose phone this is, readable before the card is even parsed. Always rendered, so it
+            costs no height when it changes; nothing is lit before the film starts. */}
         <p className="film-switch">
-          <span aria-current={phase !== "idle" && isCustomerPhone ? "true" : undefined}>Their phone</span>
-          <span aria-current={phase !== "idle" && !isCustomerPhone ? "true" : undefined}>Your phone</span>
+          <span aria-current={screen !== "idle" && side === "their" ? "true" : undefined}>Their phone</span>
+          <span aria-current={screen !== "idle" && side === "your" ? "true" : undefined}>Your phone</span>
         </p>
 
-        {/* Both controls live in `.film-gate`, which is `position: absolute; inset: 0`
-            and therefore contributes NO height. That is the whole point: the stage is the
-            same height at idle, mid-film and at the end. If you reintroduce anything
-            post-film, it has to be an overlay, not a sibling. */}
-        {phase === "idle" && (
+        {/* Both gates are `position: absolute; inset: 0`, so they contribute NO height: the
+            stage is the same height before, during and after. Anything new after the film has to
+            be an overlay, not a sibling. */}
+        {screen === "idle" && (
           <div className="film-gate">
             <div className="film-gate-stack">
               {/* Explains why a film about a phone receptionist opens on a website. */}
               <p className="film-gate-line">A customer finds you online.</p>
-              <button type="button" onClick={start} className="btn primary lg film-gate-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>
+              <button type="button" onClick={() => start("starter")} className="btn primary lg film-gate-btn" style={{ boxShadow: "0 0 32px var(--accent-glow)" }}>
                 Show me how it works
               </button>
             </div>
           </div>
         )}
 
-        {/* Bottom-anchored, not centred like the gate: the final screen is the Inbox with
-            the new lead at the top, which is the payoff the film exists to deliver.
-            Centring this would cover it. */}
-        {showRecap && (
-          <div className="film-gate film-gate--replay">
-            <button type="button" onClick={start} className="btn ghost film-replay-btn">
-              <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
-              Replay
-            </button>
+        {/* The endings sit low over the phone, so the alert at the top of the screen stays
+            readable above them. */}
+        {ended === "starter" && (
+          <div className="film-gate film-gate--end" role="status">
+            <div className="film-end">
+              <p className="film-end-line">{FILM_COPY.starterEnd}</p>
+              <button type="button" onClick={() => start("growth")} className="btn primary film-end-btn">
+                {FILM_COPY.seeGrowth}
+              </button>
+              <a href={`#${PORTAL_SECTION_ID}`} className="film-end-link">
+                {FILM_COPY.skipToPortal}
+                <ArrowDown size={14} weight="bold" aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+        )}
+        {ended === "growth" && (
+          <div className="film-gate film-gate--end" role="status">
+            <div className="film-end">
+              <p className="film-end-line">{FILM_COPY.growthEnd}</p>
+              {/* A same-page anchor, so Lenis glides it down to the portal section. */}
+              <a href={`#${PORTAL_SECTION_ID}`} className="btn primary film-end-btn">
+                {FILM_COPY.showMe}
+                <ArrowDown size={16} weight="bold" aria-hidden="true" />
+              </a>
+              <button type="button" onClick={() => start("starter")} className="btn ghost film-end-btn">
+                <ArrowCounterClockwise size={16} weight="bold" aria-hidden="true" />
+                {FILM_COPY.replay}
+              </button>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
+}
+
+/** Puts back what `freeze` pinned: the element's own transition, then where it was going. */
+function restoreFrozen(f: { el: HTMLElement; transform: string; left: string; top: string; transition: string }) {
+  void f.el.offsetWidth;
+  f.el.style.transition = f.transition;
+  f.el.style.transform = f.transform;
+  f.el.style.left = f.left;
+  f.el.style.top = f.top;
 }
