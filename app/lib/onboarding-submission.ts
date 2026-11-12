@@ -268,9 +268,12 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
     const offerBadge = sanitize(body.offerBadge, 120);
     const profiles = sanitizeProfiles(body.profiles);
     const customerQuestions = sanitizeQuestions(body.customerQuestions, 10);
+    // F-C2a (2026-11-11): one line; the wizard caps it at 60, the schema at 80. Absent when blank.
+    const tagline = sanitize(body.tagline, 80).replace(/\s+/g, " ").trim();
 
     const submission: BrandIntakeSubmission = {
         selectedPlan,
+        ...(tagline ? { tagline } : {}),
         ...(receptionistMode ? { receptionistMode } : {}),
         brandName: sanitize(body.brandName, 160),
         brandShort: sanitize(body.brandShort, 80),

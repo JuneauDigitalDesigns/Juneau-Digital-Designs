@@ -130,6 +130,8 @@ export type WizardState = {
     serviceRadiusMiles: string;
     offerBadge: string;
 
+    /** The line under the business name in the site's nav and footer (F-C2a, 2026-11-11). */
+    tagline: string;
     /** "design" = "Not yet. Design one for me." An uploaded logo lives in `images.logo`. */
     logoChoice: "" | "design";
     images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
@@ -258,6 +260,8 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         ...(slots?.seasons?.length ? [S("seasons", 2, "Seasonal programs", "services", { skippable: true })] : []),
         ...(slots?.serviceRadius ? [S("radius", 2, "Travel radius", "towns", { skippable: true })] : []),
         ...(slots?.offerBadge ? [S("offer", 2, "Current offer", "hero", { skippable: true })] : []),
+        // T1, T2 (Xander, 2026-11-11): skippable, in "Your look", just before Logo.
+        S("tagline", 3, "Tagline", "brand", { skippable: true }),
         S("logo", 3, "Logo", "brand"),
         S("photos", 3, "Photos", "photos", { skippable: true }),
         S("voice", 3, "Voice", "hero", { skippable: true }),
@@ -332,6 +336,7 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "seasons": return Object.values(state.seasonBodies).some((v) => v.trim());
         case "radius": return !!state.serviceRadiusMiles.trim();
         case "offer": return !!state.offerBadge.trim();
+        case "tagline": return state.tagline.trim().length > 0;
         case "logo": return !!state.images.logo || state.logoChoice === "design";
         case "photos": return state.images.heroSlides.length > 0 || !!state.images.aboutFeature;
         case "voice": return state.voice.length > 0;
@@ -377,6 +382,27 @@ export function cleanEntry(raw: string): string {
 export function cleanListItem(raw: string): string {
     return cleanEntry((raw || "").replace(/[,;]+/g, " "));
 }
+
+/** The tagline's cap (T6's note on the approved mockup, 2026-11-11). */
+export const MAX_TAGLINE = 60;
+
+/** A tagline as sent: one line, single spaces, at most MAX_TAGLINE characters. */
+export function cleanTagline(raw: string): string {
+    return (raw || "").replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_TAGLINE).trim();
+}
+
+/**
+ * The example in the tagline box: each trade template's own sample tagline (the console's
+ * `data/verticals/*.ts`), without its full stop. A placeholder only; it is never sent (T5).
+ */
+export const TAGLINE_EXAMPLES: Record<string, string> = {
+    hvac: "Comfort in every season",
+    roofing: "Protecting what matters most",
+    plumbing: "Fast fixes, honest prices",
+    "lawn-care": "A lawn you'll love, all season long",
+    "car-detailing": "Showroom quality, delivered to you",
+    health: "Care that meets you where you are",
+};
 
 /** The text the site's hours line gets, or "" when the client gave none. */
 export function hoursLine(state: Pick<WizardState, "hours" | "customHours" | "emergency">): string {
@@ -610,8 +636,11 @@ export function buildPayload(state: WizardState, ctx: WizardContext, now: Date =
     // The badge links to the profile the rating comes from; with no profiles, the old link field.
     const sourceUrl = state.reviewSource ? profiles.find((p) => p.kind === state.reviewSource)?.url : undefined;
     const reviewLink = sourceUrl || (profiles.length ? "" : state.reviewUrl.trim());
+    const tagline = cleanTagline(state.tagline);
     return {
         selectedPlan: ctx.plan,
+        // Absent when skipped, so the mapper flags brand.tagline as missing (F-C2a).
+        ...(tagline ? { tagline } : {}),
         ...(state.receptionistMode ? { receptionistMode: state.receptionistMode } : {}),
         brandName: state.name.trim(),
         email: state.email.trim(),
@@ -700,7 +729,7 @@ export function initialState(email: string, signedMode?: ReceptionistMode, prefi
         established: "", license: "", owner: prefill?.owner ?? "", response: "", brands: [], certs: [],
         rating: "", reviewCount: "", reviewUrl: "", reviewSource: "", statValues: {}, serviceFacts: {}, detailOpen: "", detailStep: "",
         seasonBodies: {}, serviceRadiusMiles: "", offerBadge: "",
-        logoChoice: "", images: { heroSlides: [] }, voice: [], avoid: "",
+        tagline: "", logoChoice: "", images: { heroSlides: [] }, voice: [], avoid: "",
         receptionistMode: signedMode ?? "", hours: "", customHours: "", emergency: false, agentName: "",
         additionalSites: [],
     };
@@ -826,6 +855,7 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
             reviewSource: isKind(d.reviewSource) ? d.reviewSource : "",
             statValues: rec(d.statValues), serviceFacts, detailOpen, detailStep, seasonBodies: rec(d.seasonBodies),
             serviceRadiusMiles: str(d.serviceRadiusMiles), offerBadge: str(d.offerBadge),
+            tagline: cleanTagline(str(d.tagline)),
             logoChoice: d.logoChoice === "design" ? "design" : "",
             images: safeImages, voice: strs(d.voice).slice(0, MAX_VOICES), avoid: str(d.avoid),
             receptionistMode, hours: str(d.hours), customHours: str(d.customHours), emergency: d.emergency === true,

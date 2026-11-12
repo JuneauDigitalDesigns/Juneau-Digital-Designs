@@ -20,8 +20,10 @@ import {
     MAX_SERVICES,
     MAX_TOWNS,
     MAX_VOICES,
+    MAX_TAGLINE,
     MAX_WORK_PHOTOS,
     SERVICE_CAPS,
+    TAGLINE_EXAMPLES,
     TRADE_OPTIONS,
     askedStats,
     cleanEntry,
@@ -124,6 +126,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
         case "seasons": return { q: "Seasonal programs", help: "" };
         case "radius": return { q: "How far do you travel for mobile service?", help: "In miles. Leave blank if you don't offer mobile service." };
         case "offer": return { q: "Any current promotional offer?", help: "Shown as a small ribbon on the site. Leave blank if none." };
+        case "tagline": return { q: C.taglineQ, help: C.taglineHelp }; // T3, T4 (2026-11-11)
         case "logo": return { q: "Do you have a logo?", help: "PNG, JPG or WebP, up to 10 MB. A clear, high-quality version is best." };
         case "photos": return { q: C.photosQ, help: C.photosHelp }; // P1, P2 (2026-11-11)
         case "voice": return { q: "How should your site sound?", help: "Pick up to three. It steers how we write." };
@@ -604,6 +607,25 @@ export function ScreenBody(p: ScreenProps) {
                     </Field>
                 </div>
             );
+
+        case "tagline": {
+            // T3 to T6 (Xander, 2026-11-11). The example is the trade template's own tagline.
+            const sample = TAGLINE_EXAMPLES[state.trade];
+            return (
+                <div className={s.narrow}>
+                    <Field>
+                        <Text
+                            value={state.tagline}
+                            onChange={(v) => update({ tagline: v.replace(/[\n\r]+/g, " ").slice(0, MAX_TAGLINE) })}
+                            placeholder={sample ? C.taglineExample(sample) : undefined}
+                            ariaLabel={C.taglineQ}
+                        />
+                    </Field>
+                    <p className={`${s.hint} ${s.count}`}>{state.tagline.length} / {MAX_TAGLINE}</p>
+                    <p className={s.hint}>{C.taglineSkip}</p>
+                </div>
+            );
+        }
 
         case "logo":
             return <LogoScreen {...p} />;
@@ -1196,6 +1218,7 @@ export function summaryLines(id: string, st: WizardState): string[] {
         case "brands": return [st.brands.join(", ")];
         case "certs": return [st.certs.join(", ")];
         case "reviews": return [t(st.rating) && t(st.reviewCount) ? `${t(st.rating)} stars from ${t(st.reviewCount)} reviews` : "", t(st.reviewUrl) ? "Review link added" : ""];
+        case "tagline": return [st.tagline.trim()];
         case "logo": return [st.images.logo ? "Uploaded" : st.logoChoice === "design" ? "We'll design one" : ""];
         case "photos": return [st.images.heroSlides.length ? `${st.images.heroSlides.length} work photos` : "", st.images.aboutFeature ? "Team photo" : ""];
         case "voice": return [st.voice.join(", ")];
