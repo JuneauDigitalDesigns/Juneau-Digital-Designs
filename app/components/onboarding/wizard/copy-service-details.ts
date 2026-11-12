@@ -164,6 +164,15 @@ export const C = {
     taglineSkip: "No tagline? Skip this. We'll suggest one for you to approve.", // T6
 
     profilesPlaceholder: "Google · Facebook · Yelp", // #54
+
+    // Local SEO questions (Xander, 2026-11-12). Q2 and Q5 are approved word for word in
+    // local-seo-architecture-decisions.md. The side rail label for Q2 is new and shown to him with
+    // the screenshots.
+    topTownsNav: "Top towns", // rail label, with the Q2 screenshots
+    topTownsQ: "Which towns do you get the most work from?", // Q2
+    topTownsHelp: "Pick up to 3. We'll start with these.", // Q2
+    qPriceFactors: "What makes this job cost more or less?", // Q5
+    hPriceFactors: "No prices needed. For example the size of the home, or how hard it is to reach.", // Q5
 } as const;
 
 /** Short site names for the "Other profiles" chips (#62), the reviews chips (#20) and #18. */

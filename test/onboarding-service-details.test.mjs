@@ -54,7 +54,7 @@ const facts = (patch) => ({ ...emptyFacts(), ...patch });
 test("v2 order: one question per screen, and the prices screen is gone", () => {
     const ids = screensFor(base(), growth).map((s) => s.id);
     assert.equal(ids[ids.indexOf("services") + 1], "details");
-    assert.deepEqual(ids.slice(ids.indexOf("contact"), ids.indexOf("contact") + 6), ["contact", "visit", "area", "website", "google", "elsewhere"]);
+    assert.deepEqual(ids.slice(ids.indexOf("contact"), ids.indexOf("contact") + 6), ["contact", "visit", "area", "toptowns", "website", "google"]);
     assert.ok(!ids.includes("online"), "the busy profiles screen is split in two");
     for (const trade of ["hvac", "lawn-care", "car-detailing", "plumbing", "roofing"]) {
         assert.ok(!screensFor({ ...base(), trade }, growth).some((s) => s.id === "prices"), `${trade}: price lives on each service now`);
@@ -235,9 +235,9 @@ test("how long a job takes: the client's own words, sent as given, not a page fa
 });
 
 test("each service is a short walkthrough: brands and towns only when they apply", () => {
-    assert.deepEqual(serviceStepsFor(base()), ["included", "jobs", "pricetime", "questions", "photos", "brands", "areas", "done"]);
-    assert.deepEqual(serviceStepsFor({ ...base(), trade: "lawn-care" }), ["included", "jobs", "pricetime", "questions", "photos", "areas", "done"], "no brand suggestions for lawn care");
-    assert.deepEqual(serviceStepsFor({ ...base(), trade: "lawn-care", towns: ["Orlando"] }), ["included", "jobs", "pricetime", "questions", "photos", "done"], "one town: nothing to narrow");
+    assert.deepEqual(serviceStepsFor(base()), ["included", "jobs", "pricetime", "factors", "questions", "photos", "brands", "areas", "done"]);
+    assert.deepEqual(serviceStepsFor({ ...base(), trade: "lawn-care" }), ["included", "jobs", "pricetime", "factors", "questions", "photos", "areas", "done"], "no brand suggestions for lawn care");
+    assert.deepEqual(serviceStepsFor({ ...base(), trade: "lawn-care", towns: ["Orlando"] }), ["included", "jobs", "pricetime", "factors", "questions", "photos", "done"], "one town: nothing to narrow");
 });
 
 test("Next, Back, Skip and Done move through one service, then on to the next", () => {
