@@ -41,7 +41,7 @@ export const TOUR_IDS = [
 ] as const;
 export type TourId = (typeof TOUR_IDS)[number];
 
-/** The Help menu's two choices (NEW). */
+/** The Help menu's two choices (NEW, approved 2026-11-12). */
 export const HELP_MENU = { page: "Tour this page", all: "Replay all tours" };
 
 const at = (tour: string) => `[data-tour="${tour}"]`;
@@ -54,14 +54,14 @@ function step(element: string | undefined, title: string, description: string, s
 /* ── shared lines ─────────────────────────────────────────────────────── */
 
 const L = {
-    welcome: ["👋 Welcome to your portal", "Here's a quick look around. Each tab also gives you its own short tour the first time you open it."], // NEW
+    welcome: ["👋 Welcome to your portal", "Here's a quick look around. Each tab also gives you its own short tour the first time you open it."], // NEW, approved 2026-11-12
     glance: ["Your day at a glance", "Overview shows who needs you today, your new leads this week, and how fast callers were looked after."],
-    yourInbox: ["Your inbox", "Every call your receptionist answers and every enquiry from your website lands here."], // NEW
+    yourInbox: ["Your inbox", "Every call your receptionist answers and every enquiry from your website lands here."], // NEW, approved 2026-11-12
     goFurther: [
         "Want to go further?",
         "Growth adds a file for every customer, a calendar for your jobs, texting from your business number, and Google review requests. Open Customers to see it in action.",
     ],
-    yourCustomers: ["Your customers", "Every lead you keep gets a file here, and you move them along the board as the job progresses."], // NEW
+    yourCustomers: ["Your customers", "Every lead you keep gets a file here, and you move them along the board as the job progresses."], // NEW, approved 2026-11-12
     yourCalendar: ["Your calendar", "Job visits, estimates and call backs in one month view, each tied to its customer."],
     siteDoing: ["How your site is doing", "See who visits your site, where they came from, and how fast it loads."],
     alertsPlan: ["Your alerts and your plan", "Choose the mobile number that gets a text for every new lead, and see your plan and invoices."],
@@ -70,8 +70,8 @@ const L = {
         "Want something changed on your site, or something isn't right? Open a ticket here and we'll get back to you within one business day.",
     ],
     allSet: "You're all set",
-    allSetBody: "Tap here anytime to tour the page you're on, or replay every tour.", // NEW
-    allSetPhone: "That's it. Open the More menu anytime to tour the page you're on, or replay every tour.", // NEW
+    allSetBody: "Tap here anytime to tour the page you're on, or replay every tour.", // NEW, approved 2026-11-12
+    allSetPhone: "That's it. Open the More menu anytime to tour the page you're on, or replay every tour.", // NEW, approved 2026-11-12
     winJobs: " Now go win some jobs.",
 } as const;
 
@@ -101,7 +101,7 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
             ];
 
         case "overview":
-            // NEW: every card on this page.
+            // NEW, approved 2026-11-12: every card on this page.
             return [
                 step(at("ov-needs"), "Who needs you", "Leads still waiting on you. Tap Open inbox to handle them."),
                 step(at("ov-week"), "This week", "Your new leads this week, from calls and from your website."),
@@ -158,9 +158,9 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
                     "top",
                     "center",
                 ),
-                // NEW
+                // NEW, approved 2026-11-12
                 step(at("crm-filters"), "Spot who needs you", "Needs reply, Going stale and Review-ready narrow the board to the customers worth a look right now."),
-                // NEW
+                // NEW, approved 2026-11-12
                 step(isMobile ? at("crm-list") : at("crm-card"), "Open a customer", "Tap any customer to open their file.", "right"),
             ];
 
@@ -179,22 +179,22 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
             ];
 
         case "contact":
-            // NEW
+            // NEW, approved 2026-11-12
             return [step("#crm-tabpanel-contact", "Their details", "Their name, number, email and address. Click a field to correct it.", "top")];
 
         case "jobs":
-            // NEW
+            // NEW, approved 2026-11-12
             return [
                 step(at("crm-jobs-add"), "Track every job", "Add a job for each piece of work: the service, its status and what it's worth."),
                 step(at("crm-job-calendar"), "Book the visit", "Open a job and tap Add to calendar. The visit shows on your Calendar and under Coming up."),
             ];
 
         case "notes":
-            // NEW
+            // NEW, approved 2026-11-12
             return [step("#crm-tabpanel-notes", "Notes for you", "Jot down anything worth remembering about them. Notes also show in the timeline under Your notes.", "top")];
 
         case "calendar":
-            // NEW
+            // NEW, approved 2026-11-12
             return [
                 step(at("cal-month"), "Your month", "Job visits, estimates, call backs and follow-ups, each on its day.", "top", "center"),
                 step(at("cal-new"), "Book something", "Add an appointment and tie it to a customer and one of their jobs."),
@@ -202,29 +202,29 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
             ];
 
         case "customers-locked":
-            // NEW
+            // NEW, approved 2026-11-12
             return [step(at("growth-demo-open"), "On Growth", "Customer files, texting and review requests come with Growth. Tap here for a quick demo.")];
 
         case "calendar-locked":
-            // NEW
+            // NEW, approved 2026-11-12
             return [step(at("growth-demo-open"), "On Growth", "The calendar comes with Growth. Tap here for a quick demo.")];
 
         case "analytics":
-            // NEW
+            // NEW, approved 2026-11-12
             return [
                 step(at("analytics-jump"), "How your site is doing", "Who visits, where they came from, and how fast your pages load. Jump to any section from here."),
                 step("#visitors", "Visitors", "How many people found your site, day by day.", "top"),
             ];
 
         case "account":
-            // NEW
+            // NEW, approved 2026-11-12
             return [
                 step(at("settings-alerts"), "Text alerts", "The mobile number here gets a text for every new lead. Change it any time.", "top"),
                 step(at("settings-contact"), "Your details", "Who we contact about your account."),
             ];
 
         case "billing":
-            // NEW
+            // NEW, approved 2026-11-12
             return [
                 step(at("billing-plan"), "Your plan", "What you pay and when the next charge is."),
                 step(at("billing-minutes"), "Call minutes", "How many of your receptionist's call minutes you've used so far.", "top"),
@@ -233,7 +233,7 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
         case "support":
             return [
                 step(at("support-new"), L.needHand[0], L.needHand[1]),
-                // NEW
+                // NEW, approved 2026-11-12
                 step(at("support-tickets"), "Your tickets", "Every ticket you've opened and where it stands.", "top"),
             ];
     }
