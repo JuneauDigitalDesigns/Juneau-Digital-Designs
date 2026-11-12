@@ -34,14 +34,19 @@ test("the board no longer opens a review drawer of its own", () => {
 });
 
 test("the popover is anchored inside the same wrapper as the button that opens it", () => {
-    // Every "Request a review" button in the record sits in a relative wrapper with its popover.
-    const buttons = record.split('data-tour="crm-drawer-review"').length - 1;
-    assert.ok(buttons >= 1, "the review button lost its tour anchor");
-    const anchors = record.match(/<ReviewAnchor\b/g) ?? [];
-    assert.equal(anchors.length, 2, "both the panel header and the phone sheet anchor the popover");
-    const anchor = record.slice(record.indexOf("function ReviewAnchor"));
-    assert.match(anchor, /className="relative/);
+    // ReviewAnchor draws the button and its popover side by side; each place it is used puts
+    // them in one `relative` row (the panel header's actions, the phone sheet's actions).
+    const from = record.indexOf("function ReviewAnchor");
+    const rest = record.slice(from);
+    const anchor = rest.slice(0, rest.search(/\r?\n\}\r?\n/));
     assert.match(anchor, /<ReviewRequestDialog\b/);
+    assert.match(anchor, /data-tour="crm-drawer-review"/);
+    const uses = [...record.matchAll(/<ReviewAnchor\b/g)].map((m) => m.index);
+    assert.equal(uses.length, 2, "the panel header and the phone sheet both anchor the popover");
+    for (const at of uses) {
+        const open = record.lastIndexOf("<div", at);
+        assert.match(record.slice(open, record.indexOf(">", open)), /\brelative\b/, "no relative wrapper");
+    }
 });
 
 test("Esc closes the popover before the record underneath sees it", () => {

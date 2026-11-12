@@ -13,6 +13,8 @@ import {
 } from "@/app/lib/portal-crm";
 import { duration } from "@/app/lib/duration";
 import { callTouchesPhone, markOrigin } from "@/app/lib/crm-contacts";
+import { notesAsTimeline, withLegacyNote } from "@/app/lib/crm-jobs";
+import { listJobs, listNotes } from "@/app/lib/portal-jobs";
 
 export const runtime = "nodejs";
 
@@ -41,11 +43,16 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const customer = await getCustomer(acct, slug, id);
     if (!customer) return NextResponse.json({ error: "No such customer" }, { status: 404 });
 
-    const [stored, messages, allTasks] = await Promise.all([
+    const [stored, messages, allTasks, jobs, storedNotes] = await Promise.all([
         listActivity(acct, slug, id),
         listMessages(acct, slug, id),
         listTasks(acct, slug),
+        listJobs(acct, slug, id),
+        listNotes(acct, slug, id),
     ]);
+    // The Notes tab's list, the old single note last. Also folded into the timeline below, on
+    // read like calls, so an edited note reads as edited and a deleted one is gone.
+    const notes = withLegacyNote(storedNotes, customer);
 
     // Their calls, folded in from the call log.
     const callActivity: Activity[] = [];
@@ -99,7 +106,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     }));
 
     const timeline = markOrigin(
-        [...stored, ...callActivity, ...messageActivity].sort(
+        [...stored, ...callActivity, ...messageActivity, ...notesAsTimeline(notes)].sort(
             (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
         ),
         customer.sourceRef,
@@ -135,6 +142,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         timeline,
         messages,
         tasks: allTasks.filter((t) => t.customerId === id),
+        jobs,
+        notes,
         messagingState: siteFeature(ctx.site, "messaging").state,
     });
 }

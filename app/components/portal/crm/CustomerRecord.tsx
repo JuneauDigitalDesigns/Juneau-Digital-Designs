@@ -19,7 +19,6 @@ import {
     STAGES,
     STAGE_COLOR,
     dayLabel,
-    formatMoney,
     formatPhone,
     type CustomerRow,
     type TaskRow,
@@ -27,6 +26,12 @@ import {
 } from "./stages";
 import QuickReplies from "./QuickReplies";
 import ReviewRequestDialog from "../ReviewRequestDialog";
+import type { CustomerNote, Job } from "@/app/lib/crm-jobs";
+import RecordTabs, { panelId, tabId, type RecordTab } from "./record/RecordTabs";
+import ComingUp from "./record/ComingUp";
+import ContactTab from "./record/ContactTab";
+import JobsTab from "./record/JobsTab";
+import NotesTab from "./record/NotesTab";
 
 /**
  * The customer record.
@@ -43,6 +48,12 @@ import ReviewRequestDialog from "../ReviewRequestDialog";
  * one exception is the message composer, which is a thing you act *into* rather than read, so it
  * keeps an edge.
  *
+ * **Tabs** (Xander, 2026-11-12): Timeline, where it opens, then Contact info, Jobs and Notes,
+ * under the header with the actions and the stage. The Timeline carries "Coming up" (the
+ * follow-ups) and the text bar pinned to its foot; Contact info took the details column's fields
+ * and the tags; Jobs replaced the single "Job value"; Notes replaced the single notes box. The
+ * pieces live in `./record/`.
+ *
  * The timeline is the part with a hard legibility requirement. It is read by someone who is not
  * technical, often on a phone, usually in a hurry — so: one plain-language line per event, day
  * grouping, consecutive same-kind runs collapsed, and detail only on request. The one exception
@@ -53,6 +64,8 @@ interface DetailResponse {
     customer: CustomerRow;
     timeline: TimelineEvent[];
     tasks: TaskRow[];
+    jobs: Job[];
+    notes: CustomerNote[];
     messagingState: "ready" | "not-on-plan" | "pending-build" | "connecting";
 }
 
@@ -95,6 +108,7 @@ export default function CustomerRecord({
     onNotFound,
     backHref,
     onBack,
+    initialTab = "timeline",
 }: {
     customerId: string | null;
     siteSlug: string;
@@ -104,6 +118,8 @@ export default function CustomerRecord({
     backHref?: string;
     /** Closes the record. When given, "All customers" calls it instead of navigating. */
     onBack?: () => void;
+    /** Which tab a record opens on. Timeline unless a caller (the tour, a demo) needs another. */
+    initialTab?: RecordTab;
     onChanged: () => void;
     /** What the review popover needs from the board: the business name and whether a link is set. */
     review: ReviewContext;
@@ -121,6 +137,32 @@ export default function CustomerRecord({
     const [draft, setDraft] = useState("");
     const [sending, setSending] = useState(false);
     const [fieldError, setFieldError] = useState<string | null>(null);
+
+    // The open tab belongs to the customer it was picked on: opening another one starts back on
+    // `initialTab`. Derived during render rather than reset in an effect, so the new customer
+    // never paints for a frame on the last one's tab.
+    const [tabFor, setTabFor] = useState<{ id: string | null; tab: RecordTab }>({
+        id: customerId,
+        tab: initialTab,
+    });
+    const tab = tabFor.id === customerId ? tabFor.tab : initialTab;
+    const setTab = useCallback((t: RecordTab) => setTabFor({ id: customerId, tab: t }), [customerId]);
+
+    /**
+     * "Text" in the header: to the Timeline, then into the text box.
+     *
+     * Scrolled and focused by hand rather than by following `#crm-sms`: the hash would push a
+     * history entry, and "All customers" steps back over the entry opening the record pushed. A
+     * click's state update is committed before the next frame, so the box exists by then.
+     */
+    const goText = useCallback(() => {
+        setTab("timeline");
+        requestAnimationFrame(() => {
+            const target = document.getElementById("crm-sms") ?? document.getElementById("crm-composer");
+            target?.scrollIntoView({ block: "nearest" });
+            target?.focus({ preventScroll: true });
+        });
+    }, [setTab]);
 
     const reload = useCallback(async () => {
         if (!customerId) return;
@@ -247,6 +289,12 @@ export default function CustomerRecord({
     const page = variant === "panel";
     const pad = page ? "px-7" : "px-5";
 
+    /** After a change from inside the record: the board re-reads, and so does the record. */
+    const refresh = () => {
+        onChanged();
+        void reload();
+    };
+
     const reviewProps: ReviewAnchorProps = {
         ...review,
         customer,
@@ -259,25 +307,15 @@ export default function CustomerRecord({
         },
     };
 
-    const details = (
-        <Details
-            customer={customer}
-            tasks={data?.tasks ?? []}
-            siteSlug={siteSlug}
-            patch={patch}
-            fieldError={fieldError}
-            onTasksChanged={() => {
-                onChanged();
-                void reload();
-            }}
-            review={reviewProps}
-            showReviewButton={!page}
-            className={`${pad} py-1 ${page ? "@3xl:border-r" : ""}`}
-        />
-    );
-
     const activity = (
         <div data-record-activity="" className="flex flex-col flex-1 min-w-0 min-h-0">
+            <ComingUp
+                tasks={data?.tasks ?? []}
+                siteSlug={siteSlug}
+                customerId={customer.customerId}
+                onChanged={refresh}
+                className={`${pad} pt-5 pb-4 border-b`}
+            />
             {origin && <OriginCall event={origin} className={`${pad} py-6`} />}
 
             <div
@@ -557,56 +595,81 @@ export default function CustomerRecord({
         </div>
     );
 
+    const jobs = data?.jobs ?? [];
+    const notes = data?.notes ?? [];
+
     /**
-     * `minmax(0, 1fr)`, never a bare `1fr`.
+     * The tabs and what they show.
      *
-     * A `1fr` track is `minmax(auto, 1fr)`, and its auto floor is the column's **min-content**
-     * width. Nothing on the chain set `min-width: 0`, and the timeline's truncated preview line
-     * is `white-space: nowrap`, so its min-content is the entire summary on one line. The track
-     * could not shrink below it: measured at 1440px, this grid resolved to `320px 1206px` inside
-     * a 744px panel — 782px of horizontal overflow, and the activity column pushed clean off the
-     * side. On a phone the single `auto` column did the same thing: 1206px inside 390px.
+     * `min-w-0` all the way down is load-bearing. This used to be a two-column grid whose bare
+     * `1fr` track took the timeline's one-line min-content (the whole summary) as its floor, and
+     * pushed the activity 782px off the side of a 744px panel. One column now, but the floor is
+     * the same trap, so every box on the chain keeps `min-w-0`.
      *
-     * Forcing the columns narrower does not help — tried at 390px, it still left 241px over —
-     * because the fix is the floor, not the split.
-     *
-     * The two columns key off the panel's own width (`@3xl`, 768px, against `CustomerPanel`'s
-     * `@container`), not the viewport's. The panel is the content area less a 132px strip, so a
-     * 1024px window with the full rail gives it about 660px: two columns there would leave the
-     * timeline 320px. From a 1280px window up it is wide enough for both.
+     * No `overflow` on this or the timeline column: the text bar is `sticky`, and any clipping
+     * ancestor would silently pin it to a box that never scrolls (`test/pinned-composer.test.mjs`).
      */
     const body = (
-        <div
-            data-record-body=""
-            className={`grid grid-cols-[minmax(0,1fr)] min-h-0 min-w-0 ${
-                page ? "@3xl:grid-cols-[340px_minmax(0,1fr)]" : ""
-            }`}
-        >
-            <div className="min-w-0" style={{ borderColor: "var(--rule)" }}>
-                {details}
+        <div data-record-body="" className="flex flex-col flex-1 min-h-0 min-w-0">
+            <RecordTabs
+                tab={tab}
+                onChange={setTab}
+                counts={{ jobs: jobs.length, notes: notes.length }}
+                className={page ? "px-4" : "px-2"}
+            />
+            <div
+                role="tabpanel"
+                id={panelId(tab)}
+                aria-labelledby={tabId(tab)}
+                className="flex flex-col flex-1 min-w-0"
+            >
+                {tab === "timeline" && activity}
+                {tab === "contact" && (
+                    <ContactTab customer={customer} patch={patch} fieldError={fieldError} className={`${pad} py-6`} />
+                )}
+                {tab === "jobs" && (
+                    <JobsTab
+                        customer={customer}
+                        jobs={jobs}
+                        siteSlug={siteSlug}
+                        onChanged={refresh}
+                        className={`${pad} py-5`}
+                    />
+                )}
+                {tab === "notes" && (
+                    <NotesTab
+                        customer={customer}
+                        notes={notes}
+                        siteSlug={siteSlug}
+                        onChanged={refresh}
+                        className={`${pad} py-5`}
+                    />
+                )}
             </div>
-            {/* A flex column so the activity can fill the cell and its bar can sit at the foot. */}
-            <div className="min-w-0 flex flex-col">{activity}</div>
         </div>
     );
-
-    if (!page) return body;
 
     /**
      * One surface, not a tray of cards.
      *
      * The panel paints the surface and draws the edge, so the record runs to it: a bordered,
-     * rounded card inside a bordered panel would be a box in a box.
+     * rounded card inside a bordered panel would be a box in a box. `min-h-full` and the flex
+     * column let the Timeline's text bar sit at the foot of the panel when the history is short.
      */
     return (
-        <div className="min-w-0">
-            <RecordHeader
-                customer={customer}
-                patch={patch}
-                review={reviewProps}
-                backHref={backHref ?? tabHref("customers", siteSlug)}
-                onBack={onBack}
-            />
+        <div className="min-w-0 min-h-full flex flex-col">
+            {page ? (
+                <RecordHeader
+                    customer={customer}
+                    patch={patch}
+                    review={reviewProps}
+                    backHref={backHref ?? tabHref("customers", siteSlug)}
+                    onBack={onBack}
+                    onText={goText}
+                />
+            ) : (
+                <SheetHeader customer={customer} patch={patch} review={reviewProps} onText={goText} />
+            )}
             {body}
         </div>
     );
@@ -627,12 +690,15 @@ function RecordHeader({
     review,
     backHref,
     onBack,
+    onText,
 }: {
     customer: CustomerRow;
     patch: (body: Record<string, unknown>) => Promise<boolean>;
     review: ReviewAnchorProps;
     backHref: string;
     onBack?: () => void;
+    /** Opens the Timeline tab and puts the cursor in the text box. */
+    onText: () => void;
 }) {
     const initials = (customer.name ?? "?")
         .split(/\s+/)
@@ -736,11 +802,7 @@ function RecordHeader({
                                 // steps back over the entry opening the record pushed — it would
                                 // land on that hash entry instead, with the record still open.
                                 e.preventDefault();
-                                const target =
-                                    document.getElementById("crm-sms") ??
-                                    document.getElementById("crm-composer");
-                                target?.scrollIntoView({ block: "center" });
-                                target?.focus({ preventScroll: true });
+                                onText();
                             }}
                             className="portal-hit inline-flex items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-medium"
                             style={{
@@ -816,6 +878,88 @@ function StagePicker({
     );
 }
 
+/* ── the phone sheet's header ─────────────────────────────────────────────── */
+
+/**
+ * Who they are and what you can do about it, at the top of the phone sheet.
+ *
+ * The sheet has its own title bar ("All customers"), so this is the rest of the panel header,
+ * stacked for 390px: the name, their number, Call / Text / Request a review in one row, then the
+ * stage. Before the tabs these were scattered down a details column with the review button at
+ * the very bottom, below the fold of a phone.
+ */
+function SheetHeader({
+    customer,
+    patch,
+    review,
+    onText,
+}: {
+    customer: CustomerRow;
+    patch: (body: Record<string, unknown>) => Promise<boolean>;
+    review: ReviewAnchorProps;
+    onText: () => void;
+}) {
+    const button =
+        "portal-hit inline-flex items-center justify-center gap-1.5 rounded-lg border text-[13px] font-medium";
+    return (
+        <header className="px-5 pt-4">
+            <h2
+                className="m-0 text-[20px] font-bold leading-tight break-words"
+                style={{ fontFamily: "var(--font-display)", color: "var(--fg)" }}
+            >
+                {customer.name ?? "Customer"}
+            </h2>
+            <p className="m-0 mt-1 text-[13px]" style={{ color: "var(--fg-2)" }}>
+                {customer.phone && (
+                    <>
+                        <a href={`tel:${customer.phone}`} style={{ color: "var(--accent)" }}>
+                            {formatPhone(customer.phone)}
+                        </a>
+                        {" · "}
+                    </>
+                )}
+                Customer since {dayLabel(customer.firstContactAt ?? customer.createdAt)}
+            </p>
+
+            <div className="relative grid grid-cols-[76px_76px_minmax(0,1fr)] gap-2 mt-3">
+                {customer.phone ? (
+                    <a href={`tel:${customer.phone}`} className={button} style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}>
+                        <PhoneCall size={14} /> Call
+                    </a>
+                ) : (
+                    <span />
+                )}
+                {customer.phone ? (
+                    <a
+                        href="#crm-sms"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            onText();
+                        }}
+                        className={button}
+                        style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}
+                    >
+                        <ChatCircle size={14} /> Text
+                    </a>
+                ) : (
+                    <span />
+                )}
+                <ReviewAnchor {...review} align="stretch" wide />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 mt-3.5 pb-3" data-tour="crm-drawer-stage">
+                <span
+                    className="text-[10px] uppercase tracking-wider"
+                    style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}
+                >
+                    Stage
+                </span>
+                <StagePicker customer={customer} patch={patch} />
+            </div>
+        </header>
+    );
+}
+
 /* ── request a review ─────────────────────────────────────────────────────── */
 
 /** What the board hands every record: the same for all of its customers. */
@@ -837,71 +981,57 @@ interface ReviewAnchorProps extends ReviewContext {
  * It used to call up to the board, which slid a full-height drawer in from the right over the
  * record for a three-line message. Now the window hangs off the button (Xander, 2026-11-12).
  *
- * Placement is a `relative` ancestor, which is all `ui/Popover` needs. In the panel header that
- * is the row of Call / Text / Request a review, so the window's right edge lines up under the
- * row's (`end`) and it is not squeezed into the width of one button. The phone sheet's button is
- * full width and is its own wrapper, so its window is full width too (`stretch`).
+ * Placement is the caller's `relative` wrapper, which is all `ui/Popover` needs: the row of Call /
+ * Text / Request a review in both headers. On the panel the window's right edge lines up under
+ * the row's (`end`); on a phone it spans the row (`stretch`), the full width of the sheet.
  */
 function ReviewAnchor({
     align,
+    wide = false,
     customer,
     siteSlug,
     businessName,
     reviewLinkConfigured,
     messagingState,
     onSent,
-}: ReviewAnchorProps & { align: "end" | "stretch" }) {
+}: ReviewAnchorProps & { align: "end" | "stretch"; wide?: boolean }) {
     const [open, setOpen] = useState(false);
     const buttonRef = useRef<HTMLButtonElement>(null);
-    const full = align === "stretch";
 
-    const button = (
-        <button
-            ref={buttonRef}
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            disabled={!customer.phone}
-            aria-expanded={open}
-            aria-haspopup="dialog"
-            data-tour="crm-drawer-review"
-            className={`${full ? "w-full justify-center py-3 text-sm" : "px-3.5 text-[13px]"} rounded-lg inline-flex items-center gap-1.5 font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
-            style={{ minHeight: 44, background: "var(--accent)", color: "var(--on-accent)" }}
-        >
-            <Star size={full ? 15 : 14} weight="fill" />
-            {customer.reviewSent ? "Review requested" : "Request a review"}
-        </button>
-    );
-    const popover = (
-        <ReviewRequestDialog
-            open={open}
-            onClose={() => setOpen(false)}
-            triggerRef={buttonRef}
-            align={align}
-            contact={{
-                contactId: customer.customerId,
-                displayName: customer.name,
-                phone: customer.phone,
-                phoneDisplay: formatPhone(customer.phone),
-                reviewSent: customer.reviewSent,
-            }}
-            businessName={businessName}
-            reviewLinkConfigured={reviewLinkConfigured}
-            messagingState={messagingState}
-            siteSlug={siteSlug}
-            onSent={onSent}
-        />
-    );
-
-    // The header row is already the `relative` wrapper; the phone button brings its own.
-    return full ? (
-        <div className="relative">
-            {button}
-            {popover}
-        </div>
-    ) : (
+    return (
         <>
-            {button}
-            {popover}
+            <button
+                ref={buttonRef}
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                disabled={!customer.phone}
+                aria-expanded={open}
+                aria-haspopup="dialog"
+                data-tour="crm-drawer-review"
+                className={`${wide ? "w-full justify-center px-2" : "px-3.5"} rounded-lg inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
+                style={{ minHeight: 44, background: "var(--accent)", color: "var(--on-accent)" }}
+            >
+                <Star size={14} weight="fill" />
+                {customer.reviewSent ? "Review requested" : "Request a review"}
+            </button>
+            <ReviewRequestDialog
+                open={open}
+                onClose={() => setOpen(false)}
+                triggerRef={buttonRef}
+                align={align}
+                contact={{
+                    contactId: customer.customerId,
+                    displayName: customer.name,
+                    phone: customer.phone,
+                    phoneDisplay: formatPhone(customer.phone),
+                    reviewSent: customer.reviewSent,
+                }}
+                businessName={businessName}
+                reviewLinkConfigured={reviewLinkConfigured}
+                messagingState={messagingState}
+                siteSlug={siteSlug}
+                onSent={onSent}
+            />
         </>
     );
 }
@@ -983,255 +1113,7 @@ function OriginCall({ event, className }: { event: TimelineEvent; className?: st
     );
 }
 
-/* ── everything about them ────────────────────────────────────────────────── */
 
-function Details({
-    customer,
-    tasks,
-    siteSlug,
-    patch,
-    fieldError,
-    onTasksChanged,
-    review,
-    showReviewButton,
-    className,
-}: {
-    customer: CustomerRow;
-    tasks: TaskRow[];
-    siteSlug: string;
-    patch: (body: Record<string, unknown>) => Promise<boolean>;
-    fieldError: string | null;
-    onTasksChanged: () => void;
-    review: ReviewAnchorProps;
-    showReviewButton: boolean;
-    className?: string;
-}) {
-    // Local to the only thing that debounces. It used to be threaded down from the record,
-    // which meant a child writing through a prop every keystroke.
-    const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    return (
-        <div className={`min-w-0 ${className ?? ""}`} style={{ borderColor: "var(--rule)" }}>
-            {showReviewButton && (
-                <Block first>
-                    <Label>Stage</Label>
-                    <div className="mt-2.5">
-                        <StagePicker customer={customer} patch={patch} />
-                    </div>
-                </Block>
-            )}
-
-            <Block first={!showReviewButton}>
-                <Label>Contact</Label>
-                {/* The receptionist takes these down by ear mid-call, so they are often close
-                    rather than right. They were read-only until now, which left the client
-                    looking at a number they knew was wrong with nothing to do about it. */}
-                <p className="mt-1.5 mb-2 text-[12px] leading-snug" style={{ color: "var(--fg-2)" }}>
-                    Click a field to correct it.
-                </p>
-
-                <div className="flex flex-col gap-2.5 min-w-0">
-                    <EditableField
-                        id="f-name"
-                        label="Name"
-                        value={customer.name ?? ""}
-                        onSave={(v) => patch({ name: v || null })}
-                    />
-                    <EditableField
-                        id="f-phone"
-                        label="Phone"
-                        type="tel"
-                        value={customer.phone ? formatPhone(customer.phone) : ""}
-                        onSave={(v) => patch({ phone: v || null })}
-                    />
-                    <EditableField
-                        id="f-email"
-                        label="Email"
-                        type="email"
-                        value={customer.email ?? ""}
-                        onSave={(v) => patch({ email: v || null })}
-                    />
-                    <EditableField
-                        id="f-address"
-                        label="Address"
-                        multiline
-                        value={customer.address ?? ""}
-                        onSave={(v) => patch({ address: v || null })}
-                    />
-
-                    {fieldError && (
-                        <p
-                            className="text-[12px] rounded-md px-2.5 py-2 m-0"
-                            style={{
-                                color: "var(--chart-neg)",
-                                background: "color-mix(in srgb, var(--chart-neg) 10%, transparent)",
-                            }}
-                            role="alert"
-                        >
-                            {fieldError}
-                        </p>
-                    )}
-
-                    {/* Not editable: where they came from is a fact about the record, not a
-                        detail about the person. */}
-                    <div className="flex justify-between gap-3 pt-0.5 text-[13px]">
-                        <span style={{ color: "var(--fg-2)" }}>Came from</span>
-                        <span className="text-right" style={{ color: "var(--fg)" }}>
-                            {customer.source === "web-form"
-                                ? "Website form"
-                                : customer.source === "call"
-                                  ? "Phone call"
-                                  : "Added by you"}
-                        </span>
-                    </div>
-                </div>
-            </Block>
-
-            <Block>
-                <Label>Job value</Label>
-                <EditableField
-                    id="f-value"
-                    label="Job value"
-                    hideLabel
-                    value={formatMoney(customer.value) ?? ""}
-                    placeholder="$0"
-                    big
-                    onSave={(v) => {
-                        const n = Number(v.replace(/[^0-9.]/g, ""));
-                        return patch({ value: Number.isFinite(n) && n > 0 ? n : null });
-                    }}
-                />
-            </Block>
-
-            <Block>
-                <Label>Tags</Label>
-                <TagEditor tags={customer.tags} onChange={(tags) => void patch({ tags })} />
-            </Block>
-
-            <Block>
-                <Label>Follow-ups</Label>
-                <span data-tour="crm-drawer-tasks" />
-                <TaskList
-                    tasks={tasks}
-                    siteSlug={siteSlug}
-                    customerId={customer.customerId}
-                    onChanged={onTasksChanged}
-                />
-            </Block>
-
-            <Block last={!showReviewButton}>
-                <Label>Your notes</Label>
-                <textarea
-                    defaultValue={customer.note ?? ""}
-                    rows={3}
-                    placeholder="e.g. works days, call after 5pm"
-                    onChange={(e) => {
-                        const v = e.target.value;
-                        if (noteTimer.current) clearTimeout(noteTimer.current);
-                        noteTimer.current = setTimeout(() => void patch({ note: v }), 700);
-                    }}
-                    className="w-full mt-2.5 rounded-lg border px-3 py-2 text-sm outline-none resize-y"
-                    style={{
-                        background: "var(--bg)",
-                        borderColor: "var(--rule-strong)",
-                        color: "var(--fg)",
-                    }}
-                />
-            </Block>
-
-            {showReviewButton && (
-                <Block last>
-                    <ReviewAnchor {...review} align="stretch" />
-                </Block>
-            )}
-        </div>
-    );
-}
-
-/**
- * One correctable detail.
- *
- * Drawn as an ordinary portal input rather than as text that turns into one on hover: the
- * global form reset in `globals.css` sets a border and a background on every input with
- * `!important`, so a borderless rest state is not available to us here, and a field that
- * half-wins that fight looks broken. It also matches Job value and Your notes directly below,
- * which have always been plain inputs.
- *
- * Saves on blur — no Save button to forget, and no PATCH per keystroke. A refused save (a
- * phone number another customer already holds) puts the stored value back, so the field never
- * shows something that was not written.
- */
-function EditableField({
-    id,
-    label,
-    value,
-    onSave,
-    type = "text",
-    placeholder,
-    multiline = false,
-    hideLabel = false,
-    big = false,
-}: {
-    id: string;
-    label: string;
-    value: string;
-    onSave: (v: string) => Promise<boolean>;
-    type?: string;
-    placeholder?: string;
-    multiline?: boolean;
-    hideLabel?: boolean;
-    big?: boolean;
-}) {
-    const [draft, setDraft] = useState(value);
-    const [seen, setSeen] = useState(value);
-
-    // The stored value wins whenever it changes under us — a reload, or a save that was
-    // refused. Adjusted during render rather than in an effect: an effect would paint the
-    // stale value first and then correct it, which is a visible flicker on a rejected edit.
-    if (seen !== value) {
-        setSeen(value);
-        setDraft(value);
-    }
-
-    const shared = {
-        id,
-        value: draft,
-        placeholder,
-        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-            setDraft(e.target.value),
-        onBlur: async () => {
-            if (draft === value) return;
-            const ok = await onSave(draft.trim());
-            if (!ok) setDraft(value);
-        },
-        className:
-            "w-full rounded-lg border px-3 py-2 font-[inherit] outline-none " +
-            (big ? "text-[17px] font-semibold" : "text-[13.5px]"),
-        style: {
-            background: "var(--bg)",
-            borderColor: "var(--rule-strong)",
-            color: "var(--fg)",
-            minHeight: 38,
-        },
-    };
-
-    return (
-        <div className="min-w-0">
-            <label
-                htmlFor={id}
-                className={hideLabel ? "sr-only" : "block text-[11.5px] mb-px"}
-                style={hideLabel ? undefined : { color: "var(--fg-2)" }}
-            >
-                {label}
-            </label>
-            {multiline ? (
-                <textarea {...shared} rows={2} className={`${shared.className} resize-y leading-snug`} />
-            ) : (
-                <input {...shared} type={type} />
-            )}
-        </div>
-    );
-}
 
 /* ── shared bits ──────────────────────────────────────────────────────────── */
 
@@ -1294,39 +1176,7 @@ function tintFg(kind: TimelineEvent["kind"]): string {
     return "var(--fg-2)";
 }
 
-function Block({
-    children,
-    first,
-    last,
-    dataTour,
-}: {
-    children: React.ReactNode;
-    first?: boolean;
-    last?: boolean;
-    /** Stable tour anchor. See `tour/steps.ts` — these are a contract, keep them through refactors. */
-    dataTour?: string;
-}) {
-    return (
-        <div
-            data-tour={dataTour}
-            className={`${first ? "pt-4" : "pt-5"} ${last ? "pb-5" : "pb-5"} min-w-0`}
-            style={{ borderBottom: last ? undefined : "1px solid var(--rule-weak)" }}
-        >
-            {children}
-        </div>
-    );
-}
 
-function Label({ children }: { children: React.ReactNode }) {
-    return (
-        <p
-            className="text-[10px] uppercase tracking-wider m-0"
-            style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}
-        >
-            {children}
-        </p>
-    );
-}
 
 function Pending({ children }: { children: React.ReactNode }) {
     return (
@@ -1343,187 +1193,4 @@ function Pending({ children }: { children: React.ReactNode }) {
     );
 }
 
-function TagEditor({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
-    const [adding, setAdding] = useState(false);
-    const [val, setVal] = useState("");
-    return (
-        <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {tags.map((t) => (
-                <button
-                    key={t}
-                    type="button"
-                    onClick={() => onChange(tags.filter((x) => x !== t))}
-                    title="Remove"
-                    className="text-[10.5px] px-2 py-0.5 rounded-full cursor-pointer"
-                    style={{
-                        fontFamily: "var(--font-mono)",
-                        background: "var(--surface)",
-                        color: "var(--fg-2)",
-                    }}
-                >
-                    {t} ✕
-                </button>
-            ))}
-            {adding ? (
-                <input
-                    autoFocus
-                    value={val}
-                    onChange={(e) => setVal(e.target.value)}
-                    onBlur={() => {
-                        if (val.trim()) onChange([...tags, val.trim()]);
-                        setVal("");
-                        setAdding(false);
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
-                        if (e.key === "Escape") {
-                            setVal("");
-                            setAdding(false);
-                        }
-                    }}
-                    className="text-[11px] px-2 py-0.5 rounded-full border outline-none w-24"
-                    style={{
-                        borderColor: "var(--rule-strong)",
-                        background: "var(--bg)",
-                        color: "var(--fg)",
-                    }}
-                />
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setAdding(true)}
-                    className="text-[10.5px] px-2 py-0.5 rounded-full border border-dashed cursor-pointer"
-                    style={{ fontFamily: "var(--font-mono)", borderColor: "var(--rule-strong)", color: "var(--fg-2)" }}
-                >
-                    + Add
-                </button>
-            )}
-        </div>
-    );
-}
 
-function TaskList({
-    tasks,
-    siteSlug,
-    customerId,
-    onChanged,
-}: {
-    tasks: TaskRow[];
-    siteSlug: string;
-    customerId: string;
-    onChanged: () => void;
-}) {
-    const [adding, setAdding] = useState(false);
-    const [title, setTitle] = useState("");
-    const [due, setDue] = useState("");
-
-    async function create() {
-        if (!title.trim()) return;
-        await fetch(`/api/portal/tasks?site=${encodeURIComponent(siteSlug)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ customerId, title: title.trim(), dueAt: due || null }),
-        }).catch(() => {});
-        setTitle("");
-        setDue("");
-        setAdding(false);
-        onChanged();
-    }
-
-    async function toggle(t: TaskRow) {
-        await fetch(`/api/portal/tasks?site=${encodeURIComponent(siteSlug)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ taskId: t.taskId, done: !t.done }),
-        }).catch(() => {});
-        onChanged();
-    }
-
-    // Captured once on mount rather than read during render: `Date.now()` in the render path is
-    // impure, and a task flipping to "Overdue" mid-render because the clock ticked is exactly
-    // the unstable output that rule exists to prevent.
-    const [now] = useState(() => Date.now());
-    const overdue = (t: TaskRow) => t.dueAt && !t.done && new Date(t.dueAt).getTime() < now;
-
-    return (
-        <div className="mt-1.5">
-            {tasks.map((t) => (
-                <div key={t.taskId} className="flex items-center gap-2.5 py-2 text-[13.5px]">
-                    <button
-                        type="button"
-                        onClick={() => toggle(t)}
-                        aria-label={t.done ? "Mark not done" : "Mark done"}
-                        className="shrink-0 rounded cursor-pointer"
-                        style={{
-                            width: 15,
-                            height: 15,
-                            border: "1.5px solid var(--rule-strong)",
-                            background: t.done ? "var(--surface)" : "transparent",
-                        }}
-                    />
-                    <span
-                        className="min-w-0"
-                        style={{
-                            color: t.done ? "var(--fg-2)" : "var(--fg)",
-                            textDecoration: t.done ? "line-through" : undefined,
-                        }}
-                    >
-                        {t.title}
-                    </span>
-                    {t.dueAt && (
-                        <span
-                            className="ml-auto shrink-0 text-[10.5px]"
-                            style={{
-                                fontFamily: "var(--font-mono)",
-                                color: overdue(t) ? "var(--chart-warn)" : "var(--fg-2)",
-                            }}
-                        >
-                            {overdue(t)
-                                ? "Overdue"
-                                : `Due ${new Date(t.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
-                        </span>
-                    )}
-                </div>
-            ))}
-
-            {adding ? (
-                <div className="mt-2 space-y-2">
-                    <input
-                        autoFocus
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder="e.g. send written quote"
-                        className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-                        style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
-                    />
-                    <div className="flex gap-2">
-                        <input
-                            type="date"
-                            value={due}
-                            onChange={(e) => setDue(e.target.value)}
-                            className="flex-1 min-w-0 rounded-lg border px-3 py-2 text-sm outline-none"
-                            style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
-                        />
-                        <button
-                            type="button"
-                            onClick={create}
-                            className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold"
-                            style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                        >
-                            Add
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <button
-                    type="button"
-                    onClick={() => setAdding(true)}
-                    className="mt-2 text-[12.5px] cursor-pointer inline-flex items-center gap-1"
-                    style={{ color: "var(--accent)" }}
-                >
-                    <Plus size={12} weight="bold" /> Add a follow-up
-                </button>
-            )}
-        </div>
-    );
-}
