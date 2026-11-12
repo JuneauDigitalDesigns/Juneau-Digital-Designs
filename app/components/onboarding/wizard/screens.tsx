@@ -57,6 +57,7 @@ import { profileLinkProblem } from "@/app/lib/profile-links";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
 import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
 import { suggestionsFor } from "./service-suggestions";
+import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
 import s from "./wizard.module.css";
 
 /** The live, already-approved receptionist options (unchanged from the previous wizard). */
@@ -186,15 +187,26 @@ function Field({ label, optional, error, note, children }: { label?: ReactNode; 
     );
 }
 
-function Text({ value, onChange, placeholder, type = "text", inputMode, ariaLabel, autoComplete = "off" }: {
+/**
+ * A text field. Typing is never blocked; when the field loses focus its value is tidied by
+ * `format` (formatting.ts, Xander 2026-11-12), by default trimmed to single spaces. buildPayload
+ * applies the same rules, so nothing depends on the client leaving the field.
+ */
+function Text({ value, onChange, placeholder, type = "text", inputMode, ariaLabel, autoComplete = "off", format = fmtText }: {
     value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
     inputMode?: "text" | "tel" | "email" | "numeric" | "decimal" | "url"; ariaLabel?: string; autoComplete?: string;
+    format?: (raw: string) => string;
 }) {
     return (
         <input
             className={s.input}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onBlur={(e) => {
+                const raw = e.target.value;
+                const tidy = raw.trim() ? format(raw) : "";
+                if (tidy !== raw) onChange(tidy);
+            }}
             placeholder={placeholder}
             type={type}
             inputMode={inputMode}
@@ -428,10 +440,10 @@ export function ScreenBody(p: ScreenProps) {
                 <>
                     <div className={s.row2}>
                         <Field label="Business phone" error={errors.phone} note={notes(prefillNote(p, "phone"))}>
-                            <Text value={state.phone} onChange={(v) => update({ phone: v })} placeholder="(407) 555-0142" type="tel" inputMode="tel" autoComplete="tel" />
+                            <Text value={state.phone} onChange={(v) => update({ phone: v })} placeholder="(407) 555-0142" format={fmtPhone} type="tel" inputMode="tel" autoComplete="tel" />
                         </Field>
                         <Field label="Business email" error={errors.email} note="From your agreement. Change it if leads should go somewhere else.">
-                            <Text value={state.email} onChange={(v) => update({ email: v })} placeholder="you@yourbusiness.com" type="email" inputMode="email" autoComplete="email" />
+                            <Text value={state.email} onChange={(v) => update({ email: v })} placeholder="you@yourbusiness.com" format={fmtEmail} type="email" inputMode="email" autoComplete="email" />
                         </Field>
                     </div>
                     <Field label="Business address" error={errors.address} note={notes(prefillNote(p, "address"), C.addressNote)}>
@@ -475,7 +487,7 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <div className={s.narrow}>
                     <Field label="Your current website" optional>
-                        <Text value={state.website} onChange={(v) => update({ website: v })} placeholder="yourbusiness.com" inputMode="url" autoComplete="url" />
+                        <Text value={state.website} onChange={(v) => update({ website: v })} placeholder="yourbusiness.com" format={fmtWebsite} inputMode="url" autoComplete="url" />
                     </Field>
                 </div>
             );
@@ -516,10 +528,10 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <div className={s.row2}>
                     <Field label="Year you started" optional note={years ? <span className={s.derived}>✓ {years} years in business. We&apos;ll show that on your site.</span> : undefined}>
-                        <Text value={state.established} onChange={(v) => update({ established: v })} placeholder="2009" inputMode="numeric" />
+                        <Text value={state.established} onChange={(v) => update({ established: v })} placeholder="2009" format={fmtYear} inputMode="numeric" />
                     </Field>
                     <Field label="License number" optional note="Shown as a credential. Leave blank if you don't hold one.">
-                        <Text value={state.license} onChange={(v) => update({ license: v })} placeholder="CAC1812345" />
+                        <Text value={state.license} onChange={(v) => update({ license: v })} placeholder="CAC1812345" format={fmtLicense} />
                     </Field>
                 </div>
             );
@@ -558,10 +570,10 @@ export function ScreenBody(p: ScreenProps) {
                 <>
                     <div className={`${s.row2} ${s.narrower}`}>
                         <Field label="Star rating">
-                            <Text value={state.rating} onChange={(v) => update({ rating: v })} placeholder="4.9" inputMode="decimal" />
+                            <Text value={state.rating} onChange={(v) => update({ rating: v })} placeholder="4.9" format={fmtRating} inputMode="decimal" />
                         </Field>
                         <Field label="Number of reviews">
-                            <Text value={state.reviewCount} onChange={(v) => update({ reviewCount: v })} placeholder="212" inputMode="numeric" />
+                            <Text value={state.reviewCount} onChange={(v) => update({ reviewCount: v })} placeholder="212" format={fmtWholeNumber} inputMode="numeric" />
                         </Field>
                     </div>
                     <ReviewSource {...p} />
@@ -594,7 +606,7 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <div className={s.narrower}>
                     <Field>
-                        <Text value={state.serviceRadiusMiles} onChange={(v) => update({ serviceRadiusMiles: v })} placeholder="e.g. 25" inputMode="numeric" ariaLabel="How far do you travel for mobile service?" />
+                        <Text value={state.serviceRadiusMiles} onChange={(v) => update({ serviceRadiusMiles: v })} placeholder="e.g. 25" format={fmtWholeNumber} inputMode="numeric" ariaLabel="How far do you travel for mobile service?" />
                     </Field>
                 </div>
             );
@@ -735,7 +747,7 @@ function GoogleScreen({ state, update }: ScreenProps) {
     return (
         <div className={s.narrow}>
             <Field label={C.googleLabel} error={linkError("google", urlOf(state, "google"))}>
-                <Text value={urlOf(state, "google")} onChange={(v) => update({ profiles: withUrl(state, "google", v) })} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={C.googleLabel} />
+                <Text value={urlOf(state, "google")} onChange={(v) => update({ profiles: withUrl(state, "google", v) })} placeholder={C.pasteLink} format={fmtProfileUrl} inputMode="url" autoComplete="url" ariaLabel={C.googleLabel} />
             </Field>
             <ol className={s.howto}>
                 {C.googleSteps.map((t, i) => <li key={t}><b aria-hidden="true">{i + 1}</b>{t}</li>)}
@@ -761,7 +773,7 @@ function ElsewhereScreen({ state, update }: ScreenProps) {
                 <div className={s.linkFields}>
                     {OTHER_PROFILES.filter(on).map((k) => (
                         <Field key={k} label={label(k)} error={linkError(k, urlOf(state, k))}>
-                            <Text value={urlOf(state, k)} onChange={(v) => update({ profiles: withUrl(state, k, v) })} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={label(k)} />
+                            <Text value={urlOf(state, k)} onChange={(v) => update({ profiles: withUrl(state, k, v) })} placeholder={C.pasteLink} format={fmtProfileUrl} inputMode="url" autoComplete="url" ariaLabel={label(k)} />
                         </Field>
                     ))}
                 </div>
@@ -777,7 +789,7 @@ function ReviewSource({ state, update }: ScreenProps) {
         return (
             <div className={s.narrow}>
                 <Field label="Link to your reviews" optional note="Your Google reviews page works well.">
-                    <Text value={state.reviewUrl} onChange={(v) => update({ reviewUrl: v })} placeholder="https://" inputMode="url" />
+                    <Text value={state.reviewUrl} onChange={(v) => update({ reviewUrl: v })} placeholder="https://" format={fmtProfileUrl} inputMode="url" />
                 </Field>
             </div>
         );
@@ -928,7 +940,7 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                 <>
                     <div className={s.narrower}>
                         <Field label={C.qPrice} note={C.hPrice}>
-                            <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" ariaLabel={C.qPrice} />
+                            <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" format={fmtPrice} ariaLabel={C.qPrice} />
                         </Field>
                     </div>
                     {/* One answer: tapping a chip picks it (again clears it); "add your own" replaces it. */}
@@ -1051,8 +1063,8 @@ function SitesScreen({ state, update, extra }: ScreenProps) {
                     <div className={s.row2}>
                         <Field label="Business name"><Text value={site.brandName} onChange={(v) => set(i, { brandName: v })} /></Field>
                         <Field label="Short name"><Text value={site.brandShort} onChange={(v) => set(i, { brandShort: v })} /></Field>
-                        <Field label="Email"><Text value={site.email} onChange={(v) => set(i, { email: v })} type="email" /></Field>
-                        <Field label="Phone"><Text value={site.phone} onChange={(v) => set(i, { phone: v })} type="tel" /></Field>
+                        <Field label="Email"><Text value={site.email} onChange={(v) => set(i, { email: v })} format={fmtEmail} type="email" /></Field>
+                        <Field label="Phone"><Text value={site.phone} onChange={(v) => set(i, { phone: v })} format={fmtPhone} type="tel" /></Field>
                         <Field label="Address"><Text value={site.address} onChange={(v) => set(i, { address: v })} /></Field>
                         <Field label="What makes it different?"><Text value={site.differentiators} onChange={(v) => set(i, { differentiators: v })} /></Field>
                     </div>
