@@ -108,6 +108,14 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
             }
             case "scard":
                 return sets.get(args[0])?.size ?? 0;
+            case "smembers":
+                return [...(sets.get(args[0]) ?? [])].map(b64);
+            case "srem": {
+                const s = sets.get(args[0]);
+                let n = 0;
+                for (const m of args.slice(1)) if (s?.delete(String(m))) n++;
+                return n;
+            }
             case "zadd": {
                 const z = zsets.get(args[0]) ?? new Map();
                 for (let i = 1; i + 1 < args.length; i += 2) z.set(String(args[i + 1]), Number(args[i]));
