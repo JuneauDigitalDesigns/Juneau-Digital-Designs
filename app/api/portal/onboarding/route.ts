@@ -12,7 +12,14 @@ import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
-import { buildSubmission, markPaletteNotClientChosen } from "@/app/lib/onboarding-submission";
+import { getAgreement } from "@/app/lib/kv";
+import { getOrder } from "@/app/lib/operator-orders";
+import {
+    applySignedLegalName,
+    buildSubmission,
+    markPaletteNotClientChosen,
+    signedLegalName,
+} from "@/app/lib/onboarding-submission";
 
 /** Deep-clone replacing every empty string with null. */
 function normalizeEmpties(value: unknown): unknown {
@@ -67,12 +74,33 @@ export async function POST(request: Request) {
             return null;
         });
 
+        // The legal name the client signed under, which the wizard's business name is not: the
+        // wizard prefills it, and a client who corrects it to their trading name is right to.
+        // Read from the site's own agreement (and its order, for a sales-call close), the same
+        // records the wizard's prefill reads. A failed lookup leaves `brand.long` flagged missing.
+        const [agreement, order] = await Promise.all([
+            site.agreementId
+                ? getAgreement(site.agreementId).catch((e) => {
+                      console.error("[portal/onboarding] legal name: agreement lookup failed", site.agreementId, e);
+                      return null;
+                  })
+                : null,
+            site.orderId
+                ? getOrder(site.orderId).catch((e) => {
+                      console.error("[portal/onboarding] legal name: order lookup failed", site.orderId, e);
+                      return null;
+                  })
+                : null,
+        ]);
+
         // The client no longer chooses colors (JDD does, in the console), so the default palette
         // the wizard sends is recorded as not client-supplied.
-        const intake: Intake = markPaletteNotClientChosen({
-            ...mapBrandIntakeToIntake(submission),
-            smsAlerts: smsAlertsSnapshot(consent),
-        });
+        const intake: Intake = markPaletteNotClientChosen(
+            applySignedLegalName(
+                { ...mapBrandIntakeToIntake(submission), smsAlerts: smsAlertsSnapshot(consent) },
+                signedLegalName({ agreement, order }),
+            ),
+        );
         const payloadJson = JSON.stringify(normalizeEmpties(intake), null, 2);
         const slugSource = brandShort || brandName || "client";
         // Suffixed against the account's other sites. Nothing checked this before, so two
