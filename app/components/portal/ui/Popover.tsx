@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 /**
  * A small window that opens right below the thing that opened it.
@@ -45,6 +45,25 @@ export default function Popover({
 }) {
     const ref = useRef<HTMLDivElement>(null);
     const onCloseRef = useRef(onClose);
+
+    /**
+     * The caret points at the middle of the button that opened it, measured as it opens.
+     *
+     * A fixed offset only fits one layout: on a phone the window spans the whole row of Call,
+     * Text and Request a review, and a centred caret pointed at Text. Measured before paint, so
+     * it never jumps. Written straight to the caret's style: it is a measurement of the DOM, not
+     * state anything renders from.
+     */
+    const caretRef = useRef<HTMLSpanElement>(null);
+    useLayoutEffect(() => {
+        if (!open) return;
+        const box = ref.current?.getBoundingClientRect();
+        const btn = triggerRef.current?.getBoundingClientRect();
+        const caret = caretRef.current;
+        if (!box || !btn || !caret) return;
+        const right = box.right - (btn.left + btn.width / 2) - 6;
+        caret.style.right = `${Math.min(Math.max(right, 14), box.width - 26)}px`;
+    }, [open, triggerRef]);
     useEffect(() => {
         onCloseRef.current = onClose;
     }, [onClose]);
@@ -102,14 +121,14 @@ export default function Popover({
                 boxShadow: "var(--shadow-2)",
             }}
         >
-            {/* The caret points at the button. Under the right third of it for `end`, where the
-                button is; centred-ish for a full-width phone button. */}
+            {/* The caret, at the middle of the button (measured above). */}
             <span
+                ref={caretRef}
                 aria-hidden="true"
                 className="absolute w-3 h-3"
                 style={{
                     top: -7,
-                    right: align === "end" ? 40 : "50%",
+                    right: 40,
                     transform: "rotate(45deg)",
                     background: "var(--elev-1)",
                     borderLeft: "1px solid var(--rule-strong)",
