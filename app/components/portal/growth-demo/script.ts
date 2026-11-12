@@ -8,7 +8,7 @@ import { CARRIER_LINE } from "@/app/data/portal-demo";
  *
  * Rebuilt 2026-11-12 (Xander): five steps rather than four (Jobs and the calendar are new), a
  * little slower, a cursor that does every click, and the portal's real screens as they are after
- * #118 to #122. Words: the storyboard Xander approved word for word on 2026-11-12. Lines carried
+ * #118 to #122. Words: the storyboard Xander approved word for word on 2026-11-12 (all of it). Lines carried
  * over from the 9 Nov 2026 approval are marked "kept". No dashes anywhere.
  */
 
