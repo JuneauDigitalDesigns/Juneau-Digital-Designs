@@ -173,6 +173,9 @@ export const C = {
     topTownsHelp: "Pick up to 3. We'll start with these.", // Q2
     qPriceFactors: "What makes this job cost more or less?", // Q5
     hPriceFactors: "No prices needed. For example the size of the home, or how hard it is to reach.", // Q5
+    photoTownQ: "Which town was this job in?", // Q1
+    photoTownHelp: "Town only, never the street.", // Q1
+    notSure: "Not sure", // Q1, the last chip
 } as const;
 
 /** Short site names for the "Other profiles" chips (#62), the reviews chips (#20) and #18. */
