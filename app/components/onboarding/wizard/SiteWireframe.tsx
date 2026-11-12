@@ -46,7 +46,13 @@ function Chrome({ path, state, children }: { path: string; state: WizardState; c
                 <div className={s.sNav}>
                     <span className={s.sLogo}>
                         <span className={s.sMk} />
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{state.name.trim() || "Your business"}</span>
+                        <span style={{ display: "grid", minWidth: 0 }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{state.name.trim() || "Your business"}</span>
+                            {/* The tagline sits under the name (F-C2a, 2026-11-11). */}
+                            {state.tagline?.trim() ? (
+                                <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 400, opacity: 0.75 }}>{state.tagline.trim()}</small>
+                            ) : null}
+                        </span>
                     </span>
                     <span className={s.sLinks}><span><b>Services ▾</b></span><span>About</span></span>
                     <span className={s.sCall}>Call {state.phone.trim() || "now"}</span>
@@ -172,7 +178,13 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
                         ) : (
                             <span className={s.sMk} />
                         )}
-                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                        <span style={{ display: "grid", minWidth: 0 }}>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                            {/* The tagline sits under the name (F-C2a, 2026-11-11). */}
+                            {state.tagline?.trim() ? (
+                                <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 400, opacity: 0.75 }}>{state.tagline.trim()}</small>
+                            ) : null}
+                        </span>
                         {state.logoChoice === "design" && !state.images.logo ? <span className={s.sTbd}>logo by JDD</span> : null}
                     </span>
                     <span className={s.sLinks}><span>Services</span><span>About</span><span>Reviews</span></span>

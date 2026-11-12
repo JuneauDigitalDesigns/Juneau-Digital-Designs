@@ -149,6 +149,15 @@ export const C = {
     workCap: "Up to 10 photos.", // P3's limit, shown when a drop holds more photos than fit
     welcomePhotos: "Your logo and some photos of your work or your business. No logo or photos yet? That's fine, we'll sort it.", // P7
 
+    // The tagline question (T2 to T6), approved word for word by Xander, 2026-11-11 ("Approve as
+    // drafted", mockup https://claude.ai/artifact/BaoLxNU2Gd9JPLhh4yW3CA). T6 is the first of the
+    // two skip lines drafted.
+    taglineNav: "Tagline", // T2
+    taglineQ: "Do you have a tagline?", // T3
+    taglineHelp: "A few words that sit under your business name at the top and bottom of your site.", // T4
+    taglineExample: (sample: string) => `e.g. ${sample}`, // T5 (sample: the trade template's tagline)
+    taglineSkip: "No tagline? Skip this. We'll suggest one for you to approve.", // T6
+
     profilesPlaceholder: "Google · Facebook · Yelp", // #54
 } as const;
 
