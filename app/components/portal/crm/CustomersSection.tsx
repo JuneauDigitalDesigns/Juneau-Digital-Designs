@@ -11,7 +11,6 @@ import CustomerDrawer from "./CustomerDrawer";
 import CustomerRecord from "./CustomerRecord";
 import CustomerPanel from "./CustomerPanel";
 import { useIsMobile } from "../ui/useMediaQuery";
-import ReviewRequestDialog from "../ReviewRequestDialog";
 import StarterShowcase from "./StarterShowcase";
 import {
     COLLAPSED_BY_DEFAULT,
@@ -53,7 +52,6 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     );
 
     const isMobile = useIsMobile();
-    const [reviewFor, setReviewFor] = useState<CustomerRow | null>(null);
     const [collapsed, setCollapsed] = useState<Set<StageKey>>(new Set(COLLAPSED_BY_DEFAULT));
     const [adding, setAdding] = useState(false);
     const [overrides, setOverrides] = useState<Record<string, Partial<CustomerRow>>>({});
@@ -227,28 +225,12 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     const staleCount = all.filter((c) => c.stale).length;
     const reviewCount = all.filter((c) => c.stage === "won" && c.phone && !c.reviewSent).length;
 
-    const reviewDialog = (
-        <ReviewRequestDialog
-            open={reviewFor !== null}
-            onClose={() => setReviewFor(null)}
-            contact={
-                reviewFor
-                    ? {
-                          contactId: reviewFor.customerId,
-                          displayName: reviewFor.name,
-                          phone: reviewFor.phone,
-                          phoneDisplay: formatPhone(reviewFor.phone),
-                          reviewSent: reviewFor.reviewSent,
-                      }
-                    : null
-            }
-            businessName={site.name}
-            reviewLinkConfigured={data.reviewLinkConfigured}
-            messagingState={data.messagingState}
-            siteSlug={site.slug}
-            onSent={() => refresh()}
-        />
-    );
+    // "Request a review" opens under its own button inside the record now; the record only
+    // needs what is the same for every customer on this board.
+    const review = {
+        businessName: site.name,
+        reviewLinkConfigured: data.reviewLinkConfigured,
+    };
 
     /**
      * On a desktop the record slides over the board; on a phone it is a bottom sheet.
@@ -416,7 +398,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                     siteSlug={site.slug}
                     variant="panel"
                     onChanged={refresh}
-                    onRequestReview={(c) => setReviewFor(c)}
+                    review={review}
                     onNotFound={handleNotFound}
                     backHref={boardHref}
                     onBack={closeRecord}
@@ -431,11 +413,9 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                 customerId={openId}
                 siteSlug={site.slug}
                 onChanged={refresh}
-                onRequestReview={(c) => setReviewFor(c)}
+                review={review}
                 onNotFound={handleNotFound}
             />
-
-            {reviewDialog}
 
             {adding && (
                 <AddCustomer

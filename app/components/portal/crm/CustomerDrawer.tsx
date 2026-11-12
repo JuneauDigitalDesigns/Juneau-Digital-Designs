@@ -1,8 +1,7 @@
 "use client";
 
 import Drawer from "../ui/Drawer";
-import CustomerRecord from "./CustomerRecord";
-import type { CustomerRow } from "./stages";
+import CustomerRecord, { type ReviewContext } from "./CustomerRecord";
 
 /**
  * The customer record as a phone sheet.
@@ -24,7 +23,7 @@ export default function CustomerDrawer({
     customerId,
     siteSlug,
     onChanged,
-    onRequestReview,
+    review,
     onNotFound,
 }: {
     open: boolean;
@@ -32,7 +31,7 @@ export default function CustomerDrawer({
     customerId: string | null;
     siteSlug: string;
     onChanged: () => void;
-    onRequestReview: (c: CustomerRow) => void;
+    review: ReviewContext;
     onNotFound?: () => void;
 }) {
     return (
@@ -50,7 +49,7 @@ export default function CustomerDrawer({
                 siteSlug={siteSlug}
                 variant="sheet"
                 onChanged={onChanged}
-                onRequestReview={onRequestReview}
+                review={review}
                 onNotFound={onNotFound}
             />
         </Drawer>
