@@ -66,6 +66,9 @@ export const PORTAL_TABS = [
     // gate moved to `leads` — web-only sites have no call log but do receive form enquiries.
     { id: "calls", label: "Inbox", shortLabel: "Inbox", href: "calls", feature: "leads" },
     { id: "customers", label: "Customers", shortLabel: "Customers", href: "customers", feature: "crm" },
+    // Scheduling and follow-ups (Xander, 2026-11-12), part of the CRM: same gate as Customers,
+    // so Starter sees it with a padlock and a page that says what Growth adds.
+    { id: "calendar", label: "Calendar", shortLabel: "Calendar", href: "calendar", feature: "crm" },
     {
         id: "analytics",
         label: "Analytics",
@@ -138,6 +141,9 @@ export function tabAvailability(
  * Customers with a padlock is the upsell; hiding it means they never learn the feature exists.
  * See the note in `PortalChrome` about tabs always navigating.
  *
+ * Calendar (2026-11-12) went behind More, first in it: the bar was full, and the customer record's
+ * own "Coming up" and "Add to calendar" cover the day-to-day on a phone.
+ *
  * Analytics took the slot Billing held. Folding Traffic and Performance together made it the
  * one place a client checks their website, which is something they monitor. Settings (which
  * now holds Plan & billing) and Support are deliberate visits, so they sit behind More.
@@ -145,7 +151,7 @@ export function tabAvailability(
 export const MOBILE_BAR_TABS = ["overview", "calls", "customers", "analytics"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
-export const MOBILE_MORE_TABS = ["settings", "support"] as const satisfies
+export const MOBILE_MORE_TABS = ["calendar", "settings", "support"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
 /**

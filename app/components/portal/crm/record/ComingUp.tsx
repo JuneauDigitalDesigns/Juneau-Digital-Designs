@@ -1,8 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus } from "@phosphor-icons/react";
+import {
+    APPT_KIND_LABEL,
+    LENGTH_LABEL,
+    ALL_DAY,
+    formatTime,
+    isAllDay,
+    shortDayLabel,
+    upcoming,
+    type Appointment,
+} from "@/app/lib/crm-calendar";
+import type { Job } from "@/app/lib/crm-jobs";
 import type { TaskRow } from "../stages";
+import { KIND_HUE } from "../../calendar/MonthGrid";
 import { Label } from "./fields";
 
 /**
@@ -13,31 +26,79 @@ import { Label } from "./fields";
  * the Timeline is the tab the record opens on and a reminder nobody sees is no reminder. Xander:
  * "The timeline is definitely the best place for the coming up section."
  *
- * Open follow-ups first, then the done ones, as before. The tour's "Never forget a follow-up"
- * step anchors on `crm-drawer-tasks` here.
+ * The customer's next bookings from the calendar come first ("Today · 11:00a · Job visit ·
+ * Furnace repair"), with "See calendar" beside the heading; then the follow-ups, as before. The
+ * tour's "Never forget a follow-up" step anchors on `crm-drawer-tasks` here.
  */
 export default function ComingUp({
     tasks,
     siteSlug,
     customerId,
     onChanged,
+    appointments = [],
+    jobs = [],
+    calendarLink,
+    today,
     className,
 }: {
     tasks: TaskRow[];
     siteSlug: string;
     customerId: string;
     onChanged: () => void;
+    /** This customer's calendar appointments. */
+    appointments?: Appointment[];
+    jobs?: Job[];
+    /** Where "See calendar" goes. Absent, there is no link. */
+    calendarLink?: string;
+    /** The viewer's today, 'YYYY-MM-DD'. */
+    today?: string;
     className?: string;
 }) {
+    const next = today ? upcoming(appointments, today).slice(0, 3) : [];
     return (
         <section
             className={`min-w-0 ${className ?? ""}`}
             style={{ borderColor: "var(--rule)" }}
             aria-labelledby="crm-coming-up"
         >
-            <div id="crm-coming-up">
-                <Label>Coming up</Label>
+            <div className="flex items-center gap-3">
+                <div id="crm-coming-up">
+                    <Label>Coming up</Label>
+                </div>
+                {calendarLink && (
+                    <Link href={calendarLink} className="ml-auto text-[12.5px] font-medium" style={{ color: "var(--accent)" }}>
+                        See calendar
+                    </Link>
+                )}
             </div>
+            {next.length > 0 && today && (
+                <ul className="list-none m-0 mt-2 p-0 rounded-xl border" style={{ borderColor: "var(--rule)" }}>
+                    {next.map((a, i) => {
+                        const job = a.jobId ? jobs.find((j) => j.jobId === a.jobId) : null;
+                        const detail = [job?.service, a.address].filter(Boolean).join(" · ");
+                        return (
+                            <li
+                                key={a.id}
+                                className={`flex items-center gap-2.5 px-3 py-2.5 text-[13px] min-w-0 ${i > 0 ? "border-t" : ""}`}
+                                style={{ borderColor: "var(--rule-weak)" }}
+                            >
+                                <span aria-hidden="true" className="w-1 self-stretch rounded-sm shrink-0" style={{ background: KIND_HUE[a.kind] }} />
+                                <span className="shrink-0 text-[11px] whitespace-nowrap" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>
+                                    {shortDayLabel(a.day, today)} · {isAllDay(a) ? LENGTH_LABEL[ALL_DAY] : formatTime(a.startMinutes)}
+                                </span>
+                                <span className="shrink-0 font-semibold" style={{ color: "var(--fg)" }}>
+                                    {APPT_KIND_LABEL[a.kind]}
+                                </span>
+                                {detail && (
+                                    <span className="truncate min-w-0" style={{ color: "var(--fg-2)" }}>
+                                        {detail}
+                                    </span>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
             <div data-tour="crm-drawer-tasks">
                 <TaskList tasks={tasks} siteSlug={siteSlug} customerId={customerId} onChanged={onChanged} />
             </div>

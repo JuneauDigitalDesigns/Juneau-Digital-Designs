@@ -168,7 +168,8 @@ export default function JobsTab({
                 const isOpen = open === job.jobId;
                 return (
                     <JobCard key={job.jobId}>
-                        <div className="flex items-stretch">
+                        {/* Side by side in the wide panel; on a phone the job's actions sit under it. */}
+                        <div className="flex flex-col @2xl:flex-row @2xl:items-stretch">
                             <button
                                 type="button"
                                 aria-expanded={isOpen}
@@ -212,7 +213,9 @@ export default function JobsTab({
                                 />
                             </button>
                             {renderActions && (
-                                <div className="shrink-0 flex items-center pr-3">{renderActions(job)}</div>
+                                <div className="shrink-0 flex items-center px-4 pb-3 -mt-1 @2xl:mt-0 @2xl:p-0 @2xl:pr-3">
+                                    {renderActions(job)}
+                                </div>
                             )}
                         </div>
                         {isOpen && (

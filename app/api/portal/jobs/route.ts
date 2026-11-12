@@ -4,6 +4,7 @@ import { resolvePortalRequest, type PortalRequestContext } from "@/app/lib/porta
 import { accountScope } from "@/app/lib/portal-kv";
 import { parseJobPatch, parseNewJob } from "@/app/lib/crm-jobs";
 import { createJob, deleteJob, syncCustomerValue, updateJob } from "@/app/lib/portal-jobs";
+import { deleteAppointmentsForJob } from "@/app/lib/portal-calendar";
 
 export const runtime = "nodejs";
 
@@ -86,6 +87,8 @@ export async function DELETE(request: Request) {
 
     const job = await deleteJob(o.acct, o.slug, jobId);
     if (!job) return missing();
+    // "Delete this job and its visits?": its calendar visits go with it.
+    await deleteAppointmentsForJob(o.acct, o.slug, jobId);
     await syncCustomerValue(o.acct, o.slug, job.customerId, o.ctx.userId);
     return NextResponse.json({ ok: true });
 }
