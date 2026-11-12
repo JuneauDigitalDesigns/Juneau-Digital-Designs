@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { defaultReviewMessage } from "@/app/lib/review-message";
-import Drawer from "./ui/Drawer";
+import Popover from "./ui/Popover";
 import { CardLabel } from "./ui/Card";
 
 /**
@@ -12,6 +12,10 @@ import { CardLabel } from "./ui/Card";
  * (deletable) discount line. The Google review link and the "Reply STOP" line are NOT editable
  * here — the server appends them, always, so a client cannot send a broken link or a
  * non-compliant message. One send per caller: once sent, this locks.
+ *
+ * It opens as a window right below the button that asked for it (`ui/Popover`), not as a drawer
+ * from the right (Xander, 2026-11-12). The caller owns placement: it puts its button and this in
+ * one `relative` element and passes the button as `triggerRef`.
  */
 
 interface ContactLike {
@@ -36,6 +40,8 @@ export default function ReviewRequestDialog({
     messagingState = "ready",
     siteSlug,
     onSent,
+    triggerRef,
+    align = "end",
 }: {
     open: boolean;
     onClose: () => void;
@@ -46,6 +52,10 @@ export default function ReviewRequestDialog({
     messagingState?: "ready" | "not-on-plan" | "pending-build" | "connecting";
     siteSlug: string;
     onSent: (contactId: string) => void;
+    /** The "Request a review" button. The popover hangs under it and hands focus back to it. */
+    triggerRef: React.RefObject<HTMLElement | null>;
+    /** `end` under the panel header's row of buttons; `stretch` under the phone sheet's full-width one. */
+    align?: "end" | "stretch";
 }) {
     const defaultBody = useMemo(
         () => (contact ? defaultReviewMessage(contact.displayName, businessName) : ""),
@@ -95,12 +105,31 @@ export default function ReviewRequestDialog({
     }
 
     return (
-        <Drawer open={open} onClose={onClose} title="Request a Google review">
+        <Popover open={open} onClose={onClose} label="Request a Google review" triggerRef={triggerRef} align={align}>
             {contact && (
-                <div className="space-y-5">
-                    <p className="text-sm" style={{ color: "var(--fg-3)" }}>
-                        To {contact.displayName ?? "this caller"} · {contact.phoneDisplay} · sent from your business number
-                    </p>
+                <div className="space-y-4">
+                    <div className="flex items-start gap-2.5">
+                        <div className="flex-1 min-w-0">
+                            <h3
+                                className="m-0 mb-1 text-[15px] font-bold"
+                                style={{ fontFamily: "var(--font-display)", color: "var(--fg)" }}
+                            >
+                                Request a Google review
+                            </h3>
+                            <p className="m-0 text-[12.5px] leading-snug" style={{ color: "var(--fg-2)" }}>
+                                To {contact.displayName ?? "this caller"} · {contact.phoneDisplay} · sent from your business number
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close"
+                            className="portal-hit shrink-0 w-8 h-8 -mr-1 -mt-1 rounded-md flex items-center justify-center cursor-pointer"
+                            style={{ color: "var(--fg-2)" }}
+                        >
+                            ✕
+                        </button>
+                    </div>
 
                     {alreadySent ? (
                         <LockedNote>
@@ -128,7 +157,7 @@ export default function ReviewRequestDialog({
                         <textarea
                             value={body}
                             onChange={(e) => setBody(e.target.value)}
-                            rows={6}
+                            rows={5}
                             disabled={!canSend && !sending}
                             className="mt-2 w-full text-sm rounded-lg border p-3 outline-none"
                             style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
@@ -155,7 +184,7 @@ export default function ReviewRequestDialog({
                     </button>
                 </div>
             )}
-        </Drawer>
+        </Popover>
     );
 }
 

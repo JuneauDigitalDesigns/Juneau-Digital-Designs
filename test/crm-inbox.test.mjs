@@ -316,15 +316,16 @@ test("a lead with no number at all falls back to a readable placeholder", () => 
     assert.equal(item.phoneDisplay, "No number");
 });
 
-test("the two sources carry different notions of read, and different promotion keys", () => {
-    // A lead's read state is stored on the lead itself; a call's lives in a KV set, because
-    // Airtable is not ours to write to. The promotion key follows the item id, so a lead is
-    // `lead:{leadId}` and a call is its bare Airtable record id.
+test("both sources read from one read set, and carry different promotion keys", () => {
+    // Read state for both lives in one KV set keyed by inbox id (`portal-inbox-read.ts`), so
+    // Mark unread works the same on either; a lead's `readAt` is a first-seen stamp and is not
+    // read. The promotion key follows the item id, so a lead is `lead:{leadId}` and a call is
+    // its bare Airtable record id.
     const items = buildInbox({
         calls: [call({ id: "recRead", callerNumber: "+19305559999" })],
         leads: [lead({ leadId: "Lread", readAt: at(-MIN) })],
         promoted: new Set(["lead:Lread"]),
-        readCallIds: new Set(["recRead"]),
+        readIds: new Set(["recRead", "lead:Lread"]),
     });
 
     const form = items.find((i) => i.source === "web-form");
@@ -373,7 +374,7 @@ function mixedInbox() {
         ],
         leads: [lead({ leadId: "Lform", phone: "+19305553333", phoneRaw: null, createdAt: at(-10 * MIN), readAt: at(-9 * MIN) })],
         promoted: new Set(["recDone"]),
-        readCallIds: new Set(["recDone"]),
+        readIds: new Set(["recDone", "lead:Lform"]),
     });
 }
 
@@ -723,7 +724,7 @@ test("a run is unread when any call in it is", () => {
     const groups = groupInbox(
         buildInbox({
             calls: [call({ id: "recSeen", date: at(0) }), call({ id: "recNew", date: at(-MIN) })],
-            readCallIds: new Set(["recSeen"]),
+            readIds: new Set(["recSeen"]),
         }),
     );
 

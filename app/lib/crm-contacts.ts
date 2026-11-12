@@ -153,13 +153,17 @@ export function buildInbox({
     leads = [],
     promoted = new Set<string>(),
     archived = new Set<string>(),
-    readCallIds = new Set<string>(),
+    readIds = new Set<string>(),
 }: {
     calls: CallRecord[];
     leads?: WebLeadLike[];
     promoted?: Set<string>;
     archived?: Set<string>;
-    readCallIds?: Set<string>;
+    /**
+     * Inbox ids the client has opened (`portal-inbox-read.ts`), for both sources. A lead's own
+     * `readAt` is a first-seen stamp that Mark unread could not take back, so it is not read here.
+     */
+    readIds?: Set<string>;
 }): InboxItem[] {
     // Index leads by number so pairing only ever considers rows that share a contact identity.
     const leadsByPhone = new Map<string, WebLeadLike[]>();
@@ -234,7 +238,7 @@ export function buildInbox({
             email: lead.email,
             preview: lead.message,
             at: lead.createdAt,
-            read: lead.readAt !== null,
+            read: readIds.has(id),
             promoted: promoted.has(id),
             archived: archived.has(id),
             durationSeconds: null,
@@ -266,7 +270,7 @@ export function buildInbox({
             email: call.email,
             preview: call.summary,
             at: call.date,
-            read: readCallIds.has(call.id),
+            read: readIds.has(call.id),
             promoted: promoted.has(call.id),
             archived: archived.has(call.id),
             durationSeconds: call.durationSeconds,

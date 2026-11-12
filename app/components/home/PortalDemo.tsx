@@ -40,6 +40,7 @@ import {
     DEMO_INBOX,
     DEMO_LEAD,
     DEMO_REVIEW,
+    DEMO_REVIEW_NOTE,
     DEMO_SMS,
     DEMO_STEPS,
     DEMO_TIMES,
@@ -47,6 +48,7 @@ import {
     type DemoCard,
     type WorkingStage,
 } from "@/app/data/portal-demo";
+import { createDemoClock, type DemoClock } from "./demo-clock";
 import s from "./PortalDemo.module.css";
 
 /**
@@ -81,6 +83,19 @@ import s from "./PortalDemo.module.css";
  *     card never covers what it is explaining.
  *   - Reduced motion steps through finished frames instead of playing, each with its card
  *     waiting for Next, and the camera cuts.
+ *
+ * Since 12 Nov 2026 (Xander):
+ *   - A click anywhere on the window pauses it, and the next click resumes it from exactly where
+ *     it was: every pause in the script is a wait on a pausable clock (`demo-clock.ts`), the CSS
+ *     animations hold through `.paused`, and the camera, cursor, drawer and dragged card are
+ *     frozen mid-move (`freeze`). The play and pause button under the window went; the step
+ *     rail is the only control there.
+ *   - The camera keeps the tour card's band at the bottom of the window the whole time, not just
+ *     while a card is up. It used to drop to make room for each card and climb back after it,
+ *     which read as the page scrolling for no reason between actions.
+ *   - Before the first play the window shows step 1's own framing, not the whole canvas.
+ *   - The Review step adds a second card on the message box once the drawer opens
+ *     (`DEMO_REVIEW_NOTE`), and the hold before the closing screen is about 1.4s, down from 3.8s.
  */
 
 /* ── the world the film draws ───────────────────────────────────────────── */
@@ -229,6 +244,8 @@ function readMs(i: number): number {
     const words = (st.caption + (st.gated ? ` ${CARRIER_LINE}` : "")).split(/\s+/).length;
     return Math.min(7600, Math.max(4200, 1800 + words * 240));
 }
+/** The same reading time for the Review step's second card. */
+const NOTE_MS = Math.min(7600, Math.max(4200, 1800 + DEMO_REVIEW_NOTE.split(/\s+/).length * 240));
 
 const SHOT = {
     inboxList: { wide: [{ f: "inbox-list" }], narrow: [{ f: "row-robert", w: 430 }, { f: "row-linda", w: 430 }], pad: 18 },
@@ -249,6 +266,9 @@ const SHOT = {
     review: { wide: [{ f: "reviewbody" }], narrow: [{ f: "reviewbody" }], pad: 12 },
 } satisfies Record<string, Shot>;
 
+/** What the window shows before the first play: step 1's opening shot, not the whole canvas. */
+const POSTER_SHOT: Shot = SHOT.inboxList;
+
 /** Where the camera is when a step is started on its own, so it never opens on a shot meant
  *  for another page (a record shot over the board is the whole canvas, zoomed right out). */
 const START_SHOT: Shot[] = [SHOT.inboxList, SHOT.leadPromote, SHOT.board, SHOT.recordStage, SHOT.recordHead];
@@ -263,7 +283,9 @@ const STATIC_SHOT: Shot[] = [SHOT.leadBody, SHOT.promote, SHOT.recordStage, SHOT
 /** Where each step stops while playing, and what the camera frames when it does. */
 const BEAT: { f: string; shot: Shot }[] = [
     { f: "row-robert", shot: SHOT.inboxList },
-    { f: "promote", shot: SHOT.promote },
+    /* The drawer as step 1 left it, not a closer shot of Promote: with the card's band kept,
+       Promote is already in frame, and the extra move read as a scroll (12 Nov 2026). */
+    { f: "promote", shot: SHOT.leadPromote },
     { f: "card-robert", shot: SHOT.board },
     { f: "composer", shot: SHOT.composer },
     { f: "reviewbtn", shot: SHOT.recordHead },
@@ -276,6 +298,8 @@ interface Tour {
     vp: { x: number; y: number; w: number; h: number };
     /** Auto-advance time for the card's timer bar; 0 on a finished frame, which waits for Next. */
     ms: number;
+    /** The Review step's second card, on the message box: `DEMO_REVIEW_NOTE` in place of the caption. */
+    note?: boolean;
 }
 
 /** Run `fn` on the next frame, or after 60ms if no frame comes (a background tab draws none). */
@@ -295,6 +319,21 @@ function afterFrame(fn: () => void): () => void {
     };
 }
 
+/** Puts back what `freeze` pinned: the element's own transition, then where it was going. */
+function restoreFrozen(
+    f: { el: HTMLElement; left: string; top: string; transition: string },
+    transform: string,
+    position: boolean,
+) {
+    void f.el.offsetWidth;
+    f.el.style.transition = f.transition;
+    f.el.style.transform = transform;
+    if (position) {
+        f.el.style.left = f.left;
+        f.el.style.top = f.top;
+    }
+}
+
 /* ── component ──────────────────────────────────────────────────────────── */
 
 type Run = "idle" | "playing" | "paused" | "done";
@@ -309,6 +348,13 @@ export default function PortalDemo() {
     const [world, setWorld] = useState<World>(BASE);
     const [step, setStep] = useState(0);
     const [run, setRun] = useState<Run>("idle");
+    /** Paused by a click on the window, mid-run. `run` stays "playing", so the step bar keeps its
+     *  place; `.paused` holds every CSS animation and the clock holds the script. */
+    const [paused, setPaused] = useState(false);
+    /** The running script's clock. A new run cancels the old one. */
+    const clockRef = useRef<DemoClock | null>(null);
+    /** Inline styles the freeze overwrote, to put back on resume. */
+    const frozen = useRef<{ el: HTMLElement; transform: string; left: string; top: string; transition: string }[]>([]);
 
     /** Cuts every camera and drawer move to zero for a frame, when a step is rebuilt or the
      *  frame resizes. A class on the root rather than state, so it needs no render. */
@@ -332,7 +378,7 @@ export default function PortalDemo() {
     const popRef = useRef<HTMLDivElement>(null);
     const [tour, setTour] = useState<Tour | null>(null);
     /** What the card is showing, so a resize can put it back in the right place. */
-    const tourAt = useRef<{ i: number; f: string; ms: number } | null>(null);
+    const tourAt = useRef<{ i: number; f: string; ms: number; note?: boolean } | null>(null);
     /** Continues a playing film from its current card; null when nothing is waiting on one. */
     const tourNext = useRef<(() => void) | null>(null);
 
@@ -367,7 +413,9 @@ export default function PortalDemo() {
      * that reads as more page, not as a gap).
      */
     const look = useCallback(
-        (shot: Shot, reserve = 0) => {
+        /* The card's band is reserved by default, on every shot, card or no card: a band that
+           came and went with the card moved the camera twice per card (12 Nov 2026). */
+        (shot: Shot, reserve = RESERVE.wide) => {
             const vp = viewportRef.current;
             const canvas = canvasRef.current;
             if (!vp || !canvas) return;
@@ -431,12 +479,12 @@ export default function PortalDemo() {
      * Positioned by hand after a synchronous commit rather than from an effect: it needs the
      * card's own rendered height to choose between below and above the subject.
      */
-    const showTour = useCallback((i: number, f: string, ms: number) => {
+    const showTour = useCallback((i: number, f: string, ms: number, note = false) => {
         const vpEl = viewportRef.current;
         const frameEl = frameRef.current;
         const box = rectOf({ f });
         if (!vpEl || !frameEl || !box) return;
-        tourAt.current = { i, f, ms };
+        tourAt.current = { i, f, ms, note };
         const v = vpEl.getBoundingClientRect();
         const fr = frameEl.getBoundingClientRect();
         // From the camera's destination, not the live layout: measured mid-zoom (a slow
@@ -444,7 +492,7 @@ export default function PortalDemo() {
         const { x: cx, y: cy, k } = cam.current;
         const spot = { x: cx + box.x * k, y: cy + box.y * k, w: box.w * k, h: box.h * k };
         const vp = { x: v.left - fr.left, y: v.top - fr.top, w: v.width, h: v.height };
-        flushSync(() => setTour({ i, spot, vp, ms }));
+        flushSync(() => setTour({ i, spot, vp, ms, note }));
 
         const pop = popRef.current;
         if (!pop) return;
@@ -504,16 +552,52 @@ export default function PortalDemo() {
         cursorRef.current?.setAttribute("data-click", "false");
     }, []);
 
+    /**
+     * Holds the moving parts the clock cannot: a camera, cursor, drawer or dragged card caught
+     * mid-transition is pinned where it is on screen right now, and `thaw` sends it on to where
+     * it was going. Without this a paused film finished its last camera move before holding.
+     */
+    const freeze = useCallback(() => {
+        const canvas = canvasRef.current;
+        const els = [
+            canvas,
+            cursorRef.current,
+            canvas?.querySelector<HTMLElement>(`.${s.drawer}`),
+            canvas?.querySelector<HTMLElement>('[data-flip="me"]'),
+        ].filter((el): el is HTMLElement => !!el);
+        frozen.current = els.map((el) => {
+            const cs = getComputedStyle(el);
+            const saved = { el, transform: el.style.transform, left: el.style.left, top: el.style.top, transition: el.style.transition };
+            el.style.transition = "none";
+            el.style.transform = cs.transform === "none" ? "" : cs.transform;
+            if (el === cursorRef.current) {
+                el.style.left = cs.left;
+                el.style.top = cs.top;
+            }
+            return saved;
+        });
+    }, []);
+    const thaw = useCallback(() => {
+        const list = frozen.current;
+        frozen.current = [];
+        // The camera goes where it is aimed now, which a resize while paused may have changed.
+        const camera = `translate(${cam.current.x}px, ${cam.current.y}px) scale(${cam.current.k})`;
+        for (const f of list) restoreFrozen(f, f.el === canvasRef.current ? camera : f.transform, f.el === cursorRef.current);
+    }, []);
+
     /* ── the script ──────────────────────────────────────────────────────── */
 
     const play = useCallback(
         async (from: number) => {
             const my = ++token.current;
-            /** Every pause in the script. Rejects once anything newer has started. */
+            clockRef.current?.cancel();
+            const clock = createDemoClock();
+            clockRef.current = clock;
+            /** Every pause in the script, on the pausable clock. Rejects once anything newer has started. */
             const wait = (ms: number) =>
-                new Promise<void>((res, rej) =>
-                    setTimeout(() => (my === token.current ? res() : rej(new Error("cancelled"))), ms),
-                );
+                clock.wait(ms).then(() => {
+                    if (my !== token.current) throw new Error("cancelled");
+                });
             /** A frame for layout and transitions to start from; timer-backed so a background tab cannot stall it. */
             const frame = () =>
                 new Promise<void>((res, rej) => {
@@ -565,26 +649,27 @@ export default function PortalDemo() {
              * the card shows once the camera has arrived, and the film moves on when the
              * reading time runs out or Next is pressed, whichever is first.
              */
+            /** Hold on a card until its reading time runs out (paused time not counted) or Next. */
+            const hold = async (i: number, f: string, ms: number, note = false) => {
+                showTour(i, f, ms, note);
+                setHeld(true);
+                await Promise.race([
+                    clock.wait(ms),
+                    new Promise<void>((res) => {
+                        tourNext.current = res;
+                    }),
+                ]);
+                tourNext.current = null;
+                if (my !== token.current) throw new Error("cancelled");
+                setHeld(false);
+                hideTour();
+                await wait(250);
+            };
             const beat = async (i: number) => {
                 const { f, shot } = BEAT[i];
                 look(shot, narrow() ? RESERVE.narrow : RESERVE.wide);
                 await wait(1050);
-                const ms = readMs(i);
-                showTour(i, f, ms);
-                setHeld(true);
-                await new Promise<void>((res, rej) => {
-                    const go = () => {
-                        clearTimeout(t);
-                        tourNext.current = null;
-                        if (my === token.current) res();
-                        else rej(new Error("cancelled"));
-                    };
-                    const t = setTimeout(go, ms);
-                    tourNext.current = go;
-                });
-                setHeld(false);
-                hideTour();
-                await wait(250);
+                await hold(i, f, readMs(i));
             };
 
             const SCRIPT: (() => Promise<void>)[] = [
@@ -603,13 +688,13 @@ export default function PortalDemo() {
                     await click();
                     commit({ leadRead: true, drawer: "lead", hoverRow: null });
                     await wait(300);
-                    look(SHOT.leadBody);
+                    // The shot step 2 stops on, so its card arrives without the camera moving.
+                    look(SHOT.leadPromote);
                     await wait(2200);
                 },
                 // 2 · promoted: the record opens with the call pinned, then back to the board
                 async () => {
                     await beat(1);
-                    look(SHOT.promote);
                     pointAt("promote");
                     await wait(900);
                     await click();
@@ -694,7 +779,9 @@ export default function PortalDemo() {
                     commit({ drawer: "review" });
                     await wait(300);
                     look(SHOT.review);
-                    await wait(2200);
+                    await wait(700);
+                    // The written message is the owner's to change: say so on the box itself.
+                    await hold(4, "reviewmsg", NOTE_MS, true);
                     pointAt("sendreview");
                     await wait(900);
                     await click();
@@ -711,7 +798,7 @@ export default function PortalDemo() {
                     // The button and the new row together: what was sent, and where it is kept.
                     look(SHOT.reviewDone);
                     pointAt("reviewbtn", 0.5, 1.7);
-                    await wait(2600);
+                    await wait(900);
                 },
             ];
 
@@ -719,6 +806,9 @@ export default function PortalDemo() {
                 setRunId(my);
                 setHeld(false);
                 setClosing(false);
+                setPaused(false);
+                // Started over from a paused frame: give back the transitions the freeze took.
+                thaw();
                 hideTour();
                 setRun("playing");
                 setStep(from);
@@ -732,8 +822,9 @@ export default function PortalDemo() {
                     setStep(i);
                     await SCRIPT[i]();
                 }
-                // The beat: the last frame holds, the cursor leaves, then the close.
-                await wait(1200);
+                // The beat: the last frame holds, the cursor leaves, then the close. About 1.4s in
+                // all with the step's own 900ms; it was 3.8s and read as a lag (12 Nov 2026).
+                await wait(500);
                 hideCursor();
                 setRun("done");
                 setClosing(true);
@@ -741,13 +832,17 @@ export default function PortalDemo() {
                 // Cancelled by a newer run, a pause or an unmount. Whoever cancelled owns the state.
             }
         },
-        [commit, cut, hideCursor, hideTour, look, pointAt, settle, showTour],
+        [commit, cut, hideCursor, hideTour, look, pointAt, settle, showTour, thaw],
     );
 
     /** The finished frame of a step, with no motion. Reduced motion only ever shows these. */
     const show = useCallback(
         (i: number) => {
             token.current++;
+            clockRef.current?.cancel();
+            clockRef.current = null;
+            setPaused(false);
+            thaw();
             cut(true);
             setStep(i);
             setRun(i === DEMO_STEPS.length - 1 ? "done" : "paused");
@@ -764,18 +859,21 @@ export default function PortalDemo() {
                 showTour(i, STATIC_TARGET[i], 0);
             });
         },
-        [commit, cut, hideCursor, look, settle, showTour],
+        [commit, cut, hideCursor, look, settle, showTour, thaw],
     );
 
-    // First framing, once the frame has a size. Nothing plays until someone presses Start.
+    // First framing, once the frame has a size. Nothing plays until someone presses Start. The
+    // poster is step 1's own shot, so pressing play does not move the camera (12 Nov 2026: it
+    // used to be the whole canvas, which read as zoomed out, then jumped in on play).
     useEffect(() => {
-        return afterFrame(() => look("all"));
+        return afterFrame(() => look(POSTER_SHOT));
     }, [look]);
 
     // Anything still running stops with the component.
     useEffect(
         () => () => {
             token.current++;
+            clockRef.current?.cancel();
         },
         [],
     );
@@ -790,7 +888,7 @@ export default function PortalDemo() {
             afterFrame(() => {
                 cut(false);
                 const t = tourAt.current;
-                if (t) showTour(t.i, t.f, t.ms);
+                if (t) showTour(t.i, t.f, t.ms, t.note);
             });
         });
         ro.observe(vp);
@@ -803,7 +901,11 @@ export default function PortalDemo() {
         else void play(i);
     }
     function onTourNext() {
-        if (tourNext.current) return tourNext.current();
+        if (tourNext.current) {
+            // Next on a paused film moves it on, so it plays again too.
+            if (paused) togglePause();
+            return tourNext.current();
+        }
         const i = tour?.i ?? step;
         if (i >= DEMO_STEPS.length - 1) {
             hideTour();
@@ -813,33 +915,28 @@ export default function PortalDemo() {
         }
         start(i + 1);
     }
-    function onPlayButton() {
-        if (run === "idle" || closing) return start(0);
-        if (reduce) return show(Math.min(step + 1, DEMO_STEPS.length - 1));
-        if (run === "playing") {
-            token.current++;
-            setRun("paused");
-            return;
+    /** A click on the window: pause where it is, or carry on from exactly there. */
+    function togglePause() {
+        const clock = clockRef.current;
+        if (!clock || clock.cancelled || run !== "playing") return;
+        if (clock.paused) {
+            thaw();
+            clock.resume();
+            setPaused(false);
+        } else {
+            clock.pause();
+            freeze();
+            setPaused(true);
         }
-        void play(run === "done" ? 0 : step);
     }
 
     const idle = run === "idle";
-    const playLabel = idle
-        ? "Play the demo"
-        : closing
-          ? "Replay"
-          : reduce
-          ? "Next step"
-          : run === "playing"
-            ? "Pause"
-            : run === "done"
-              ? "Replay"
-              : "Play";
+    /** The window is a pause button while a film is running, and only then. */
+    const pausable = !reduce && run === "playing" && !closing;
 
     return (
-        <div ref={rootRef} className={`${s.demo} ${reduce ? s.reduced : ""}`}>
-            <div ref={frameRef} className={s.frame}>
+        <div ref={rootRef} className={`${s.demo} ${reduce ? s.reduced : ""} ${paused ? s.paused : ""}`}>
+            <div ref={frameRef} className={s.frame} data-pausable={pausable || undefined}>
                 {/* The film is decorative: the narration below says what each frame shows, and
                     is what a screen reader gets. Nothing in the window is focusable. The start
                     button sits beside the window rather than in it, so it is not inside
@@ -889,6 +986,24 @@ export default function PortalDemo() {
                         </div>
                     </div>
                 </div>
+                {/* Click to pause (12 Nov 2026): over the whole window, under the tour card, so a
+                    click anywhere but the card's Next pauses the film and the next click carries
+                    on from there. A real button beside the aria-hidden window, so it is reachable
+                    by keyboard and says what it will do. */}
+                {pausable && (
+                    <button
+                        type="button"
+                        className={s.toggle}
+                        onClick={togglePause}
+                        aria-label={paused ? "Play" : "Pause"}
+                        aria-pressed={paused}
+                        title={paused ? "Play" : "Pause"}
+                    >
+                        <span className={s.toggleIcon} aria-hidden="true">
+                            {paused ? <Play size={18} weight="fill" /> : <Pause size={18} weight="fill" />}
+                        </span>
+                    </button>
+                )}
                 {/* The tour card, over the window but outside its aria-hidden subtree, so its
                     Next button is reachable and its words are announced. */}
                 <div
@@ -904,14 +1019,16 @@ export default function PortalDemo() {
                             />
                             <div ref={popRef} className={s.pop} key={`${tour.i}-${runId}`}>
                                 <p className={s.popTitle}>{DEMO_STEPS[tour.i].short}</p>
-                                <p className={s.popBody}>{DEMO_STEPS[tour.i].caption}</p>
-                                {DEMO_STEPS[tour.i].gated && <p className={s.popGate}>{CARRIER_LINE}</p>}
+                                <p className={s.popBody}>{tour.note ? DEMO_REVIEW_NOTE : DEMO_STEPS[tour.i].caption}</p>
+                                {!tour.note && DEMO_STEPS[tour.i].gated && <p className={s.popGate}>{CARRIER_LINE}</p>}
                                 <div className={s.popFoot}>
                                     <span className={s.popCount}>
                                         {tour.i + 1} of {DEMO_STEPS.length}
                                     </span>
                                     <button type="button" className={s.popNext} onClick={onTourNext}>
-                                        {tour.i === DEMO_STEPS.length - 1 ? "Done" : "Next"}
+                                        {/* "Done" only where nothing follows: the Review step's
+                                            finished frame, or its second card while playing. */}
+                                        {tour.i === DEMO_STEPS.length - 1 && (tour.note || tour.ms === 0) ? "Done" : "Next"}
                                     </button>
                                 </div>
                                 {tour.ms > 0 && run === "playing" && (
@@ -943,7 +1060,7 @@ export default function PortalDemo() {
                 )}
                 {idle && (
                     <div className={s.startGate}>
-                        {/* Icon only: "See how the whole system works", just above the window, is the
+                        {/* Icon only: "See where every lead lands", just above the window, is the
                             words for it. */}
                         <button type="button" className={s.startBtn} onClick={() => start(0)} aria-label="Play the demo" title="Play the demo">
                             <Play size={30} weight="fill" aria-hidden="true" />
@@ -954,23 +1071,10 @@ export default function PortalDemo() {
 
             {/* Under the window since 9 Nov 2026 (Xander's layout): the window comes first, so the
                 cue above the section points straight at it, and the steps read as the film's
-                progress rather than a menu in front of it. Each can still be picked. */}
+                progress rather than a menu in front of it. Each can still be picked. The play and
+                pause button that sat left of them went on 12 Nov 2026 (Xander): the window itself
+                pauses now, and the start button and closing screen cover play and replay. */}
             <div className={s.controls}>
-                <button type="button" className={s.play} onClick={onPlayButton} aria-label={playLabel} title={playLabel}>
-                    {idle ? (
-                        <Play size={16} weight="fill" />
-                    ) : closing ? (
-                        <ArrowCounterClockwise size={16} weight="bold" />
-                    ) : reduce ? (
-                        <CaretRight size={16} weight="bold" />
-                    ) : run === "playing" ? (
-                        <Pause size={16} weight="fill" />
-                    ) : run === "done" ? (
-                        <ArrowCounterClockwise size={16} weight="bold" />
-                    ) : (
-                        <Play size={16} weight="fill" />
-                    )}
-                </button>
                 <div className={s.steps} role="group" aria-label="Demo steps">
                     {DEMO_STEPS.map((st, i) => {
                         const state = idle
@@ -1747,7 +1851,7 @@ function ReviewDrawer({ w }: { w: World }) {
                 </p>
                 <div>
                     <Label>Message</Label>
-                    <div className="mt-2 w-full text-sm rounded-lg border p-3 min-h-[132px] leading-relaxed" style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}>
+                    <div data-f="reviewmsg" className="mt-2 w-full text-sm rounded-lg border p-3 min-h-[132px] leading-relaxed" style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}>
                         {DEMO_REVIEW}
                     </div>
                     <p className="mt-2 text-xs" style={{ color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}>

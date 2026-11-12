@@ -4,7 +4,7 @@ import { Check, CheckCircle, Clock, Phone } from "@phosphor-icons/react";
 import { duration } from "@/app/lib/duration";
 import type { InboxItem } from "@/app/lib/crm-contacts";
 import { Chip, Mini, StatusChip, kindLabel, recordingLength } from "./chips";
-import { rowWhen, type InboxRow, type InboxSectionGroup } from "./model";
+import { rowIsUnread, rowWhen, rowWhenWide, type InboxRow, type InboxSectionGroup } from "./model";
 import SwipeRow from "./SwipeRow";
 import { KeysBar } from "./ShortcutHelp";
 
@@ -14,6 +14,14 @@ import { KeysBar } from "./ShortcutHelp";
  * Rows render twice, once per layout, and CSS picks one (`lg:` is the split view's 1024px).
  * A desktop row has a checkbox and hover actions; a phone row is a bigger, swipeable target
  * with neither. Branching in CSS rather than on `useMediaQuery` keeps the server HTML right.
+ *
+ * A desktop row has two shapes (Xander, 2026-11-12, "more like an email inbox"). With no record
+ * open the list has the full width and each row is one line, as Gmail's are: name, status, the
+ * message, the call details and the time. With a record open the list narrows and the row goes
+ * back to the stacked shape the split view has always had.
+ *
+ * Bold and the blue dot mean unread: not yet opened. Needs you is carried by the status chip and
+ * the view, as before; the two are different questions (`isNeedsYou` ignores read state).
  */
 
 export function dialNumber(item: InboxItem): string | null {
@@ -24,6 +32,8 @@ export function dialNumber(item: InboxItem): string | null {
 export default function InboxList({
     sections,
     selectedRowId,
+    cursorRowId,
+    wide,
     checked,
     onToggleCheck,
     onOpen,
@@ -35,6 +45,10 @@ export default function InboxList({
 }: {
     sections: InboxSectionGroup[];
     selectedRowId: string | null;
+    /** The keyboard marker (↑ ↓ with no record open). Shown only when it is not the open row. */
+    cursorRowId: string | null;
+    /** No record open: the list has the full width and rows are one line. */
+    wide: boolean;
     checked: Set<string>;
     onToggleCheck: (rowId: string) => void;
     onOpen: (row: InboxRow) => void;
@@ -69,6 +83,8 @@ export default function InboxList({
                                     <DesktopRow
                                         row={row}
                                         selected={row.id === selectedRowId}
+                                        cursor={row.id === cursorRowId && row.id !== selectedRowId}
+                                        wide={wide}
                                         checked={checked.has(row.id)}
                                         onToggleCheck={() => onToggleCheck(row.id)}
                                         onOpen={() => onOpen(row)}
@@ -98,12 +114,12 @@ function displayName(item: InboxItem): string {
     return item.name ?? item.phoneDisplay;
 }
 
-/** Kind, recording, run size and callback — the mono chips under a row. */
-function Minis({ row }: { row: InboxRow }) {
+/** Kind, recording, run size and callback: the mono chips under a row, or inline when wide. */
+function Minis({ row, inline = false }: { row: InboxRow; inline?: boolean }) {
     const item = row.lead;
     const rec = recordingLength(item);
     return (
-        <span className="flex flex-wrap gap-1.5 items-center mt-0.5">
+        <span className={`flex gap-1.5 items-center ${inline ? "flex-nowrap" : "flex-wrap mt-0.5"}`}>
             <Mini>{kindLabel(item)}</Mini>
             {row.count > 1 && <Mini>{row.count} calls</Mini>}
             {rec && <Mini>▶ {rec}</Mini>}
@@ -112,19 +128,52 @@ function Minis({ row }: { row: InboxRow }) {
     );
 }
 
-function Dot({ on }: { on: boolean }) {
+/** The unread dot. "Unread" is spoken; the dot alone would say nothing to a screen reader. */
+function Dot({ on, className = "mt-1.5" }: { on: boolean; className?: string }) {
     return (
         <span
-            aria-hidden="true"
-            className="shrink-0 w-2 h-2 rounded-full mt-1.5"
+            className={`relative shrink-0 w-2 h-2 rounded-full ${className}`}
             style={{ background: on ? "var(--accent)" : "transparent" }}
-        />
+        >
+            {on && <span className="sr-only">Unread</span>}
+        </span>
     );
 }
+
+/**
+ * Ink for a row's text by read state. Unread lifts the message to `--fg` and the time to `--fg`
+ * at 500, the way a mail client does; read sits at `--fg-2` / `--fg-3`. Every pair clears AA on
+ * the white row, the hover wash and the selected tint (`--fg-3` is the floor: 5.38 / 4.62+).
+ */
+function ink(unread: boolean) {
+    return {
+        name: { color: "var(--fg)", fontWeight: unread ? 700 : 500 },
+        preview: { color: unread ? "var(--fg)" : "var(--fg-2)" },
+        time: {
+            fontFamily: "var(--font-mono)",
+            color: unread ? "var(--fg)" : "var(--fg-3)",
+            fontWeight: unread ? 500 : 400,
+        },
+    };
+}
+
+/**
+ * The selected row: an 8% accent tint, a 3px accent edge and the name in accent, stronger than
+ * the old 6% so the open record's row is unmistakable. 8% is the ceiling for the accent name:
+ * `--accent` on the opaque 8% mix is 4.65:1 (the chips measure the same pair); at 10% it would
+ * fall to about 4.50. The keyboard marker on its own is the edge alone, in `--fg-3`.
+ */
+const SELECTED = {
+    background: "color-mix(in srgb, var(--accent) 8%, var(--elev-1))",
+    boxShadow: "inset 3px 0 0 var(--accent)",
+};
+const CURSOR = { boxShadow: "inset 3px 0 0 var(--fg-3)" };
 
 function DesktopRow({
     row,
     selected,
+    cursor,
+    wide,
     checked,
     onToggleCheck,
     onOpen,
@@ -135,6 +184,8 @@ function DesktopRow({
 }: {
     row: InboxRow;
     selected: boolean;
+    cursor: boolean;
+    wide: boolean;
     checked: boolean;
     onToggleCheck: () => void;
     onOpen: () => void;
@@ -146,61 +197,93 @@ function DesktopRow({
     const item = row.lead;
     const name = displayName(item);
     const dial = dialNumber(item);
-    const open = row.status === "needs";
+    const unread = rowIsUnread(row);
+    const t = ink(unread);
+    const nameStyle = selected ? { ...t.name, color: "var(--accent)" } : t.name;
+    const hideOnHover = "group-hover:invisible group-focus-within:invisible";
+
+    const checkbox = (
+        <button
+            type="button"
+            role="checkbox"
+            aria-checked={checked}
+            aria-label={`Select ${name}`}
+            onClick={onToggleCheck}
+            className={`shrink-0 w-4 h-4 rounded flex items-center justify-center border-[1.5px] cursor-pointer ${wide ? "" : "mt-0.5"}`}
+            style={
+                checked
+                    ? { background: "var(--accent)", borderColor: "var(--accent)", color: "var(--on-accent)" }
+                    : { background: "var(--elev-1)", borderColor: "rgba(13,17,23,0.45)" }
+            }
+        >
+            {checked && <Check size={10} weight="bold" />}
+        </button>
+    );
+
+    // Clicking the open row again closes it (the parent decides, from `rowClick`).
+    const openProps = {
+        type: "button" as const,
+        onClick: onOpen,
+        "aria-current": selected ? ("true" as const) : undefined,
+        "aria-expanded": selected,
+    };
+
     return (
         <div
             data-row-id={row.id}
-            className="group hidden lg:flex relative items-start gap-2.5 py-[11px] pr-3.5 pl-2.5 transition-colors hover:bg-[var(--surface)]"
-            style={
-                selected
-                    ? {
-                          background: "color-mix(in srgb, var(--accent) 6%, var(--elev-1))",
-                          boxShadow: "inset 3px 0 0 var(--accent)",
-                      }
-                    : undefined
-            }
+            className={`group hidden lg:flex relative gap-2.5 pr-3.5 pl-2.5 transition-colors hover:bg-[var(--surface)] ${
+                wide ? "items-center py-2.5" : "items-start py-[11px]"
+            }`}
+            style={selected ? SELECTED : cursor ? CURSOR : undefined}
         >
-            <button
-                type="button"
-                role="checkbox"
-                aria-checked={checked}
-                aria-label={`Select ${name}`}
-                onClick={onToggleCheck}
-                className="shrink-0 mt-0.5 w-4 h-4 rounded flex items-center justify-center border-[1.5px] cursor-pointer"
-                style={
-                    checked
-                        ? { background: "var(--accent)", borderColor: "var(--accent)", color: "var(--on-accent)" }
-                        : { background: "var(--elev-1)", borderColor: "rgba(13,17,23,0.45)" }
-                }
-            >
-                {checked && <Check size={10} weight="bold" />}
-            </button>
-            <Dot on={open} />
-            <button
-                type="button"
-                onClick={onOpen}
-                aria-current={selected ? "true" : undefined}
-                className="flex-1 min-w-0 flex flex-col gap-[3px] text-left cursor-pointer"
-            >
-                <span className="flex items-center gap-2 text-[13.5px] min-w-0">
-                    <strong className="truncate" style={{ color: "var(--fg)", fontWeight: open ? 700 : 600 }}>
+            {checkbox}
+            <Dot on={unread} className={wide ? "" : "mt-1.5"} />
+            {wide ? (
+                /* One line. Fixed columns, so names, chips and messages line up down the list
+                   the way a mail client's do; the call details join at xl, where there is room. */
+                <button
+                    {...openProps}
+                    className="flex-1 min-w-0 grid items-center gap-3.5 text-left cursor-pointer text-[13.5px] lg:grid-cols-[150px_150px_minmax(0,1fr)_96px] xl:grid-cols-[190px_160px_minmax(0,1fr)_auto_112px]"
+                >
+                    <strong className="truncate" style={nameStyle}>
                         {name}
                     </strong>
-                    <StatusChip row={row} item={item} now={now} />
-                    <span
-                        className="ml-auto shrink-0 text-[11px] group-hover:invisible group-focus-within:invisible"
-                        style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}
-                    >
-                        {rowWhen(row.at, now)}
+                    <span className="min-w-0 flex">
+                        <StatusChip row={row} item={item} now={now} />
                     </span>
-                </span>
-                <span className="truncate text-[12.5px]" style={{ color: "var(--fg-2)" }}>
-                    {item.preview ?? "No message"}
-                </span>
-                <Minis row={row} />
-            </button>
+                    <span className="truncate text-[13px]" style={t.preview}>
+                        {item.preview ?? "No message"}
+                    </span>
+                    <span className="hidden xl:flex">
+                        <Minis row={row} inline />
+                    </span>
+                    <span className={`text-right text-[11.5px] whitespace-nowrap ${hideOnHover}`} style={t.time}>
+                        {rowWhenWide(row.at, now)}
+                    </span>
+                </button>
+            ) : (
+                <button {...openProps} className="flex-1 min-w-0 flex flex-col gap-[3px] text-left cursor-pointer">
+                    <span className="flex items-center gap-2 text-[13.5px] min-w-0">
+                        <strong className="truncate" style={nameStyle}>
+                            {name}
+                        </strong>
+                        <StatusChip row={row} item={item} now={now} />
+                        <span className={`ml-auto shrink-0 text-[11px] ${hideOnHover}`} style={t.time}>
+                            {rowWhen(row.at, now)}
+                        </span>
+                    </span>
+                    <span className="truncate text-[12.5px]" style={t.preview}>
+                        {item.preview ?? "No message"}
+                    </span>
+                    <Minis row={row} />
+                </button>
+            )}
             {/* Hover actions sit where the time was; the row's own button still opens it. */}
-            <span className="absolute right-2.5 top-2 hidden group-hover:flex group-focus-within:flex gap-1">
+            <span
+                className={`absolute right-2.5 hidden group-hover:flex group-focus-within:flex gap-1 ${
+                    wide ? "top-1/2 -translate-y-1/2" : "top-2"
+                }`}
+            >
                 {dial && (
                     <RowAction label="Call back" href={`tel:${dial}`}>
                         <Phone size={14} />
@@ -259,7 +342,8 @@ function PhoneRow({
 }) {
     const item = row.lead;
     const dial = dialNumber(item);
-    const open = row.status === "needs";
+    const unread = rowIsUnread(row);
+    const t = ink(unread);
     return (
         <div className="lg:hidden">
             <SwipeRow
@@ -275,24 +359,21 @@ function PhoneRow({
                     onClick={onOpen}
                     className="w-full min-h-[72px] flex gap-2.5 px-4 py-3 text-left cursor-pointer"
                 >
-                    <Dot on={open} />
+                    <Dot on={unread} />
                     <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
                         <span className="flex items-center gap-2 min-w-0">
-                            <strong className="truncate text-sm" style={{ color: "var(--fg)", fontWeight: open ? 700 : 600 }}>
+                            <strong className="truncate text-sm" style={t.name}>
                                 {displayName(item)}
                             </strong>
                             {row.count > 1 && <Chip tone="pos">{row.count} calls</Chip>}
-                            <span
-                                className="ml-auto shrink-0 text-[11px]"
-                                style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}
-                            >
+                            <span className="ml-auto shrink-0 text-[11px]" style={t.time}>
                                 {rowWhen(row.at, now)}
                             </span>
                         </span>
                         <span>
                             <StatusChip row={row} item={item} now={now} />
                         </span>
-                        <span className="text-[12.5px] leading-snug line-clamp-2" style={{ color: "var(--fg-2)" }}>
+                        <span className="text-[12.5px] leading-snug line-clamp-2" style={t.preview}>
                             {item.preview ?? "No message"}
                         </span>
                     </span>

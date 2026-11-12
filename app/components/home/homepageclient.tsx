@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Info, Browser, Phone, Tray, CaretDown } from "@phosphor-icons/react";
+import { Info, Browser, Phone, Tray, CaretDown, ArrowSquareOut } from "@phosphor-icons/react";
 import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
@@ -11,7 +11,7 @@ import LeadPanel from "./LeadPanel";
 import PortalDemo from "./PortalDemo";
 import ClosingAsk from "./ClosingAsk";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
-import { MISSED_CALLS_ID } from "@/app/data/portal-demo";
+import { MISSED_CALLS_ID, PORTAL_SECTION_ID } from "@/app/data/portal-demo";
 
 /* Prices come from Schedule A, never typed in by hand — the same rule the pricing page
    follows. A number written into marketing copy is a number that can eventually contradict
@@ -143,6 +143,12 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    column, scrolling the growth template (`DemoSiteFrame`). Copy approved word for word,
    9 Nov 2026. The caption that sat under the laptop ("What yours could look like.") went in
    the same pass. */
+
+/* The growth template the laptop's screenshot was captured from. Approved as the "Visit site"
+   target by Xander on 12 Nov 2026. If the screenshot is recaptured from another site, change
+   this with it. */
+const DEMO_SITE_URL = "https://e2etestgrowth.vercel.app";
+
 function WebsiteSection() {
   return (
     <section>
@@ -155,12 +161,19 @@ function WebsiteSection() {
             <p className="home-lede">
               You answer a few questions. We write it, build it and host it. After that, there&apos;s nothing for you to do.
             </p>
-            {/* The promise: the writing, which is what stalls owners for months, and the one
-                thing the line above doesn't already say. */}
-            <p className="home-promise">Written for your trade</p>
+            {/* Points at the laptop below. Replaced "Written for your trade" on 12 Nov 2026,
+                approved by Xander word for word. */}
+            <p className="home-promise">Below is what your site could look like</p>
           </div>
         </JourneyReveal>
         <JourneyReveal delay={1} className="home-stage">
+          {/* The live site the laptop shows (Xander, 12 Nov 2026). */}
+          <p className="home-visit">
+            <a href={DEMO_SITE_URL} target="_blank" rel="noopener noreferrer">
+              Visit site
+              <ArrowSquareOut size={13} weight="bold" aria-hidden="true" />
+            </a>
+          </p>
           <DemoSiteFrame />
         </JourneyReveal>
       </div>
@@ -216,14 +229,17 @@ function ReceptionistSection() {
    Message and Review steps carry CARRIER_LINE in their tour cards. */
 function PortalSection() {
   return (
-    <section className="journey-section portal-section">
+    /* `id` is where the receptionist film's "Show me" lands (12 Nov 2026). */
+    <section id={PORTAL_SECTION_ID} className="journey-section portal-section">
       <JourneyReveal delay={0}>
         {/* Ends the sentence the journey headings make, without a second "Then". */}
         <h2 className="portal-heading">And nothing slips.</h2>
         {/* Not a button: the play button on the window is the one start, and a second one
-            here said the same thing twice. The chevrons point at it. */}
+            here said the same thing twice. The chevrons point at it. "See how the whole system
+            works" until 12 Nov 2026: this is the end piece that ties it together, not the whole
+            system (Xander, approved word for word). */}
         <p className="portal-cue">
-          See how the whole system works
+          See where every lead lands
           <span className="portal-cue-arrows" aria-hidden="true">
             <CaretDown size={18} weight="bold" />
             <CaretDown size={18} weight="bold" />
@@ -626,7 +642,7 @@ const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: 
   {
     Icon: Browser,
     label: "Your website",
-    title: "A custom four-page site",
+    title: "A custom 4+ page site",
     detail: "Home, Services, About and Contact. Hosting, SSL and maintenance included, plus 2 content edits a month.",
   },
   {

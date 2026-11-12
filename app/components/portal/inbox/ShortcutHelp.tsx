@@ -26,8 +26,9 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Approved copy: "j k move · c call · e done · h remind · t text · ? all", less "t text" —
- * texting was taken out of the Inbox (Xander, 2026-11-09).
+ * Approved copy (Xander, 2026-11-12): "↑ ↓ move · c call · e done · h remind · u unread ·
+ * esc close · ? all". It was "j k move · …"; j and k still work, and the ? list says so. No
+ * "t text": texting was taken out of the Inbox (Xander, 2026-11-09).
  */
 export function KeysBar() {
     return (
@@ -36,7 +37,7 @@ export function KeysBar() {
             style={{ borderColor: "var(--rule-weak)", color: "var(--fg-3)", background: "var(--bg)" }}
         >
             <span>
-                <Kbd>j</Kbd> <Kbd>k</Kbd> move
+                <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
             </span>
             <span>
                 <Kbd>c</Kbd> call
@@ -48,22 +49,26 @@ export function KeysBar() {
                 <Kbd>h</Kbd> remind
             </span>
             <span>
+                <Kbd>u</Kbd> unread
+            </span>
+            <span>
+                <Kbd>esc</Kbd> close
+            </span>
+            <span>
                 <Kbd>?</Kbd> all
             </span>
         </div>
     );
 }
 
-/**
- * Every shortcut, on "?". The wording for the three not on the bar ("open", "search",
- * "close") is pending approval and listed in the PR.
- */
+/** Every shortcut, on "?". "mark unread" approved by Xander, 2026-11-12. */
 const ALL: [string[], string][] = [
-    [["j", "k"], "move"],
+    [["↑", "↓", "j", "k"], "move"],
     [["Enter"], "open"],
     [["c"], "call"],
     [["e"], "done"],
     [["h"], "remind"],
+    [["u"], "mark unread"],
     [["/"], "search"],
     [["Esc"], "close"],
 ];

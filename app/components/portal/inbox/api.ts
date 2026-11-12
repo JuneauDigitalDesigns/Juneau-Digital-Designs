@@ -49,6 +49,14 @@ export async function setDone(site: string, ids: string[], done: boolean): Promi
     return Boolean(res?.ok);
 }
 
+/* ── read and unread ──────────────────────────────────────────────────────── */
+
+/** Opening a lead marks its row read; Mark unread sends `read: false`. */
+export async function setRead(site: string, ids: string[], read: boolean): Promise<boolean> {
+    const { res } = await send(`/api/portal/inbox/read${q(site)}`, "POST", { ids, read });
+    return Boolean(res?.ok);
+}
+
 /* ── Remind me ────────────────────────────────────────────────────────────── */
 
 export async function remind(site: string, ids: string[], at: Date): Promise<Result> {

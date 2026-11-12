@@ -20,11 +20,15 @@ import {
     handledThisWeek,
     inboxCounts,
     inboxRows,
+    moveKey,
     neighbourRow,
+    paneOnArrival,
     remindToast,
+    rowClick,
     sectionRows,
     stepRow,
     tomorrowMorning,
+    unreadIds,
     type InboxRow,
 } from "./inbox/model";
 import * as api from "./inbox/api";
@@ -49,6 +53,13 @@ import { ShortcutHelp } from "./inbox/ShortcutHelp";
  * On a phone, opening a lead *pushes* a history entry, so the phone's back gesture closes it
  * instead of leaving the Inbox (as #82 did for customers); on desktop, moving between leads
  * replaces, so j/k does not fill the history.
+ *
+ * **Closer to email** (Xander, 2026-11-12). A computer arrives on the full-width list with
+ * nothing open, as Gmail does; clicking a row opens its record on the right and narrows the
+ * list, and clicking the same row again, Esc or the record's ✕ closes it. ↑ ↓ (or j k) move a
+ * marker while nothing is open and Enter opens it; with a record open they move the record.
+ * Opening marks the row read, saved per account (`/api/portal/inbox/read`), and Mark unread
+ * (u) puts it back.
  */
 
 interface InboxData {
@@ -59,7 +70,7 @@ interface InboxData {
     error?: string;
 }
 
-type Override = Partial<Pick<InboxItem, "archived" | "remindAt">>;
+type Override = Partial<Pick<InboxItem, "archived" | "remindAt" | "read">>;
 
 /** The split view starts where the rail does; below it the layout is the phone one. */
 const DESKTOP = "(min-width: 1024px)";
@@ -102,6 +113,8 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const rawSearch = params.get("q") ?? "";
     const search = rawSearch.trim().toLowerCase();
     const urlOpen = params.get("open") || null;
+    /** The tour points into the open record, so while it runs a computer opens the newest lead. */
+    const touring = params.get("tour") === "1";
 
     /**
      * The clock the list is read against, ticking once a minute: a reminder that comes due
@@ -133,6 +146,8 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     const [deleting, setDeleting] = useState(false);
     /** Set once a remind call 404s, so the controls go away instead of failing again. */
     const [remindGone, setRemindGone] = useState(false);
+    /** The keyboard marker while no record is open: where ↑ ↓ are, and what Enter opens. */
+    const [cursorRowId, setCursorRowId] = useState<string | null>(null);
     const searchRef = useRef<HTMLInputElement>(null);
 
     const all = useMemo(() => {
@@ -155,14 +170,17 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
 
     /**
      * Which lead is on screen. A deep link names one (any status — an archived or promoted lead
-     * still opens, it is just not in the worklist); otherwise the desktop pane shows the top
-     * row, and a phone shows the list alone.
+     * still opens, it is just not in the worklist); otherwise nothing, and the list has the full
+     * width (`paneOnArrival` says why the tour is the exception).
      */
     const linked = inboxItemForDeepLink(all, urlOpen);
-    const selected: InboxItem | null = linked ?? (isDesktop ? (rows[0]?.lead ?? null) : null);
+    const selected: InboxItem | null = linked ?? paneOnArrival(rows, { isDesktop, touring });
     const selectedRow: InboxRow | null = selected
         ? (rows.find((r) => r.items.some((i) => i.id === selected.id)) ?? null)
         : null;
+    /** The desktop record is showing, so the list is narrow. */
+    const paneOpen = isDesktop && selected !== null;
+    const cursorRow = rows.find((r) => r.id === cursorRowId) ?? null;
 
     /* ── the URL ──────────────────────────────────────────────────────────── */
 
@@ -198,6 +216,13 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
         }
     };
 
+    /** Open a row from the list, marking it read on the way: the click is the opening. */
+    const openRow = (row: InboxRow) => {
+        setCursorRowId(row.id);
+        markRead(unreadIds(row), true);
+        openLead(row.lead.id);
+    };
+
     // Closing a lead we opened steps back over the entry `openLead` pushed. One that arrived by
     // deep link (an owner's text) has no list entry behind it to step back to, so it replaces.
     const closeLead = () => {
@@ -208,6 +233,18 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
             return;
         }
         router.replace(href((p) => p.delete("open")), { scroll: false });
+    };
+
+    /** Close the record and leave the keyboard marker on the row it came from. */
+    const closePane = () => {
+        if (selectedRow) setCursorRowId(selectedRow.id);
+        closeLead();
+    };
+
+    /** A list click: the open row closes, any other row opens (`rowClick`). */
+    const clickRow = (row: InboxRow) => {
+        if (paneOpen && rowClick(selectedRow?.id ?? null, row.id) === "close") closePane();
+        else openRow(row);
     };
 
     /**
@@ -248,6 +285,52 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
             }
             return next;
         });
+
+    /**
+     * Read or unread, shown at once and saved behind it. A failed "read" just turns the row
+     * bold again; a failed Mark unread says so, since the owner asked for it.
+     */
+    function markRead(ids: string[], read: boolean) {
+        if (ids.length === 0) return;
+        const before = { ...overrides };
+        apply(ids, { read });
+        void api.setRead(site.slug, ids, read).then((ok) => {
+            if (ok) return;
+            revert(ids, before);
+            if (!read) setError("That change didn't save. Please try again.");
+        });
+    }
+
+    /** Mark unread closes the record too: left open, it would read as opened again. */
+    const markUnread = (row: InboxRow | null) => {
+        if (!row || row.status === "done" || row.status === "promoted") return;
+        setError(null);
+        markRead(groupItemIds(row), false);
+        setCursorRowId(row.id);
+        if (selectedRow?.id === row.id) closeLead();
+    };
+
+    /**
+     * A lead that opened without a click — a deep link from the owner's text, or the pane moving
+     * on after Done — is read too. In-app opens have already marked it (`openRow`), so this finds
+     * nothing left to do for them. Applied once the write lands, not before: an effect is not the
+     * place to set state synchronously. The tour's sample lead is not written down.
+     */
+    const markArrivalRead = useRef<() => void>(() => {});
+    useEffect(() => {
+        markArrivalRead.current = () => {
+            if (!selected || touring) return;
+            const ids = selectedRow ? unreadIds(selectedRow) : selected.read ? [] : [selected.id];
+            if (ids.length === 0) return;
+            void api.setRead(site.slug, ids, true).then((ok) => {
+                if (ok) apply(ids, { read: true });
+            });
+        };
+    });
+    const selectedId = selected?.id ?? null;
+    useEffect(() => {
+        markArrivalRead.current();
+    }, [selectedId]);
 
     const say = (label: string, undo: () => void) =>
         setToast({ key: ++toastSeq.current, label, undo });
@@ -379,10 +462,13 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     /* ── keyboard (desktop) ───────────────────────────────────────────────── */
 
     /**
-     * j/k/Enter/c/e/h/,/,? — attached to `window` only while this component is mounted on a
-     * desktop, and removed on unmount, so none of it reaches another portal page. Ignored
+     * ↑/↓/j/k/Enter/Esc/c/e/h/u,/,? — attached to `window` only while this component is mounted
+     * on a desktop, and removed on unmount, so none of it reaches another portal page. Ignored
      * while typing anywhere and whenever a modifier is held (Cmd-K, Ctrl-F and the browser's
      * own shortcuts are not ours).
+     *
+     * With a record open the keys act on it. With none open they act on the keyboard marker,
+     * so the full-width list is as workable from the keyboard as the split view.
      *
      * The handler reads the latest render through a ref, so the listener is attached once
      * rather than on every keystroke-driven render.
@@ -393,40 +479,72 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
             if (e.metaKey || e.ctrlKey || e.altKey) return;
             const t = e.target as HTMLElement | null;
             if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-            if (help || confirmDelete) return;
+            // The player's own arrow keys seek; a menu or dialog owns its keys.
+            if (t?.closest?.("audio, video, [role=menu], [role=dialog]")) return;
+            if (help || confirmDelete || remindOpen) return;
 
             const click = (action: string) =>
                 document.querySelector<HTMLElement>(`[data-inbox-action="${action}"]`)?.click();
+            /** What the keys act on: the open record's row, else the marker's. */
+            const target = paneOpen ? selectedRow : cursorRow;
+
+            const delta = moveKey(e.key);
+            if (delta !== 0) {
+                const next = stepRow(rows, (paneOpen ? selectedRow?.id : cursorRowId) ?? null, delta);
+                if (!next) return;
+                e.preventDefault();
+                if (paneOpen) openRow(next);
+                else setCursorRowId(next.id);
+                document
+                    .querySelector(`[data-row-id="${CSS.escape(next.id)}"]`)
+                    ?.scrollIntoView({ block: "nearest" });
+                return;
+            }
 
             switch (e.key) {
-                case "j":
-                case "k": {
-                    const next = stepRow(rows, selectedRow?.id ?? null, e.key === "j" ? 1 : -1);
-                    if (!next) return;
-                    e.preventDefault();
-                    openLead(next.lead.id);
-                    document
-                        .querySelector(`[data-row-id="${CSS.escape(next.id)}"]`)
-                        ?.scrollIntoView({ block: "nearest" });
-                    return;
-                }
                 case "Enter":
-                    if (!selected) return;
+                    // A focused button or link answers Enter itself.
+                    if (t?.closest?.("button, a")) return;
+                    if (!paneOpen) {
+                        if (!cursorRow) return;
+                        e.preventDefault();
+                        openRow(cursorRow);
+                        return;
+                    }
                     e.preventDefault();
                     document.querySelector<HTMLElement>("[data-inbox-pane] a, [data-inbox-pane] button")?.focus();
                     return;
+                case "Escape":
+                    // The tour's own Esc closes the tour; the record it points into stays.
+                    if (!paneOpen || touring) return;
+                    e.preventDefault();
+                    closePane();
+                    return;
                 case "c": {
-                    const dial = selected ? dialNumber(selected) : null;
+                    const dial = target ? dialNumber(target.lead) : null;
                     if (dial) window.location.href = `tel:${dial}`;
                     return;
                 }
                 case "e":
                     e.preventDefault();
-                    click("done");
+                    if (paneOpen) click("done");
+                    else if (target && target.status !== "done" && target.status !== "promoted") {
+                        // The marker moves on with the row, as the open record does.
+                        setCursorRowId(neighbourRow(rows, [target.id])?.id ?? null);
+                        rowDone(target);
+                    }
                     return;
                 case "h":
                     e.preventDefault();
-                    click("remind");
+                    if (paneOpen) click("remind");
+                    else if (target && remindSupported && target.status !== "done" && target.status !== "promoted") {
+                        openRow(target);
+                        setRemindOpen(true);
+                    }
+                    return;
+                case "u":
+                    e.preventDefault();
+                    markUnread(target);
                     return;
                 case "/":
                     e.preventDefault();
@@ -516,7 +634,8 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 onPromote: () => void promote(),
                 onDelete: () => setConfirmDelete(selected),
                 onOpenItem: openLead,
-                onBack: closeLead,
+                onBack: closePane,
+                onMarkUnread: () => markUnread(selectedRow),
             }}
         />
     );
@@ -538,21 +657,24 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 isDesktop={isDesktop}
             />
 
-            {error && !(selected && isDesktop) && (
+            {error && !paneOpen && (
                 <p className="text-sm" style={{ color: "var(--chart-neg)" }}>
                     {error}
                 </p>
             )}
 
             <div className="portal-elev overflow-hidden lg:flex lg:h-[calc(100dvh-196px)] lg:min-h-[520px]">
+                {/* The list takes the full width until a record opens beside it. */}
                 <div
                     data-tour="inbox-list"
-                    className="min-w-0 lg:w-[460px] lg:flex-none lg:border-r"
+                    className={`min-w-0 ${paneOpen ? "lg:w-[420px] lg:flex-none lg:border-r" : "lg:flex-1"}`}
                     style={{ borderColor: "var(--rule)" }}
                 >
                     <InboxList
                         sections={sections}
                         selectedRowId={isDesktop ? (selectedRow?.id ?? null) : null}
+                        cursorRowId={isDesktop ? cursorRowId : null}
+                        wide={!paneOpen}
                         checked={checked}
                         onToggleCheck={(id) =>
                             setChecked((s) => {
@@ -562,10 +684,10 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                                 return n;
                             })
                         }
-                        onOpen={(row) => openLead(row.lead.id)}
+                        onOpen={clickRow}
                         onDone={rowDone}
                         onRemind={(row) => {
-                            openLead(row.lead.id);
+                            openRow(row);
                             setRemindOpen(true);
                         }}
                         remindSupported={remindSupported}
@@ -573,7 +695,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                         empty={empty}
                     />
                 </div>
-                {isDesktop && (
+                {paneOpen && (
                     <div data-inbox-pane className="flex-1 min-w-0 min-h-0 relative">
                         {detail}
                     </div>

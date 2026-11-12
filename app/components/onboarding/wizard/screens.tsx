@@ -13,7 +13,6 @@ import { useMemo, useRef, useState, type DragEvent, type ReactNode } from "react
 import {
     BRAND_SUGGESTIONS,
     CERT_SUGGESTIONS,
-    CHAPTERS,
     CUSTOM_HOURS,
     EMERGENCY_LINE,
     HOURS_PRESETS,
@@ -32,7 +31,6 @@ import {
     customerOptions,
     diffOptions,
     emptyFacts,
-    isAnswered,
     modesFor,
     openService,
     profilesForPayload,
@@ -43,7 +41,6 @@ import {
     slotsFor,
     townFromAddress,
     yearsInBusiness,
-    type ReceptionistMode,
     type ScreenDef,
     type ServiceFacts,
     type ServiceStatus,
@@ -58,26 +55,12 @@ import { ACCEPT_ATTR } from "@/app/lib/image-prep";
 import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
 import { prefillLine } from "./prefill-notes";
 import { suggestionsFor } from "./service-suggestions";
+import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
 import s from "./wizard.module.css";
 
-/** The live, already-approved receptionist options (unchanged from the previous wizard). */
-export const RECEPTIONIST_OPTIONS: { id: ReceptionistMode; label: string; detail: string }[] = [
-    {
-        id: "forwarded",
-        label: "Forward my existing number",
-        detail: "You keep the number you already advertise. We give you a number to forward to, and calls you do not pick up roll to your receptionist instead of voicemail.",
-    },
-    {
-        id: "published",
-        label: "Use the new number as my business number",
-        detail: "We give you a number and you start using it: cards, truck, Google listing. Calls come straight in, ring your phone first, and reach the receptionist if you miss them.",
-    },
-    {
-        id: "declined",
-        label: "No receptionist for now, website only",
-        detail: "We build the site and skip the phone side entirely. Same price, and you can switch it on later with no extra onboarding fee.",
-    },
-];
+import { RECEPTIONIST_OPTIONS } from "./receptionist-options";
+import { REVIEW, reviewCards } from "./review";
+export { RECEPTIONIST_OPTIONS };
 
 const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roofing: "⌂", "lawn-care": "✿", "car-detailing": "◆", health: "✚" };
 
@@ -182,15 +165,26 @@ function Field({ label, optional, error, note, children }: { label?: ReactNode; 
     );
 }
 
-function Text({ value, onChange, placeholder, type = "text", inputMode, ariaLabel, autoComplete = "off" }: {
+/**
+ * A text field. Typing is never blocked; when the field loses focus its value is tidied by
+ * `format` (formatting.ts, Xander 2026-11-12), by default trimmed to single spaces. buildPayload
+ * applies the same rules, so nothing depends on the client leaving the field.
+ */
+function Text({ value, onChange, placeholder, type = "text", inputMode, ariaLabel, autoComplete = "off", format = fmtText }: {
     value: string; onChange: (v: string) => void; placeholder?: string; type?: string;
     inputMode?: "text" | "tel" | "email" | "numeric" | "decimal" | "url"; ariaLabel?: string; autoComplete?: string;
+    format?: (raw: string) => string;
 }) {
     return (
         <input
             className={s.input}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onBlur={(e) => {
+                const raw = e.target.value;
+                const tidy = raw.trim() ? format(raw) : "";
+                if (tidy !== raw) onChange(tidy);
+            }}
             placeholder={placeholder}
             type={type}
             inputMode={inputMode}
@@ -424,12 +418,13 @@ export function ScreenBody(p: ScreenProps) {
                 <>
                     <div className={s.row2}>
                         <Field label="Business phone" error={errors.phone} note={notes(prefillNote(p, "phone"))}>
-                            <Text value={state.phone} onChange={(v) => update({ phone: v })} placeholder="(407) 555-0142" type="tel" inputMode="tel" autoComplete="tel" />
+                            <Text value={state.phone} onChange={(v) => update({ phone: v })} placeholder="(407) 555-0142" format={fmtPhone} type="tel" inputMode="tel" autoComplete="tel" />
                         </Field>
                         {/* E1 (2026-11-12): leads never go to email, so no word about them; and only
                             while it's still the email we filled in. */}
                         <Field label="Business email" error={errors.email} note={notes(prefillLine(state.email, p.prefillEmail, { email: true }))}>
-                            <Text value={state.email} onChange={(v) => update({ email: v })} placeholder="you@yourbusiness.com" type="email" inputMode="email" autoComplete="email" />
+                            <Text value={state.email} onChange={(v) => update({ email: v })} placeholder="you@yourbusiness.com" format={fmtEmail} type="email" inputMode="email" autoComplete="email" />
+
                         </Field>
                     </div>
                     <Field label="Business address" error={errors.address} note={notes(prefillNote(p, "address"), C.addressNote)}>
@@ -473,7 +468,7 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <div className={s.narrow}>
                     <Field label="Your current website" optional>
-                        <Text value={state.website} onChange={(v) => update({ website: v })} placeholder="yourbusiness.com" inputMode="url" autoComplete="url" />
+                        <Text value={state.website} onChange={(v) => update({ website: v })} placeholder="yourbusiness.com" format={fmtWebsite} inputMode="url" autoComplete="url" />
                     </Field>
                 </div>
             );
@@ -514,10 +509,10 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <div className={s.row2}>
                     <Field label="Year you started" optional note={years ? <span className={s.derived}>✓ {years} years in business. We&apos;ll show that on your site.</span> : undefined}>
-                        <Text value={state.established} onChange={(v) => update({ established: v })} placeholder="2009" inputMode="numeric" />
+                        <Text value={state.established} onChange={(v) => update({ established: v })} placeholder="2009" format={fmtYear} inputMode="numeric" />
                     </Field>
                     <Field label="License number" optional note="Shown as a credential. Leave blank if you don't hold one.">
-                        <Text value={state.license} onChange={(v) => update({ license: v })} placeholder="CAC1812345" />
+                        <Text value={state.license} onChange={(v) => update({ license: v })} placeholder="CAC1812345" format={fmtLicense} />
                     </Field>
                 </div>
             );
@@ -556,10 +551,10 @@ export function ScreenBody(p: ScreenProps) {
                 <>
                     <div className={`${s.row2} ${s.narrower}`}>
                         <Field label="Star rating">
-                            <Text value={state.rating} onChange={(v) => update({ rating: v })} placeholder="4.9" inputMode="decimal" />
+                            <Text value={state.rating} onChange={(v) => update({ rating: v })} placeholder="4.9" format={fmtRating} inputMode="decimal" />
                         </Field>
                         <Field label="Number of reviews">
-                            <Text value={state.reviewCount} onChange={(v) => update({ reviewCount: v })} placeholder="212" inputMode="numeric" />
+                            <Text value={state.reviewCount} onChange={(v) => update({ reviewCount: v })} placeholder="212" format={fmtWholeNumber} inputMode="numeric" />
                         </Field>
                     </div>
                     <ReviewSource {...p} />
@@ -592,7 +587,7 @@ export function ScreenBody(p: ScreenProps) {
             return (
                 <div className={s.narrower}>
                     <Field>
-                        <Text value={state.serviceRadiusMiles} onChange={(v) => update({ serviceRadiusMiles: v })} placeholder="e.g. 25" inputMode="numeric" ariaLabel="How far do you travel for mobile service?" />
+                        <Text value={state.serviceRadiusMiles} onChange={(v) => update({ serviceRadiusMiles: v })} placeholder="e.g. 25" format={fmtWholeNumber} inputMode="numeric" ariaLabel="How far do you travel for mobile service?" />
                     </Field>
                 </div>
             );
@@ -733,7 +728,7 @@ function GoogleScreen({ state, update }: ScreenProps) {
     return (
         <div className={s.narrow}>
             <Field label={C.googleLabel} error={linkError("google", urlOf(state, "google"))}>
-                <Text value={urlOf(state, "google")} onChange={(v) => update({ profiles: withUrl(state, "google", v) })} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={C.googleLabel} />
+                <Text value={urlOf(state, "google")} onChange={(v) => update({ profiles: withUrl(state, "google", v) })} placeholder={C.pasteLink} format={fmtProfileUrl} inputMode="url" autoComplete="url" ariaLabel={C.googleLabel} />
             </Field>
             <ol className={s.howto}>
                 {C.googleSteps.map((t, i) => <li key={t}><b aria-hidden="true">{i + 1}</b>{t}</li>)}
@@ -759,7 +754,7 @@ function ElsewhereScreen({ state, update }: ScreenProps) {
                 <div className={s.linkFields}>
                     {OTHER_PROFILES.filter(on).map((k) => (
                         <Field key={k} label={label(k)} error={linkError(k, urlOf(state, k))}>
-                            <Text value={urlOf(state, k)} onChange={(v) => update({ profiles: withUrl(state, k, v) })} placeholder={C.pasteLink} inputMode="url" autoComplete="url" ariaLabel={label(k)} />
+                            <Text value={urlOf(state, k)} onChange={(v) => update({ profiles: withUrl(state, k, v) })} placeholder={C.pasteLink} format={fmtProfileUrl} inputMode="url" autoComplete="url" ariaLabel={label(k)} />
                         </Field>
                     ))}
                 </div>
@@ -775,7 +770,7 @@ function ReviewSource({ state, update }: ScreenProps) {
         return (
             <div className={s.narrow}>
                 <Field label="Link to your reviews" optional note="Your Google reviews page works well.">
-                    <Text value={state.reviewUrl} onChange={(v) => update({ reviewUrl: v })} placeholder="https://" inputMode="url" />
+                    <Text value={state.reviewUrl} onChange={(v) => update({ reviewUrl: v })} placeholder="https://" format={fmtProfileUrl} inputMode="url" />
                 </Field>
             </div>
         );
@@ -926,7 +921,7 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                 <>
                     <div className={s.narrower}>
                         <Field label={C.qPrice} note={C.hPrice}>
-                            <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" ariaLabel={C.qPrice} />
+                            <Text value={f.priceFrom} onChange={(v) => set({ priceFrom: v })} placeholder="e.g. $150" format={fmtPrice} ariaLabel={C.qPrice} />
                         </Field>
                     </div>
                     {/* One answer: tapping a chip picks it (again clears it); "add your own" replaces it. */}
@@ -1049,8 +1044,8 @@ function SitesScreen({ state, update, extra }: ScreenProps) {
                     <div className={s.row2}>
                         <Field label="Business name"><Text value={site.brandName} onChange={(v) => set(i, { brandName: v })} /></Field>
                         <Field label="Short name"><Text value={site.brandShort} onChange={(v) => set(i, { brandShort: v })} /></Field>
-                        <Field label="Email"><Text value={site.email} onChange={(v) => set(i, { email: v })} type="email" /></Field>
-                        <Field label="Phone"><Text value={site.phone} onChange={(v) => set(i, { phone: v })} type="tel" /></Field>
+                        <Field label="Email"><Text value={site.email} onChange={(v) => set(i, { email: v })} format={fmtEmail} type="email" /></Field>
+                        <Field label="Phone"><Text value={site.phone} onChange={(v) => set(i, { phone: v })} format={fmtPhone} type="tel" /></Field>
                         <Field label="Address"><Text value={site.address} onChange={(v) => set(i, { address: v })} /></Field>
                         <Field label="What makes it different?"><Text value={site.differentiators} onChange={(v) => set(i, { differentiators: v })} /></Field>
                     </div>
@@ -1226,9 +1221,23 @@ export function summaryLines(id: string, st: WizardState): string[] {
     }
 }
 
-function ReviewScreen({ state, ctx, screens, goTo }: ScreenProps) {
+/**
+ * "Ready to build?" (Xander, 2026-11-12): one card per chapter. Closed, a card shows its first two
+ * answers and its counts; tapped open, every question in the chapter with its full answer and its
+ * own Edit, and each service with what was given for it. The cards come from review.ts.
+ */
+function ReviewScreen({ state, ctx, screens, goTo, update }: ScreenProps) {
     const gaps = screens.filter((x) => x.required && !isRequiredOk(x.id, state, ctx));
-    const skipped = screens.filter((x) => x.skippable && !isAnswered(x.id, state));
+    const cards = useMemo(() => reviewCards(screens, state, ctx), [screens, state, ctx]);
+    const [open, setOpen] = useState<Set<string>>(() => new Set());
+    const allOpen = cards.every((c) => open.has(c.label));
+    const toggle = (label: string) =>
+        setOpen((prev) => {
+            const n = new Set(prev);
+            if (n.has(label)) n.delete(label);
+            else n.add(label);
+            return n;
+        });
     return (
         <>
             {gaps.length ? (
@@ -1239,30 +1248,57 @@ function ReviewScreen({ state, ctx, screens, goTo }: ScreenProps) {
                     ))}
                 </div>
             ) : null}
-            <div className={s.sumgrid}>
-                {CHAPTERS.map((c, i) => {
-                    const inCh = screens.filter((x) => x.chapter === i);
-                    const lines = inCh.flatMap((x) => summaryLines(x.id, state)).filter(Boolean);
+            <div className={s.rvTop}>
+                <button type="button" className={`${s.lnk} ${s.lnkInline}`} onClick={() => setOpen(allOpen ? new Set() : new Set(cards.map((c) => c.label)))}>
+                    {allOpen ? REVIEW.closeAll : REVIEW.openAll}
+                </button>
+            </div>
+            <div className={s.rvList}>
+                {cards.map((c) => {
+                    const isOpen = open.has(c.label);
+                    const bodyId = `rv-${c.label.replace(/\W+/g, "-").toLowerCase()}`;
                     return (
-                        <div key={c.label} className={s.sum}>
-                            <h3 className={s.sumH}>
-                                {c.label}
-                                <button type="button" onClick={() => inCh[0] && goTo(inCh[0].id)}>Edit</button>
-                            </h3>
-                            {/* Five lines at most, so the summary fits one screen; Edit shows the rest. */}
-                            {lines.length ? lines.slice(0, 5).map((l, j) => <p key={j}>{l}</p>) : <p className={s.sumEmpty}>Nothing yet</p>}
+                        <div key={c.label} className={`${s.rvCard} ${isOpen ? s.rvOpen : ""}`}>
+                            <button type="button" className={s.rvHead} aria-expanded={isOpen} aria-controls={bodyId} onClick={() => toggle(c.label)}>
+                                <span className={s.rvChev} aria-hidden="true">▸</span>
+                                <span className={s.rvTitle}>{c.label}</span>
+                                <span className={s.rvCount}>{REVIEW.counts(c.answered, c.skipped)}</span>
+                            </button>
+                            {isOpen ? (
+                                <div id={bodyId} className={s.rvRows}>
+                                    {c.rows.map((r) => (
+                                        <div key={`${r.id}:${r.service ?? ""}`} className={s.rvRow}>
+                                            <span className={s.rvKey}>{r.label}</span>
+                                            <span className={s.rvVal}>
+                                                {r.skipped ? (
+                                                    <span className={s.sumEmpty}>{REVIEW.skipped}</span>
+                                                ) : (
+                                                    r.lines.map((l, j) => <span key={j} className={j ? s.rvSub : undefined}>{l}</span>)
+                                                )}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                className={s.lnk}
+                                                aria-label={`Edit ${r.label}`}
+                                                onClick={() => {
+                                                    if (r.service) update(openService(state, r.service));
+                                                    goTo(r.id);
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : c.peek.length ? (
+                                <p className={s.rvPeek}>{c.peek.join(" · ")}</p>
+                            ) : (
+                                <p className={`${s.rvPeek} ${s.sumEmpty}`}>Nothing yet</p>
+                            )}
                         </div>
                     );
                 })}
             </div>
-            {skipped.length ? (
-                <p className={s.hint} style={{ marginTop: 12 }}>
-                    Still to come:{" "}
-                    {skipped.map((x) => (
-                        <button key={x.id} type="button" className={`${s.lnk} ${s.lnkInline}`} style={{ fontSize: 12, margin: "0 4px" }} onClick={() => goTo(x.id)}>{x.nav}</button>
-                    ))}
-                </p>
-            ) : null}
         </>
     );
 }
