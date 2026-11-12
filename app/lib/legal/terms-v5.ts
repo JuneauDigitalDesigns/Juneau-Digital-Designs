@@ -2,6 +2,13 @@ import { ref, type PlanSchedule, type SectionDef } from "./types";
 import { ANNUAL } from "./schedules";
 
 /**
+ * v5.4 → v5.5 on 2026-11-12 (Xander approved the wording word for word). Sites now carry a page of
+ * their own for each service with enough detail to support one, so "a four-page site ... up to five
+ * pages" no longer described the build. A site is now defined without a page count: four (4) or
+ * more pages, being Home, Services, About and Contact, the service pages, and an optional
+ * additional page, with anything beyond that quoted as add-on work. Schedule A's site lines and
+ * its "Additional pages" fee row say the same. The addendum's text is unchanged, so it stays v2.
+ *
  * v5.3 → v5.4 on 2026-11-09 (Xander approved the wording word for word). Florida is an all-party
  * consent state; v5.3 said the opposite, and rested on the AI agent being the "consenting party".
  * The recording clauses now describe what the product does: every agent states that the call is
@@ -40,7 +47,7 @@ import { ANNUAL } from "./schedules";
  * so stored agreements stay identifiable. Nothing had been signed when this shipped, so there
  * is no migration and no re-papering.
  */
-export const TERMS_VERSION = "v5.4";
+export const TERMS_VERSION = "v5.5";
 
 export const PROVIDER = {
   legalName: "Juneau Digital Designs LLC",
@@ -365,11 +372,11 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
           blocks: [
             {
               kind: "para",
-              text: 'For purposes of this Agreement, a "site" is a website at a single domain consisting of up to five pages. The standard build delivered under every plan is a four-page site (Home, Services, About, and Contact), with an optional fifth page.',
+              text: 'For purposes of this Agreement, a "site" is a website at a single domain. The standard build delivered under every plan is a site of four (4) or more pages: Home, Services, About, and Contact, an individual page for each service for which the Client provides enough detail to support one, and an optional additional page.',
             },
             {
               kind: "para",
-              text: "Additional pages beyond five are not included in any plan and are quoted separately as paid add-on work. Seasonal landing pages, marketing microsites, and sub-pages beyond the included pages do not count as separate sites and are not included in the base build.",
+              text: "Pages beyond those described above are not included in any plan and are quoted separately as paid add-on work. Seasonal landing pages, marketing microsites, and sub-pages beyond the included pages do not count as separate sites and are not included in the base build.",
             },
             ...(s.slug === "enterprise"
               ? [
@@ -413,7 +420,7 @@ export function buildSections(s: PlanSchedule): SectionDef[] {
             {
               kind: "bullets",
               items: [
-                "Additional pages beyond five",
+                "Additional pages beyond those included",
                 "Layout, structural, or design changes (quoted separately)",
                 "Custom design beyond the initial template configuration",
                 "E-commerce functionality, payment processing, or shopping carts",
