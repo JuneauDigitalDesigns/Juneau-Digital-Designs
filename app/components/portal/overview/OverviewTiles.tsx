@@ -30,7 +30,7 @@ const LG_COLS: Record<number, string> = {
 export function OverviewTiles({ tiles }: { tiles: TileSpec[] }) {
     if (tiles.length === 0) return null;
     return (
-        <div className={`grid grid-cols-2 gap-2.5 lg:gap-3 ${LG_COLS[tiles.length] ?? "lg:grid-cols-4"}`}>
+        <div data-tour="ov-tiles" className={`grid grid-cols-2 gap-2.5 lg:gap-3 ${LG_COLS[tiles.length] ?? "lg:grid-cols-4"}`}>
             {tiles.map((t) => (
                 <Card key={t.key} density="none" className="p-3.5 lg:px-[18px] lg:py-4 flex flex-col gap-1.5 lg:gap-2 min-w-0">
                     <MonoLabel>{t.label}</MonoLabel>

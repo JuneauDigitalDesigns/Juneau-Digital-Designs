@@ -179,7 +179,7 @@ function Dot({ color }: { color: string }) {
 export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
     return (
         <Card density="none" className="p-4 lg:p-[22px] flex flex-col lg:flex-row gap-5 lg:gap-7 lg:items-center">
-            <section aria-labelledby="ov-locked" className="flex-1 flex flex-col gap-2">
+            <section aria-labelledby="ov-locked" data-tour="ov-locked" className="flex-1 flex flex-col gap-2">
                 <MonoLabel>What happens after the call</MonoLabel>
                 <h2
                     id="ov-locked"

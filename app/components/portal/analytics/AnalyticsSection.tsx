@@ -91,6 +91,7 @@ export default function AnalyticsSection({
             {/* Desktop: one sticky bar, so the sections stay a click away while scrolling. */}
             <nav
                 aria-label="Jump to section"
+                data-tour="analytics-jump"
                 className="hidden lg:flex sticky top-0 z-10 gap-1 p-1.5 rounded-lg border"
                 style={{ background: "var(--elev-1)", borderColor: "var(--rule)" }}
             >

@@ -5,6 +5,7 @@ import PortalChrome from "@/app/components/portal/PortalChrome";
 import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
 import PortalScope from "@/app/components/portal/PortalScope";
 import { resolveDashboard } from "@/app/lib/portal-dashboard";
+import { readSeen } from "@/app/lib/portal-tour-seen";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const tourMeta = (user?.publicMetadata as { tour?: { completed?: boolean; lastStepIndex?: number } } | null)?.tour;
     const tourCompleted = Boolean(tourMeta?.completed);
     const tourInitialStep = typeof tourMeta?.lastStepIndex === "number" ? tourMeta.lastStepIndex : 0;
+    // The tab tours this person has had (tours v2), so each plays once.
+    const tourSeen = readSeen(tourMeta);
 
     const ctx = await resolveDashboard();
 
@@ -76,9 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 railCollapsed={railCollapsed}
                 tourCompleted={tourCompleted}
                 tourInitialStep={tourInitialStep}
-                // The tour teaches a different product per tier, so it branches on what the
-                // primary site actually has rather than showing Starter a CRM walkthrough.
-                tourTier={sites[0]?.features.crm.state === "ready" ? "growth" : "starter"}
+                tourSeen={tourSeen}
             >
                 {children}
             </PortalChrome>

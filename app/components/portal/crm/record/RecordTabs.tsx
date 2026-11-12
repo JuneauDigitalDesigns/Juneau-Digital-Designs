@@ -58,6 +58,7 @@ export default function RecordTabs({
         <div
             role="tablist"
             aria-label="Customer record"
+            data-tour="crm-record-tabs"
             onKeyDown={onKeyDown}
             className={`flex border-b overflow-x-auto ${className ?? ""}`}
             style={{ borderColor: "var(--rule)", scrollbarWidth: "none" }}

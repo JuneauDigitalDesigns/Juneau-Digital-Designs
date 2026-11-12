@@ -77,7 +77,8 @@ test("every tour anchor of the record is on the tab it opens on", () => {
     for (const anchor of ["crm-drawer-stage", "crm-drawer-timeline", "crm-drawer-review"]) {
         assert.match(record, new RegExp(`data-tour="${anchor}"`), anchor);
     }
-    for (const src of [contact, jobs, notes]) assert.doesNotMatch(src, /data-tour=/);
+    // Their own tab tours (tours v2, 2026-11-12) may anchor inside them; the record's may not.
+    for (const src of [contact, jobs, notes]) assert.doesNotMatch(src, /data-tour="crm-drawer-/);
 });
 
 test("jobs carry their own status, Paid included, and the approved words", () => {

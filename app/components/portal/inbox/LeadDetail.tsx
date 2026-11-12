@@ -165,7 +165,7 @@ export default function LeadDetail({
     );
 
     const desktopActions = (
-        <div className="relative flex flex-wrap items-center gap-2">
+        <div data-tour="inbox-actions" className="relative flex flex-wrap items-center gap-2">
             <a
                 href={callHref}
                 aria-disabled={!callHref}
@@ -277,7 +277,7 @@ export default function LeadDetail({
                     </p>
                 )}
 
-                <Card>
+                <Card data-tour="inbox-detail">
                     <Label>What they want</Label>
                     <p className="text-sm leading-relaxed" style={{ color: item.preview ? "var(--fg)" : "var(--fg-3)" }}>
                         {item.preview ?? "No message"}
@@ -457,8 +457,12 @@ function TileButton({ onClick, children }: { onClick: () => void; children: Reac
     );
 }
 
-function Card({ children }: { children: React.ReactNode }) {
-    return <div className="portal-elev px-4 py-3.5 flex flex-col gap-2">{children}</div>;
+function Card({ children, "data-tour": dataTour }: { children: React.ReactNode; "data-tour"?: string }) {
+    return (
+        <div className="portal-elev px-4 py-3.5 flex flex-col gap-2" data-tour={dataTour}>
+            {children}
+        </div>
+    );
 }
 
 function Label({ children }: { children: React.ReactNode }) {

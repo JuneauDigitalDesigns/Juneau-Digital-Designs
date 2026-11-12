@@ -716,6 +716,7 @@ export default function CustomerRecord({
                             <button
                                 type="button"
                                 onClick={() => void addToCalendar(job)}
+                                data-tour="crm-job-calendar"
                                 className="inline-flex items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
                                 style={{ minHeight: 36, borderColor: "var(--rule-strong)", color: "var(--fg)", background: "var(--elev-1)" }}
                             >

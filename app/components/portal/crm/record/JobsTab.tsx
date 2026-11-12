@@ -108,6 +108,7 @@ export default function JobsTab({
                         });
                         setOpen(null);
                     }}
+                    data-tour="crm-jobs-add"
                     className="ml-auto inline-flex items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ minHeight: 40, borderColor: "var(--rule-strong)", color: "var(--fg)", background: "var(--elev-1)" }}
                 >

@@ -63,7 +63,7 @@ function ProfileSection({
     }
 
     return (
-        <SectionCard title="Contact info">
+        <SectionCard title="Contact info" dataTour="settings-contact">
             <FieldRow label="Account email">
                 <input
                     value={accountEmail}
@@ -521,7 +521,7 @@ function SmsAlertsOffOnly({ consent }: { consent: SmsConsentProps | null }) {
     }
 
     return (
-        <SectionCard title="Text alerts">
+        <SectionCard title="Text alerts" dataTour="settings-alerts">
             <div
                 style={{
                     background: "color-mix(in srgb, var(--accent) 8%, transparent)",
@@ -606,7 +606,7 @@ function SmsAlertsControls({ consent, consentCopy }: { consent: SmsConsentProps 
     }
 
     return (
-        <SectionCard title="Text alerts">
+        <SectionCard title="Text alerts" dataTour="settings-alerts">
             <p
                 style={{
                     fontSize: 14,

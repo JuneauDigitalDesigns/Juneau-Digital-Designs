@@ -217,7 +217,7 @@ export default function SupportSection({ site }: { site: PortalSiteProps }) {
             </header>
 
             {/* ── New ticket ─────────────────────────────────────────────────────── */}
-            <SectionCard title="Open a ticket">
+            <SectionCard title="Open a ticket" dataTour="support-new">
                 <FieldRow label="Subject">
                     <input
                         value={subject}
@@ -262,6 +262,7 @@ export default function SupportSection({ site }: { site: PortalSiteProps }) {
 
             {/* ── Existing tickets ───────────────────────────────────────────────── */}
             <h2
+                data-tour="support-tickets"
                 className="mb-3 px-1 text-xs uppercase"
                 style={{
                     fontFamily: "var(--font-mono)",

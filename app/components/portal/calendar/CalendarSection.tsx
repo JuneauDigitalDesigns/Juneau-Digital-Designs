@@ -282,6 +282,7 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
                 <button
                     type="button"
                     onClick={() => setForm(blank(selected))}
+                    data-tour="cal-new"
                     disabled={!data || data.customers.length === 0}
                     className="ml-auto rounded-lg px-4 text-[13.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ minHeight: 40, background: "var(--accent)", color: "var(--on-accent)" }}
@@ -297,7 +298,7 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
             )}
 
             <div className="flex flex-col lg:flex-row gap-4 min-w-0">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0" data-tour="cal-month">
                     <div className="hidden md:block">
                         <MonthGrid
                             ym={ym}

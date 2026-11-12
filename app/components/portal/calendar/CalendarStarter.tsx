@@ -32,6 +32,7 @@ export default function CalendarStarter({ siteSlug }: { siteSlug: string }) {
                 <div className="flex flex-col gap-2.5 w-full sm:w-auto sm:min-w-[260px]">
                     <Link
                         href={`/portal/customers?site=${encodeURIComponent(siteSlug)}&demo=growth`}
+                        data-tour="growth-demo-open"
                         className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2"
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                     >

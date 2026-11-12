@@ -8,9 +8,10 @@ import type { CSSProperties, ReactNode } from "react";
  * over from the dark navy dashboard, which render as nothing at all on the cream theme.
  */
 
-export function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+export function SectionCard({ title, children, dataTour }: { title: string; children: ReactNode; dataTour?: string }) {
     return (
         <section
+            data-tour={dataTour}
             className="rounded-lg overflow-hidden mb-6 border"
             style={{ borderColor: "var(--rule)" }}
         >

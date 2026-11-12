@@ -62,6 +62,7 @@ export default function DayList({
     return (
         <section
             aria-labelledby="cal-day-heading"
+            data-tour="cal-day"
             className={`rounded-2xl border p-4 flex flex-col gap-3 ${className ?? ""}`}
             style={{ background: "var(--elev-1)", borderColor: "var(--elev-border)" }}
         >
