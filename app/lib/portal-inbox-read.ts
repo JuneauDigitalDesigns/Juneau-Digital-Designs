@@ -56,8 +56,14 @@ export async function readRefs(acct: string, slug: string): Promise<Set<string>>
 }
 
 /**
- * Delete the read set for one site. **For teardown**, beside `purgeLeads` and `purgeArchive`:
- * otherwise a torn-down account leaves its callers' Airtable record ids behind for 400 days.
+ * Delete the read set for one site.
+ *
+ * Teardown does not need to call this. The console's per-client teardown
+ * (`jdd-ops/console`, `/api/manage/teardown`, `purgePortalSiteData`) SCANs every
+ * `portal:*:{acct}:{slug}` key of each site it removes, and this set's key is one of those, so
+ * it goes with the leads and the archive. `jdd-ops/test/teardown-portal-purge.test.mjs` pins
+ * that, sibling slugs and other accounts included. This is for anything that clears a site's
+ * Inbox state without the console.
  */
 export async function purgeRead(acct: string, slug: string): Promise<number> {
     const redis = getRedis();
