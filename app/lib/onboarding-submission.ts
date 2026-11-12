@@ -39,12 +39,15 @@ function sanitizeFilename(value: unknown): string {
     return base.replace(/\.\./g, "").replace(/\0/g, "").trim().slice(0, 200);
 }
 
-function sanitizeImageMeta(item: unknown): { url: string; filename: string; alt: string } | null {
+function sanitizeImageMeta(item: unknown): { url: string; filename: string; alt: string; town?: string } | null {
     if (!item || typeof item !== "object") return null;
     const obj = item as Record<string, unknown>;
     const url = sanitize(obj.url, 500);
     if (!url || !isValidBlobUrl(url)) return null;
-    return { url, filename: sanitizeFilename(obj.filename), alt: sanitize(obj.alt, 200) };
+    // Q1 (local SEO, v1.34.0): the job's town, never a street or coordinates. buildScaffold keeps
+    // it only when it's one of the client's towns.
+    const town = sanitize(obj.town, 120);
+    return { url, filename: sanitizeFilename(obj.filename), alt: sanitize(obj.alt, 200), ...(town ? { town } : {}) };
 }
 
 const BG_MOODS = ["white", "warm", "cool", "soft-dark", "deep-dark"] as const;

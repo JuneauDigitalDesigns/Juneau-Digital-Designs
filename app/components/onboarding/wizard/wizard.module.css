@@ -455,3 +455,11 @@
   span.phoneOnly { display: inline; }
   .deskOnly { display: none !important; }
 }
+
+/* Q1 (local SEO, 2026-11-12): the town of each job photo, one row per photo under its box. */
+.ptList { display: grid; gap: 8px; margin-top: 12px; max-width: 640px; }
+.ptRow { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px; border: 1px solid var(--rule); border-radius: 12px; background: var(--elev-1); }
+.ptThumb { width: 72px; height: 54px; border-radius: 8px; overflow: hidden; border: 1px solid var(--rule); background: var(--surface); }
+.ptThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ptBody { display: grid; gap: 6px; min-width: 0; }
+.ptQ { font-weight: 700; font-size: 13.5px; }

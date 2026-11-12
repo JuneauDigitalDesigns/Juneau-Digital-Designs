@@ -182,6 +182,29 @@ export function priceFactorsFor(text: string): string[] {
     return out.slice(0, MAX_PRICE_FACTOR_ITEMS);
 }
 
+/**
+ * Q1 (local SEO, 2026-11-12): a photo's town, in the client's own spelling, when it is one of their
+ * towns; otherwise "" ("Not sure", unanswered, or a town they no longer cover). Only the town is ever
+ * kept, never a street or coordinates.
+ */
+export function photoTown(state: Pick<WizardState, "towns">, img: Pick<ImageMeta, "town">): string {
+    return townIn(state.towns, img.town);
+}
+
+function townIn(towns: string[], raw: string | undefined): string {
+    const want = cleanListItem(raw ?? "").toLowerCase();
+    if (!want) return "";
+    return towns.map(cleanListItem).find((t) => t.toLowerCase() === want) ?? "";
+}
+
+/** A photo as sent: its town only when it is one of the client's towns (Q1). */
+function sentPhoto(img: ImageMeta, towns: string[]): ImageMeta {
+    const rest: ImageMeta = { ...img };
+    delete rest.town;
+    const t = townIn(towns, img.town);
+    return t ? { ...rest, town: t } : rest;
+}
+
 /** Q2: the picked top towns that are still among the client's towns, at most 3, in order. */
 export function topTownsFor(state: Pick<WizardState, "towns" | "topTowns">): string[] {
     const own = new Set(state.towns.map(cleanListItem));
@@ -539,7 +562,7 @@ export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): 
     const keepAreas = areas.length > 0 && areas.length < uniq(covered).length;
     const priceFrom = f.priceFrom.trim().slice(0, 40);
     const duration = f.duration.trim().slice(0, 40);
-    const photos = f.photos.filter((p) => p && typeof p.url === "string" && p.url).slice(0, SERVICE_CAPS.photos);
+    const photos = f.photos.filter((p) => p && typeof p.url === "string" && p.url).slice(0, SERVICE_CAPS.photos).map((p) => sentPhoto(p, towns));
     const priceFactors = priceFactorsFor(f.priceFactors ?? "");
     const questions = f.questions
         .map((q) => ({ q: cleanQuestion(q.q), a: (q.a || "").trim().slice(0, 300) }))
@@ -757,7 +780,8 @@ export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date =
         },
         palette: { mode: "preset", presetId: defaultPaletteId(state.trade) },
         hasLogo: !!state.images.logo,
-        images: state.images,
+        // Q1: each general photo carries its town only when it's one of the client's towns.
+        images: { ...state.images, heroSlides: state.images.heroSlides.map((img) => sentPhoto(img, towns)) },
         existingWebsiteUrl: state.website.trim(),
         stats: Object.entries(stats).map(([key, value]) => ({ key, value, label: STAT_LABELS[key] ?? key })),
         reviewAggregate:
@@ -831,7 +855,7 @@ const isKind = (v: unknown): v is ProfileKind => typeof v === "string" && KINDS.
 function readImages(v: unknown, max: number): ImageMeta[] {
     return (Array.isArray(v) ? v : [])
         .filter((x): x is ImageMeta => !!x && typeof x === "object" && typeof (x as ImageMeta).url === "string")
-        .map((x) => ({ url: x.url, filename: str(x.filename), alt: str(x.alt) }))
+        .map((x) => ({ url: x.url, filename: str(x.filename), alt: str(x.alt), ...(typeof x.town === "string" ? { town: str(x.town) } : {}) }))
         .slice(0, max);
 }
 

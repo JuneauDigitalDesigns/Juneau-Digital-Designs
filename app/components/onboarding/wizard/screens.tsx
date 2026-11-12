@@ -53,7 +53,7 @@ import {
     type WizardPrefill,
     type WizardState,
 } from "./model";
-import { PROFILE_KINDS, VOICE_OPTIONS, type ProfileKind } from "@jdd/schema";
+import { PROFILE_KINDS, VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
 import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
@@ -320,6 +320,38 @@ function draggingFiles(e: DragEvent): boolean {
  * a drop is ignored. The window-level guard in onboardingpageclient.tsx stops a drop outside every
  * box from opening the photo in the tab. File type and size are checked where the upload runs.
  */
+/**
+ * Q1 (local SEO, 2026-11-12, approved word for word): under each job photo, "Which town was this
+ * job in?" with the client's own towns, then "Not sure". Tapping the chosen one again clears it.
+ * "Not sure" is stored as "" so it stays chosen; buildPayload sends a town only when it's one of
+ * the client's towns. Hidden until the client has towns.
+ */
+function PhotoTowns({ photos, towns, onSet, label }: { photos: ImageMeta[]; towns: string[]; onSet: (i: number, town: string | undefined) => void; label: string }) {
+    if (!photos.length || !towns.length) return null;
+    return (
+        <div className={s.ptList} role="group" aria-label={C.photoTownQ}>
+            <p className={s.hint}>{C.photoTownHelp}</p>
+            {photos.map((img, i) => (
+                <div key={img.url} className={s.ptRow}>
+                    <span className={s.ptThumb}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img.url} alt={`${label} ${i + 1}`} />
+                    </span>
+                    <div className={s.ptBody}>
+                        <span className={s.ptQ}>{C.photoTownQ}</span>
+                        <div className={s.chips}>
+                            {towns.map((t) => (
+                                <Chip key={t} label={t} on={img.town === t} onClick={() => onSet(i, img.town === t ? undefined : t)} />
+                            ))}
+                            <Chip label={C.notSure} on={img.town === ""} onClick={() => onSet(i, img.town === "" ? undefined : "")} />
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 function PhotoBox({ room, multiple, onFiles, busy, hint = true, children }: {
     room: number; multiple?: boolean; onFiles: (f: File[]) => void; busy?: boolean; hint?: boolean; children: ReactNode;
 }) {
@@ -1020,6 +1052,12 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                             ) : null}
                         </PhotoBox>
                         {uploads.errors[slot] ? <p className={s.err} role="alert">{uploads.errors[slot]}</p> : null}
+                        <PhotoTowns
+                            photos={f.photos}
+                            towns={state.towns}
+                            label={`${sv.name} photo`}
+                            onSet={(i, town) => set({ photos: f.photos.map((x, j) => (j === i ? withTown(x, town) : x)) })}
+                        />
                     </>
                 );
             }
@@ -1134,6 +1172,13 @@ function LogoScreen({ state, update, uploads }: ScreenProps) {
     );
 }
 
+/** A photo with its Q1 town set, or with no town at all (undefined: not answered). */
+function withTown(img: ImageMeta, town: string | undefined): ImageMeta {
+    const rest: ImageMeta = { ...img };
+    delete rest.town;
+    return town === undefined ? rest : { ...rest, town };
+}
+
 function PhotosScreen({ state, update, uploads, toast }: ScreenProps) {
     const slides = state.images.heroSlides;
     const team = state.images.aboutFeature;
@@ -1165,6 +1210,12 @@ function PhotosScreen({ state, update, uploads, toast }: ScreenProps) {
                     ) : null}
                 </PhotoBox>
                 {uploads.errors.hero ? <p className={s.err} role="alert">{uploads.errors.hero}</p> : null}
+                <PhotoTowns
+                    photos={slides}
+                    towns={state.towns}
+                    label="Upload"
+                    onSet={(i, town) => update({ images: { ...state.images, heroSlides: slides.map((x, j) => (j === i ? withTown(x, town) : x)) } })}
+                />
             </div>
             <div className={s.grp}>
                 <span className={s.lab}>You or your team <small>One photo for your About page.</small></span>
