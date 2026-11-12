@@ -26,6 +26,7 @@ import {
     type TimelineEvent,
 } from "./stages";
 import QuickReplies from "./QuickReplies";
+import ReviewRequestDialog from "../ReviewRequestDialog";
 
 /**
  * The customer record.
@@ -90,7 +91,7 @@ export default function CustomerRecord({
     siteSlug,
     variant,
     onChanged,
-    onRequestReview,
+    review,
     onNotFound,
     backHref,
     onBack,
@@ -104,7 +105,8 @@ export default function CustomerRecord({
     /** Closes the record. When given, "All customers" calls it instead of navigating. */
     onBack?: () => void;
     onChanged: () => void;
-    onRequestReview: (c: CustomerRow) => void;
+    /** What the review popover needs from the board: the business name and whether a link is set. */
+    review: ReviewContext;
     /**
      * The record could not be loaded — archived, deleted, or a deep link naming a customer
      * that is not this account's. The caller takes the view back to the board; see the note
@@ -245,6 +247,18 @@ export default function CustomerRecord({
     const page = variant === "panel";
     const pad = page ? "px-7" : "px-5";
 
+    const reviewProps: ReviewAnchorProps = {
+        ...review,
+        customer,
+        siteSlug,
+        messagingState: data?.messagingState ?? "ready",
+        // A sent request locks the button, so the record re-reads to show "Review requested".
+        onSent: () => {
+            onChanged();
+            void reload();
+        },
+    };
+
     const details = (
         <Details
             customer={customer}
@@ -256,7 +270,7 @@ export default function CustomerRecord({
                 onChanged();
                 void reload();
             }}
-            onRequestReview={onRequestReview}
+            review={reviewProps}
             showReviewButton={!page}
             className={`${pad} py-1 ${page ? "@3xl:border-r" : ""}`}
         />
@@ -568,7 +582,7 @@ export default function CustomerRecord({
             <RecordHeader
                 customer={customer}
                 patch={patch}
-                onRequestReview={onRequestReview}
+                review={reviewProps}
                 backHref={backHref ?? tabHref("customers", siteSlug)}
                 onBack={onBack}
             />
@@ -589,13 +603,13 @@ export default function CustomerRecord({
 function RecordHeader({
     customer,
     patch,
-    onRequestReview,
+    review,
     backHref,
     onBack,
 }: {
     customer: CustomerRow;
     patch: (body: Record<string, unknown>) => Promise<boolean>;
-    onRequestReview: (c: CustomerRow) => void;
+    review: ReviewAnchorProps;
     backHref: string;
     onBack?: () => void;
 }) {
@@ -678,7 +692,7 @@ function RecordHeader({
                     </p>
                 </div>
 
-                <div className="shrink-0 flex flex-wrap gap-2">
+                <div className="shrink-0 flex flex-wrap gap-2 relative">
                     {customer.phone && (
                         <a
                             href={`tel:${customer.phone}`}
@@ -717,21 +731,7 @@ function RecordHeader({
                             <ChatCircle size={14} /> Text
                         </a>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => onRequestReview(customer)}
-                        disabled={!customer.phone}
-                        data-tour="crm-drawer-review"
-                        className="inline-flex items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                        style={{
-                            minHeight: 44,
-                            background: "var(--accent)",
-                            color: "var(--on-accent)",
-                        }}
-                    >
-                        <Star size={14} weight="fill" />
-                        {customer.reviewSent ? "Review requested" : "Request a review"}
-                    </button>
+                    <ReviewAnchor {...review} align="end" />
                 </div>
             </div>
 
@@ -792,6 +792,96 @@ function StagePicker({
                 );
             })}
         </div>
+    );
+}
+
+/* ── request a review ─────────────────────────────────────────────────────── */
+
+/** What the board hands every record: the same for all of its customers. */
+export interface ReviewContext {
+    businessName: string;
+    reviewLinkConfigured: boolean;
+}
+
+interface ReviewAnchorProps extends ReviewContext {
+    customer: CustomerRow;
+    siteSlug: string;
+    messagingState: DetailResponse["messagingState"];
+    onSent: () => void;
+}
+
+/**
+ * The "Request a review" button and the window that opens right below it.
+ *
+ * It used to call up to the board, which slid a full-height drawer in from the right over the
+ * record for a three-line message. Now the window hangs off the button (Xander, 2026-11-12).
+ *
+ * Placement is a `relative` ancestor, which is all `ui/Popover` needs. In the panel header that
+ * is the row of Call / Text / Request a review, so the window's right edge lines up under the
+ * row's (`end`) and it is not squeezed into the width of one button. The phone sheet's button is
+ * full width and is its own wrapper, so its window is full width too (`stretch`).
+ */
+function ReviewAnchor({
+    align,
+    customer,
+    siteSlug,
+    businessName,
+    reviewLinkConfigured,
+    messagingState,
+    onSent,
+}: ReviewAnchorProps & { align: "end" | "stretch" }) {
+    const [open, setOpen] = useState(false);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const full = align === "stretch";
+
+    const button = (
+        <button
+            ref={buttonRef}
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            disabled={!customer.phone}
+            aria-expanded={open}
+            aria-haspopup="dialog"
+            data-tour="crm-drawer-review"
+            className={`${full ? "w-full justify-center py-3 text-sm" : "px-3.5 text-[13px]"} rounded-lg inline-flex items-center gap-1.5 font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
+            style={{ minHeight: 44, background: "var(--accent)", color: "var(--on-accent)" }}
+        >
+            <Star size={full ? 15 : 14} weight="fill" />
+            {customer.reviewSent ? "Review requested" : "Request a review"}
+        </button>
+    );
+    const popover = (
+        <ReviewRequestDialog
+            open={open}
+            onClose={() => setOpen(false)}
+            triggerRef={buttonRef}
+            align={align}
+            contact={{
+                contactId: customer.customerId,
+                displayName: customer.name,
+                phone: customer.phone,
+                phoneDisplay: formatPhone(customer.phone),
+                reviewSent: customer.reviewSent,
+            }}
+            businessName={businessName}
+            reviewLinkConfigured={reviewLinkConfigured}
+            messagingState={messagingState}
+            siteSlug={siteSlug}
+            onSent={onSent}
+        />
+    );
+
+    // The header row is already the `relative` wrapper; the phone button brings its own.
+    return full ? (
+        <div className="relative">
+            {button}
+            {popover}
+        </div>
+    ) : (
+        <>
+            {button}
+            {popover}
+        </>
     );
 }
 
@@ -881,7 +971,7 @@ function Details({
     patch,
     fieldError,
     onTasksChanged,
-    onRequestReview,
+    review,
     showReviewButton,
     className,
 }: {
@@ -891,7 +981,7 @@ function Details({
     patch: (body: Record<string, unknown>) => Promise<boolean>;
     fieldError: string | null;
     onTasksChanged: () => void;
-    onRequestReview: (c: CustomerRow) => void;
+    review: ReviewAnchorProps;
     showReviewButton: boolean;
     className?: string;
 }) {
@@ -1029,17 +1119,8 @@ function Details({
             </Block>
 
             {showReviewButton && (
-                <Block last dataTour="crm-drawer-review">
-                    <button
-                        type="button"
-                        onClick={() => onRequestReview(customer)}
-                        disabled={!customer.phone}
-                        className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                    >
-                        <Star size={15} weight="fill" />
-                        {customer.reviewSent ? "Review requested" : "Request a review"}
-                    </button>
+                <Block last>
+                    <ReviewAnchor {...review} align="stretch" />
                 </Block>
             )}
         </div>
