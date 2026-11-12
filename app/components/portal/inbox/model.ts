@@ -108,6 +108,48 @@ export function neighbourRow(rows: InboxRow[], leaving: string[]): InboxRow | nu
     return null;
 }
 
+/* ── closer to email (Xander, 2026-11-12) ─────────────────────────────────── */
+
+/**
+ * What a computer shows on arrival: the full-width list with nothing open, the way Gmail
+ * does. A deep link (`?open=`) still opens its lead, and is resolved before this is asked.
+ *
+ * The tour is the exception. Its second stop spotlights Promote to customer, which lives in
+ * the open record, so while it runs the newest lead opens as it used to.
+ */
+export function paneOnArrival(
+    rows: Pick<InboxRow, "lead">[],
+    { isDesktop, touring }: { isDesktop: boolean; touring: boolean },
+): InboxItem | null {
+    return isDesktop && touring ? (rows[0]?.lead ?? null) : null;
+}
+
+/** Clicking the open row again closes it and gives the list the full width. */
+export function rowClick(openRowId: string | null, clickedRowId: string): "open" | "close" {
+    return openRowId === clickedRowId ? "close" : "open";
+}
+
+/** ↓ and j move down, ↑ and k move up. Case-sensitive: Shift-J is not ours. */
+export function moveKey(key: string): 1 | -1 | 0 {
+    if (key === "ArrowDown" || key === "j") return 1;
+    if (key === "ArrowUp" || key === "k") return -1;
+    return 0;
+}
+
+/**
+ * Bold with the blue dot. A row is unread while any call in it is unopened (`groupInbox`),
+ * but never once it is Done or promoted: those are handled, and bold on a handled row would
+ * ask for attention it no longer needs.
+ */
+export function rowIsUnread(row: Pick<InboxRow, "unread" | "status">): boolean {
+    return row.unread && row.status !== "done" && row.status !== "promoted";
+}
+
+/** What opening a row marks read: its unopened items, so an already-read row writes nothing. */
+export function unreadIds(row: Pick<InboxRow, "items">): string[] {
+    return row.items.filter((i) => !i.read).map((i) => i.id);
+}
+
 /** j / k. Stops at the ends rather than wrapping, the way a mail client does. */
 export function stepRow(rows: InboxRow[], currentId: string | null, delta: 1 | -1): InboxRow | null {
     if (rows.length === 0) return null;
@@ -242,6 +284,17 @@ export function rowWhen(iso: string | null, now: Date): string {
     if (s === "today" || s === "yesterday") return fullClock(d);
     if (s === "week") return DAY_SHORT[d.getDay()];
     return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`;
+}
+
+/**
+ * The time column when the list has the full width, and room for the clock: "2:13 AM" today
+ * and yesterday (the heading says which), "Mon 3:47 PM" this week, "Nov 2, 4:25 PM" before.
+ */
+export function rowWhenWide(iso: string | null, now: Date): string {
+    if (!timeOf(iso)) return "";
+    const s = sectionFor(iso, now);
+    if (s === "today" || s === "yesterday") return fullClock(new Date(timeOf(iso)));
+    return fullWhen(iso, now);
 }
 
 /** "Today 2:13 AM", "Yesterday 6:40 PM", "Mon 4:25 PM", "Nov 2, 4:25 PM". */

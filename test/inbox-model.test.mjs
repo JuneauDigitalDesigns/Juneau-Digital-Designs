@@ -27,6 +27,12 @@ import {
     remindPresets,
     remindToast,
     rowWhen,
+    rowWhenWide,
+    rowIsUnread,
+    unreadIds,
+    paneOnArrival,
+    rowClick,
+    moveKey,
     sectionFor,
     sectionRows,
     startOfWeek,
@@ -414,4 +420,89 @@ test("Archive is called Done everywhere the client can see it", () => {
         assert.doesNotMatch(visible, />[^<{]*\bArchive/, `${f} shows the word Archive`);
         assert.doesNotMatch(visible, /"Archive/, `${f} labels something Archive`);
     }
+});
+
+/* ── closer to email (Xander, 2026-11-12) ─────────────────────────────────── */
+
+test("the full-width time column adds the clock to the weekday and the date", () => {
+    const wed = new Date(2026, 10, 11, 10, 0);
+    assert.equal(rowWhenWide(local(11, 2, 13), wed), "2:13 AM");
+    assert.equal(rowWhenWide(local(10, 18, 40), wed), "6:40 PM");
+    assert.equal(rowWhenWide(local(9, 15, 47), wed), "Mon 3:47 PM");
+    assert.equal(rowWhenWide(local(2, 16, 25), wed), "Nov 2, 4:25 PM");
+    assert.equal(rowWhenWide(null, wed), "");
+});
+
+test("unread is bold until opened, and Done or promoted never reads as unread", () => {
+    assert.equal(rowIsUnread({ unread: true, status: "needs" }), true);
+    assert.equal(rowIsUnread({ unread: true, status: "reminded" }), true);
+    assert.equal(rowIsUnread({ unread: false, status: "needs" }), false);
+    assert.equal(rowIsUnread({ unread: true, status: "done" }), false);
+    assert.equal(rowIsUnread({ unread: true, status: "promoted" }), false);
+});
+
+test("opening a row marks only its unread calls read", () => {
+    const a = item({ read: true });
+    const b = item();
+    const c = item();
+    assert.deepEqual(unreadIds({ items: [a, b, c] }), [b.id, c.id]);
+    assert.deepEqual(unreadIds({ items: [a] }), []);
+});
+
+test("a computer opens on the full-width list; only the tour opens the newest lead", () => {
+    const rows = [{ id: "needs:x", lead: item() }, { id: "needs:y", lead: item() }];
+    assert.equal(paneOnArrival(rows, { isDesktop: true, touring: false }), null);
+    assert.equal(paneOnArrival(rows, { isDesktop: true, touring: true }), rows[0].lead);
+    assert.equal(paneOnArrival(rows, { isDesktop: false, touring: true }), null);
+    assert.equal(paneOnArrival([], { isDesktop: true, touring: true }), null);
+});
+
+test("clicking the open row closes it; clicking any other opens that one", () => {
+    assert.equal(rowClick("needs:a", "needs:a"), "close");
+    assert.equal(rowClick("needs:a", "needs:b"), "open");
+    assert.equal(rowClick(null, "needs:a"), "open");
+});
+
+test("arrow keys move like j and k, and nothing else moves", () => {
+    assert.equal(moveKey("ArrowDown"), 1);
+    assert.equal(moveKey("j"), 1);
+    assert.equal(moveKey("ArrowUp"), -1);
+    assert.equal(moveKey("k"), -1);
+    assert.equal(moveKey("J"), 0);
+    assert.equal(moveKey("ArrowLeft"), 0);
+});
+
+test("Esc closes the record, and u marks it unread", () => {
+    const src = read("InboxSection.tsx");
+    assert.match(src, /case "Escape":/);
+    assert.match(src, /case "u":/);
+    assert.match(src, /moveKey\(e\.key\)/, "arrows and j/k share one path");
+});
+
+test("the approved wording, word for word (Xander, 2026-11-12)", () => {
+    const keys = read("inbox/ShortcutHelp.tsx");
+    // Keys bar: "↑ ↓ move · c call · e done · h remind · u unread · esc close · ? all"
+    for (const [k, label] of [["↑", null], ["↓", "move"], ["c", "call"], ["e", "done"], ["h", "remind"], ["u", "unread"], ["esc", "close"], ["?", "all"]]) {
+        assert.match(keys, new RegExp(`<Kbd>${k.replace("?", "\\?")}</Kbd>`), `keys bar is missing ${k}`);
+        if (label) assert.match(keys, new RegExp(`</Kbd> ${label}\\s*</span>`), `keys bar is missing "${label}"`);
+    }
+    assert.doesNotMatch(keys, /<Kbd>j<\/Kbd> <Kbd>k<\/Kbd> move/, "the bar now shows the arrows");
+    // The ? list: move shows ↑ ↓ j k; mark unread on u; open and close as before.
+    assert.match(keys, /\[\["↑", "↓", "j", "k"\], "move"\]/);
+    assert.match(keys, /\[\["u"\], "mark unread"\]/);
+    assert.match(keys, /\[\["Enter"\], "open"\]/);
+    assert.match(keys, /\[\["Esc"\], "close"\]/);
+
+    const detail = read("inbox/LeadDetail.tsx");
+    assert.match(detail, /> ?Mark unread/);
+    assert.match(detail, /aria-label="Close"/);
+    assert.match(detail, /title="Close"/);
+
+    const list = read("inbox/InboxList.tsx");
+    assert.match(list, /<span className="sr-only">Unread<\/span>/);
+});
+
+test("the list only narrows while a record is open", () => {
+    const src = read("InboxSection.tsx");
+    assert.match(src, /paneOpen \? "lg:w-\[420px\] lg:flex-none lg:border-r" : "lg:flex-1"/);
 });
