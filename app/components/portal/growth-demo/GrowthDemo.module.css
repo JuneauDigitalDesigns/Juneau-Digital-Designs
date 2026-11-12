@@ -119,10 +119,10 @@
   top: 0;
   left: 0;
   width: 1160px;
-  height: 650px;
+  height: 700px;
   transform-origin: 0 0;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: clip; /* not hidden: scrollIntoView must not shift the frame */
   display: flex;
   background: var(--bg);
   color: var(--fg);
@@ -377,7 +377,7 @@
   gap: 6px;
   animation: gdPop 0.35s ease both;
 }
-.caption[data-side="left"] { left: 24px; }
+.caption[data-side="left"] { left: 14px; bottom: 16px; width: 320px; }
 .caption[data-side="right"] { right: 24px; }
 
 /* ── phone ───────────────────────────────────────────────────────── */
@@ -391,7 +391,7 @@
   border-radius: 14px;
   background: var(--bg);
   color: var(--fg);
-  overflow: hidden;
+  overflow: clip; /* not hidden: scrollIntoView must not shift the screen */
   display: flex;
   flex-direction: column;
   transition: filter 0.35s ease;
@@ -433,4 +433,110 @@
   padding: 12px 14px;
   gap: 4px;
   box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.45);
+}
+
+/* ── the rebuilt replica (2026-11-12): the real portal at a real desktop size ── */
+.desk {
+  position: relative;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 22px 14px;
+  background: var(--bg);
+  border-right: 1px solid var(--rule);
+}
+.deskStage {
+  position: relative;
+  min-width: 0;
+  padding: 32px 32px 72px;
+  overflow: hidden;
+}
+/* Over the customer panel (z 35), so the caption is never behind the file it is about. */
+.desk .caption,
+.phoneShell .caption { z-index: 60; }
+
+/* The text box and the review message, shown as clicked into. */
+.desk[data-composing="true"] :global(#crm-sms),
+.phoneShell[data-composing="true"] :global(#crm-sms),
+.desk[data-editing="true"] [data-demo="review-message"],
+.phoneShell[data-editing="true"] [data-demo="review-message"] {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* The phone: the components at the phone's own width, the tab bar at the foot. */
+.phoneShell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.phoneBody {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Clip, not hidden: the cursor scrolls targets into view, and a hidden overflow can still be
+     scrolled sideways by that, which slid the record half off the screen. */
+  overflow-x: clip;
+}
+.root[data-layout="phone"] .phoneShell .caption[data-side="top"] { top: 10px; bottom: auto; }
+
+/* The cursor and the phone's tap. */
+.cursor,
+.tap {
+  position: absolute;
+  z-index: 70;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+  /* Smooths the clock's 100ms steps into a glide; the clock decides where it is. */
+  transition: left 0.1s linear, top 0.1s linear, opacity 0.2s ease;
+}
+.cursorArrow {
+  position: absolute;
+  left: -4px;
+  top: -3px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+  transform-origin: 4px 3px;
+  transition: transform 0.12s ease;
+}
+.cursor[data-down="true"] .cursorArrow { transform: scale(0.84); }
+.tap::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.28);
+  border: 2px solid rgba(37, 99, 235, 0.7);
+  transform: scale(0.6);
+  transition: transform 0.12s ease;
+}
+.tap[data-down="true"]::before { transform: scale(1); }
+.cursorRing {
+  position: absolute;
+  left: -18px;
+  top: -18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 99, 235, 0.65);
+  animation: gdRing 0.5s ease-out both;
+}
+@keyframes gdRing {
+  from { opacity: 0.9; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(1.3); }
 }

@@ -114,7 +114,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         Compare plans
                     </Link>
                     <p className="text-[11.5px] text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                        A one-minute demo with sample customers. Nothing changes on your account.
+                        A short demo with sample customers. Nothing changes on your account.
                     </p>
                 </div>
             </div>

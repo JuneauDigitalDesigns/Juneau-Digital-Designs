@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
 import { ArrowCounterClockwise, Pause, Play, X } from "@phosphor-icons/react";
 import {
     COPY,
     DURATION,
+    SCENE_COUNT,
     SEGMENTS,
     announcementFor,
     clampIndex,
@@ -20,6 +21,8 @@ import {
 } from "./script";
 import DesktopReplica from "./DesktopReplica";
 import PhoneReplica from "./PhoneReplica";
+import DemoCursor from "./DemoCursor";
+import { demoNow } from "./sample";
 import s from "./GrowthDemo.module.css";
 
 /**
@@ -47,14 +50,20 @@ import s from "./GrowthDemo.module.css";
  *     (no slide, pop, pulse, typing or fade). The parts still advance on their own, because
  *     the timing is reading time rather than animation, and Pause is always there.
  *
+ * Rebuilt 2026-11-12 (Xander): five steps (Jobs and the calendar are new), a little slower, a
+ * cursor that does every click (`DemoCursor`), and the portal's own components on sample data
+ * (`DesktopReplica`, `PhoneReplica`, `sample.ts`), so what it shows is exactly the product. The
+ * desktop replica needs the live components' desktop layouts, which follow the window, so it is
+ * used from 1024px wide; below that the phone replica shows their phone layouts.
+ *
  * Rendered into <body> through a portal, so no transformed ancestor in the dashboard can turn
  * `position: fixed` into something else, and wrapped in its own `.portal-scope` so every
  * `var()` inside still resolves to the portal's tokens (see the CSS module's header).
  */
 
 /** Below this the desktop replica would scale past readable, so the phone layout takes over. */
-const PHONE_QUERY = "(max-width: 899px), (max-height: 539px)";
-const FRAME = { w: 1160, h: 650 };
+const PHONE_QUERY = "(max-width: 1023px), (max-height: 539px)";
+const FRAME = { w: 1160, h: 700 };
 /** Clock resolution. Fine enough for the typing; coarse enough not to re-render every frame. */
 const TICK_MS = 100;
 /** The most one tick may advance: a throttled background tab plays slower, never skips. */
@@ -116,7 +125,11 @@ export default function GrowthDemo({
     const playRef = useRef<HTMLButtonElement>(null);
     const endTitleRef = useRef<HTMLDivElement>(null);
     const stageRef = useRef<HTMLDivElement>(null);
+    const frameRef = useRef<HTMLDivElement>(null);
+    const screenRef = useRef<HTMLDivElement>(null);
     const [k, setK] = useState(1);
+    /** The sample account's clock: 7:42 AM today, so Dave's 2:13 AM call was this morning. */
+    const now = useMemo(() => demoNow(), []);
 
     const seg: Segment = SEGMENTS[st.i];
     const atEnd = seg === "end";
@@ -298,8 +311,8 @@ export default function GrowthDemo({
                     {st.playing ? <Pause size={14} weight="fill" aria-hidden="true" /> : <Play size={14} weight="fill" aria-hidden="true" />}
                     {st.playing ? COPY.pause : COPY.play}
                 </button>
-                <span className={s.dots} role="img" aria-label={`Step ${Math.min(step, 4)} of 4`}>
-                    {[1, 2, 3, 4].map((n) => (
+                <span className={s.dots} role="img" aria-label={`Step ${Math.min(step, SCENE_COUNT)} of ${SCENE_COUNT}`}>
+                    {Array.from({ length: SCENE_COUNT }, (_, n) => n + 1).map((n) => (
                         <span key={n} className={s.dt} data-state={n === step ? "on" : n < step ? "past" : undefined} />
                     ))}
                 </span>
@@ -341,8 +354,9 @@ export default function GrowthDemo({
                         endCard
                     ) : (
                         <>
-                            <div className={s.screen} data-dim={scrim} aria-hidden="true">
-                                {scene && view && <PhoneReplica scene={scene} view={view} />}
+                            <div ref={screenRef} className={s.screen} data-dim={scrim} aria-hidden="true" inert>
+                                {scene && view && <PhoneReplica scene={scene} view={view} now={now} />}
+                                {scene && !scrim && !still && <DemoCursor container={screenRef} scene={scene} t={st.t} tap />}
                             </div>
                             {titleCard}
                         </>
@@ -351,9 +365,10 @@ export default function GrowthDemo({
                     endCard
                 ) : (
                     <>
-                        <div className={s.sizer} style={{ width: FRAME.w * k, height: FRAME.h * k }} aria-hidden="true">
-                            <div className={s.frame} data-dim={scrim} style={{ transform: `scale(${k})` }}>
-                                {scene && view && <DesktopReplica scene={scene} view={view} />}
+                        <div className={s.sizer} style={{ width: FRAME.w * k, height: FRAME.h * k }} aria-hidden="true" inert>
+                            <div ref={frameRef} className={s.frame} data-dim={scrim} style={{ transform: `scale(${k})` }}>
+                                {scene && view && <DesktopReplica scene={scene} view={view} now={now} />}
+                                {scene && !scrim && !still && <DemoCursor container={frameRef} scene={scene} t={st.t} k={k} />}
                             </div>
                         </div>
                         {titleCard}
