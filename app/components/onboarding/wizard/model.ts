@@ -38,6 +38,7 @@ import {
 } from "@jdd/schema";
 import { normaliseProfileLink } from "@/app/lib/profile-links";
 import { C } from "./copy-service-details";
+import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
 
 export type PlanSlug = "starter" | "growth" | "enterprise";
 export type ReceptionistMode = "forwarded" | "published" | "declined";
@@ -624,11 +625,59 @@ export function profilesForPayload(profiles: ProfileEntry[]): { kind: ProfileKin
 const list = (xs: string[]) => xs.map(cleanListItem).filter(Boolean).join("\n");
 
 /**
+ * Every typed field tidied by its rule (formatting.ts, Xander 2026-11-12). The screens apply the
+ * same rules as each field loses focus; buildPayload applies this so a value is formatted even
+ * if the client never left the field. Nothing is invented: unreadable values stay as typed.
+ */
+export function formatState(state: WizardState): WizardState {
+    const keep = (v: string, f: (x: string) => string) => (v.trim() ? f(v) : "");
+    return {
+        ...state,
+        name: fmtText(state.name),
+        phone: keep(state.phone, fmtPhone),
+        email: fmtEmail(state.email),
+        address: fmtText(state.address),
+        website: fmtWebsite(state.website),
+        established: keep(state.established, fmtYear),
+        license: fmtLicense(state.license),
+        owner: fmtText(state.owner),
+        response: fmtText(state.response),
+        rating: keep(state.rating, fmtRating),
+        reviewCount: keep(state.reviewCount, fmtWholeNumber),
+        reviewUrl: fmtProfileUrl(state.reviewUrl),
+        serviceRadiusMiles: keep(state.serviceRadiusMiles, fmtWholeNumber),
+        offerBadge: fmtText(state.offerBadge),
+        agentName: fmtText(state.agentName),
+        customHours: fmtText(state.customHours),
+        avoid: fmtText(state.avoid),
+        statValues: Object.fromEntries(Object.entries(state.statValues).map(([k, v]) => [k, fmtText(v)])),
+        seasonBodies: Object.fromEntries(Object.entries(state.seasonBodies).map(([k, v]) => [k, fmtText(v)])),
+        profiles: state.profiles.map((p) => ({ ...p, url: fmtProfileUrl(p.url) })),
+        serviceFacts: Object.fromEntries(
+            Object.entries(state.serviceFacts).map(([k, f]) => [
+                k,
+                { ...f, priceFrom: fmtPrice(f.priceFrom), questions: f.questions.map((q) => ({ ...q, a: fmtText(q.a) })) },
+            ]),
+        ),
+        additionalSites: state.additionalSites.map((x) => ({
+            ...x,
+            brandName: fmtText(x.brandName),
+            brandShort: fmtText(x.brandShort),
+            email: fmtEmail(x.email),
+            phone: keep(x.phone, fmtPhone),
+            address: fmtText(x.address),
+            differentiators: fmtText(x.differentiators),
+        })),
+    };
+}
+
+/**
  * What the wizard sends. Same `BrandIntakeSubmission` shape the route and jdd-ops read today;
  * only the way it is gathered changed. Blank answers stay blank (or absent) so the mapper flags
  * them in `_meta.missing_fields`; nothing here is invented.
  */
-export function buildPayload(state: WizardState, ctx: WizardContext, now: Date = new Date()): BrandIntakeSubmission {
+export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date = new Date()): BrandIntakeSubmission {
+    const state = formatState(typed);
     const slots = slotsFor(state.trade);
     const stats = statValuesFor(state, now);
     const towns = state.towns.slice(0, MAX_TOWNS);

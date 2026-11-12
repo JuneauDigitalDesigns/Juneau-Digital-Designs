@@ -62,9 +62,16 @@ export const DEMO_STEPS: DemoStep[] = [
         plan: "Growth",
         gated: true,
         caption: "When the job is done, ask for a Google review. The message is already written.",
-        ms: 10400,
+        ms: 7440,
     },
 ];
+
+/**
+ * The Review step's second card, on the review drawer's message box once it has opened, so the
+ * owner sees the written message is theirs to change. Approved by Xander word for word on
+ * 12 Nov 2026.
+ */
+export const DEMO_REVIEW_NOTE = "Change the message if you like before you send it.";
 
 /** The missed-calls calculator's anchor on the homepage, where the closing screen's button lands. */
 export const MISSED_CALLS_ID = "missed-calls";

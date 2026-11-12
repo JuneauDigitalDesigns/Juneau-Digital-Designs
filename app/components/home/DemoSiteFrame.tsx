@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "framer-motion";
+import { Pause, Play } from "@phosphor-icons/react";
 
 /**
  * A real site of ours, in the hero.
@@ -21,6 +22,11 @@ import { useReducedMotion } from "framer-motion";
  * height), scrolled top to bottom first so lazy images and reveals have fired. Recapture the
  * same way if the demo changes; the gate is that the image comes back ~5969px tall, not
  * several times that.
+ *
+ * Since 12 Nov 2026 (Xander) the whole laptop is a pause button while it scrolls: hovering rings
+ * it in coral with the pointer cursor and a pause icon, and a click freezes the scroll on the
+ * frame it is on. The pan is a CSS animation, so `animation-play-state` holds it exactly where it
+ * is and the next click carries on from there. Reduced motion has no scroll, so no button.
  */
 
 /* The viewport the capture was taken at. The pan shows one viewport-worth at a time,
@@ -39,6 +45,7 @@ export default function DemoSiteFrame() {
   const [scale, setScale] = useState(VIEW_H / VIEW_W);
   const [imgH, setImgH] = useState(DEFAULT_H);
   const [loaded, setLoaded] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   // A cached image finishes loading before hydration attaches onLoad, so that handler
   // never fires and the frame sits on its skeleton forever with the pan switched off.
@@ -80,7 +87,7 @@ export default function DemoSiteFrame() {
   const travel = Math.max(0, imgH - VIEW_H);
 
   return (
-    <div className="laptop">
+    <div className="laptop" data-pausable={animate ? "true" : undefined} data-paused={animate && paused ? "true" : undefined}>
       {/* No URL in the chrome — the address bar named a throwaway test deployment,
           which invites the visitor to go look at it rather than at their own site. */}
       <div className="laptop-bar" aria-hidden="true">
@@ -120,6 +127,22 @@ export default function DemoSiteFrame() {
         </div>
         {!loaded && <div className="laptop-skeleton" aria-hidden="true" />}
       </div>
+      {/* Over the whole laptop, bar included, so a click lands anywhere on it. A real button, so
+          it is reachable by keyboard and announces what it will do. */}
+      {animate && (
+        <button
+          type="button"
+          className="laptop-toggle"
+          onClick={() => setPaused((p) => !p)}
+          aria-label={paused ? "Play" : "Pause"}
+          aria-pressed={paused}
+          title={paused ? "Play" : "Pause"}
+        >
+          <span className="laptop-toggle-icon" aria-hidden="true">
+            {paused ? <Play size={18} weight="fill" /> : <Pause size={18} weight="fill" />}
+          </span>
+        </button>
+      )}
     </div>
   );
 }
