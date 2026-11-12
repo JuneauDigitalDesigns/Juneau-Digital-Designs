@@ -53,6 +53,7 @@ import { PROFILE_KINDS, VOICE_OPTIONS, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
 import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
+import { prefillLine } from "./prefill-notes";
 import { suggestionsFor } from "./service-suggestions";
 import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
 import s from "./wizard.module.css";
@@ -65,14 +66,6 @@ const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roof
 
 export type ScreenCopy = { q: string; help: string };
 
-/**
- * Approved word for word by Xander, 2026-11-04. Shown under a field we
- * filled in from records we already hold, for as long as the client hasn't changed it.
- */
-export const PREFILL_NOTE: Record<WizardPrefill["source"], string> = {
-    call: "From your call with us. Check it's right.",
-    agreement: "From your agreement. Check it's right.",
-};
 /** Approved word for word by Xander, 2026-11-04. Added to the welcome box when anything was prefilled. */
 export const PREFILL_WELCOME = "We've filled in what you've already told us. Just check it as you go.";
 
@@ -141,13 +134,16 @@ export type ScreenProps = {
     extra: { firstName: string; planLabel: string; maxSites: number };
     /** What was prefilled, so a field can say where its value came from. */
     prefill?: WizardPrefill | null;
+    /** The email we filled in from the agreement, so its note shows only while it's unchanged. */
+    prefillEmail?: string;
 };
 
-/** The "from your call / agreement" note, while the field still holds the prefilled value. */
+/**
+ * "We pre-filled this. Check it's right." (E2, 2026-11-12), only while the field still holds the
+ * value we filled in (prefill-notes.ts).
+ */
 function prefillNote(p: ScreenProps, field: "name" | "address" | "phone" | "trade" | "owner"): string | null {
-    const v = p.prefill?.[field];
-    if (!p.prefill || !v) return null;
-    return p.state[field].trim() === v.trim() ? PREFILL_NOTE[p.prefill.source] : null;
+    return prefillLine(p.state[field], p.prefill?.[field]);
 }
 
 /** A prefill note above a field's usual note, when both apply. */
@@ -424,8 +420,11 @@ export function ScreenBody(p: ScreenProps) {
                         <Field label="Business phone" error={errors.phone} note={notes(prefillNote(p, "phone"))}>
                             <Text value={state.phone} onChange={(v) => update({ phone: v })} placeholder="(407) 555-0142" format={fmtPhone} type="tel" inputMode="tel" autoComplete="tel" />
                         </Field>
-                        <Field label="Business email" error={errors.email} note="From your agreement. Change it if leads should go somewhere else.">
+                        {/* E1 (2026-11-12): leads never go to email, so no word about them; and only
+                            while it's still the email we filled in. */}
+                        <Field label="Business email" error={errors.email} note={notes(prefillLine(state.email, p.prefillEmail, { email: true }))}>
                             <Text value={state.email} onChange={(v) => update({ email: v })} placeholder="you@yourbusiness.com" format={fmtEmail} type="email" inputMode="email" autoComplete="email" />
+
                         </Field>
                     </div>
                     <Field label="Business address" error={errors.address} note={notes(prefillNote(p, "address"), C.addressNote)}>

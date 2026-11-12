@@ -25,13 +25,16 @@ export const C = {
     addressNote: "Used to find your local area.", // #3
 
     // Do customers come to you? (#56 to #59)
-    visitNav: "Visiting you", // #56
-    visitQ: "Do customers come to you?", // #57
-    visitHelp: "This decides whether your street address goes on your site.", // #57
-    visitYes: "Customers come to us", // #58
-    visitYesDetail: "Even if you also go to them. Your address shows on your site so customers can find you.", // #58
-    visitNo: "We go to our customers", // #59
-    visitNoDetail: "We'll keep your street address off your site and show your town instead.", // #59
+    // Show your address? (A1 to A5, Xander 2026-11-12, approved word for word, mockup
+    // https://claude.ai/artifact/1jN9RQefsjuVy5sx65ZPVA; replace #56 to #59.) Same data: yes shows
+    // the full address, no hides the street (serviceAreaBusiness).
+    visitNav: "Your address", // A1
+    visitQ: "Show your address on your site?", // A2
+    visitHelp: "If customers don't come to you, we can show just your town.", // A3
+    visitYes: "Yes, show my address", // A4
+    visitYesDetail: "Your full address shows on your site.", // A4
+    visitNo: "No, keep it off", // A5
+    visitNoDetail: "We'll show your town instead of your street address.", // A5
 
     // Towns (#8, #9)
     townsCount: (n: number) => `${n} added, up to 20`, // #8
