@@ -4,6 +4,7 @@ import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { fetchCalls, type CallsFailure } from "@/app/lib/airtable-calls";
 import { accountScope } from "@/app/lib/portal-kv";
 import { archivedRefs, promotedRefs } from "@/app/lib/portal-crm";
+import { readRefs } from "@/app/lib/portal-inbox-read";
 import { listLeads } from "@/app/lib/portal-leads";
 import { buildInbox } from "@/app/lib/crm-contacts";
 
@@ -73,9 +74,14 @@ export async function GET(request: Request) {
         }
     }
 
-    const [promoted, archived, leads] = await Promise.all([
+    const [promoted, archived, readIds, leads] = await Promise.all([
         promotedRefs(acct, ctx.site.slug),
         archivedRefs(acct, ctx.site.slug),
+        // Bold until opened. A read failure costs only the bold, never the inbox.
+        readRefs(acct, ctx.site.slug).catch((e) => {
+            console.error(`[portal/inbox] read-state read failed for ${ctx.site.slug}`, e);
+            return new Set<string>();
+        }),
         listLeads(acct, ctx.site.slug).catch((e) => {
             console.error(`[portal/inbox] lead read failed for ${ctx.site.slug}`, e);
             return [];
@@ -90,6 +96,7 @@ export async function GET(request: Request) {
         leads,
         promoted,
         archived,
+        readIds,
     });
 
     return NextResponse.json({

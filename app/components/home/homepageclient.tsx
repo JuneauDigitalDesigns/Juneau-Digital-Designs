@@ -11,7 +11,7 @@ import LeadPanel from "./LeadPanel";
 import PortalDemo from "./PortalDemo";
 import ClosingAsk from "./ClosingAsk";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
-import { MISSED_CALLS_ID } from "@/app/data/portal-demo";
+import { MISSED_CALLS_ID, PORTAL_SECTION_ID } from "@/app/data/portal-demo";
 
 /* Prices come from Schedule A, never typed in by hand — the same rule the pricing page
    follows. A number written into marketing copy is a number that can eventually contradict
@@ -229,7 +229,8 @@ function ReceptionistSection() {
    Message and Review steps carry CARRIER_LINE in their tour cards. */
 function PortalSection() {
   return (
-    <section className="journey-section portal-section">
+    /* `id` is where the receptionist film's "Show me" lands (12 Nov 2026). */
+    <section id={PORTAL_SECTION_ID} className="journey-section portal-section">
       <JourneyReveal delay={0}>
         {/* Ends the sentence the journey headings make, without a second "Then". */}
         <h2 className="portal-heading">And nothing slips.</h2>
