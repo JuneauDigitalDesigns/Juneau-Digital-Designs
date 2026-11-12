@@ -158,6 +158,7 @@ export default function ReviewRequestDialog({
                             value={body}
                             onChange={(e) => setBody(e.target.value)}
                             rows={5}
+                            data-demo="review-message"
                             disabled={!canSend && !sending}
                             className="mt-2 w-full text-sm rounded-lg border p-3 outline-none"
                             style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
@@ -176,6 +177,7 @@ export default function ReviewRequestDialog({
                     <button
                         type="button"
                         onClick={send}
+                        data-demo="review-send"
                         disabled={!canSend}
                         className="w-full rounded-lg px-4 py-3 text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}

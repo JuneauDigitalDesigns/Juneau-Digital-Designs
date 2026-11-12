@@ -76,7 +76,7 @@ import NotesTab from "./record/NotesTab";
  * is the call they came from, which is pinned open above the timeline; see `OriginCall`.
  */
 
-interface DetailResponse {
+export interface DetailResponse {
     customer: CustomerRow;
     timeline: TimelineEvent[];
     tasks: TaskRow[];
@@ -87,6 +87,20 @@ interface DetailResponse {
 }
 
 type TimelineFilter = "all" | "messages" | "calls" | "notes";
+
+/**
+ * The record with no network: the Growth demo's sample file, driven by its script (2026-11-12).
+ *
+ * The demo shows this very component so it can never drift from the product. With `demo` set,
+ * nothing is fetched or saved: the data, the open tab, the text in the box and whether the review
+ * window is open all come from here, and every action is a no-op. The real portal never passes it.
+ */
+export interface RecordDemo {
+    data: DetailResponse;
+    tab: RecordTab;
+    draft: string;
+    reviewOpen: boolean;
+}
 
 /** Words, not lowercase mono. The filters are read by someone who does not work here. */
 const FILTER_LABEL: Record<TimelineFilter, string> = {
@@ -126,6 +140,7 @@ export default function CustomerRecord({
     backHref,
     onBack,
     initialTab = "timeline",
+    demo,
 }: {
     customerId: string | null;
     siteSlug: string;
@@ -146,8 +161,12 @@ export default function CustomerRecord({
      * where it is passed in.
      */
     onNotFound?: () => void;
+    /** The Growth demo's scripted file. See `RecordDemo`. */
+    demo?: RecordDemo;
 }) {
-    const [data, setData] = useState<DetailResponse | null>(null);
+    const [fetched, setData] = useState<DetailResponse | null>(null);
+    const data = demo ? demo.data : fetched;
+    const isDemo = Boolean(demo);
     const [loading, setLoading] = useState(false);
     const [filter, setFilter] = useState<TimelineFilter>("all");
     const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -162,7 +181,7 @@ export default function CustomerRecord({
         id: customerId,
         tab: initialTab,
     });
-    const tab = tabFor.id === customerId ? tabFor.tab : initialTab;
+    const tab = demo ? demo.tab : tabFor.id === customerId ? tabFor.tab : initialTab;
 
     /**
      * "Add to calendar" on a job: the calendar's own form, over the record, with this customer
@@ -190,17 +209,17 @@ export default function CustomerRecord({
     }, [setTab]);
 
     const reload = useCallback(async () => {
-        if (!customerId) return;
+        if (!customerId || isDemo) return;
         const fresh = await fetch(
             `/api/portal/customers/${customerId}?site=${encodeURIComponent(siteSlug)}`,
         )
             .then((r) => r.json())
             .catch(() => null);
         if (fresh?.customer) setData(fresh);
-    }, [customerId, siteSlug]);
+    }, [customerId, siteSlug, isDemo]);
 
     useEffect(() => {
-        if (!customerId) return;
+        if (!customerId || isDemo) return;
         let cancelled = false;
         setLoading(true);
         fetch(`/api/portal/customers/${customerId}?site=${encodeURIComponent(siteSlug)}`)
@@ -218,7 +237,7 @@ export default function CustomerRecord({
         return () => {
             cancelled = true;
         };
-    }, [customerId, siteSlug, onNotFound]);
+    }, [customerId, siteSlug, onNotFound, isDemo]);
 
     const customer = data?.customer ?? null;
 
@@ -230,7 +249,7 @@ export default function CustomerRecord({
      * field shows the message and puts the old value back.
      */
     async function patch(body: Record<string, unknown>): Promise<boolean> {
-        if (!customerId) return false;
+        if (!customerId || demo) return false;
         setFieldError(null);
         try {
             const res = await fetch(`/api/portal/customers?site=${encodeURIComponent(siteSlug)}`, {
@@ -252,7 +271,7 @@ export default function CustomerRecord({
     }
 
     async function sendMessage() {
-        if (!customerId || !draft.trim()) return;
+        if (!customerId || demo || !draft.trim()) return;
         setSending(true);
         try {
             const res = await fetch(`/api/portal/messages?site=${encodeURIComponent(siteSlug)}`, {
@@ -325,6 +344,7 @@ export default function CustomerRecord({
         customer,
         siteSlug,
         messagingState: data?.messagingState ?? "ready",
+        forceOpen: demo?.reviewOpen,
         // A sent request locks the button, so the record re-reads to show "Review requested".
         onSent: () => {
             onChanged();
@@ -573,7 +593,7 @@ export default function CustomerRecord({
                     {/* Inside this gate only: quick replies are a texting tool, and texting is
                         Growth/Enterprise with A2P verified. Draws nothing until the
                         reply-templates route exists. */}
-                    {customer.phone && (
+                    {customer.phone && !demo && (
                         <QuickReplies siteSlug={siteSlug} name={customer.name} onPick={setDraft} />
                     )}
                     <div
@@ -585,7 +605,7 @@ export default function CustomerRecord({
                         </label>
                         <textarea
                             id="crm-sms"
-                            value={draft}
+                            value={demo ? demo.draft : draft}
                             onChange={(e) => setDraft(e.target.value)}
                             rows={2}
                             placeholder={`Text ${customer.name ?? "them"}…`}
@@ -600,7 +620,8 @@ export default function CustomerRecord({
                         <button
                             type="button"
                             onClick={sendMessage}
-                            disabled={sending || !draft.trim() || !customer.phone}
+                            data-demo="send"
+                            disabled={sending || !(demo ? demo.draft : draft).trim() || !customer.phone}
                             className="shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                         >
@@ -984,6 +1005,7 @@ function StagePicker({
                         key={s.key}
                         type="button"
                         aria-pressed={on}
+                        data-demo={`stage-${s.key}`}
                         onClick={() => void patch({ stage: s.key })}
                         className="px-3 inline-flex items-center gap-1.5 cursor-pointer border-r last:border-r-0"
                         style={{
@@ -1105,6 +1127,8 @@ interface ReviewAnchorProps extends ReviewContext {
     siteSlug: string;
     messagingState: DetailResponse["messagingState"];
     onSent: () => void;
+    /** The Growth demo holds the window open or shut; the real record leaves it to the button. */
+    forceOpen?: boolean;
 }
 
 /**
@@ -1126,8 +1150,10 @@ function ReviewAnchor({
     reviewLinkConfigured,
     messagingState,
     onSent,
+    forceOpen,
 }: ReviewAnchorProps & { align: "end" | "stretch"; wide?: boolean }) {
-    const [open, setOpen] = useState(false);
+    const [openState, setOpen] = useState(false);
+    const open = forceOpen ?? openState;
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     return (

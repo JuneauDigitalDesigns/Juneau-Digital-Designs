@@ -434,7 +434,8 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
 
 /* ── pieces ───────────────────────────────────────────────────────────────── */
 
-function Column({
+/** A board column. Exported for the Growth demo, which draws the real board on sample data. */
+export function Column({
     label,
     color,
     rows,
@@ -442,6 +443,7 @@ function Column({
     onCollapse,
     onDrop,
     onOpen,
+    highlight = false,
 }: {
     stage: StageKey;
     label: string;
@@ -451,8 +453,11 @@ function Column({
     onCollapse: () => void;
     onDrop: (customerId: string) => void;
     onOpen: (id: string) => void;
+    /** Draw the drop highlight without a drag: the demo's card being carried over this column. */
+    highlight?: boolean;
 }) {
-    const [over, setOver] = useState(false);
+    const [overState, setOver] = useState(false);
+    const over = overState || highlight;
     return (
         <section
             className="flex-1 min-w-[168px] rounded-xl p-1.5 transition-colors"
@@ -513,7 +518,7 @@ function Column({
  * focuses it, which is how `CustomerPanel` learns which card opened it; `data-customer-id` is how
  * it finds that card again once a stage change has moved it to another column.
  */
-function BoardCard({ row, onOpen }: { row: CustomerRow; onOpen: () => void }) {
+export function BoardCard({ row, onOpen }: { row: CustomerRow; onOpen: () => void }) {
     return (
         <article
             draggable
@@ -582,7 +587,7 @@ function BoardCard({ row, onOpen }: { row: CustomerRow; onOpen: () => void }) {
     );
 }
 
-function MobileCard({
+export function MobileCard({
     row,
     onOpen,
     onMove,
@@ -710,7 +715,7 @@ function TableView({ rows, onOpen }: { rows: CustomerRow[]; onOpen: (id: string)
     );
 }
 
-function Chip({
+export function Chip({
     on,
     onClick,
     count,

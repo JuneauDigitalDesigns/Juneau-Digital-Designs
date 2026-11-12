@@ -1,44 +1,56 @@
-import { CARRIER_LINE, DEMO_STEPS } from "@/app/data/portal-demo";
+import { CARRIER_LINE } from "@/app/data/portal-demo";
 
 /**
- * The Starter → Growth demo's script: the order it plays in, how long each part holds, what
- * each scene shows at a given moment, and every word it says.
+ * The Starter → Growth demo's script: the order it plays in, how long each part holds, what each
+ * scene shows at a given moment, where the cursor is, and every word it says.
  *
  * Kept free of React so the timing rules can be tested on their own (`test/growth-demo.test.mjs`).
  *
- * Wording. Every client-facing string here was approved by Xander word for word on 9 Nov 2026
- * ("Starter → Growth demo" in the portal UX rework copy draft, plus the text inside the
- * GrowthDemo / GrowthDemoPhone mockups). The four step captions are not restated: they are the
- * homepage demo's own (`DEMO_STEPS` in `app/data/portal-demo.ts`, approved 4 Nov 2026), read from
- * there so the two demos cannot drift apart. Do not edit any of it without a fresh approval.
+ * Rebuilt 2026-11-12 (Xander): five steps rather than four (Jobs and the calendar are new), a
+ * little slower, a cursor that does every click, and the portal's real screens as they are after
+ * #118 to #122. Words: the storyboard Xander approved word for word on 2026-11-12 (all of it). Lines carried
+ * over from the 9 Nov 2026 approval are marked "kept". No dashes anywhere.
  */
 
 /* ── the sequence ───────────────────────────────────────────────────────── */
 
-/** Intro, then a title card ("scrim") before each of the four scenes, then the end card. */
-export const SEGMENTS = ["intro", "scrim1", "s1", "scrim2", "s2", "scrim3", "s3", "scrim4", "s4", "end"] as const;
+/** Intro, then a title card ("scrim") before each of the five scenes, then the end card. */
+export const SEGMENTS = [
+    "intro",
+    "scrim1",
+    "s1",
+    "scrim2",
+    "s2",
+    "scrim3",
+    "s3",
+    "scrim4",
+    "s4",
+    "scrim5",
+    "s5",
+    "end",
+] as const;
 export type Segment = (typeof SEGMENTS)[number];
-export type SceneNo = 1 | 2 | 3 | 4;
+export type SceneNo = 1 | 2 | 3 | 4 | 5;
+export const SCENE_COUNT = 5;
 
 /**
- * How long each part holds, in ms. About a minute end to end (60.5s), which is what the
- * Customers page promises ("A one-minute demo…") and the intro repeats ("About a minute").
- *
- * The mockup's starting point was 4s / 3s / 7s, which came to 44s and left the scenes too short
- * to read: a caption plus the carrier line is ~25 words, and the scene is still moving while it
- * is up. The scrims got half a second more so their one line can be read after the title, and
- * each scene got the time its beats (`BEATS`) need plus a few seconds' hold on the finished frame.
+ * How long each part holds, in ms: about a minute and a half end to end. Xander found the old
+ * minute too quick; every scene now has its caption read, the cursor's moves, and a held finished
+ * frame. The Jobs scene does the most (open the file, add the job, book it, see the calendar), so
+ * it gets two seconds more.
  */
 export const DURATION: Record<Exclude<Segment, "end">, number> = {
-    intro: 4500,
-    scrim1: 3500,
-    s1: 10000,
-    scrim2: 3500,
-    s2: 10000,
-    scrim3: 3500,
-    s3: 11000,
-    scrim4: 3500,
-    s4: 11000,
+    intro: 5000,
+    scrim1: 4000,
+    s1: 14000,
+    scrim2: 4000,
+    s2: 14000,
+    scrim3: 4000,
+    s3: 16000,
+    scrim4: 4000,
+    s4: 14000,
+    scrim5: 4000,
+    s5: 14000,
 };
 
 export const TOTAL_MS = Object.values(DURATION).reduce((a, b) => a + b, 0);
@@ -79,81 +91,232 @@ export function tick(i: number, t: number, delta: number): { i: number; t: numbe
 
 /**
  * When each thing happens inside a scene, in ms from its start. The caption comes up first and
- * the action follows, so the words say what is about to happen rather than chasing it.
+ * the action follows, so the words say what is about to happen rather than chasing it. Every
+ * click lands a beat after the cursor arrives, so it reads as a person, not a jump cut.
  */
 export const BEATS = {
     caption: 800,
-    s1: { drawer: 2000, promoted: 5200 },
+    s1: { open: 2800, promoting: 6000, promoted: 6800 },
     /* Dave's card steps Lead → Contacted → Quoted → Scheduled. */
-    s2: { moves: [2400, 4000, 5600] },
-    s3: { typeFrom: 1600, charsPerSec: 32, sent: 4800, reply: 6600 },
-    s4: { dialog: 1600, armed: 3400, sent: 5000, dialogClose: 7000 },
+    s2: { lift: 2400, moves: [3600, 5000, 6400], drop: 7000 },
+    s3: { record: 2200, jobsTab: 4000, job: 6200, calendar: 8800 },
+    s4: { focus: 2400, typeFrom: 2600, charsPerSec: 32, sent: 6600, reply: 9000 },
+    s5: { won: 2400, open: 4400, editing: 6400, sent: 9600 },
 } as const;
+
+export type BoardStage = 0 | 1 | 2 | 3;
+export type RecordView = "none" | "record" | "calendar";
 
 export interface SceneView {
     caption: boolean;
     /* 1: the lead opens and is promoted */
-    drawer: boolean;
+    leadOpen: boolean;
+    promoting: boolean;
     promoted: boolean;
-    /* 2: Dave's column, 0 = Lead … 3 = Scheduled */
-    daveStage: 0 | 1 | 2 | 3;
-    /* 3: the text being typed, then sent, then answered */
+    /* 2: Dave's column, 0 = Lead … 3 = Scheduled, and whether his card is in hand */
+    daveStage: BoardStage;
+    lifted: boolean;
+    /* 3: the file opens on Timeline, goes to Jobs, a job is added, the calendar shows the visit */
+    view: RecordView;
+    tab: "timeline" | "jobs";
+    job: boolean;
+    /* 4: the text being typed, then sent, then answered */
+    composing: boolean;
     typed: string;
     sent: boolean;
     reply: boolean;
-    /* 4: the review request */
+    /* 5: the review request */
     won: boolean;
-    dialog: boolean;
-    /** Send request is pulsing, about to be pressed. */
-    armed: boolean;
+    reviewOpen: boolean;
+    editing: boolean;
     reviewSent: boolean;
 }
 
 /**
  * The scene's state `ms` into it. `still` is reduced motion: every scene is drawn as its
- * finished frame from the first moment, so nothing inside it moves. The one difference from
- * the last moving frame is scene 4, which keeps the review dialog open on "Review requested",
- * because that dialog (the message already written) is what its caption is about.
+ * finished frame from the first moment, so nothing inside it moves. Scene 5 keeps the review
+ * window open, on its message, because that window is what its caption is about.
  */
 export function sceneView(scene: SceneNo, ms: number, still = false): SceneView {
     const at = still ? Number.POSITIVE_INFINITY : ms;
     const v: SceneView = {
         caption: at >= BEATS.caption,
-        drawer: false,
+        leadOpen: false,
+        promoting: false,
         promoted: false,
         daveStage: 0,
+        lifted: false,
+        view: "none",
+        tab: "timeline",
+        job: false,
+        composing: false,
         typed: "",
         sent: false,
         reply: false,
         won: false,
-        dialog: false,
-        armed: false,
+        reviewOpen: false,
+        editing: false,
         reviewSent: false,
     };
     if (scene === 1) {
-        v.drawer = at >= BEATS.s1.drawer;
+        v.leadOpen = at >= BEATS.s1.open;
         v.promoted = at >= BEATS.s1.promoted;
-    } else if (scene === 2) {
-        v.daveStage = BEATS.s2.moves.filter((m) => at >= m).length as SceneView["daveStage"];
-    } else if (scene === 3) {
-        v.daveStage = 3;
-        v.sent = at >= BEATS.s3.sent;
-        v.reply = at >= BEATS.s3.reply;
-        if (!v.sent && at >= BEATS.s3.typeFrom) {
-            const n = Math.floor(((at - BEATS.s3.typeFrom) / 1000) * BEATS.s3.charsPerSec);
+        v.promoting = at >= BEATS.s1.promoting && !v.promoted;
+        return v;
+    }
+    // From scene 2 on, Dave is a customer.
+    v.promoted = true;
+    if (scene === 2) {
+        v.daveStage = BEATS.s2.moves.filter((m) => at >= m).length as BoardStage;
+        v.lifted = at >= BEATS.s2.lift && at < BEATS.s2.drop;
+        return v;
+    }
+    v.daveStage = 3;
+    if (scene === 3) {
+        v.view = at >= BEATS.s3.calendar ? "calendar" : at >= BEATS.s3.record ? "record" : "none";
+        v.tab = at >= BEATS.s3.jobsTab ? "jobs" : "timeline";
+        v.job = at >= BEATS.s3.job;
+        return v;
+    }
+    // The job and its visit are booked before scene 4 opens.
+    v.view = "record";
+    v.job = true;
+    if (scene === 4) {
+        v.sent = at >= BEATS.s4.sent;
+        v.reply = at >= BEATS.s4.reply;
+        v.composing = at >= BEATS.s4.focus && !v.sent;
+        if (!v.sent && at >= BEATS.s4.typeFrom) {
+            const n = Math.floor(((at - BEATS.s4.typeFrom) / 1000) * BEATS.s4.charsPerSec);
             v.typed = COPY.sms.slice(0, n);
         }
-    } else {
-        // The job is done before scene 4 opens: the conversation from scene 3 is all there.
-        v.daveStage = 3;
-        v.won = true;
-        v.sent = true;
-        v.reply = true;
-        v.reviewSent = at >= BEATS.s4.sent;
-        v.armed = at >= BEATS.s4.armed && !v.reviewSent;
-        v.dialog = still || (at >= BEATS.s4.dialog && at < BEATS.s4.dialogClose);
+        if (still) v.composing = false;
+        return v;
     }
+    // Scene 5: the conversation from scene 4 is all there.
+    v.sent = true;
+    v.reply = true;
+    v.won = at >= BEATS.s5.won;
+    v.reviewSent = at >= BEATS.s5.sent && !still;
+    v.reviewOpen = still || (at >= BEATS.s5.open && !v.reviewSent);
+    v.editing = still || (at >= BEATS.s5.editing && !v.reviewSent);
     return v;
+}
+
+/* ── the cursor ─────────────────────────────────────────────────────────── */
+
+/**
+ * Where the cursor goes, as CSS selectors resolved inside the replica at render time, so it lands
+ * on the real element wherever the real layout puts it. `null` is off screen. A `click` is drawn
+ * as a press and a ring at that moment; `down` holds the button (the drag on the board).
+ */
+export interface CursorStop {
+    at: number;
+    to: string | null;
+    click?: boolean;
+    down?: boolean;
+}
+
+export const DAVE_ID = "demo-dave";
+
+const col = (label: string) => `section[aria-label="${label} column"]`;
+
+export const CURSOR: Record<SceneNo, CursorStop[]> = {
+    1: [
+        { at: 1200, to: `[data-row-id="${DAVE_ID}"]` },
+        { at: 2600, to: `[data-row-id="${DAVE_ID}"]`, click: true },
+        { at: 4800, to: '[data-tour="inbox-promote"]' },
+        { at: 6000, to: '[data-tour="inbox-promote"]', click: true },
+        { at: 8000, to: null },
+    ],
+    2: [
+        { at: 1400, to: `[data-customer-id="${DAVE_ID}"]` },
+        { at: 2400, to: `[data-customer-id="${DAVE_ID}"]`, down: true },
+        { at: 3000, to: col("Contacted"), down: true },
+        { at: 4400, to: col("Quoted"), down: true },
+        { at: 5800, to: col("Scheduled"), down: true },
+        { at: 7000, to: `[data-customer-id="${DAVE_ID}"]` },
+        { at: 8600, to: null },
+    ],
+    3: [
+        { at: 1000, to: `[data-customer-id="${DAVE_ID}"]` },
+        { at: 1800, to: `[data-customer-id="${DAVE_ID}"]`, click: true },
+        { at: 3200, to: "#crm-tab-jobs" },
+        { at: 3800, to: "#crm-tab-jobs", click: true },
+        { at: 5000, to: '[data-tour="crm-jobs-add"]' },
+        { at: 5800, to: '[data-tour="crm-jobs-add"]', click: true },
+        { at: 7400, to: '[data-tour="crm-job-calendar"]' },
+        { at: 8200, to: '[data-tour="crm-job-calendar"]', click: true },
+        { at: 10000, to: '[data-tour="cal-day"]' },
+        { at: 12500, to: null },
+    ],
+    4: [
+        { at: 1400, to: "#crm-sms" },
+        { at: 2200, to: "#crm-sms", click: true },
+        { at: 5400, to: '[data-demo="send"]' },
+        { at: 6200, to: '[data-demo="send"]', click: true },
+        /* Up to the timeline, where the text has just landed, and where the reply comes in. */
+        { at: 7000, to: '[data-tour="crm-drawer-timeline"]' },
+        { at: 11500, to: null },
+    ],
+    5: [
+        { at: 1200, to: '[data-demo="stage-won"]' },
+        { at: 2200, to: '[data-demo="stage-won"]', click: true },
+        { at: 3400, to: '[data-tour="crm-drawer-review"]' },
+        { at: 4200, to: '[data-tour="crm-drawer-review"]', click: true },
+        { at: 5600, to: '[data-demo="review-message"]' },
+        { at: 6200, to: '[data-demo="review-message"]', click: true },
+        { at: 8400, to: '[data-demo="review-send"]' },
+        { at: 9200, to: '[data-demo="review-send"]', click: true },
+        { at: 10800, to: null },
+    ],
+};
+
+/** How long the cursor takes between two stops. */
+export const CURSOR_MOVE_MS = 700;
+/** How long a click's press shows. */
+export const CLICK_MS = 260;
+
+export interface CursorState {
+    /** Where it is coming from and going to; equal once it has arrived. */
+    from: string | null;
+    to: string | null;
+    /** 0 at the start of the move, 1 on arrival (eased by the caller). */
+    p: number;
+    down: boolean;
+    /** The number of clicks so far, so each one replays its ring. */
+    clicks: number;
+    /** A click is pressing right now. */
+    pressing: boolean;
+}
+
+/** The cursor `ms` into a scene. Reduced motion draws no cursor at all. */
+export function cursorAt(scene: SceneNo, ms: number, still = false): CursorState {
+    const off: CursorState = { from: null, to: null, p: 1, down: false, clicks: 0, pressing: false };
+    if (still) return off;
+    const stops = CURSOR[scene];
+    let prev: string | null = null;
+    let cur: CursorStop | null = null;
+    let clicks = 0;
+    let lastClickAt = -Infinity;
+    for (const s of stops) {
+        if (s.at > ms) break;
+        prev = cur ? cur.to : null;
+        cur = s;
+        if (s.click) {
+            clicks++;
+            lastClickAt = s.at;
+        }
+    }
+    if (!cur) return off;
+    const p = Math.min(1, (ms - cur.at) / CURSOR_MOVE_MS);
+    return {
+        from: prev === cur.to ? cur.to : prev,
+        to: cur.to,
+        p: prev === cur.to ? 1 : p,
+        down: Boolean(cur.down),
+        clicks,
+        pressing: ms - lastClickAt < CLICK_MS,
+    };
 }
 
 /* ── the words ──────────────────────────────────────────────────────────── */
@@ -163,60 +326,79 @@ export interface ScrimCopy {
     title: string;
     /** The desktop line. */
     sub: string;
-    /** The phone mockup's shorter line, where it has one. */
+    /** The phone's shorter line, where it has one. */
     subPhone?: string;
 }
 
 export const COPY = {
-    tag: "GROWTH DEMO · SAMPLE DATA",
-    exit: "Exit demo",
-    back: "Back",
-    pause: "Pause",
-    play: "Play",
-    next: "Next",
+    tag: "GROWTH DEMO · SAMPLE DATA", // kept
+    exit: "Exit demo", // kept
+    back: "Back", // kept
+    pause: "Pause", // kept
+    play: "Play", // kept
+    next: "Next", // kept
     scrims: {
         intro: {
-            label: "GROWTH, ON SAMPLE DATA",
-            title: "One call, start to finish",
-            sub: "Watch a late-night call become a booked job and a Google review. About a minute.",
-            subPhone: "Watch a late-night call become a booked job and a Google review.",
+            label: "GROWTH, ON SAMPLE DATA", // kept
+            title: "One call, start to finish", // kept
+            sub: "Watch a late-night call become a booked job and a Google review. About a minute and a half.",
+            subPhone: "Watch a late-night call become a booked job and a Google review.", // kept
         },
         scrim1: {
-            label: "STEP 1 OF 4",
+            label: "STEP 1 OF 5",
             title: "Turn a caller into a customer",
-            sub: "Your receptionist answered at 2:13 AM. Here’s what happens next.",
-            subPhone: "Your receptionist answered at 2:13 AM.",
+            sub: "Your receptionist answered Dave at 2:13 AM. Open the call and keep him.",
+            subPhone: "Your receptionist answered Dave at 2:13 AM.",
         },
         scrim2: {
-            label: "STEP 2 OF 4",
-            title: "Work the job",
-            sub: "Every customer on one board, from first call to booked.",
-            subPhone: "Every customer on one board.",
+            label: "STEP 2 OF 5",
+            title: "Work the job", // kept
+            sub: "Every customer on one board, from first call to booked.", // kept
+            subPhone: "Every customer on one board.", // kept
         },
         scrim3: {
-            label: "STEP 3 OF 4",
-            title: "Text them from your business number",
-            sub: "No more giving out your mobile.",
+            label: "STEP 3 OF 5",
+            title: "Book the visit",
+            sub: "Track what the job is worth and put it on your calendar.",
         },
         scrim4: {
-            label: "STEP 4 OF 4",
-            title: "Ask for the review",
-            sub: "The job’s done. One tap brings in the next one.",
-            subPhone: "One tap brings in the next job.",
+            label: "STEP 4 OF 5",
+            title: "Text them from your business number", // kept
+            sub: "No more giving out your mobile.", // kept
         },
-    } satisfies Record<Exclude<Segment, "end" | "s1" | "s2" | "s3" | "s4">, ScrimCopy>,
+        scrim5: {
+            label: "STEP 5 OF 5",
+            title: "Ask for the review", // kept
+            sub: "The job’s done. One tap brings in the next one.", // kept
+            subPhone: "One tap brings in the next job.", // kept
+        },
+    } satisfies Record<Exclude<Segment, "end" | "s1" | "s2" | "s3" | "s4" | "s5">, ScrimCopy>,
+    captions: {
+        1: {
+            title: "Promote",
+            text: "Open the call to see what Dave needs, then promote him to a customer. The call comes with him, summary and recording included.",
+        },
+        2: {
+            title: "Pipeline",
+            text: "Drag Dave along as the job moves: Lead, Contacted, Quoted, Scheduled. Anyone going quiet gets an amber dot.",
+        },
+        3: {
+            title: "Jobs",
+            text: "Open Dave's file and add the job: the service, its status and what it's worth. Add to calendar books the visit.",
+        },
+        4: {
+            title: "Message",
+            text: "Text Dave from your business number without leaving his file. His reply lands right in the timeline.",
+        },
+        5: {
+            title: "Review",
+            text: "When the job is done, ask for a Google review. The message is already written, and you can change it before it goes.",
+        },
+    } satisfies Record<SceneNo, { title: string; text: string }>,
     /* Sample content */
-    sms: "Hi Dave, it's Mike from Brannock. I can be there by 8 to get the heat back on.",
-    reply: "Perfect, see you at 8. Thank you!",
-    review: "Thanks for choosing Brannock Heating & Air! If you have a minute, would you leave us a quick Google review? g.page/r/brannock",
-    /* The mockup's "+ Promote to customer": the "+" is drawn as the live button's plus icon. */
-    promote: "Promote to customer",
-    promoted: "Dave is now a customer",
-    reviewTitle: "Request a Google review",
-    reviewSend: "Send request",
-    reviewSent: "Review requested",
-    /* End card. Heading, body and the upgrade button are the old driver.js showcase's last step,
-       reused unchanged; "Watch again" and "Not now" are new and approved with the rest. */
+    sms: "Hi Dave, it's Mike from Your HVAC Co. I can be there by 8 to get the heat back on.",
+    reply: "Perfect, see you at 8. Thank you!", // kept
+    /* End card: kept word for word from the 9 Nov 2026 approval. */
     end: {
         label: "THAT'S GROWTH",
         title: "Are you ready to grow?",
@@ -228,12 +410,12 @@ export const COPY = {
     },
 } as const;
 
-/** A scene's caption: the homepage demo's step of the same name. Its Inbox step is not used. */
-const CAPTION_KEY = { 1: "promote", 2: "pipeline", 3: "message", 4: "review" } as const;
+/** Which scenes wait on the carriers: texting and review requests. */
+const GATED: Record<SceneNo, boolean> = { 1: false, 2: false, 3: false, 4: true, 5: true };
 
 export function captionFor(scene: SceneNo): { step: string; title: string; text: string; gate: string | null } {
-    const st = DEMO_STEPS.find((d) => d.key === CAPTION_KEY[scene])!;
-    return { step: `STEP ${scene} OF 4`, title: st.short, text: st.caption, gate: st.gated ? CARRIER_LINE : null };
+    const c = COPY.captions[scene];
+    return { step: `STEP ${scene} OF ${SCENE_COUNT}`, title: c.title, text: c.text, gate: GATED[scene] ? CARRIER_LINE : null };
 }
 
 /**
@@ -251,7 +433,7 @@ export function announcementFor(seg: Segment): string {
     return `${cap.title}. ${cap.text}${cap.gate ? ` ${cap.gate}` : ""}`;
 }
 
-/** Which of the four step dots a segment lights; 5 once past the last, so all four read as done. */
+/** Which of the five step dots a segment lights; 6 once past the last, so all five read as done. */
 export function stepOf(seg: Segment): number {
-    return seg === "end" ? 5 : sceneOf(seg)!;
+    return seg === "end" ? SCENE_COUNT + 1 : sceneOf(seg)!;
 }
