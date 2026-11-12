@@ -476,19 +476,52 @@
 .reduced .pop { animation: none; }
 
 .controls { display: flex; gap: 8px; align-items: stretch; }
-.play {
-  flex: none;
-  width: 44px;
-  min-height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  border: 1px solid var(--rule-strong);
+
+/* ── click to pause (12 Nov 2026) ───────────────────────────────
+   The toggle covers the window under the tour card. Hovering rings the window in the page's
+   coral, as the website laptop above does, and shows the icon; paused, the icon stays up. */
+.toggle {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
   background: transparent;
-  color: var(--fg);
   cursor: pointer;
 }
-.play:hover { border-color: var(--accent-2); color: var(--accent-2); }
+.toggle:focus-visible { outline: none; }
+.toggleIcon {
+  position: absolute;
+  top: 46px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 18, 12, 0.72);
+  color: #fff;
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.window { transition: box-shadow 0.2s ease; }
+.frame[data-pausable="true"]:hover .window,
+.frame[data-pausable="true"]:has(.toggle:focus-visible) .window {
+  box-shadow: 0 0 0 2px var(--accent-2), 0 0 0 7px var(--accent-glow), 0 40px 80px rgba(0, 0, 0, 0.18);
+}
+.frame[data-pausable="true"]:hover .toggleIcon,
+.toggle:focus-visible .toggleIcon,
+.paused .toggleIcon { opacity: 1; transform: scale(1); }
+/* Paused: every CSS animation in the demo holds where it is (row entrances, the caret, the card's
+   timer, the step bar). Transitions are frozen by the component, which owns them. */
+.paused *,
+.paused *::before,
+.paused *::after { animation-play-state: paused !important; }
 .steps {
   flex: 1;
   min-width: 0;
