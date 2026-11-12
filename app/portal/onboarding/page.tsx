@@ -6,6 +6,7 @@ import OnboardingPageClient from "@/app/components/onboarding/onboardingpageclie
 import { getAgreement } from "@/app/lib/kv";
 import { getOrder } from "@/app/lib/operator-orders";
 import { buildPrefill } from "@/app/lib/onboarding-prefill";
+import { finishLaterTarget } from "@/app/components/onboarding/wizard/finish-later";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,9 @@ export default async function PortalOnboardingPage({
             prefill={prefill}
             clerkUserId={userId}
             siteRef={pendingSite.slug}
+            // Where "Finish later" goes: another site's dashboard, or the in-wizard "Saved"
+            // screen when this is the only site (F-B1b, 2026-11-11).
+            otherSiteSlug={finishLaterTarget(account.sites, pendingSite.slug)}
         />
     );
 }
