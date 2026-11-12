@@ -19,6 +19,7 @@ import {
     Question,
     Tray,
     Users,
+    CalendarBlank,
 } from "@phosphor-icons/react";
 import TourController, { launchTour } from "./tour/TourController";
 import PortalUserButton from "./PortalUserButton";
@@ -55,6 +56,7 @@ const TAB_ICON = {
     overview: ChartPieSlice,
     calls: Tray,
     customers: Users,
+    calendar: CalendarBlank,
     analytics: TrendUp,
     settings: Gear,
     support: Lifebuoy,

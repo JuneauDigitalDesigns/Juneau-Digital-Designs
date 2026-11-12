@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
     ArrowLeft,
+    CalendarPlus,
     CaretRight,
     ChatCircle,
     Envelope,
@@ -27,6 +28,21 @@ import {
 import QuickReplies from "./QuickReplies";
 import ReviewRequestDialog from "../ReviewRequestDialog";
 import type { CustomerNote, Job } from "@/app/lib/crm-jobs";
+import {
+    APPT_KIND_LABEL,
+    ALL_DAY,
+    LENGTH_LABEL,
+    formatSpan,
+    formatTime,
+    isAllDay,
+    shortDayLabel,
+    todayDay,
+    upcoming,
+    type Appointment,
+} from "@/app/lib/crm-calendar";
+import AppointmentForm, { type ApptFormValues } from "../calendar/AppointmentForm";
+import { calendarHref, fetchCalendar, writeAppointment, type CalendarData } from "../calendar/api";
+import { Label } from "./record/fields";
 import RecordTabs, { panelId, tabId, type RecordTab } from "./record/RecordTabs";
 import ComingUp from "./record/ComingUp";
 import ContactTab from "./record/ContactTab";
@@ -66,6 +82,7 @@ interface DetailResponse {
     tasks: TaskRow[];
     jobs: Job[];
     notes: CustomerNote[];
+    appointments: Appointment[];
     messagingState: "ready" | "not-on-plan" | "pending-build" | "connecting";
 }
 
@@ -146,6 +163,14 @@ export default function CustomerRecord({
         tab: initialTab,
     });
     const tab = tabFor.id === customerId ? tabFor.tab : initialTab;
+
+    /**
+     * "Add to calendar" on a job: the calendar's own form, over the record, with this customer
+     * and that job already picked. The calendar is read as it opens, for the overlap check.
+     */
+    const [booking, setBooking] = useState<{ values: ApptFormValues; calendar: CalendarData } | null>(null);
+    const [bookingBusy, setBookingBusy] = useState(false);
+    const [today] = useState(() => todayDay());
     const setTab = useCallback((t: RecordTab) => setTabFor({ id: customerId, tab: t }), [customerId]);
 
     /**
@@ -314,6 +339,10 @@ export default function CustomerRecord({
                 siteSlug={siteSlug}
                 customerId={customer.customerId}
                 onChanged={refresh}
+                appointments={data?.appointments ?? []}
+                jobs={data?.jobs ?? []}
+                calendarLink={calendarHref(siteSlug)}
+                today={today}
                 className={`${pad} pt-5 pb-4 border-b`}
             />
             {origin && <OriginCall event={origin} className={`${pad} py-6`} />}
@@ -597,6 +626,46 @@ export default function CustomerRecord({
 
     const jobs = data?.jobs ?? [];
     const notes = data?.notes ?? [];
+    const appointments = data?.appointments ?? [];
+
+    async function addToCalendar(job: Job) {
+        const calendar = await fetchCalendar(siteSlug);
+        if (!calendar || !customer) return;
+        setBooking({
+            calendar,
+            values: {
+                customerId: customer.customerId,
+                jobId: job.jobId,
+                day: today,
+                startMinutes: 9 * 60,
+                durationMinutes: 60,
+                kind: "visit",
+                address: job.address ?? customer.address ?? "",
+                notes: "",
+            },
+        });
+    }
+
+    async function book(v: ApptFormValues) {
+        setBookingBusy(true);
+        const ok = await writeAppointment(siteSlug, "POST", {
+            customerId: v.customerId || null,
+            jobId: v.jobId || null,
+            day: v.day,
+            startMinutes: v.durationMinutes >= ALL_DAY ? 0 : v.startMinutes,
+            durationMinutes: v.durationMinutes,
+            kind: v.kind,
+            address: v.address,
+            notes: v.notes,
+        });
+        setBookingBusy(false);
+        if (ok) {
+            setBooking(null);
+            refresh();
+        }
+    }
+
+    const visitsOf = (job: Job) => appointments.filter((a) => a.jobId === job.jobId);
 
     /**
      * The tabs and what they show.
@@ -634,6 +703,25 @@ export default function CustomerRecord({
                         siteSlug={siteSlug}
                         onChanged={refresh}
                         className={`${pad} py-5`}
+                        renderMeta={(job) => {
+                            const next = upcoming(visitsOf(job), today)[0];
+                            if (!next) return "No visit booked";
+                            const day = shortDayLabel(next.day, today);
+                            return `Next visit ${day === "Today" ? "today" : day} · ${
+                                isAllDay(next) ? LENGTH_LABEL[ALL_DAY] : formatTime(next.startMinutes)
+                            }`;
+                        }}
+                        renderVisits={(job) => <Visits visits={visitsOf(job)} today={today} siteSlug={siteSlug} />}
+                        renderActions={(job) => (
+                            <button
+                                type="button"
+                                onClick={() => void addToCalendar(job)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-medium cursor-pointer whitespace-nowrap"
+                                style={{ minHeight: 36, borderColor: "var(--rule-strong)", color: "var(--fg)", background: "var(--elev-1)" }}
+                            >
+                                <CalendarPlus size={14} /> Add to calendar
+                            </button>
+                        )}
                     />
                 )}
                 {tab === "notes" && (
@@ -671,6 +759,49 @@ export default function CustomerRecord({
                 <SheetHeader customer={customer} patch={patch} review={reviewProps} onText={goText} />
             )}
             {body}
+            {booking && (
+                <AppointmentForm
+                    initial={booking.values}
+                    customers={[{ customerId: customer.customerId, name: customer.name, address: customer.address }]}
+                    jobs={jobs}
+                    appointments={booking.calendar.appointments}
+                    names={booking.calendar.names}
+                    busy={bookingBusy}
+                    onSubmit={(v) => void book(v)}
+                    onCancel={() => setBooking(null)}
+                />
+            )}
+        </div>
+    );
+}
+
+/** A job's booked visits, under its details, each with a way to its day on the calendar. */
+function Visits({ visits, today, siteSlug }: { visits: Appointment[]; today: string; siteSlug: string }) {
+    if (visits.length === 0) return null;
+    const key = (a: Appointment) => `${a.day} ${String(a.startMinutes).padStart(4, "0")}`;
+    const sorted = [...visits].sort((a, b) => key(a).localeCompare(key(b)));
+    return (
+        <div className="min-w-0">
+            <Label>Visits</Label>
+            <ul className="list-none m-0 mt-2 p-0 flex flex-col gap-1.5">
+                {sorted.map((a) => (
+                    <li
+                        key={a.id}
+                        className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg border px-3 py-2 text-[13px]"
+                        style={{ borderColor: "var(--rule)", background: "var(--elev-1)", opacity: a.status === "cancelled" ? 0.6 : 1 }}
+                    >
+                        <span className="text-[11px]" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>
+                            {shortDayLabel(a.day, today)} · {formatSpan(a)}
+                        </span>
+                        <span className="font-semibold" style={{ color: "var(--fg)" }}>
+                            {APPT_KIND_LABEL[a.kind]}
+                        </span>
+                        <Link href={calendarHref(siteSlug, a.day)} className="ml-auto text-[12.5px]" style={{ color: "var(--accent)" }}>
+                            Open in calendar
+                        </Link>
+                    </li>
+                ))}
+            </ul>
         </div>
     );
 }
