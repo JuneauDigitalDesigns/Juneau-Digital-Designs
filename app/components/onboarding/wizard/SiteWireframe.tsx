@@ -25,6 +25,7 @@ import {
 } from "./model";
 import { C, PROFILE_SHORT } from "./copy-service-details";
 import s from "./wizard.module.css";
+import { previewCallLabel } from "./preview-call";
 
 /** The address as the site shows it: a service-area business shows town, state and ZIP only. */
 function shownAddress(state: WizardState): string {
@@ -55,7 +56,7 @@ function Chrome({ path, state, children }: { path: string; state: WizardState; c
                         </span>
                     </span>
                     <span className={s.sLinks}><span><b>Services ▾</b></span><span>About</span></span>
-                    <span className={s.sCall}>Call {state.phone.trim() || "now"}</span>
+                    <span className={s.sCall}>{previewCallLabel(state)}</span>
                 </div>
                 {children}
             </div>
@@ -131,7 +132,7 @@ export function ServiceWireframe({ state, name }: { state: WizardState; name: st
                     <img key={p.url} src={p.url} alt="" style={{ width: 64, height: 48, objectFit: "cover", borderRadius: 6, filter: "grayscale(1)" }} />
                 ))}</div></div>
             ) : <div className={s.sGhost}>{C.ghostPhotos}</div>}
-            <div className={s.sFoot}><span>Call {state.phone.trim() || "now"}</span><span>Ask for a quote</span></div>
+            <div className={s.sFoot}><span>{previewCallLabel(state)}</span><span>Ask for a quote</span></div>
         </Chrome>
     );
 }
@@ -188,7 +189,7 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
                         {state.logoChoice === "design" && !state.images.logo ? <span className={s.sTbd}>logo by JDD</span> : null}
                     </span>
                     <span className={s.sLinks}><span>Services</span><span>About</span><span>Reviews</span></span>
-                    <span className={`${s.sCall} ${hl("call")} ${hl("contact")}`}>Call {state.phone.trim() || "now"}</span>
+                    <span className={`${s.sCall} ${hl("call")} ${hl("contact")}`}>{previewCallLabel(state)}</span>
                 </div>
 
                 <div className={s.sHero}>
