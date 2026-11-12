@@ -12,8 +12,9 @@ import type { DriveStep } from "driver.js";
  * - **No dimming**: the controller runs driver.js with no overlay and an outline on the target.
  *
  * Wording: every line from the first draft was approved by Xander word for word on 2026-11-12
- * ("approve all of the copy for the tour"). Lines the per-tab rework added are marked NEW below
- * and went to him word for word the same day. No dashes anywhere (`test/portal-tours.test.mjs`).
+ * ("approve all of the copy for the tour"). Lines the per-tab rework added are marked NEW below;
+ * Xander approved them word for word the same day ("I approve the wording from the homepage demos
+ * subagent"). No dashes anywhere (`test/portal-tours.test.mjs`).
  *
  * Anchors are `data-tour` attributes or element ids, never classes. A step whose anchor is not on
  * the page (an empty inbox, a building site, a phone without a rail) shows as a centred card.
