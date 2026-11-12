@@ -166,9 +166,9 @@ export const C = {
     profilesPlaceholder: "Google · Facebook · Yelp", // #54
 
     // Local SEO questions (Xander, 2026-11-12). Q2 and Q5 are approved word for word in
-    // local-seo-architecture-decisions.md. The side rail label for Q2 is new and shown to him with
-    // the screenshots.
-    topTownsNav: "Top towns", // rail label, with the Q2 screenshots
+    // local-seo-architecture-decisions.md; the Q2 rail label "Top towns" was approved word for word
+    // the same day, after the screenshots.
+    topTownsNav: "Top towns", // Q2 rail label, approved 2026-11-12
     topTownsQ: "Which towns do you get the most work from?", // Q2
     topTownsHelp: "Pick up to 3. We'll start with these.", // Q2
     qPriceFactors: "What makes this job cost more or less?", // Q5
