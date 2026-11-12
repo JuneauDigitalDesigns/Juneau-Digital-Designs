@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
+import { CONTACT } from "@/app/data/contact"
 
 export default function Footer() {
     const year = new Date().getFullYear()
@@ -17,8 +18,9 @@ export default function Footer() {
                 className="relative mx-auto w-full max-w-7xl px-4 sm:px-6"
                 style={{ padding: "64px max(24px, 4vw) 36px" }}
             >
-                {/* 3-column grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-9">
+                {/* 4-column grid: brand, Pages, Legal, Contact. One column on a phone, two on a
+                    tablet, four from 1024px. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-9">
                     {/* Col 1 — brand */}
                     <div>
                         <Link href="/" aria-label="Go to home page" className="inline-flex items-center mb-5">
@@ -49,6 +51,16 @@ export default function Footer() {
                                 terms page, so it is named for that and can't be mistaken for the
                                 SMS Terms above it. Approved by Xander, 9 Nov 2026. */}
                             <li><Link href="/terms" className="footer-link">Service Agreement</Link></li>
+                        </ul>
+                    </div>
+
+                    {/* Col 4: Contact (Xander, 2026-11-12). Footer only, not the nav. Plain <a>,
+                        not <Link>: tel: and mailto: leave the site. */}
+                    <div>
+                        <div className="kicker" style={{ marginBottom: 14 }}>Contact</div>
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
+                            <li><a href={CONTACT.phoneHref} className="footer-link">{CONTACT.phoneDisplay}</a></li>
+                            <li><a href={CONTACT.emailHref} className="footer-link" style={{ overflowWrap: "anywhere" }}>{CONTACT.email}</a></li>
                         </ul>
                     </div>
                 </div>
