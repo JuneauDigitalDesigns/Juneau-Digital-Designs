@@ -541,6 +541,7 @@ export default function OnboardingPageClient({
                                 uploads={uploads}
                                 extra={extra}
                                 prefill={prefill}
+                                prefillEmail={prefillEmail}
                             />
                             {def.id === "review" && submitError ? <p className={s.err} role="alert" style={{ marginTop: 12 }}>{submitError}</p> : null}
                         </div>

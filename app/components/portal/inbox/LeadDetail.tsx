@@ -5,9 +5,11 @@ import {
     CaretLeft,
     Check,
     Clock,
+    EnvelopeSimple,
     Phone,
     Plus,
     Trash,
+    X,
 } from "@phosphor-icons/react";
 import type { InboxItem } from "@/app/lib/crm-contacts";
 import { duration } from "@/app/lib/duration";
@@ -31,6 +33,10 @@ import { dialNumber } from "./InboxList";
  * "What they want" carries the preview the payload already has — the call summary or the form
  * message. There is no separate AI one-line intent in the data, so the card does not invent
  * one; when the backend grows that field this is the place it goes.
+ *
+ * Opening a lead marks it read, so Mark unread (Xander, 2026-11-12) also closes it: left open,
+ * it would read as opened again. On desktop it sits top right beside the ✕ that closes the
+ * record, as a mail client's do; on a phone it is the top bar's right-hand button.
  */
 
 export interface LeadActions {
@@ -40,7 +46,9 @@ export interface LeadActions {
     onPromote: () => void;
     onDelete: () => void;
     onOpenItem: (id: string) => void;
+    /** Close the record: the phone's Back, the desktop ✕, Esc. */
     onBack: () => void;
+    onMarkUnread: () => void;
 }
 
 export default function LeadDetail({
@@ -74,20 +82,60 @@ export default function LeadDetail({
 
     const canDone = status !== "done" && status !== "promoted";
     const canRemind = remindSupported && status !== "done" && status !== "promoted";
+    // Done and promoted always read as read (`rowIsUnread`), so there is nothing to put back.
+    const canMarkUnread = status !== "done" && status !== "promoted";
 
     const callHref = dial ? `tel:${dial}` : undefined;
 
-    const header = (
+    const title = (
+        <h2
+            className="font-extrabold truncate"
+            style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", color: "var(--fg)" }}
+        >
+            {name}
+        </h2>
+    );
+    const meta = `${item.phoneDisplay} · ${kindLabel(item)} · ${fullWhen(item.at, now)}`;
+
+    const header = isDesktop ? (
         <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-                <h2
-                    className="font-extrabold truncate"
-                    style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", color: "var(--fg)" }}
+                {title}
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" style={{ color: "var(--fg-3)" }}>
+                    <span>{meta}</span>
+                    <StatusChip row={{ status }} item={item} now={now} />
+                </p>
+            </div>
+            <div className="shrink-0 flex items-center gap-1.5">
+                {canMarkUnread && (
+                    <button
+                        type="button"
+                        onClick={actions.onMarkUnread}
+                        data-inbox-action="unread"
+                        className="h-8 px-2.5 rounded-[7px] border border-transparent inline-flex items-center gap-1.5 text-[13px] font-semibold cursor-pointer hover:bg-[var(--surface)] hover:border-[var(--rule)]"
+                        style={{ color: "var(--fg-2)" }}
+                    >
+                        <EnvelopeSimple size={15} /> Mark unread <Key>U</Key>
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={actions.onBack}
+                    title="Close"
+                    aria-label="Close"
+                    className="w-8 h-8 rounded-[7px] border inline-flex items-center justify-center cursor-pointer hover:border-[var(--fg-3)]"
+                    style={{ background: "var(--elev-1)", borderColor: "var(--rule-strong)", color: "var(--fg-2)" }}
                 >
-                    {name}
-                </h2>
+                    <X size={14} weight="bold" />
+                </button>
+            </div>
+        </div>
+    ) : (
+        <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+                {title}
                 <p className="text-[13px]" style={{ color: "var(--fg-3)" }}>
-                    {item.phoneDisplay} · {kindLabel(item)} · {fullWhen(item.at, now)}
+                    {meta}
                 </p>
             </div>
             <StatusChip row={{ status }} item={item} now={now} size="md" />
@@ -190,7 +238,7 @@ export default function LeadDetail({
     return (
         <div className="flex flex-col min-h-0 h-full">
             {!isDesktop && (
-                <div className="shrink-0 h-14 flex items-center px-1.5 border-b" style={{ background: "var(--elev-1)", borderColor: "var(--rule)" }}>
+                <div className="shrink-0 h-14 flex items-center justify-between px-1.5 border-b" style={{ background: "var(--elev-1)", borderColor: "var(--rule)" }}>
                     <button
                         type="button"
                         onClick={actions.onBack}
@@ -199,6 +247,16 @@ export default function LeadDetail({
                     >
                         <CaretLeft size={18} weight="bold" /> Inbox
                     </button>
+                    {canMarkUnread && (
+                        <button
+                            type="button"
+                            onClick={actions.onMarkUnread}
+                            className="inline-flex items-center h-11 px-2.5 text-[15px] font-semibold cursor-pointer"
+                            style={{ color: "var(--accent)" }}
+                        >
+                            Mark unread
+                        </button>
+                    )}
                 </div>
             )}
 
