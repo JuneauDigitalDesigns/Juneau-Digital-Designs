@@ -263,7 +263,7 @@ export default function CustomerRecord({
     );
 
     const activity = (
-        <div className="flex flex-col min-w-0 min-h-0">
+        <div data-record-activity="" className="flex flex-col flex-1 min-w-0 min-h-0">
             {origin && <OriginCall event={origin} className={`${pad} py-6`} />}
 
             <div
@@ -466,8 +466,27 @@ export default function CustomerRecord({
                 ))}
             </div>
 
-            {/* composer / the A2P wait */}
-            <div id="crm-composer" className={`${pad} py-4 border-t min-w-0`} style={{ borderColor: "var(--rule)" }}>
+            {/* The composer, or the A2P wait: a bar pinned to the bottom of the timeline.
+
+                It used to sit after the last event, so replying to a long history meant
+                scrolling to the end of it first. `sticky` holds it at the bottom of whatever
+                scrolls the record (the desktop panel, the phone sheet) while any of the
+                timeline is on screen; `mt-auto` puts it at the foot of the column when the
+                history is shorter than the details beside it. Opaque, with a soft lift, so the
+                timeline reads as passing underneath.
+
+                Sticky fails silently if anything between here and the scroller clips, so the
+                column and the body grid carry no `overflow`. `test/pinned-composer.test.mjs`
+                holds both. */}
+            <div
+                id="crm-composer"
+                className={`${pad} py-3.5 border-t min-w-0 sticky bottom-0 mt-auto z-[2]`}
+                style={{
+                    borderColor: "var(--rule)",
+                    background: "var(--elev-1)",
+                    boxShadow: "0 -10px 22px -16px rgba(13,17,23,0.28)",
+                }}
+            >
                 {data?.messagingState === "ready" ? (
                     <>
                     {/* Inside this gate only: quick replies are a texting tool, and texting is
@@ -544,6 +563,7 @@ export default function CustomerRecord({
      */
     const body = (
         <div
+            data-record-body=""
             className={`grid grid-cols-[minmax(0,1fr)] min-h-0 min-w-0 ${
                 page ? "@3xl:grid-cols-[340px_minmax(0,1fr)]" : ""
             }`}
@@ -551,7 +571,8 @@ export default function CustomerRecord({
             <div className="min-w-0" style={{ borderColor: "var(--rule)" }}>
                 {details}
             </div>
-            <div className="min-w-0">{activity}</div>
+            {/* A flex column so the activity can fill the cell and its bar can sit at the foot. */}
+            <div className="min-w-0 flex flex-col">{activity}</div>
         </div>
     );
 
