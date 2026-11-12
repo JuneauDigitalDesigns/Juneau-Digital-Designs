@@ -12,7 +12,7 @@
   "dependencies": {
     "@clerk/nextjs": "^7.4.3",
     "@dnd-kit/core": "^6.3.1",
-    "@jdd/schema": "github:JuneauDigitalDesigns/jdd-schema#cfe290724ce138df0f6ea466afde707cbb2ac713",
+    "@jdd/schema": "github:JuneauDigitalDesigns/jdd-schema#v1.34.0",
     "@phosphor-icons/react": "^2.1.10",
     "@stripe/stripe-js": "^9.6.0",
     "@upstash/ratelimit": "^2.0.8",
