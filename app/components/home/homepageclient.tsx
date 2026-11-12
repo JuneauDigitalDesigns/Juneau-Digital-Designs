@@ -641,7 +641,7 @@ const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: 
   {
     Icon: Browser,
     label: "Your website",
-    title: "A custom four-page site",
+    title: "A custom 4+ page site",
     detail: "Home, Services, About and Contact. Hosting, SSL and maintenance included, plus 2 content edits a month.",
   },
   {

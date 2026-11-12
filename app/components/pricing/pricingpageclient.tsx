@@ -116,7 +116,7 @@ const TIERS: PricingTier[] = [
 const EVERY_PLAN: { Icon: Icon; title: string; detail: string }[] = [
     {
         Icon: Browser,
-        title: "A custom four-page site",
+        title: "A custom 4+ page site",
         detail: "Home, Services, About and Contact. Hosting, SSL and maintenance included, plus 2 content edits a month.",
     },
     {
