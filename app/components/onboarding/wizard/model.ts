@@ -18,6 +18,7 @@
  */
 
 import {
+    TOP_TOWNS_MAX,
     DEFAULT_PALETTE_PRESET_ID,
     INDUSTRY_MENUS,
     OTHER_INDUSTRY,
@@ -66,6 +67,8 @@ export type ServiceFacts = {
     areas: string[];
     brands: string[];
     priceFrom: string;
+    /** Q5 (local SEO, 2026-11-12): "What makes this job cost more or less?", in the client's words. */
+    priceFactors: string;
     /** "How long does it usually take?", in the client's words. Feeds "What to expect"; not a gate fact. */
     duration: string;
     /** Photo 1 becomes the service's picture; every photo is also a tagged job photo. */
@@ -79,8 +82,8 @@ export type ProfileEntry = { kind: ProfileKind; url: string };
  * The short steps one service walks through on the "details" screen (Xander, 2026-11-10: "spread
  * things across steps", one question per screen). "done" closes the service with what it earned.
  */
-export type ServiceStepId = "included" | "jobs" | "pricetime" | "questions" | "photos" | "brands" | "areas" | "done";
-const STEP_IDS: ServiceStepId[] = ["included", "jobs", "pricetime", "questions", "photos", "brands", "areas", "done"];
+export type ServiceStepId = "included" | "jobs" | "pricetime" | "factors" | "questions" | "photos" | "brands" | "areas" | "done";
+const STEP_IDS: ServiceStepId[] = ["included", "jobs", "pricetime", "factors", "questions", "photos", "brands", "areas", "done"];
 
 /** The wizard's answers. Persisted as the draft (`v: 2`). */
 export type WizardState = {
@@ -100,6 +103,8 @@ export type WizardState = {
     /** "Do customers come to this address?" "no" = a service-area business (street hidden). */
     visitAddress: "" | "yes" | "no";
     towns: string[];
+    /** Q2 (local SEO, 2026-11-12): up to 3 of `towns`, the ones the most work comes from. */
+    topTowns: string[];
     website: string;
     /** The business's own profiles, one per kind, in the order shown. Blank urls are dropped. */
     profiles: ProfileEntry[];
@@ -160,6 +165,28 @@ export const MAX_VOICES = 3;
 export const MAX_WORK_PHOTOS = 10;
 /** Google Business Profile's service-area limit; the site uses the same cap. */
 export const MAX_TOWNS = 20;
+/** Q2: "Pick up to 3." The schema's TOP_TOWNS_MAX (v1.34.0). */
+export const MAX_TOP_TOWNS = TOP_TOWNS_MAX;
+/** Q5: each factor is one line on the service page, about as long as an "included" item. */
+export const MAX_PRICE_FACTORS = 80;
+/** Q5: at most this many factors per service. */
+export const MAX_PRICE_FACTOR_ITEMS = 5;
+
+/** Q5: the box's lines as the schema's list: one factor per line, cleaned, short, no repeats. */
+export function priceFactorsFor(text: string): string[] {
+    const out: string[] = [];
+    for (const line of (text ?? "").split(/\r?\n/)) {
+        const item = fmtText(line).slice(0, MAX_PRICE_FACTORS).trim();
+        if (item && !out.some((x) => x.toLowerCase() === item.toLowerCase())) out.push(item);
+    }
+    return out.slice(0, MAX_PRICE_FACTOR_ITEMS);
+}
+
+/** Q2: the picked top towns that are still among the client's towns, at most 3, in order. */
+export function topTownsFor(state: Pick<WizardState, "towns" | "topTowns">): string[] {
+    const own = new Set(state.towns.map(cleanListItem));
+    return (state.topTowns ?? []).map(cleanListItem).filter((t, i, a) => own.has(t) && a.indexOf(t) === i).slice(0, MAX_TOP_TOWNS);
+}
 /** What one service's page shows at most (template-visual-upgrade, 2026-11-10). */
 export const SERVICE_CAPS = { included: 8, typicalJobs: 6, brands: 8, questions: 5, photos: 3 } as const;
 
@@ -233,7 +260,7 @@ export function askedStats(trade: string, state?: Pick<WizardState, "hours" | "e
  * The screens for this client, in order. Depends on the trade (which template questions apply,
  * whether a brands screen makes sense) and the plan (Enterprise gets the extra-sites screen).
  */
-export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergency" | "services">, ctx: WizardContext): ScreenDef[] {
+export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergency" | "services"> & { towns?: string[] }, ctx: WizardContext): ScreenDef[] {
     const slots = slotsFor(state.trade);
     const out: ScreenDef[] = [
         S("welcome", -1, "Welcome", "none"),
@@ -243,6 +270,8 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         // Its own screen in v2, so the contact screen stays the approved three fields.
         S("visit", 0, C.visitNav, "contact", { skippable: true }),
         S("area", 0, "Towns", "towns", { skippable: true }),
+        // Q2 (local SEO, 2026-11-12): only once there are two towns to rank.
+        ...((state.towns?.length ?? 0) >= 2 ? [S("toptowns", 0, C.topTownsNav, "towns", { skippable: true })] : []),
         S("website", 0, "Website", "website", { skippable: true }),
         S("google", 0, C.googleNav, "profiles", { skippable: true }),
         S("elsewhere", 0, C.elsewhereNav, "profiles", { skippable: true }),
@@ -319,6 +348,7 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "name": return !!state.name.trim();
         case "contact": return !!(state.phone.trim() && state.address.trim());
         case "area": return state.towns.length > 0;
+        case "toptowns": return topTownsFor(state).length > 0;
         case "website": return !!state.website.trim();
         case "visit": return !!state.visitAddress;
         case "google": return state.profiles.some((p) => p.kind === "google" && p.url.trim());
@@ -479,7 +509,7 @@ export const TRADE_OPTIONS: { id: string; label: string }[] = [
 // ── Service facts ────────────────────────────────────────────────────────────
 
 export function emptyFacts(): ServiceFacts {
-    return { included: [], typicalJobs: [], areasMode: "", areas: [], brands: [], priceFrom: "", duration: "", photos: [], questions: [] };
+    return { included: [], typicalJobs: [], areasMode: "", areas: [], brands: [], priceFrom: "", priceFactors: "", duration: "", photos: [], questions: [] };
 }
 
 /** Whether the client has given this service anything at all (drives "No details yet"). */
@@ -510,6 +540,7 @@ export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): 
     const priceFrom = f.priceFrom.trim().slice(0, 40);
     const duration = f.duration.trim().slice(0, 40);
     const photos = f.photos.filter((p) => p && typeof p.url === "string" && p.url).slice(0, SERVICE_CAPS.photos);
+    const priceFactors = priceFactorsFor(f.priceFactors ?? "");
     const questions = f.questions
         .map((q) => ({ q: cleanQuestion(q.q), a: (q.a || "").trim().slice(0, 300) }))
         .filter((q) => q.q)
@@ -520,6 +551,8 @@ export function facetsForPayload(f: ServiceFacts | undefined, towns: string[]): 
         ...(keepAreas ? { areas } : {}),
         ...(brands.length ? { brands } : {}),
         ...(priceFrom ? { priceFrom } : {}),
+        // Q5: one factor per line in the box, sent as the schema's list (v1.34.0 ServiceEntry.priceFactors).
+        ...(priceFactors.length ? { priceFactors } : {}),
         ...(duration ? { duration } : {}),
         ...(photos.length ? { photos } : {}),
         ...(questions.length ? { questions } : {}),
@@ -656,7 +689,7 @@ export function formatState(state: WizardState): WizardState {
         serviceFacts: Object.fromEntries(
             Object.entries(state.serviceFacts).map(([k, f]) => [
                 k,
-                { ...f, priceFrom: fmtPrice(f.priceFrom), questions: f.questions.map((q) => ({ ...q, a: fmtText(q.a) })) },
+                { ...f, priceFrom: fmtPrice(f.priceFrom), priceFactors: (f.priceFactors ?? "").split(/\r?\n/).map(fmtText).filter(Boolean).join("\n"), questions: f.questions.map((q) => ({ ...q, a: fmtText(q.a) })) },
             ]),
         ),
         additionalSites: state.additionalSites.map((x) => ({
@@ -701,6 +734,8 @@ export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date =
         ownerName: state.owner.trim(),
         responseTime: state.response.trim(),
         serviceArea: list(towns),
+        // Q2 (local SEO, 2026-11-12). Absent when skipped.
+        ...(topTownsFor(state).length ? { topTowns: topTownsFor(state) } : {}),
         ...(state.visitAddress ? { serviceAreaBusiness: state.visitAddress === "no" } : {}),
         ...(profiles.length ? { profiles } : {}),
         brandsCarried: list(state.brands),
@@ -773,7 +808,7 @@ export function initialState(email: string, signedMode?: ReceptionistMode, prefi
     return {
         v: 2, screen: "welcome", visited: ["welcome"], skipped: [],
         trade: prefill?.trade ?? "", name: prefill?.name ?? "", phone: prefill?.phone ?? "", email,
-        address: prefill?.address ?? "", visitAddress: "", towns: [], website: "", profiles: [],
+        address: prefill?.address ?? "", visitAddress: "", towns: [], topTowns: [], website: "", profiles: [],
         services: [], diffs: [], customers: [],
         established: "", license: "", owner: prefill?.owner ?? "", response: "", brands: [], certs: [],
         rating: "", reviewCount: "", reviewUrl: "", reviewSource: "", statValues: {}, serviceFacts: {}, detailOpen: "", detailStep: "",
@@ -817,6 +852,7 @@ function readServiceFacts(v: unknown, oldPrices: Record<string, string>): Record
                 areas: strs(f.areas),
                 brands: strs(f.brands),
                 priceFrom: str(f.priceFrom),
+                priceFactors: str(f.priceFactors),
                 duration: str(f.duration),
                 photos: readImages(f.photos, SERVICE_CAPS.photos),
                 questions: (Array.isArray(f.questions) ? f.questions : [])
@@ -895,7 +931,7 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
             visited: strs(d.visited).length ? strs(d.visited) : [screen],
             skipped: strs(d.skipped),
             trade: str(d.trade), name: str(d.name), phone: str(d.phone), email: str(d.email) || base.email,
-            address: str(d.address), visitAddress, towns: strs(d.towns).map(cleanListItem).filter(Boolean), website: str(d.website),
+            address: str(d.address), visitAddress, towns: strs(d.towns).map(cleanListItem).filter(Boolean), topTowns: strs(d.topTowns).map(cleanListItem).filter(Boolean).slice(0, MAX_TOP_TOWNS), website: str(d.website),
             profiles: readProfiles(d.profiles),
             services, diffs: strs(d.diffs), customers: strs(d.customers),
             established: str(d.established), license: str(d.license), owner: str(d.owner), response: str(d.response),

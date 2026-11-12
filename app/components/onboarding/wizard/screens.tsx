@@ -16,7 +16,10 @@ import {
     CUSTOM_HOURS,
     EMERGENCY_LINE,
     HOURS_PRESETS,
+    MAX_PRICE_FACTORS,
+    MAX_PRICE_FACTOR_ITEMS,
     MAX_SERVICES,
+    MAX_TOP_TOWNS,
     MAX_TOWNS,
     MAX_VOICES,
     MAX_TAGLINE,
@@ -39,6 +42,7 @@ import {
     serviceStepsFor,
     servicesMenu,
     slotsFor,
+    topTownsFor,
     townFromAddress,
     yearsInBusiness,
     type ScreenDef,
@@ -81,6 +85,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
         case "trade": return { q: "What kind of work do you do?", help: "This shapes everything we suggest from here." };
         case "name": return { q: "What's your business called?", help: "Exactly as you want it on your site." };
         case "contact": return { q: "How do customers reach you?", help: "These go on your site. Your email is already filled in from your agreement." };
+        case "toptowns": return { q: C.topTownsQ, help: C.topTownsHelp }; // Q2 (local SEO, 2026-11-12)
         case "area": return { q: "Which towns do you cover?", help: 'Named towns read better than "the surrounding area". Your receptionist uses them too.' };
         case "website": return { q: "Do you have a website now?", help: "We'll read it so you don't have to retype anything." };
         case "visit": return { q: C.visitQ, help: C.visitHelp };
@@ -458,6 +463,19 @@ export function ScreenBody(p: ScreenProps) {
                     <AddRow placeholder="Add a town" onAdd={addTown} clean={cleanListItem} />
                     <p className={`${s.hint} ${s.count}`}>{C.townsCount(state.towns.length)}</p>
                 </>
+            );
+        }
+
+        case "toptowns": {
+            // Q2: up to 3 of the client's own towns, in the order tapped. Once 3 are picked, the
+            // rest wait until one is untapped.
+            const picked = topTownsFor(state);
+            const toggle = (t: string) =>
+                update({ topTowns: picked.includes(t) ? picked.filter((x) => x !== t) : picked.length < MAX_TOP_TOWNS ? [...picked, t] : picked });
+            return (
+                <div className={s.chips} role="group" aria-label={C.topTownsQ}>
+                    {state.towns.map((t) => <Chip key={t} label={t} on={picked.includes(t)} onClick={() => toggle(t)} />)}
+                </div>
             );
         }
 
@@ -938,6 +956,23 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
             );
             break;
         }
+        case "factors":
+            // Q5 (local SEO, 2026-11-12): in the client's words; no prices.
+            q = C.qPriceFactors; help = C.hPriceFactors;
+            body = (
+                <div className={s.narrow}>
+                    {/* One factor per line; each becomes a line under the service page's price factors. */}
+                    <textarea
+                        className={s.input}
+                        rows={3}
+                        value={f.priceFactors}
+                        onChange={(e) => set({ priceFactors: e.target.value.slice(0, MAX_PRICE_FACTORS * MAX_PRICE_FACTOR_ITEMS + MAX_PRICE_FACTOR_ITEMS) })}
+                        aria-label={C.qPriceFactors}
+                        style={{ resize: "vertical" }}
+                    />
+                </div>
+            );
+            break;
         case "questions":
             q = C.qQuestions; help = C.hQuestions; earn = C.adds("Common questions");
             body = (
@@ -1021,7 +1056,8 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
             {help ? <p className={s.help}>{help}</p> : null}
             {body}
             {/* "Everywhere I cover" adds nothing (client-seo, (b)), so the line only shows for "some". */}
-            {step !== "areas" || f.areasMode === "some" ? adds(earn) : null}
+            {/* Q5 has no "Adds …" line: its page heading isn't approved yet, so none shows. */}
+            {earn && (step !== "areas" || f.areasMode === "some") ? adds(earn) : null}
             {/* Phones: the footer has no room for this link, so it sits under the question. */}
             <p className={s.phoneOnly} style={{ textAlign: "center", margin: "18px 0 0" }}>
                 <button type="button" className={s.lnk} onClick={() => update({ detailStep: "done" })}>{C.doneWithService}</button>

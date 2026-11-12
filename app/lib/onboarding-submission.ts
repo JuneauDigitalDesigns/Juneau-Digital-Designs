@@ -11,7 +11,7 @@
  * Everything is sanitized and length-capped; nothing is defaulted that the client didn't give.
  */
 
-import { PROFILE_KINDS, type BrandIntakeSubmission, type Intake, type OperatorOrder, type PalettePick, type ProfileKind, type ServiceEntry } from "@jdd/schema";
+import { PROFILE_KINDS, TOP_TOWNS_MAX, type BrandIntakeSubmission, type Intake, type OperatorOrder, type PalettePick, type ProfileKind, type ServiceEntry } from "@jdd/schema";
 import type { AgreementRecord } from "./agreement-types";
 import { isValidBlobUrl } from "./blob-url";
 import { normaliseProfileLink } from "./profile-links";
@@ -113,8 +113,11 @@ function sanitizeService(raw: unknown, withFacts: boolean): ServiceEntry {
         .filter((x): x is { url: string; filename: string; alt: string } => x !== null)
         .slice(0, SERVICE_CAPS.photos);
     const questions = sanitizeQuestions(o.questions, SERVICE_CAPS.questions);
+    // Q5 (local SEO, v1.34.0): what makes the job cost more or less, in the client's words.
+    const priceFactors = sanitizeStringArray(o.priceFactors, 5, 300);
     return {
         ...entry,
+        ...(priceFactors.length ? { priceFactors } : {}),
         ...(included.length ? { included } : {}),
         ...(typicalJobs.length ? { typicalJobs } : {}),
         ...(areas.length ? { areas } : {}),
@@ -270,10 +273,13 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
     const customerQuestions = sanitizeQuestions(body.customerQuestions, 10);
     // F-C2a (2026-11-11): one line; the wizard caps it at 60, the schema at 80. Absent when blank.
     const tagline = sanitize(body.tagline, 80).replace(/\s+/g, " ").trim();
+    // Q2 (local SEO, v1.34.0): up to 3 towns; buildScaffold keeps only the client's own.
+    const topTowns = sanitizeStringArray(body.topTowns, TOP_TOWNS_MAX, 120);
 
     const submission: BrandIntakeSubmission = {
         selectedPlan,
         ...(tagline ? { tagline } : {}),
+        ...(topTowns.length ? { topTowns } : {}),
         ...(receptionistMode ? { receptionistMode } : {}),
         brandName: sanitize(body.brandName, 160),
         brandShort: sanitize(body.brandShort, 80),
