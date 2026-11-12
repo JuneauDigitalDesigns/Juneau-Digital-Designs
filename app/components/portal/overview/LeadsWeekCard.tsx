@@ -24,7 +24,7 @@ export function LeadsWeekCard({
     const max = Math.max(1, ...week.perDay);
 
     return (
-        <Card as="section" density="none" className="p-3.5 lg:p-[18px]" style={{ minWidth: 0 }}>
+        <Card as="section" density="none" data-tour="ov-week" className="p-3.5 lg:p-[18px]" style={{ minWidth: 0 }}>
             <MonoLabel id="ov-week">New leads this week</MonoLabel>
 
             <div className="flex items-baseline gap-2.5 lg:gap-3 mt-2 mb-2.5 lg:mt-2.5 lg:mb-1">

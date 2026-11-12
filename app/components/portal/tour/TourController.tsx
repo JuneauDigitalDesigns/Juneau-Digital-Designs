@@ -1,63 +1,69 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { driver, type Driver } from "driver.js";
+import { usePathname, useRouter } from "next/navigation";
+import { driver, type Driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
 import "./tour-theme.css";
 import type { PortalSiteStatus } from "@jdd/schema";
-import { buildTourPlan, type TourTier } from "./steps";
+import { buildTour, tourForPath, ELEMENT_TOURS, type TourId, type TourTier } from "./tours";
 import { shouldAutoLaunchTour, streamedRedirectPending } from "./auto-launch";
 
 /**
- * First-run spotlight tour.
+ * The portal's tours, v2 (Xander, 2026-11-12). The steps and words are in `tours.ts`.
  *
- * Auto-launches once per user (`!tourCompleted`), resuming where they left off, and replays
- * from the rail's Help button via the `jdd:start-tour` event. It does not auto-launch for a site
- * still in onboarding or on a page that is redirecting; see `auto-launch.ts` for why.
+ * - **Welcome** auto-launches once per person (`!tourCompleted`), resuming where they left off,
+ *   gated by `shouldAutoLaunchTour` (see `auto-launch.ts` for the crash that rule prevents).
+ * - **Tab tours** each play once per person, the first time they open that tab, and only once
+ *   the welcome tour is done. The customer file and its tabs start theirs when they appear.
+ * - **Help** replays the page's tour (`launchTour("page")`) or every tour (`launchTour("all")`,
+ *   which also forgets the seen list so each tab teaches again).
+ * - **No dimming** (Xander): driver.js runs with an invisible overlay that lets clicks through,
+ *   and the target gets an outline (`tour-theme.css`). The page stays usable while a card is up.
  *
- * Two things make this more than a list of popovers:
- *
- *  1. **It is tier-aware.** Growth gets the full loop; Starter learns the Inbox and is pointed
- *     at the Growth showcase, because the rest would teach a feature they do not have.
- *  2. **One step opens the drawer.** The customer record is where the work happens, so the tour
- *     has to drive the UI, not just annotate it — the anchors for the back half of the tour do
- *     not exist until a customer is open.
- *
- * Progress persists to Clerk `publicMetadata` so it survives devices. Leaving the tour by any
- * route — Done, close, Esc — marks it seen, so it never auto-launches again. A visit that ends
- * with the tab closed mid-tour saved its step but not "seen", and the next visit resumes there.
+ * Progress persists to Clerk `publicMetadata.tour` so it survives devices. Leaving a tour by any
+ * route (Done, close, Esc, leaving the page) counts as seen.
  */
 
 const TOUR_EVENT = "jdd:start-tour";
 
+/** A tour waits this long for its first anchor before it runs with centred cards instead. */
+const ANCHOR_WAIT_TRIES = 30;
+
 export default function TourController({
     tourCompleted,
     initialStep,
+    seen: seenInitial,
     tier,
     siteStatus,
 }: {
     tourCompleted: boolean;
     initialStep: number;
+    /** Tab tours this person has already had. */
+    seen: string[];
     tier: TourTier;
     /** The selected site's status. */
     siteStatus: PortalSiteStatus;
 }) {
     const router = useRouter();
     const pathname = usePathname();
-    const params = useSearchParams();
     const driverRef = useRef<Driver | null>(null);
+    const activeRef = useRef<{ id: TourId; path: string } | null>(null);
     const startedRef = useRef(false);
+    const welcomeDone = useRef(tourCompleted);
+    const seen = useRef(new Set(seenInitial));
+    const pathRef = useRef(pathname);
+    pathRef.current = pathname;
 
     /**
      * Writes go out one at a time, in order.
      *
      * The route reads the user's metadata, merges, and writes it back. Fired in parallel, a
      * step-progress write that read the old metadata could land after the "seen" write and put
-     * `completed: false` back — which is exactly the tour-every-visit bug, by a second route.
+     * `completed: false` back, which is exactly the tour-every-visit bug, by a second route.
      */
     const queueRef = useRef<Promise<unknown>>(Promise.resolve());
-    const postTour = useCallback((payload: { completed?: boolean; lastStepIndex?: number }) => {
+    const postTour = useCallback((payload: { completed?: boolean; lastStepIndex?: number; seen?: string; resetSeen?: boolean }) => {
         queueRef.current = queueRef.current.then(() =>
             fetch("/api/portal/tour", {
                 method: "POST",
@@ -68,7 +74,7 @@ export default function TourController({
     }, []);
 
     /** Poll for an anchor rather than assuming it exists on the next tick. */
-    const waitFor = useCallback((selector: string, tries = 40): Promise<boolean> => {
+    const waitFor = useCallback((selector: string, tries = ANCHOR_WAIT_TRIES): Promise<boolean> => {
         return new Promise((resolve) => {
             const tick = (left: number) => {
                 if (document.querySelector(selector)) return resolve(true);
@@ -79,91 +85,118 @@ export default function TourController({
         });
     }, []);
 
-    const start = useCallback(
-        async (fromStep: number) => {
+    /**
+     * Run one tour. Steps whose anchor is not on the page (an empty inbox, a building site, a
+     * rail hidden on a phone) become centred cards rather than stalling the tour.
+     */
+    const runTour = useCallback(
+        async (id: TourId, from = 0, then?: () => void) => {
             const isMobile = window.matchMedia("(max-width: 1023px)").matches;
-            const plan = buildTourPlan(tier, isMobile);
-            const site = params.get("site");
-            const qs = (extra?: Record<string, string>) => {
-                const p = new URLSearchParams();
-                if (site) p.set("site", site);
-                p.set("tour", "1");
-                for (const [k, v] of Object.entries(extra ?? {})) p.set(k, v);
-                return p.toString();
-            };
-
-            // The tour starts on the Inbox; later steps move to Customers.
-            router.push(`/portal/calls?${qs()}`);
-            const ok = await waitFor('[data-tour="inbox-list"]');
-            if (!ok) return;
+            const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            const raw = buildTour(id, tier, isMobile);
+            const anchors = raw.map((s) => s.element).filter((e): e is string => typeof e === "string");
+            // The first anchor gets the full wait (the page may still be loading); the rest a
+            // moment more, for things that open just after it (the inbox's newest lead).
+            if (anchors.length) await waitFor(anchors[0]);
+            await Promise.all(anchors.slice(1).map((a) => waitFor(a, 12)));
+            const steps: DriveStep[] = raw.map((s) =>
+                typeof s.element === "string" && !document.querySelector(s.element) ? { ...s, element: undefined } : s,
+            );
 
             driverRef.current?.destroy();
+            const path = pathRef.current;
+            activeRef.current = { id, path };
 
             const d = driver({
-                showProgress: true,
+                showProgress: steps.length > 1,
                 popoverClass: "jdd-tour",
                 nextBtnText: "Next",
                 prevBtnText: "Back",
                 doneBtnText: "Done",
-                steps: plan.steps,
+                // No dimming (Xander, 2026-11-12): the overlay is invisible and lets clicks
+                // through; the target is outlined instead (tour-theme.css).
+                overlayOpacity: 0,
+                overlayClickBehavior: () => {},
+                stagePadding: 6,
+                stageRadius: 10,
+                animate: !reduce,
+                smoothScroll: !reduce,
+                steps,
                 onHighlighted: (_el, _step, opts) => {
                     const i = opts.state.activeIndex;
-                    if (typeof i === "number") postTour({ lastStepIndex: i });
+                    if (id === "welcome" && typeof i === "number") postTour({ lastStepIndex: i });
                 },
                 onDestroyed: (_el, _step, opts) => {
                     // Read the index from the hook's snapshot, never from the driver: driver.js
-                    // resets its state *before* calling onDestroyed, so `getActiveIndex()` is
-                    // always undefined here. It used to be read that way, fell back to 0, and so
-                    // "completed" was never saved — the tour auto-launched on every visit.
+                    // resets its state before calling onDestroyed, so `getActiveIndex()` is always
+                    // undefined here. It used to be read that way, fell back to 0, and so
+                    // "completed" was never saved: the tour auto-launched on every visit.
                     //
-                    // Any way out counts as seen: Done, the close button, Esc, or navigating
-                    // away. Someone who closed it has seen it; the Help button replays it.
+                    // Any way out counts as seen: Done, the close button, Esc, or leaving the page.
                     const i = opts.state.activeIndex ?? 0;
-                    postTour({ completed: true, lastStepIndex: i });
-                    // Drop the tour flag so the demo content disappears.
-                    const next = new URLSearchParams(window.location.search);
-                    next.delete("tour");
-                    next.delete("open");
-                    const q = next.toString();
-                    router.replace(`${window.location.pathname}${q ? `?${q}` : ""}`, { scroll: false });
-                },
-                onNextClick: async (_el, _step, opts) => {
-                    const i = opts.state.activeIndex ?? 0;
-
-                    // Leaving the Inbox for the board.
-                    if (tier === "growth" && i === 1) {
-                        router.push(`/portal/customers?${qs()}`);
-                        const anchor = isMobile
-                            ? '[data-tour="crm-list"]'
-                            : '[data-tour="crm-board"]';
-                        await waitFor(anchor);
+                    if (activeRef.current?.id === id) activeRef.current = null;
+                    if (id === "welcome") {
+                        welcomeDone.current = true;
+                        postTour({ completed: true, lastStepIndex: i });
+                    } else if (!seen.current.has(id)) {
+                        seen.current.add(id);
+                        postTour({ seen: id });
                     }
-
-                    // The step that drives the UI: open the first customer so the record
-                    // anchors exist for the back half of the tour.
-                    if (tier === "growth" && plan.opensDrawerAfter === i) {
-                        const first = document.querySelector<HTMLElement>('[data-tour="crm-card"]');
-                        first?.click();
-                        const opened = await waitFor('[data-tour="crm-drawer-stage"]');
-                        if (!opened) {
-                            // No customers yet, so there is no record to teach. Jump to the end
-                            // rather than spotlighting elements that will never appear.
-                            d.moveTo(plan.steps.length - 1);
-                            return;
-                        }
+                    if (id === "inbox") {
+                        // The inbox tour opened the newest lead with `?tour=1`; put the page back.
+                        const next = new URLSearchParams(window.location.search);
+                        next.delete("tour");
+                        const q = next.toString();
+                        router.replace(`${window.location.pathname}${q ? `?${q}` : ""}`, { scroll: false });
                     }
-
-                    d.moveNext();
+                    then?.();
                 },
             });
 
             driverRef.current = d;
-            d.drive(Math.min(Math.max(fromStep, 0), plan.steps.length - 1));
+            d.drive(Math.min(Math.max(from, 0), steps.length - 1));
         },
-        [params, router, postTour, tier, waitFor],
+        [postTour, router, tier, waitFor],
     );
 
-    // Auto-launch once, on first login only, and only on a page that is staying put.
+    /** The tour this page (or what is open on it) should start, if any. */
+    const pageTour = useCallback((): TourId | null => {
+        const path = pathRef.current;
+        if (tier === "growth") {
+            // The most specific thing on screen wins: a customer's tab, then the customer file.
+            for (const t of [...ELEMENT_TOURS].reverse()) {
+                if (path.startsWith(t.path) && document.querySelector(t.trigger)) return t.id;
+            }
+        }
+        return tourForPath(path, tier);
+    }, [tier]);
+
+    /** Start this page's tour if this person hasn't had it yet and nothing else is running. */
+    const maybeTabTour = useCallback(() => {
+        if (!welcomeDone.current || driverRef.current?.isActive()) return;
+        if (streamedRedirectPending(document)) return;
+        const id = pageTour();
+        if (!id || seen.current.has(id)) return;
+        if (id === "inbox") {
+            // On a computer `?tour=1` opens the newest lead, where two of the inbox steps point.
+            const next = new URLSearchParams(window.location.search);
+            if (next.get("tour") !== "1") {
+                next.set("tour", "1");
+                router.replace(`${window.location.pathname}?${next.toString()}`, { scroll: false });
+            }
+        }
+        void runTour(id);
+    }, [pageTour, router, runTour]);
+
+    /** The welcome tour; when it ends, the tab the person is on starts its own. */
+    const start = useCallback(
+        (fromStep: number) => {
+            void runTour("welcome", fromStep, () => window.setTimeout(maybeTabTour, 400));
+        },
+        [runTour, maybeTabTour],
+    );
+
+    // Auto-launch the welcome tour once, on first sign-in only, and only on a page staying put.
     useEffect(() => {
         if (startedRef.current) return;
         const launch = shouldAutoLaunchTour({
@@ -177,24 +210,55 @@ export default function TourController({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Replay from the Help button. Never re-arms auto-launch.
+    // A tab tour the first time its page is opened. Leaving a page ends that page's tour.
     useEffect(() => {
-        const onStart = () => void start(0);
+        const active = activeRef.current;
+        if (active && active.id !== "welcome" && active.path !== pathname && driverRef.current?.isActive()) {
+            driverRef.current.destroy();
+        }
+        if (siteStatus === "pending-onboarding") return;
+        const t = window.setTimeout(maybeTabTour, 600);
+        return () => window.clearTimeout(t);
+    }, [pathname, siteStatus, maybeTabTour]);
+
+    // The customer file and its tabs start their tours when they appear (Growth only).
+    useEffect(() => {
+        if (tier !== "growth" || !pathname.startsWith("/portal/customers")) return;
+        let t: number | undefined;
+        const mo = new MutationObserver(() => {
+            window.clearTimeout(t);
+            t = window.setTimeout(maybeTabTour, 500);
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+        return () => {
+            mo.disconnect();
+            window.clearTimeout(t);
+        };
+    }, [tier, pathname, maybeTabTour]);
+
+    // Help: this page's tour, or every tour again.
+    useEffect(() => {
+        const onStart = (e: Event) => {
+            const which = (e as CustomEvent<"page" | "all">).detail ?? "page";
+            driverRef.current?.destroy();
+            if (which === "all") {
+                seen.current.clear();
+                postTour({ resetSeen: true });
+                start(0);
+                return;
+            }
+            const id = pageTour();
+            if (id) void runTour(id);
+            else start(0);
+        };
         window.addEventListener(TOUR_EVENT, onStart);
         return () => window.removeEventListener(TOUR_EVENT, onStart);
-    }, [start]);
-
-    // Tear down if the user navigates somewhere the tour doesn't cover.
-    useEffect(() => {
-        const covered =
-            pathname.startsWith("/portal/calls") || pathname.startsWith("/portal/customers");
-        if (!covered && driverRef.current?.isActive()) driverRef.current.destroy();
-    }, [pathname]);
+    }, [pageTour, postTour, runTour, start]);
 
     return null;
 }
 
-/** Fire from anywhere (e.g. the Help button) to (re)launch the tour. */
-export function launchTour() {
-    window.dispatchEvent(new Event(TOUR_EVENT));
+/** Fire from anywhere (the Help menu) to tour this page, or to replay every tour. */
+export function launchTour(which: "page" | "all" = "page") {
+    window.dispatchEvent(new CustomEvent(TOUR_EVENT, { detail: which }));
 }

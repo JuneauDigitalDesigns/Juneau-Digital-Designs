@@ -95,7 +95,7 @@ export default function BillingSection({
         return (
             <div className="space-y-8">
                 <FeatureError message={data?.error} onRetry={retry} />
-                {usage}
+                {usage && <div data-tour="billing-minutes">{usage}</div>}
             </div>
         );
     }
@@ -111,7 +111,7 @@ export default function BillingSection({
                   : "Your site is live and we're still linking up your billing details. Nothing is needed from you.";
         return (
             <div className="space-y-8">
-                <SectionCard title="Plan">
+                <SectionCard title="Plan" dataTour="billing-plan">
                     <StaticField label="Plan" value={planLabel[site.plan] ?? site.plan} />
                     <StaticField label="Billing account" value={accountEmail} />
                     <p className="text-sm" style={{ color: "var(--fg-2)" }}>
@@ -129,7 +129,7 @@ export default function BillingSection({
                         </p>
                     )}
                 </SectionCard>
-                {usage}
+                {usage && <div data-tour="billing-minutes">{usage}</div>}
             </div>
         );
     }
@@ -139,7 +139,7 @@ export default function BillingSection({
 
     return (
         <div className="space-y-8">
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div data-tour="billing-plan" className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatTile label="Plan" value={planLabel[site.plan] ?? site.plan} size="sm" />
                 <StatTile
                     label="Amount"
@@ -155,7 +155,7 @@ export default function BillingSection({
                 />
             </div>
 
-            {usage}
+            {usage && <div data-tour="billing-minutes">{usage}</div>}
 
             {data.pendingPlanChange && (
                 <p

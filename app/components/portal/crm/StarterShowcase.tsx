@@ -99,6 +99,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         type="button"
                         onClick={() => setRunning(true)}
                         aria-haspopup="dialog"
+                        data-tour="growth-demo-open"
                         className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                     >

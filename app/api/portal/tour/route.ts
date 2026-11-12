@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
+import { nextSeen } from "@/app/lib/portal-tour-seen";
 
 export const runtime = "nodejs";
 
@@ -10,11 +11,17 @@ export const runtime = "nodejs";
  * State lives in `publicMetadata.tour` — client-readable (so the layout can decide whether to
  * auto-launch) but server-only-writable (so the browser can't forge "completed"). Per user, not
  * per account: each person who signs in gets taught once.
+ *
+ * Tours v2 (2026-11-12): `completed` is the welcome tour; `seen` lists the tab tours this person
+ * has had (`portal-tour-seen.ts`). "Replay all tours" sends `resetSeen`, which clears `seen` so
+ * every tab teaches again, and never touches `completed`: the welcome tour it replays is started
+ * by hand, not by auto-launch.
  */
 
 interface TourMeta {
     completed?: boolean;
     lastStepIndex?: number;
+    seen?: string[];
     updatedAt?: string;
 }
 
@@ -32,6 +39,8 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as {
         completed?: unknown;
         lastStepIndex?: unknown;
+        seen?: unknown;
+        resetSeen?: unknown;
     };
 
     const client = await clerkClient();
@@ -47,6 +56,7 @@ export async function POST(request: Request) {
             typeof body.lastStepIndex === "number"
                 ? body.lastStepIndex
                 : (prev.lastStepIndex ?? 0),
+        seen: nextSeen(prev.seen, body.seen, body.resetSeen === true),
         updatedAt: new Date().toISOString(),
     };
 

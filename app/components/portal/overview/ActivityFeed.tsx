@@ -29,7 +29,7 @@ export function ActivityFeed({
     if (events.length === 0) return null;
     return (
         <Card density="none" className="overflow-hidden">
-            <section aria-labelledby="ov-activity">
+            <section aria-labelledby="ov-activity" data-tour="ov-activity">
                 <CardHead>
                     <CardTitle id="ov-activity">Latest activity</CardTitle>
                 </CardHead>

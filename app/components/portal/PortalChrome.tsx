@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
@@ -17,11 +17,14 @@ import {
     Check,
     Lock,
     Question,
+    PlayCircle,
+    ArrowCounterClockwise,
     Tray,
     Users,
     CalendarBlank,
 } from "@phosphor-icons/react";
 import TourController, { launchTour } from "./tour/TourController";
+import { HELP_MENU } from "./tour/tours";
 import PortalUserButton from "./PortalUserButton";
 import PortalBrand from "./PortalBrand";
 import SiteSelector from "./SiteSelector";
@@ -94,7 +97,7 @@ export default function PortalChrome({
     railCollapsed,
     tourCompleted,
     tourInitialStep,
-    tourTier,
+    tourSeen,
     children,
 }: {
     sites: PortalSiteProps[];
@@ -104,7 +107,8 @@ export default function PortalChrome({
     /** First-run tour state, read from Clerk publicMetadata in the layout. */
     tourCompleted: boolean;
     tourInitialStep: number;
-    tourTier: "starter" | "growth";
+    /** Tab tours this person has already had (tours v2). */
+    tourSeen: string[];
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
@@ -159,7 +163,11 @@ export default function PortalChrome({
             <TourController
                 tourCompleted={tourCompleted}
                 initialStep={tourInitialStep}
-                tier={tourTier}
+                seen={tourSeen}
+                // The tours teach a different product per tier, so they follow what the site on
+                // screen actually has. This read `sites[0]` until 2026-11-12, so a client looking
+                // at their Growth site got the Starter tour if their first site was Starter.
+                tier={selected.features.crm.state === "ready" ? "growth" : "starter"}
                 siteStatus={selected.status}
             />
             {/* ── Mobile: slim topbar ──────────────────────────────────────────── */}
@@ -396,19 +404,8 @@ export default function PortalChrome({
                     className="portal-rail-foot"
                     style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "stretch" }}
                 >
-                    {/* Help / replay the tour — above the account row per the design. */}
-                    <button
-                        type="button"
-                        onClick={() => launchTour()}
-                        data-tour="portal-help"
-                        className="portal-rail-link"
-                        style={{ width: "100%", cursor: "pointer" }}
-                        aria-label="Replay the portal tour"
-                        title="Help & tour"
-                    >
-                        <Question size={17} className="shrink-0" />
-                        <span className="truncate">Help &amp; tour</span>
-                    </button>
+                    {/* Help: this page's tour, or every tour again. Above the account row. */}
+                    <HelpMenu />
                     <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
                         <PortalUserButton siteSlug={selected.slug} />
                         <span
@@ -574,13 +571,25 @@ export default function PortalChrome({
                         type="button"
                         onClick={() => {
                             setMoreOpen(false);
-                            launchTour();
+                            launchTour("page");
                         }}
                         className="portal-rail-link"
                         style={{ minHeight: 44, width: "100%", cursor: "pointer" }}
                     >
-                        <Question size={18} className="shrink-0" />
-                        <span>Replay tour</span>
+                        <PlayCircle size={18} className="shrink-0" />
+                        <span>{HELP_MENU.page}</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setMoreOpen(false);
+                            launchTour("all");
+                        }}
+                        className="portal-rail-link"
+                        style={{ minHeight: 44, width: "100%", cursor: "pointer" }}
+                    >
+                        <ArrowCounterClockwise size={18} className="shrink-0" />
+                        <span>{HELP_MENU.all}</span>
                     </button>
                 </nav>
 
@@ -609,4 +618,81 @@ function hostOf(canonical: string | null): string | null {
     } catch {
         return canonical.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "") || null;
     }
+}
+
+/**
+ * The rail's Help & tour button (tours v2, 2026-11-12). It opens a small menu beside the rail:
+ * this page's tour, or every tour again. A floating menu rather than sub-links like Settings',
+ * so it works in the collapsed 64px rail too. Closes on a choice, Esc, or a click elsewhere.
+ */
+function HelpMenu() {
+    const [open, setOpen] = useState(false);
+    const wrap = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDown = (e: MouseEvent) => {
+            if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setOpen(false);
+        };
+        document.addEventListener("mousedown", onDown);
+        document.addEventListener("keydown", onKey);
+        return () => {
+            document.removeEventListener("mousedown", onDown);
+            document.removeEventListener("keydown", onKey);
+        };
+    }, [open]);
+
+    const choose = (which: "page" | "all") => {
+        setOpen(false);
+        launchTour(which);
+    };
+
+    return (
+        <div ref={wrap} style={{ position: "relative" }}>
+            <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                data-tour="portal-help"
+                className="portal-rail-link"
+                style={{ width: "100%", cursor: "pointer" }}
+                aria-haspopup="menu"
+                aria-expanded={open}
+                title="Help & tour"
+            >
+                <Question size={17} className="shrink-0" />
+                <span className="truncate">Help &amp; tour</span>
+            </button>
+            {open && (
+                <div
+                    role="menu"
+                    aria-label="Help & tour"
+                    className="portal-elev"
+                    style={{
+                        position: "absolute",
+                        left: "calc(100% + 10px)",
+                        bottom: 0,
+                        zIndex: 60,
+                        minWidth: 200,
+                        padding: 6,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        background: "var(--elev-1)",
+                    }}
+                >
+                    <button type="button" role="menuitem" className="portal-rail-link" style={{ width: "100%", cursor: "pointer" }} onClick={() => choose("page")}>
+                        <PlayCircle size={17} className="shrink-0" />
+                        <span>{HELP_MENU.page}</span>
+                    </button>
+                    <button type="button" role="menuitem" className="portal-rail-link" style={{ width: "100%", cursor: "pointer" }} onClick={() => choose("all")}>
+                        <ArrowCounterClockwise size={17} className="shrink-0" />
+                        <span>{HELP_MENU.all}</span>
+                    </button>
+                </div>
+            )}
+        </div>
+    );
 }

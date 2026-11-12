@@ -78,3 +78,32 @@
 .driver-popover.jdd-tour .driver-popover-arrow {
     border-color: #ffffff;
 }
+
+/*
+ * No dimming (Xander, 2026-11-12): "I just want us to be outlining the sections that we're
+ * highlighting." The controller runs driver.js with `overlayOpacity: 0`; here the overlay also
+ * lets clicks through, so the page stays usable while a card is up, and the target gets an
+ * outline in the portal's blue with a little room around it. The card keeps its shadow and arrow,
+ * so it still reads as attached to what it explains.
+ */
+.driver-overlay {
+    pointer-events: none !important;
+}
+
+.driver-active-element {
+    outline: 2px solid #2563eb !important;
+    outline-offset: 4px;
+    border-radius: 10px;
+}
+
+.driver-popover.jdd-tour {
+    border: 1px solid rgba(37, 99, 235, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .driver-popover.jdd-tour,
+    .driver-active-element {
+        transition: none !important;
+        animation: none !important;
+    }
+}

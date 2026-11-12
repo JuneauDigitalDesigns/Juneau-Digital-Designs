@@ -52,7 +52,7 @@ export function NeedsYouCard({
 }) {
     return (
         <Card density="none" className="overflow-hidden" style={{ minWidth: 0 }}>
-            <section aria-labelledby="ov-needs">
+            <section aria-labelledby="ov-needs" data-tour="ov-needs">
                 <CardHead
                     action={
                         <HeadLink href={inboxHref}>
