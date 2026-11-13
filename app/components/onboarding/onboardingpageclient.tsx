@@ -25,6 +25,7 @@ import { upload } from "@vercel/blob/client";
 import { SignOutButton } from "@clerk/nextjs";
 import { FINISH_LATER, SIGNED_OUT_URL } from "./wizard/finish-later";
 import { PrepError, precheck, prepareImage, type PrepKind } from "@/app/lib/image-prep";
+import { guessPhotoTown } from "@/app/lib/town-match";
 import type { ImageMeta } from "@jdd/schema";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { findTaxIdPaths } from "@/app/lib/tax-id-guard.mjs";
@@ -73,12 +74,15 @@ function portalStorageKey(clerkUserId: string, siteRef: string): string | null {
  * dropped, orientation applied, the long edge capped at 2560px, the logo's transparency kept.
  * The client still sees the name of the file they picked.
  */
-async function uploadFile(file: File, kind: PrepKind, siteRef: string): Promise<ImageMeta> {
+async function uploadFile(file: File, kind: PrepKind, siteRef: string, guessTown?: (f: File) => Promise<string>): Promise<ImageMeta> {
+    // Local SEO Q1 pre-select: read the photo's GPS BEFORE the clean-up strips it, match it to the
+    // nearest of the client's own towns in the browser, then forget it (app/lib/town-match.ts).
+    const town = guessTown ? await guessTown(file).catch(() => "") : "";
     const clean = await prepareImage(file, kind);
     // /api/upload needs the signed-in client and checks the site is theirs (2026-11-11).
     const handleUploadUrl = siteRef ? `/api/upload?site=${encodeURIComponent(siteRef)}` : "/api/upload";
     const blob = await upload(clean.name, clean, { access: "public", handleUploadUrl });
-    return { url: blob.url, filename: file.name, alt: "" };
+    return { url: blob.url, filename: file.name, alt: "", ...(town ? { town } : {}) };
 }
 
 export default function OnboardingPageClient({
@@ -365,8 +369,11 @@ export default function OnboardingPageClient({
         setUploadError(slot, null);
         markBusy(slot, true);
         const kind: PrepKind = slot === "logo" ? "logo" : "photo";
+        // Job photos only (general and per-service), never the logo or the team photo.
+        const isJobPhoto = slot === "hero" || slot.startsWith("svc:");
+        const guess = isJobPhoto ? (f: File) => guessPhotoTown(f, state.towns, state.address) : undefined;
         try {
-            apply(await Promise.all(files.map((f) => uploadFile(f, kind, siteRef))));
+            apply(await Promise.all(files.map((f) => uploadFile(f, kind, siteRef, guess))));
         } catch (e) {
             setUploadError(slot, e instanceof PrepError ? e.message : "Upload failed. Please try again.");
         } finally {
