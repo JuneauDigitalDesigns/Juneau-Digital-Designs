@@ -177,3 +177,18 @@ test("without Google credentials nothing is pulled and the run says so", async (
         process.env.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN = saved;
     }
 });
+
+test("every plan gets proposals: a web-only site (no call log) proposes, with zero calls and its leads counted", async () => {
+    seed(`jdd:account:${EMAIL}`, {
+        email: EMAIL,
+        sites: [site("acme", { plan: "starter", receptionistMode: "declined", airtableBaseId: null })],
+        createdAt: 1,
+        updatedAt: 1,
+    });
+    seed(`jdd:seo:profile:v1:${ACCT}:acme`, profile);
+    const body = await (await run()).json();
+    assert.equal(body.done, 1);
+    assert.equal(body.proposals, 1, "no plan or web-only gate");
+    assert.ok(read(`jdd:seo:proposal:v1:${ACCT}:acme:spoke:minneola:ac-repair`));
+    assert.deepEqual(read(`jdd:seo:signals:v1:${ACCT}:acme`).towns, {}, "no calls and no leads: zero counts, not a failure");
+});
