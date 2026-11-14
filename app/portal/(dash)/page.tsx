@@ -7,6 +7,7 @@ import {
     isProvisioningReceptionist,
 } from "@/app/components/portal/GrowthProvisioning";
 import { PendingSiteBanner } from "@/app/components/portal/PendingSiteBanner";
+import { PageAdditionNotices } from "@/app/components/portal/page-additions/PageAdditionNotices";
 import { SectionHeader, Card } from "@/app/components/portal/ui/Card";
 import { FeatureError, FeatureState } from "@/app/components/portal/ui/FeatureState";
 import {
@@ -148,6 +149,13 @@ export default async function OverviewPage({
               * nothing outstanding.
               */}
             <PendingSiteBanner sites={account.sites} currentSlug={site.slug} />
+
+            {/* Page additions from Search Console (2026-11-14): renders nothing when there are none. */}
+            {!building && (
+                <Suspense fallback={null}>
+                    <PageAdditionNotices account={account} site={raw} />
+                </Suspense>
+            )}
 
             {provisioningGrowth && (
                 <GrowthProvisioning

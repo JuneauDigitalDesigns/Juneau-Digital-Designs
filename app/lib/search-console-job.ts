@@ -4,6 +4,8 @@ import { listAccounts } from "./account-store";
 import { fetchCalls } from "./airtable-calls";
 import { listLeads } from "./portal-leads";
 import { querySearchAnalytics, searchConsoleConfigured } from "./search-console";
+import { sendOpsNotice } from "./ops-notice";
+import { PA } from "./page-additions";
 import { evaluateProposals, matchTowns, type PageRow, type QueryRow, type SearchProfile, type TownSignals } from "./seo-demand";
 import {
     accountScope,
@@ -11,8 +13,11 @@ import {
     proposalState,
     readCursor,
     readDays,
+    readHealth,
     readProfile,
     saveProposals,
+    writeHealth,
+    type SeoHealth,
     writeCursor,
     writeDays,
     writeSignals,
@@ -147,16 +152,62 @@ export interface CycleResult {
     durationMs: number;
 }
 
+/**
+ * Health after a run. Failed: the job threw, credentials are unset, or every site failed. Zero:
+ * every site was read and none had a single row, two runs running, once rows have ever been
+ * read. Either emails JDD once (W126–W127); a healthy run clears it.
+ */
+export function nextHealth(prev: SeoHealth | null, run: { threw: boolean; result: CycleResult; rows: number; at: string }): SeoHealth {
+    const h: SeoHealth = prev ?? { state: "ok", failedRuns: 0, zeroRuns: 0, everHadRows: false, alertedAt: null, lastRunAt: run.at };
+    const { result } = run;
+    const failed = run.threw || !result.configured || (result.sites > 0 && result.done === 0 && result.failed > 0);
+    const zero = !failed && result.done > 0 && run.rows === 0;
+    if (failed) return { ...h, state: "failed", failedRuns: h.failedRuns + 1, zeroRuns: 0, lastRunAt: run.at };
+    if (zero) return { ...h, state: h.zeroRuns + 1 >= 2 && h.everHadRows ? "zero" : "ok", zeroRuns: h.zeroRuns + 1, failedRuns: 0, lastRunAt: run.at };
+    if (result.done === 0) return { ...h, lastRunAt: run.at }; // no verified site to read: nothing to judge
+    return { state: "ok", failedRuns: 0, zeroRuns: 0, everHadRows: h.everHadRows || run.rows > 0, alertedAt: null, lastRunAt: run.at };
+}
+
+async function recordHealth(run: { threw: boolean; result: CycleResult; rows: number; at: string }): Promise<void> {
+    try {
+        const h = nextHealth(await readHealth(), run);
+        if (h.state !== "ok" && !h.alertedAt) {
+            await sendOpsNotice(PA.alertSubject, [PA.alertBody]);
+            h.alertedAt = run.at;
+        }
+        await writeHealth(h);
+    } catch (err) {
+        console.error("[search-console] health not recorded", String(err));
+    }
+}
+
 export async function runSearchConsoleCycle({ now = new Date(), budgetMs = 240_000 }: { now?: Date; budgetMs?: number } = {}): Promise<CycleResult> {
     const started = Date.now();
     const result: CycleResult = { configured: searchConsoleConfigured(), sites: 0, done: 0, failed: 0, skipped: 0, proposals: 0, durationMs: 0 };
+    const at = now.toISOString();
     if (!result.configured) {
         console.error("[search-console] Google credentials not set; nothing pulled");
         result.durationMs = Date.now() - started;
-        await logRun({ at: now.toISOString(), ...result });
+        await logRun({ at, ...result });
+        await recordHealth({ threw: false, result, rows: 0, at });
         return result;
     }
 
+    let rows = 0;
+    try {
+        await cycleSites(result, now, started, budgetMs, (n) => (rows += n));
+    } catch (err) {
+        result.durationMs = Date.now() - started;
+        await recordHealth({ threw: true, result, rows, at });
+        throw err;
+    }
+    result.durationMs = Date.now() - started;
+    await logRun({ at, ...result });
+    await recordHealth({ threw: false, result, rows, at });
+    return result;
+}
+
+async function cycleSites(result: CycleResult, now: Date, started: number, budgetMs: number, addRows: (n: number) => void): Promise<void> {
     for (const account of await listAccounts()) {
         for (const site of account.sites) {
             if (site.status !== "live" || !isActiveSite(site, now.getTime())) continue;
@@ -169,6 +220,7 @@ export async function runSearchConsoleCycle({ now = new Date(), budgetMs = 240_0
             }
             try {
                 const r = await runSiteCycle(account, site, profile, now);
+                addRows(r.rows);
                 result.done++;
                 result.proposals += r.proposals;
                 console.log("[search-console] site done", site.slug, r);
@@ -178,7 +230,4 @@ export async function runSearchConsoleCycle({ now = new Date(), budgetMs = 240_0
             }
         }
     }
-    result.durationMs = Date.now() - started;
-    await logRun({ at: now.toISOString(), ...result });
-    return result;
 }

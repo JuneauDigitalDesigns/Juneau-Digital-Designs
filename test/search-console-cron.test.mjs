@@ -192,3 +192,48 @@ test("every plan gets proposals: a web-only site (no call log) proposes, with ze
     assert.ok(read(`jdd:seo:proposal:v1:${ACCT}:acme:spoke:minneola:ac-repair`));
     assert.deepEqual(read(`jdd:seo:signals:v1:${ACCT}:acme`).towns, {}, "no calls and no leads: zero counts, not a failure");
 });
+
+// ── Sign-in health (Xander, 2026-11-14): a revoked Google sign-in must not fail silently ─────────
+const { nextHealth } = await import("../app/lib/search-console-job.ts");
+const R = (over = {}) => ({ configured: true, sites: 2, done: 2, failed: 0, skipped: 0, proposals: 0, durationMs: 1, ...over });
+
+test("health: a failed run alerts at once; reading nothing alerts only on the 2nd night and only once rows were ever read", () => {
+    let h = nextHealth(null, { threw: false, result: R({ done: 0, failed: 2 }), rows: 0, at: "d1" });
+    assert.equal(h.state, "failed");
+    h = nextHealth(null, { threw: false, result: R(), rows: 0, at: "d1" });
+    h = nextHealth(h, { threw: false, result: R(), rows: 0, at: "d2" });
+    assert.equal(h.state, "ok", "a new site with no data yet is not a broken sign-in");
+    h = nextHealth(null, { threw: false, result: R(), rows: 40, at: "d0" });
+    assert.equal(h.everHadRows, true);
+    h = nextHealth(h, { threw: false, result: R(), rows: 0, at: "d1" });
+    assert.equal(h.state, "ok", "one empty night is not two");
+    h = nextHealth(h, { threw: false, result: R(), rows: 0, at: "d2" });
+    assert.equal(h.state, "zero");
+    h = nextHealth({ ...h, alertedAt: "d2" }, { threw: false, result: R(), rows: 5, at: "d3" });
+    assert.deepEqual([h.state, h.alertedAt], ["ok", null], "a healthy run clears the incident");
+    assert.equal(nextHealth(null, { threw: false, result: R({ configured: false, sites: 0, done: 0 }), rows: 0, at: "d1" }).state, "failed");
+});
+
+test("a revoked Google sign-in marks the job failed and alerts once, not every night", async () => {
+    seed(`jdd:account:${EMAIL}`, { email: EMAIL, sites: [site("acme")], createdAt: 1, updatedAt: 1 });
+    seed(`jdd:seo:profile:v1:${ACCT}:acme`, profile);
+    const realGoogle = globalThis.fetch;
+    globalThis.fetch = async (input, init = {}) => {
+        if (String(input).startsWith("https://oauth2.googleapis.com/")) return new Response(JSON.stringify({ error: "invalid_grant" }), { status: 400 });
+        return realGoogle(input, init);
+    };
+    try {
+        const body = await (await run()).json();
+        assert.equal(body.failed, 1);
+        const h1 = read("jdd:seo:health:v1");
+        assert.equal(h1.state, "failed");
+        assert.ok(h1.alertedAt, "JDD is told");
+        resetSearchConsoleToken();
+        await run();
+        const h2 = read("jdd:seo:health:v1");
+        assert.equal(h2.failedRuns, 2);
+        assert.equal(h2.alertedAt, h1.alertedAt, "one email per incident");
+    } finally {
+        globalThis.fetch = realGoogle;
+    }
+});
