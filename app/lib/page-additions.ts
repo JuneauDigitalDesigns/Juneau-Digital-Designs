@@ -130,6 +130,7 @@ export const PA = {
     saveLater: "Save and finish later", // W106
     saved: "Saved", // W107
     sendNote: (n: number) => `You can send what you have now. The page needs ${n} more before we can build it.`, // W108
+    saveFailed: "We couldn't save that. Please try again.", // approved by Xander 2026-11-14, a failed save
     declineTitle: "Don't want this page?", // W109
     declineBody: "We'll pause it and won't add it. Anything you've sent stays with us.", // W110
     declineReason: "Anything you'd like us to know?", // W111

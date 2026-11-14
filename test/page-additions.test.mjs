@@ -137,6 +137,7 @@ test("the wizard's own strings (W93–W112) are the approved ones", () => {
     assert.deepEqual([PA.photoTownQ, PA.photoTownHelp], ["Which town was this job in?", "Town only, never the street."]);
     assert.deepEqual([PA.jobTitle("Minneola"), PA.jobHelp], ["A job you did in Minneola", "Optional. In your own words, for example what the problem was and how you fixed it. Never a customer's address."]);
     assert.deepEqual([PA.send, PA.saveLater, PA.saved, PA.sendNote(2)], ["Send to Juneau Digital Designs", "Save and finish later", "Saved", "You can send what you have now. The page needs 2 more before we can build it."]);
+    assert.equal(PA.saveFailed, "We couldn't save that. Please try again.");
     assert.deepEqual([PA.declineTitle, PA.declineBody, PA.declineReason, PA.declineButton], ["Don't want this page?", "We'll pause it and won't add it. Anything you've sent stays with us.", "Anything you'd like us to know?", "I don't want this page"]);
     assert.deepEqual([PA.alertSubject, PA.alertBody], ["Search Console nightly job needs attention",
         "The nightly Search Console job failed or read nothing for any site on its last 2 runs. The usual cause is a revoked Google sign-in. Run npm run google-sign-in in jdd-ops, then update GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN on the agency's Vercel project."]);
@@ -156,4 +157,7 @@ test("the portal screens show only the approved strings: no text of their own", 
     // The only literal message: onboarding's own upload error, reused as approved there.
     const quoted = [...wizard.matchAll(/"([A-Z][^"]{12,})"/g)].map((m) => m[1]);
     assert.deepEqual(quoted, ["Upload failed. Please try again."]);
+    // A failed save says so (approved 2026-11-14): a refused response and a lost connection alike.
+    assert.equal([...wizard.matchAll(/setSaveError\(PA\.saveFailed\)/g)].length, 2);
+    assert.match(wizard, /\{saveError && /);
 });

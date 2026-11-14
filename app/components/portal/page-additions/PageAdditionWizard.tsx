@@ -64,6 +64,7 @@ export function PageAdditionWizard({
     const [saved, setSaved] = useState(false);
     const [busy, setBusy] = useState(false);
     const [uploadError, setUploadError] = useState("");
+    const [saveError, setSaveError] = useState("");
     const [reason, setReason] = useState("");
     const qs = `?site=${encodeURIComponent(siteSlug)}`;
 
@@ -91,6 +92,7 @@ export function PageAdditionWizard({
     async function save(submit: boolean) {
         setBusy(true);
         setSaved(false);
+        setSaveError("");
         try {
             const res = await fetch(`/api/portal/page-additions/facts${qs}`, {
                 method: "POST",
@@ -103,12 +105,17 @@ export function PageAdditionWizard({
                     job,
                 }),
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+                setSaveError(PA.saveFailed);
+                return;
+            }
             const out = (await res.json()) as { needed: number; stage: string };
             setNeeded(out.needed);
             setSaved(true);
             if (submit) router.push(`/portal${qs}`);
             else router.refresh();
+        } catch {
+            setSaveError(PA.saveFailed);
         } finally {
             setBusy(false);
         }
@@ -251,6 +258,11 @@ export function PageAdditionWizard({
                 {saved && (
                     <span className="text-[13px]" style={muted}>
                         {PA.saved}
+                    </span>
+                )}
+                {saveError && (
+                    <span role="alert" className="text-[13px]" style={{ color: "var(--chart-neg)" }}>
+                        {saveError}
                     </span>
                 )}
             </div>
