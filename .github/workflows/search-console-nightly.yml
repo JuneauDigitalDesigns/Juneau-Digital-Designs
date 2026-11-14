@@ -1,0 +1,53 @@
+name: Search Console nightly
+
+# Pulls each verified client site's Google Search Console data and proposes town + service pages
+# from it (app/api/cron/search-console). Proposals only: the operator approves or declines each in
+# the console, and nothing is ever published by this job.
+#
+# Lives here rather than in vercel.json because the Vercel team is on the Hobby plan, which allows
+# two cron jobs, and both are taken (see app/api/cron/retell-usage/route.ts). The endpoint is
+# idempotent, so a late or doubled run from GitHub's best-effort scheduler costs nothing.
+
+on:
+  schedule:
+    - cron: "40 8 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: search-console-nightly
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Pull Search Console and propose
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — the endpoint will 401."
+            exit 1
+          fi
+          # Counts only come back: never a site, query or town, so this summary is safe to keep.
+          body=$(curl -fsS --max-time 320 -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://www.juneaudigitaldesigns.com/api/cron/search-console")
+          echo "$body"
+          {
+            echo "### Search Console nightly"
+            echo '```json'
+            echo "$body" | jq .
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$(echo "$body" | jq -r '.configured')" != "true" ]; then
+            echo "::warning::Google credentials are not set on the agency's Vercel project; nothing was pulled."
+          fi
+          failed=$(echo "$body" | jq -r '.failed // 0')
+          if [ "$failed" -gt 0 ]; then
+            echo "::error::$failed site(s) failed — see the Vercel function log for [search-console]."
+            exit 1
+          fi
