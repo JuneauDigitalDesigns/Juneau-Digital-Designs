@@ -65,6 +65,7 @@ export function PageAdditionWizard({
     const [busy, setBusy] = useState(false);
     const [uploadError, setUploadError] = useState("");
     const [saveError, setSaveError] = useState("");
+    const [declineError, setDeclineError] = useState("");
     const [reason, setReason] = useState("");
     const qs = `?site=${encodeURIComponent(siteSlug)}`;
 
@@ -123,6 +124,7 @@ export function PageAdditionWizard({
 
     async function decline() {
         setBusy(true);
+        setDeclineError("");
         try {
             const res = await fetch(`/api/portal/page-additions/decline${qs}`, {
                 method: "POST",
@@ -130,6 +132,9 @@ export function PageAdditionWizard({
                 body: JSON.stringify({ id, reason }),
             });
             if (res.ok) router.push(`/portal${qs}`);
+            else setDeclineError(PA.saveFailed);
+        } catch {
+            setDeclineError(PA.saveFailed);
         } finally {
             setBusy(false);
         }
@@ -284,10 +289,15 @@ export function PageAdditionWizard({
                         {PA.optional}
                     </small>
                 </label>
-                <div>
+                <div className="flex flex-wrap items-center gap-3">
                     <button type="button" className="btn" disabled={busy} onClick={() => void decline()}>
                         {PA.declineButton}
                     </button>
+                    {declineError && (
+                        <span role="alert" className="text-[13px]" style={{ color: "var(--chart-neg)" }}>
+                            {declineError}
+                        </span>
+                    )}
                 </div>
             </Card>
         </div>

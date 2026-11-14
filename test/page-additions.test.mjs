@@ -160,4 +160,7 @@ test("the portal screens show only the approved strings: no text of their own", 
     // A failed save says so (approved 2026-11-14): a refused response and a lost connection alike.
     assert.equal([...wizard.matchAll(/setSaveError\(PA\.saveFailed\)/g)].length, 2);
     assert.match(wizard, /\{saveError && /);
+    // So does a failed "I don't want this page", with the same approved line and no new wording.
+    assert.equal([...wizard.matchAll(/setDeclineError\(PA\.saveFailed\)/g)].length, 2);
+    assert.match(wizard, /\{declineError && /);
 });
