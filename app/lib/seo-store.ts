@@ -1,7 +1,11 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
 import { accountScope } from "./portal-kv";
-import type { PageRow, ProposalState, QueryRow, SearchProfile, SeoProposal, TownSignals } from "./seo-demand";
+import type { PageRow, ProposalState, QueryRow, SearchProfile, TownSignals } from "./seo-demand";
+import { stageOf, type PageProposal } from "./page-additions";
+
+/** Approved spokes not yet live: they hold a place under the spoke cap. */
+const IN_FLIGHT = new Set(["waiting", "received", "building", "paused"]);
 
 /**
  * KV for the nightly Search Console job (L11/L12). Every key carries the account scope, because
@@ -91,12 +95,12 @@ export async function writeSignals(acct: string, slug: string, towns: TownSignal
     await getRedis().set(signalsKey(acct, slug), { towns, at });
 }
 
-export async function listProposals(acct: string, slug: string): Promise<SeoProposal[]> {
+export async function listProposals(acct: string, slug: string): Promise<PageProposal[]> {
     const redis = getRedis();
     const ids = await redis.zrange<string[]>(proposalIndexKey(acct, slug), 0, -1);
     if (!ids.length) return [];
-    const got = await redis.mget<(SeoProposal | null)[]>(...ids.map((id) => proposalKey(acct, slug, id)));
-    return got.filter((p): p is SeoProposal => Boolean(p));
+    const got = await redis.mget<(PageProposal | null)[]>(...ids.map((id) => proposalKey(acct, slug, id)));
+    return got.filter((p): p is PageProposal => Boolean(p));
 }
 
 export async function proposalState(acct: string, slug: string, month: string): Promise<ProposalState> {
@@ -104,13 +108,16 @@ export async function proposalState(acct: string, slug: string, month: string): 
     const proposed = Number((await getRedis().get<number | string>(monthKey(acct, slug, month))) ?? 0);
     return {
         open: all.filter((p) => p.status === "open").map((p) => p.id),
-        decided: all.filter((p) => p.status !== "open" && p.decidedAt).map((p) => ({ id: p.id, status: p.status, decidedAt: p.decidedAt as string })),
+        decided: all
+            .filter((p) => p.status !== "open" && p.decidedAt)
+            .map((p) => ({ id: p.id, status: p.status, decidedAt: p.decidedAt as string, ...(p.stage ? { stage: p.stage } : {}) })),
         proposedThisMonth: Number.isFinite(proposed) ? proposed : 0,
+        inFlightSpokes: all.filter((p) => p.id.startsWith("spoke:") && IN_FLIGHT.has(stageOf(p))).length,
     };
 }
 
 /** Writes new proposals (a decided one with the same id is replaced: its cooldown has passed). */
-export async function saveProposals(acct: string, slug: string, month: string, proposals: SeoProposal[]): Promise<void> {
+export async function saveProposals(acct: string, slug: string, month: string, proposals: PageProposal[]): Promise<void> {
     if (!proposals.length) return;
     const redis = getRedis();
     for (const p of proposals) {
@@ -126,4 +133,29 @@ export async function logRun(entry: Record<string, unknown>): Promise<void> {
     const redis = getRedis();
     const runs = (await redis.get<Record<string, unknown>[]>(RUNS_KEY)) ?? [];
     await redis.set(RUNS_KEY, [entry, ...runs].slice(0, 60));
+}
+
+/**
+ * The nightly job's sign-in health (Xander, 2026-11-14). A revoked or broken Google sign-in makes
+ * the job fail, or read nothing for every site; either way no proposal is ever made again and
+ * nothing looks wrong. The console shows this state; the job emails JDD once per incident.
+ */
+export const HEALTH_KEY = "jdd:seo:health:v1";
+export interface SeoHealth {
+    state: "ok" | "failed" | "zero";
+    failedRuns: number;
+    zeroRuns: number;
+    /** Some run has read rows before: until then, an empty read is a new site, not a broken sign-in. */
+    everHadRows: boolean;
+    /** When JDD was emailed about the current incident; null once a run is healthy again. */
+    alertedAt: string | null;
+    lastRunAt: string;
+}
+
+export async function readHealth(): Promise<SeoHealth | null> {
+    return (await getRedis().get<SeoHealth>(HEALTH_KEY)) ?? null;
+}
+
+export async function writeHealth(h: SeoHealth): Promise<void> {
+    await getRedis().set(HEALTH_KEY, h);
 }

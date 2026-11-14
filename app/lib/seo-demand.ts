@@ -80,10 +80,15 @@ export interface SeoProposal {
 export interface ProposalState {
     /** Ids of proposals still waiting for a decision. */
     open: string[];
-    /** Proposals already decided, with when. */
-    decided: Array<{ id: string; status: ProposalStatus; decidedAt: string }>;
+    /** Proposals already decided, with when, and the page-addition stage when there is one. */
+    decided: Array<{ id: string; status: ProposalStatus; decidedAt: string; stage?: string }>;
     /** How many proposals this site already got this calendar month. */
     proposedThisMonth: number;
+    /**
+     * Spokes approved and not yet live: waiting for the client's facts, received, being built, or
+     * paused by the client. They hold a place under the 15-page cap (Xander, 2026-11-14).
+     */
+    inFlightSpokes?: number;
 }
 
 export type TownSignals = Record<string, { calls: number; leads: number }>;
@@ -97,7 +102,7 @@ export const FOLD_AFTER_DAYS = 180;
 export const FOLD_MAX_IMPRESSIONS = 20;
 export const PER_MONTH = 3;
 export const SHARED_FACTS_MIN = 2;
-/** A declined proposal, or one sent to the client, comes back no sooner than this. */
+/** A proposal JDD declined ("Not now") comes back no sooner than this. */
 export const COOLDOWN_DAYS = 90;
 
 /** Identical to normalizeTerm in jdd-ops lib/search-profile.js, which built the terms. */
@@ -191,12 +196,13 @@ export function evaluateProposals({
     const createdAt = now.toISOString();
     const townSlug = new Map(profile.towns.map((t) => [t.name, t.slug]));
 
+    // Approved and asked are both approvals since 2026-11-14 ("Ask the client for facts" approves
+    // the page and opens the client's wizard), and a page the client paused or JDD cancelled is
+    // never proposed again. Only JDD's "Not now" comes back, after the cooldown.
     const blocked = new Set(state.open);
     for (const d of state.decided) {
-        if (d.status === "approved") blocked.add(d.id);
-        else if (d.status === "declined" || d.status === "asked") {
-            if (d.decidedAt >= daysBefore(now, COOLDOWN_DAYS)) blocked.add(d.id);
-        }
+        if (d.status === "approved" || d.status === "asked" || d.stage === "paused" || d.stage === "cancelled") blocked.add(d.id);
+        else if (d.status === "declined" && d.decidedAt >= daysBefore(now, COOLDOWN_DAYS)) blocked.add(d.id);
     }
 
     const signalFor = (town: string) => {
@@ -221,7 +227,8 @@ export function evaluateProposals({
     }
 
     const liveSpokes = new Set(profile.spokes.map((s) => `${normalizeTerm(s.town)}|${s.service}`));
-    let spokeSlots = profile.caps.spoke - profile.spokes.length - state.open.filter((id) => id.startsWith("spoke:")).length;
+    let spokeSlots =
+        profile.caps.spoke - profile.spokes.length - state.open.filter((id) => id.startsWith("spoke:")).length - (state.inFlightSpokes ?? 0);
 
     const candidates: SeoProposal[] = [];
 

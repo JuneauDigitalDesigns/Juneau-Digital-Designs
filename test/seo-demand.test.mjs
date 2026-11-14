@@ -136,3 +136,24 @@ test("a spoke live 180 days with under 20 impressions is proposed for merging ba
     const young = { ...profile, spokes: [{ town: "Minneola", service: "ac-repair", since: "2026-09-01T00:00:00.000Z" }] };
     assert.equal(evaluateProposals({ profile: young, rows: [], pageRows: [], state: none, signals: {}, now: NOW }).length, 0);
 });
+
+test("an asked page is approved and waiting for facts: never proposed again, however long ago (2026-11-14)", () => {
+    const rows = [row("10-01", "ac repair minneola", 20), row("10-02", "minneola ac not cooling", 10)];
+    for (const status of ["asked", "approved"]) {
+        const state = { ...none, decided: [{ id: "spoke:minneola:ac-repair", status, decidedAt: "2026-01-01T00:00:00.000Z" }] };
+        assert.equal(evaluateProposals({ profile, rows, pageRows: [], state, signals: {}, now: NOW }).length, 0, status);
+    }
+    // A page the client paused, or JDD cancelled, is never proposed again either.
+    for (const stage of ["paused", "cancelled"]) {
+        const state = { ...none, decided: [{ id: "spoke:minneola:ac-repair", status: "declined", stage, decidedAt: "2026-01-01T00:00:00.000Z" }] };
+        assert.equal(evaluateProposals({ profile, rows, pageRows: [], state, signals: {}, now: NOW }).length, 0, stage);
+    }
+});
+
+test("pages waiting for facts, received, being built or paused count toward the 15-page cap", () => {
+    const spokes = Array.from({ length: 13 }, (_, i) => ({ town: "Winter Garden", service: `s${i}`, since: "2026-10-01T00:00:00.000Z" }));
+    const rows = [row("10-01", "ac repair minneola", 5, 9)];
+    const capped = { ...profile, spokes };
+    assert.equal(evaluateProposals({ profile: capped, rows, pageRows: [], state: { ...none, inFlightSpokes: 2 }, signals: {}, now: NOW }).length, 0);
+    assert.equal(evaluateProposals({ profile: capped, rows, pageRows: [], state: { ...none, inFlightSpokes: 1 }, signals: {}, now: NOW }).length, 1);
+});
