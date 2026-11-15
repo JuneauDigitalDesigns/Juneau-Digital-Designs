@@ -139,8 +139,9 @@ test("the wizard's own strings (W93–W112) are the approved ones", () => {
     assert.deepEqual([PA.send, PA.saveLater, PA.saved, PA.sendNote(2)], ["Send to Juneau Digital Designs", "Save and finish later", "Saved", "You can send what you have now. The page needs 2 more before we can build it."]);
     assert.equal(PA.saveFailed, "We couldn't save that. Please try again.");
     assert.deepEqual([PA.declineTitle, PA.declineBody, PA.declineReason, PA.declineButton], ["Don't want this page?", "We'll pause it and won't add it. Anything you've sent stays with us.", "Anything you'd like us to know?", "I don't want this page"]);
-    assert.deepEqual([PA.alertSubject, PA.alertBody], ["Search Console nightly job needs attention",
-        "The nightly Search Console job failed or read nothing for any site on its last 2 runs. The usual cause is a revoked Google sign-in. Run npm run google-sign-in in jdd-ops, then update GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN on the agency's Vercel project."]);
+    // W126–W127 reworded for the weekly job, approved word for word by Xander on 2026-11-15.
+    assert.deepEqual([PA.alertSubject, PA.alertBody], ["Search Console weekly job needs attention",
+        "The weekly Search Console job failed on its last run, or read nothing for any site on its last 2 runs. The usual cause is a revoked Google sign-in. Run npm run google-sign-in in jdd-ops, then update GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN on the agency's Vercel project."]);
 });
 
 test("the portal screens show only the approved strings: no text of their own", async () => {

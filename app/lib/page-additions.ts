@@ -139,10 +139,10 @@ export const PA = {
     photoTownQ: "Which town was this job in?",
     photoTownHelp: "Town only, never the street.",
     verbatimTick: "Copied word for word from the review. Not edited, not combined.",
-    // The agency's alert to JDD only (W126–W127).
-    alertSubject: "Search Console nightly job needs attention",
+    // The agency's alert to JDD only (W126–W127, reworded for the weekly job, approved 2026-11-15).
+    alertSubject: "Search Console weekly job needs attention",
     alertBody:
-        "The nightly Search Console job failed or read nothing for any site on its last 2 runs. The usual cause is a revoked Google sign-in. Run npm run google-sign-in in jdd-ops, then update GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN on the agency's Vercel project.",
+        "The weekly Search Console job failed on its last run, or read nothing for any site on its last 2 runs. The usual cause is a revoked Google sign-in. Run npm run google-sign-in in jdd-ops, then update GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN on the agency's Vercel project.",
 } as const;
 
 export function stageOf(p: PageProposal): Stage {
