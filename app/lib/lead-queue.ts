@@ -32,7 +32,13 @@ function getRedis(): Redis {
   return _redis;
 }
 
-export type LeadStage = "new" | "qualified" | "quoted" | "won" | "lost";
+/**
+ * The console board's stages (jdd-ops console/src/lib/leadTypes.ts; Xander, 2026-11-15): New,
+ * Contacted, Scheduled and New client (`client`), with Lost beside them. There is no "won": only the
+ * console's close wizard makes a New client. This site writes "new" and nothing else, and reads no
+ * stage; the console reads older records' qualified, quoted and won as their new stage.
+ */
+export type LeadStage = "new" | "contacted" | "scheduled" | "client" | "lost";
 export type LeadSource = "form" | "call";
 export type PlanInterest = "starter" | "growth" | "enterprise";
 
