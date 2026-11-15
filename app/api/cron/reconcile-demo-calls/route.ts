@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ingestDemoCall, type IngestResult } from "@/app/lib/demo-call-ingest";
+import { reconcileClientCalls } from "@/app/lib/client-call-reconcile";
 
 /**
  * Replay any demo call Retell did not deliver.
@@ -17,10 +18,17 @@ import { ingestDemoCall, type IngestResult } from "@/app/lib/demo-call-ingest";
  *
  * Invoked by Vercel cron every 15 minutes (see vercel.json; it was a GitHub workflow, which fired
  * every 4 to 7 hours, until 2026-11-15), or by hand with ?since=<epoch-ms> to backfill.
+ *
+ * The same run then reconciles every CLIENT receptionist (app/lib/client-call-reconcile.ts): a
+ * call missing from a client's own call log is replayed once through the client's own Make clone,
+ * and one still missing later becomes a console alert. It runs after the demo pass whatever the
+ * demo pass did, and `?since` / `?until` don't apply to it: it keeps its own cursor per site.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** The client pass paces Retell (30 requests per 10 s) and stops starting sites after 200 s. */
+export const maxDuration = 300;
 
 /**
  * A day and two hours, though the cron runs every 15 minutes: if this route or Retell is down for
@@ -112,12 +120,13 @@ export async function GET(req: Request) {
     failed: 0,
   };
 
-  let calls: RetellCall[];
+  let calls: RetellCall[] = [];
+  let demoError: string | null = null;
   try {
     calls = await listCallsSince(apiKey, agentId, since, until);
   } catch (e) {
     console.error("[reconcile-demo-calls] list failed", e);
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 502 });
+    demoError = String(e);
   }
 
   const created: string[] = [];
@@ -142,12 +151,37 @@ export async function GET(req: Request) {
   if (tally.lead > 0) {
     console.log(`[reconcile-demo-calls] recovered ${tally.lead} lead(s): ${created.join(", ")}`);
   }
+
+  // Clients: counts only. Per-site detail and any alert live in KV, where the console reads them.
+  let clients: Record<string, unknown>;
+  let clientsFailed = false;
+  try {
+    const run = await reconcileClientCalls();
+    clients = {
+      sites: run.sites,
+      checked: run.checked,
+      skipped: run.skipped,
+      replayed: run.replayed,
+      stillMissing: run.stillMissing,
+      invalid: run.invalid,
+      failed: run.failed,
+    };
+  } catch (e) {
+    console.error("[reconcile-demo-calls] client pass failed", e);
+    clients = { error: e instanceof Error ? e.message : String(e) };
+    clientsFailed = true;
+  }
+
+  if (demoError) {
+    return NextResponse.json({ ok: false, error: demoError, clients }, { status: 502 });
+  }
   return NextResponse.json({
-    ok: true,
+    ok: !clientsFailed,
+    clients,
     since: new Date(since).toISOString(),
     ...(until !== Number.MAX_SAFE_INTEGER ? { until: new Date(until).toISOString() } : {}),
     scanned: calls.length,
     ...tally,
     created,
-  });
+  }, { status: clientsFailed ? 502 : 200 });
 }

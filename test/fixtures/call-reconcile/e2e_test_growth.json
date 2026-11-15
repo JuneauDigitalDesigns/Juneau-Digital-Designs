@@ -1,0 +1,394 @@
+{
+  "recordedAt": "2026-11-15T12:20:37.734Z",
+  "client": "_e2e_test_growth",
+  "agentId": "agent_e2egrowthfixture",
+  "baseId": "appE2EGROWTHBASE0",
+  "since": 1790857236026,
+  "listCalls": [
+    {
+      "status": 200,
+      "body": {
+        "items": [
+          {
+            "call_id": "call_1a46a61c854390a3bf6f7b8f013",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794422898891,
+            "end_timestamp": 1794423012349,
+            "duration_ms": 113458,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "",
+                "caller_name": "scrubbed",
+                "caller_priority": "emergency",
+                "sms_consent": "granted"
+              }
+            }
+          },
+          {
+            "call_id": "call_910dea71f324c5b11ddc9e43679",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794268517931,
+            "end_timestamp": 1794268535322,
+            "duration_ms": 17391,
+            "disconnection_reason": "user_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": false,
+              "custom_analysis_data": {
+                "callback_number": "",
+                "caller_address": "",
+                "caller_email": "",
+                "caller_name": "scrubbed",
+                "caller_priority": "callback",
+                "sms_consent": "unknown"
+              }
+            }
+          },
+          {
+            "call_id": "call_c06e679d0e024422478f4e9b05d",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794249915958,
+            "end_timestamp": 1794250024412,
+            "duration_ms": 108454,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "scrubbed",
+                "caller_name": "scrubbed",
+                "caller_priority": "emergency",
+                "sms_consent": "granted"
+              }
+            }
+          },
+          {
+            "call_id": "call_535fac0656ba4fa070af18efc0f",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794249811882,
+            "end_timestamp": 1794249816289,
+            "duration_ms": 4407,
+            "disconnection_reason": "user_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": false,
+              "custom_analysis_data": {
+                "callback_number": "",
+                "caller_address": "",
+                "caller_email": "",
+                "caller_name": "",
+                "caller_priority": "callback",
+                "sms_consent": "unknown"
+              }
+            }
+          },
+          {
+            "call_id": "call_49f666988bac5e18338aede5f1c",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794166997424,
+            "end_timestamp": 1794167112318,
+            "duration_ms": 114894,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "",
+                "caller_name": "scrubbed",
+                "caller_priority": "emergency",
+                "sms_consent": "granted"
+              }
+            }
+          },
+          {
+            "call_id": "call_8c8dbe439a63cc63cc52f40a19c",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794166843671,
+            "end_timestamp": 1794166862120,
+            "duration_ms": 18449,
+            "disconnection_reason": "user_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": false,
+              "custom_analysis_data": {
+                "callback_number": "",
+                "caller_address": "",
+                "caller_email": "",
+                "caller_name": "scrubbed",
+                "caller_priority": "callback",
+                "sms_consent": "unknown"
+              }
+            }
+          },
+          {
+            "call_id": "call_297c6890c763a720c8283da0dd8",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1794166644721,
+            "end_timestamp": 1794166758674,
+            "duration_ms": 113953,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "scrubbed",
+                "caller_name": "scrubbed",
+                "caller_priority": "emergency",
+                "sms_consent": "granted"
+              }
+            }
+          },
+          {
+            "call_id": "call_d6d7737e1303b9f39ef31423d8e",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1793811184514,
+            "end_timestamp": 1793811391527,
+            "duration_ms": 207013,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "scrubbed",
+                "caller_name": "scrubbed",
+                "caller_priority": "callback",
+                "sms_consent": "granted"
+              }
+            }
+          },
+          {
+            "call_id": "call_64e6ab8822532390db9353ea2dc",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1793810095839,
+            "end_timestamp": 1793810235397,
+            "duration_ms": 139558,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "scrubbed",
+                "caller_name": "scrubbed",
+                "caller_priority": "emergency",
+                "sms_consent": "granted"
+              }
+            }
+          },
+          {
+            "call_id": "call_6c3a139321187ade69caf692a73",
+            "call_type": "phone_call",
+            "agent_id": "agent_e2egrowthfixture",
+            "call_status": "ended",
+            "start_timestamp": 1793808429330,
+            "end_timestamp": 1793808583171,
+            "duration_ms": 153841,
+            "disconnection_reason": "agent_hangup",
+            "direction": "outbound",
+            "from_number": "+15005550009",
+            "to_number": "+15005550006",
+            "call_analysis": {
+              "in_voicemail": false,
+              "call_successful": true,
+              "custom_analysis_data": {
+                "callback_number": "scrubbed",
+                "caller_address": "scrubbed",
+                "caller_email": "scrubbed",
+                "caller_name": "scrubbed",
+                "caller_priority": "emergency",
+                "sms_consent": "granted"
+              }
+            }
+          }
+        ],
+        "has_more": false
+      }
+    }
+  ],
+  "getCall": {
+    "status": 200,
+    "body": {
+      "call_id": "call_1a46a61c854390a3bf6f7b8f013",
+      "call_type": "phone_call",
+      "agent_id": "agent_e2egrowthfixture",
+      "call_status": "ended",
+      "start_timestamp": 1794422898891,
+      "end_timestamp": 1794423012349,
+      "duration_ms": 113458,
+      "disconnection_reason": "agent_hangup",
+      "direction": "outbound",
+      "from_number": "+15005550009",
+      "to_number": "+15005550006",
+      "call_analysis": {
+        "in_voicemail": false,
+        "call_successful": true,
+        "custom_analysis_data": {
+          "callback_number": "scrubbed",
+          "caller_address": "scrubbed",
+          "caller_email": "",
+          "caller_name": "scrubbed",
+          "caller_priority": "emergency",
+          "sms_consent": "granted"
+        }
+      }
+    }
+  },
+  "airtableUnknownField": {
+    "status": 422,
+    "body": {
+      "error": {
+        "type": "UNKNOWN_FIELD_NAME"
+      }
+    }
+  },
+  "airtableList": {
+    "status": 200,
+    "body": {
+      "records": [
+        {
+          "id": "rec7HCUmTlokweMfS",
+          "createdTime": "2026-11-09T18:47:07.000Z",
+          "fields": {
+            "Date": "2026-11-09T18:45:15.958Z"
+          }
+        },
+        {
+          "id": "recFMcLJnUnKq23W3",
+          "createdTime": "2026-11-04T16:56:34.000Z",
+          "fields": {
+            "Date": "2026-11-04T16:53:04.514Z"
+          }
+        },
+        {
+          "id": "recFdDS3hznAQIufv",
+          "createdTime": "2026-11-04T16:37:19.000Z",
+          "fields": {
+            "Date": "2026-11-04T16:34:55.839Z"
+          }
+        },
+        {
+          "id": "recIrliSdvpruSVij",
+          "createdTime": "2026-11-03T21:07:37.000Z",
+          "fields": {
+            "Date": "2026-11-03T21:05:13.538Z"
+          }
+        },
+        {
+          "id": "recc2GNVo0fNdBd5g",
+          "createdTime": "2026-11-04T14:53:12.000Z",
+          "fields": {
+            "Date": "2026-11-04T14:51:28.687Z"
+          }
+        },
+        {
+          "id": "receyuQG6eSPHwT2i",
+          "createdTime": "2026-11-04T16:09:52.000Z",
+          "fields": {
+            "Date": "2026-11-04T16:07:09.330Z"
+          }
+        },
+        {
+          "id": "rechZOczvaC58Zgw9",
+          "createdTime": "2026-11-08T19:41:04.000Z",
+          "fields": {
+            "Date": "2026-11-08T19:40:43.671Z"
+          }
+        },
+        {
+          "id": "recjkaWhLDyY4oiDE",
+          "createdTime": "2026-11-08T19:39:21.000Z",
+          "fields": {
+            "Date": "2026-11-08T19:37:24.721Z"
+          }
+        },
+        {
+          "id": "recpylWzUrmUoLPdx",
+          "createdTime": "2026-11-03T18:23:54.000Z",
+          "fields": {
+            "Date": "2026-11-03T18:10:12.075Z"
+          }
+        },
+        {
+          "id": "recrk1PTNPKxYVwYK",
+          "createdTime": "2026-11-08T19:45:15.000Z",
+          "fields": {
+            "Date": "2026-11-08T19:43:17.424Z"
+          }
+        },
+        {
+          "id": "recwbyG0xfmPCRa1Q",
+          "createdTime": "2026-11-03T18:23:54.000Z",
+          "fields": {
+            "Date": "2026-11-03T18:05:39.465Z"
+          }
+        },
+        {
+          "id": "reczwy7c3ltQMqizA",
+          "createdTime": "2026-11-11T18:50:15.000Z",
+          "fields": {
+            "Date": "2026-11-11T18:48:18.891Z"
+          }
+        }
+      ]
+    }
+  }
+}
