@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-11-15T12:20:39.678Z",
+  "client": "_e2e_test_starter",
+  "agentId": "agent_e2estarterfixtur",
+  "baseId": "appE2ESTARTERBASE",
+  "since": 1790857236026,
+  "listCalls": [
+    {
+      "status": 200,
+      "body": {
+        "items": [],
+        "has_more": false
+      }
+    }
+  ],
+  "getCall": null,
+  "airtableUnknownField": {
+    "status": 422,
+    "body": {
+      "error": {
+        "type": "UNKNOWN_FIELD_NAME"
+      }
+    }
+  },
+  "airtableList": {
+    "status": 200,
+    "body": {
+      "records": []
+    }
+  }
+}
