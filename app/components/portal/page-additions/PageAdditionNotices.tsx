@@ -6,7 +6,7 @@ import { siteNotices } from "@/app/lib/page-additions-store";
 /**
  * Page additions on the Overview (Xander, 2026-11-14; W60–W112, approved word for word).
  *
- * One card per page the nightly Search Console job proposed for this site, in whatever stage it
+ * One card per page the weekly Search Console job proposed for this site, in whatever stage it
  * is. Read-only, except "We need your help", which opens the facts wizard. Rendered on the server:
  * rendering a notice is the client seeing it, which starts the 7 days a final notice stays.
  * Renders nothing when there is nothing to say, which is most visits. Every plan, web-only included.

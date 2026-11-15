@@ -15,18 +15,17 @@ import { ingestDemoCall, type IngestResult } from "@/app/lib/demo-call-ingest";
  * missing through the same ingest the webhook uses. Idempotency lives in ingestDemoCall
  * (reverse call→lead index + upsert), so overlapping windows are free and re-running is safe.
  *
- * Invoked by Vercel cron (see vercel.json), or by hand with ?since=<epoch-ms> to backfill.
+ * Invoked by Vercel cron every 15 minutes (see vercel.json; it was a GitHub workflow, which fired
+ * every 4 to 7 hours, until 2026-11-15), or by hand with ?since=<epoch-ms> to backfill.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Overlaps the daily cron with two hours to spare.
- *
- * Hobby does not guarantee the firing minute, so an exactly-24h window can leave an
- * uncovered gap between two runs that drift apart — precisely the calls this exists to
- * catch. Re-ingesting a call already seen costs one KV read, so the overlap is nearly free.
+ * A day and two hours, though the cron runs every 15 minutes: if this route or Retell is down for
+ * up to a day, the first run after it recovers still replays everything it missed. Re-ingesting a
+ * call already seen costs one KV read, so the overlap is nearly free.
  */
 const DEFAULT_LOOKBACK_MS = 26 * 60 * 60 * 1000;
 /** Retell caps page size; keep well under it and paginate. */

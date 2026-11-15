@@ -9,7 +9,7 @@ import { listProposals, proposalKey, readProfile } from "./seo-store";
 import type { SearchProfile } from "./seo-demand";
 
 /**
- * KV for page additions in the portal. The proposal records are the nightly job's
+ * KV for page additions in the portal. The proposal records are the weekly job's
  * (`jdd:seo:proposal:v1:…`); the portal adds the stage the client moves it to, when the client
  * first saw each notice, and the client's facts.
  *

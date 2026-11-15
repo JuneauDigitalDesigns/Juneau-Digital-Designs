@@ -1,4 +1,5 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { isActiveSite, type PortalAccount, type PortalSite } from "@jdd/schema";
 import { listAccounts } from "./account-store";
 import { fetchCalls } from "./airtable-calls";
@@ -15,33 +16,44 @@ import {
     readDays,
     readHealth,
     readProfile,
+    readRun,
+    releaseRunLease,
     saveProposals,
+    takeRunLease,
+    writeCompleted,
     writeHealth,
+    writeRun,
     type SeoHealth,
+    type SeoRun,
     writeCursor,
     writeDays,
     writeSignals,
 } from "./seo-store";
 
 /**
- * The nightly Search Console job (L11/L12/L13). For each live site whose property JDD verified
- * (the console publishes a search profile when it does):
+ * The weekly Search Console job (L11/L12/L13; weekly since 2026-11-15). For each live site whose
+ * property JDD verified (the console publishes a search profile when it does):
  *
  *   1. Pull Search Analytics since the last run, query×page and page-only, final data only, and
- *      store each day. The last 7 days are always re-pulled and overwritten, so a day Google
- *      finalised late is never missed and a repeated run changes nothing.
+ *      store each day. The 7 days before the cursor are re-pulled and overwritten as well, so a
+ *      day Google finalised late is never missed, a missed week is caught up, and a repeated run
+ *      changes nothing. The cadence never decides coverage: the cursor does.
  *   2. Count the calls and web leads that name each of the client's towns (L13). Counts only: no
  *      caller, number, address or message is stored or leaves this job.
  *   3. Run the L12 rules over the last 90 days (180 for merging back) and store new proposals,
  *      at most 3 per site per month. The console shows them; nothing is ever published by this.
  *
- * Sites run one after another, and Google is paced between pages; the quotas (1,200 queries a
- * minute per site) are far above this. A site that fails is logged and skipped, and the next run
- * picks it up from its cursor. New sites stop being started once the time budget is spent.
+ * The L12 windows (90 days, 180 for merging back) are read from the stored days, so they are the
+ * same whatever the cadence; a weekly run can still make up to 3 proposals a site a month.
+ *
+ * Sites run one after another; the quotas (1,200 queries a minute per site) are far above this.
+ * A site that fails is counted and the run goes on; the next run picks it up from its cursor.
+ * Every site is worked before the run completes, across as many invocations as it takes
+ * (runSearchConsoleInvocation below).
  */
 
 export const LAG_DAYS = 2; // final data trails by 2-3 days
-export const REPULL_DAYS = 7;
+export const OVERLAP_DAYS = 7;
 export const FIRST_PULL_DAYS = 480; // ~16 months, all Google keeps
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -92,7 +104,7 @@ export async function runSiteCycle(account: PortalAccount, site: PortalSite, pro
     const property = profile.property as string;
     const end = iso(new Date(now.getTime() - LAG_DAYS * 86_400_000));
     const cursor = await readCursor(acct, site.slug);
-    const start = cursor ? addDays(cursor, -(REPULL_DAYS - 1)) : addDays(end, -(FIRST_PULL_DAYS - 1));
+    const start = cursor ? addDays(cursor, -OVERLAP_DAYS) : addDays(end, -(FIRST_PULL_DAYS - 1));
 
     let days = 0;
     let rowCount = 0;
@@ -147,13 +159,13 @@ export interface CycleResult {
     sites: number;
     done: number;
     failed: number;
-    skipped: number;
     proposals: number;
     durationMs: number;
 }
 
 /**
- * Health after a run. Failed: the job threw, credentials are unset, or every site failed. Zero:
+ * Health after a completed run (or an invocation that threw). Failed: the job threw, credentials
+ * are unset, or every site failed. Zero:
  * every site was read and none had a single row, two runs running, once rows have ever been
  * read. Either emails JDD once (W126–W127); a healthy run clears it.
  */
@@ -181,53 +193,152 @@ async function recordHealth(run: { threw: boolean; result: CycleResult; rows: nu
     }
 }
 
-export async function runSearchConsoleCycle({ now = new Date(), budgetMs = 240_000 }: { now?: Date; budgetMs?: number } = {}): Promise<CycleResult> {
-    const started = Date.now();
-    const result: CycleResult = { configured: searchConsoleConfigured(), sites: 0, done: 0, failed: 0, skipped: 0, proposals: 0, durationMs: 0 };
-    const at = now.toISOString();
-    if (!result.configured) {
-        console.error("[search-console] Google credentials not set; nothing pulled");
-        result.durationMs = Date.now() - started;
-        await logRun({ at, ...result });
-        await recordHealth({ threw: false, result, rows: 0, at });
-        return result;
-    }
+/** Start no new site after 10 minutes: the 800 s cap leaves 200 s for the last one (a first pull is ~40 s). */
+export const INVOCATION_BUDGET_MS = 600_000;
+/** Longer than the function's 800 s, so a live invocation never loses it; a killed one frees it on its own. */
+const LEASE_SECONDS = 900;
+/**
+ * The weekly slot vercel.json schedules: Monday 08:00 UTC (`0 8 * * 1`; the suite pins the two
+ * equal). A run belongs to the latest slot at or before it started, so a late or manual run still
+ * counts for its week. The console's missed-run alert is per slot (Xander, 2026-11-15): a slot
+ * whose run hasn't completed a while after it is a missed run.
+ */
+export const SLOT_WEEKDAY = 1; // Monday, as Date#getUTCDay counts
+export const SLOT_HOUR_UTC = 8;
 
-    let rows = 0;
-    try {
-        await cycleSites(result, now, started, budgetMs, (n) => (rows += n));
-    } catch (err) {
-        result.durationMs = Date.now() - started;
-        await recordHealth({ threw: true, result, rows, at });
-        throw err;
-    }
-    result.durationMs = Date.now() - started;
-    await logRun({ at, ...result });
-    await recordHealth({ threw: false, result, rows, at });
-    return result;
+export function weeklySlot(at: Date): string {
+    const d = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate(), SLOT_HOUR_UTC));
+    let back = (d.getUTCDay() - SLOT_WEEKDAY + 7) % 7;
+    if (back === 0 && at.getTime() < d.getTime()) back = 7;
+    return new Date(d.getTime() - back * 86_400_000).toISOString();
 }
 
-async function cycleSites(result: CycleResult, now: Date, started: number, budgetMs: number, addRows: (n: number) => void): Promise<void> {
+export type InvocationStatus = "complete" | "continuing" | "busy" | "stale";
+
+/**
+ * One invocation of the weekly run (Xander, 2026-11-15). The run works through every live,
+ * verified site, however many invocations that takes: this one works until its budget is spent
+ * (always finishing at least one site, so a chain of invocations always ends), records which
+ * sites are done, and says "continuing" when sites are left. The route then asks for the next
+ * invocation with the run's id. Only the invocation that finishes the last site records the
+ * completed-run marker, logs the run and judges health: a run is judged whole, never in parts.
+ *
+ * Single-flight: an invocation holds the run lease or does nothing ("busy"); a continuation only
+ * ever continues the run it names ("stale" otherwise, as for a doubled request after the run
+ * finished). The cron with no run id resumes an unfinished run from the same slot; one left from
+ * an earlier slot is closed off, and a new run starts.
+ */
+export async function runSearchConsoleInvocation({
+    now = new Date(),
+    budgetMs = INVOCATION_BUDGET_MS,
+    runId = null,
+}: { now?: Date; budgetMs?: number; runId?: string | null } = {}): Promise<{ status: InvocationStatus; runId: string | null; result: CycleResult }> {
+    const started = Date.now();
+    const configured = searchConsoleConfigured();
+    const counts = (run: SeoRun | null, left = 0): CycleResult => ({
+        configured,
+        sites: run ? run.done.length + run.failed.length + left : 0,
+        done: run?.done.length ?? 0,
+        failed: run?.failed.length ?? 0,
+        proposals: run?.proposals ?? 0,
+        durationMs: Date.now() - started,
+    });
+
+    const token = randomUUID();
+    if (!(await takeRunLease(token, LEASE_SECONDS))) return { status: "busy", runId, result: counts(null) };
+    let run: SeoRun | null = null;
+    try {
+        run = await readRun();
+        if (runId) {
+            if (!run || run.id !== runId || run.completedAt) return { status: "stale", runId, result: counts(null) };
+        } else if (!run || run.completedAt || run.slot !== weeklySlot(now)) {
+            if (run && !run.completedAt) {
+                console.error("[search-console] an unfinished run was closed off", { slot: run.slot, done: run.done.length, failed: run.failed.length });
+            }
+            run = {
+                id: now.toISOString(),
+                slot: weeklySlot(now),
+                startedAt: now.toISOString(),
+                done: [],
+                failed: [],
+                rows: 0,
+                proposals: 0,
+                invocations: 0,
+                configured,
+                completedAt: null,
+            };
+        }
+        run.invocations++;
+        run.configured = configured;
+        await writeRun(run);
+
+        if (configured) {
+            const left = await workSites(run, now, started, budgetMs);
+            if (left > 0) {
+                await writeRun(run);
+                return { status: "continuing", runId: run.id, result: counts(run, left) };
+            }
+        } else {
+            console.error("[search-console] Google credentials not set; nothing pulled");
+        }
+
+        const at = now.toISOString();
+        run.completedAt = new Date().toISOString();
+        await writeRun(run);
+        const result = counts(run);
+        await writeCompleted({
+            id: run.id,
+            slot: run.slot,
+            startedAt: run.startedAt,
+            completedAt: run.completedAt,
+            configured,
+            sites: result.sites,
+            done: result.done,
+            failed: result.failed,
+            proposals: result.proposals,
+            invocations: run.invocations,
+        });
+        await logRun({ at, id: run.id, slot: run.slot, invocations: run.invocations, ...result });
+        await recordHealth({ threw: false, result, rows: run.rows, at });
+        return { status: "complete", runId: run.id, result };
+    } catch (err) {
+        await recordHealth({ threw: true, result: counts(run), rows: run?.rows ?? 0, at: now.toISOString() });
+        throw err;
+    } finally {
+        await releaseRunLease(token).catch(() => {});
+    }
+}
+
+/** Works the run's remaining sites until the budget is spent. Returns how many are left. */
+async function workSites(run: SeoRun, now: Date, started: number, budgetMs: number): Promise<number> {
+    const seen = new Set([...run.done, ...run.failed]);
+    let worked = 0;
+    let left = 0;
     for (const account of await listAccounts()) {
+        const acct = accountScope(account.email);
         for (const site of account.sites) {
             if (site.status !== "live" || !isActiveSite(site, now.getTime())) continue;
-            const profile = await readProfile(accountScope(account.email), site.slug);
+            const key = `${acct}:${site.slug}`;
+            if (seen.has(key)) continue;
+            const profile = await readProfile(acct, site.slug);
             if (!profile?.property) continue; // not verified by JDD yet
-            result.sites++;
-            if (Date.now() - started > budgetMs) {
-                result.skipped++;
+            if (worked > 0 && Date.now() - started >= budgetMs) {
+                left++;
                 continue;
             }
+            worked++;
             try {
                 const r = await runSiteCycle(account, site, profile, now);
-                addRows(r.rows);
-                result.done++;
-                result.proposals += r.proposals;
+                run.done.push(key);
+                run.rows += r.rows;
+                run.proposals += r.proposals;
                 console.log("[search-console] site done", site.slug, r);
             } catch (err) {
-                result.failed++;
+                run.failed.push(key);
                 console.error("[search-console] site failed", site.slug, String(err));
             }
+            await writeRun(run);
         }
     }
+    return left;
 }

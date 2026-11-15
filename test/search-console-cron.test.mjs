@@ -1,5 +1,5 @@
 /**
- * The nightly Search Console job, end to end through the real route and store.
+ * The Search Console job, end to end through the real route and store.
  *
  * The network is the only double: an in-memory Upstash and a Google that answers from a table.
  * What it pins: only verified, live sites are pulled; days are stored and a repeated run changes

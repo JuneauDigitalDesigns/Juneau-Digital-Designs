@@ -2,7 +2,7 @@
  * Page additions in the client portal (L12, Phase 3; Xander 2026-11-14, mockups and W60–W130
  * approved word for word: https://claude.ai/artifact/LsqdNvjduNNY4YABQjPdhu).
  *
- * When the nightly Search Console job proposes a town + service page (or a town page), the client's
+ * When the weekly Search Console job proposes a town + service page (or a town page), the client's
  * portal shows a notice. Read-only while JDD reviews it; once JDD approves a page that still needs
  * facts, the notice opens a wizard where the client sends photos and reviews from that town, or
  * says they don't want the page. Nothing the client sends publishes anything: it reaches the

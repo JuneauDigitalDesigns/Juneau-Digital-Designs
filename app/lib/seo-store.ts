@@ -8,7 +8,7 @@ import { stageOf, type PageProposal } from "./page-additions";
 const IN_FLIGHT = new Set(["waiting", "received", "building", "paused"]);
 
 /**
- * KV for the nightly Search Console job (L11/L12). Every key carries the account scope, because
+ * KV for the weekly Search Console job (L11/L12). Every key carries the account scope, because
  * slugs are unique only within an account and all of it is client-derived.
  *
  *   jdd:seo:profile:v1:{acct}:{slug}          the site's search profile, written by the console
@@ -128,7 +128,7 @@ export async function saveProposals(acct: string, slug: string, month: string, p
     await redis.expire(monthKey(acct, slug, month), 40 * 86_400);
 }
 
-/** One job runs at a time (the workflow's concurrency group), so read-modify-write is safe here. */
+/** One invocation runs at a time (the run lease below), so read-modify-write is safe here. */
 export async function logRun(entry: Record<string, unknown>): Promise<void> {
     const redis = getRedis();
     const runs = (await redis.get<Record<string, unknown>[]>(RUNS_KEY)) ?? [];
@@ -136,7 +136,7 @@ export async function logRun(entry: Record<string, unknown>): Promise<void> {
 }
 
 /**
- * The nightly job's sign-in health (Xander, 2026-11-14). A revoked or broken Google sign-in makes
+ * The weekly job's sign-in health (Xander, 2026-11-14). A revoked or broken Google sign-in makes
  * the job fail, or read nothing for every site; either way no proposal is ever made again and
  * nothing looks wrong. The console shows this state; the job emails JDD once per incident.
  */
@@ -158,4 +158,68 @@ export async function readHealth(): Promise<SeoHealth | null> {
 
 export async function writeHealth(h: SeoHealth): Promise<void> {
     await getRedis().set(HEALTH_KEY, h);
+}
+
+/**
+ * The weekly run (Xander, 2026-11-15) works through every site, across as many invocations as it
+ * takes. Its progress is one record; the console watches only the completed-run marker.
+ *
+ *   jdd:seo:run:v1         the current or last run: which sites are done, counts so far
+ *   jdd:seo:run:lease:v1   held by the one invocation working on it (SET NX, expires on its own)
+ *   jdd:seo:completed:v1   the last run that finished every site, with its weekly slot, counts only
+ */
+export const RUN_KEY = "jdd:seo:run:v1";
+export const RUN_LEASE_KEY = "jdd:seo:run:lease:v1";
+export const COMPLETED_KEY = "jdd:seo:completed:v1";
+
+export interface SeoRun {
+    id: string;
+    /** The scheduled weekly slot this run belongs to (`weeklySlot`), as an ISO time. */
+    slot: string;
+    startedAt: string;
+    /** `{acctScope}:{slug}` of each site finished in this run, and of each that failed. */
+    done: string[];
+    failed: string[];
+    rows: number;
+    proposals: number;
+    invocations: number;
+    configured: boolean;
+    completedAt: string | null;
+}
+
+export interface SeoCompletedRun {
+    id: string;
+    /** The slot this run completed: the console's missed-run alert clears once the latest slot's has. */
+    slot: string;
+    startedAt: string;
+    completedAt: string;
+    configured: boolean;
+    sites: number;
+    done: number;
+    failed: number;
+    proposals: number;
+    invocations: number;
+}
+
+export async function readRun(): Promise<SeoRun | null> {
+    return (await getRedis().get<SeoRun>(RUN_KEY)) ?? null;
+}
+
+export async function writeRun(run: SeoRun): Promise<void> {
+    await getRedis().set(RUN_KEY, run);
+}
+
+export async function writeCompleted(c: SeoCompletedRun): Promise<void> {
+    await getRedis().set(COMPLETED_KEY, c);
+}
+
+/** True when this invocation now holds the lease. It outlives the function's 800 s by design. */
+export async function takeRunLease(token: string, seconds: number): Promise<boolean> {
+    return (await getRedis().set(RUN_LEASE_KEY, token, { nx: true, ex: seconds })) === "OK";
+}
+
+/** Releases the lease only if it is still this invocation's. */
+export async function releaseRunLease(token: string): Promise<void> {
+    const redis = getRedis();
+    if ((await redis.get<string>(RUN_LEASE_KEY)) === token) await redis.del(RUN_LEASE_KEY);
 }
