@@ -104,6 +104,9 @@ beforeEach(() => {
         const url = String(input);
         net.requests.push(url);
         if (url.startsWith("https://api.airtable.com/")) return airtable(url);
+        // A 429 is a bare status here: no Retell 429 body has been recorded, and the reconcile
+        // reads nothing but the status.
+        if (url.startsWith("https://api.retellai.com/") && net.retellBusy) return new Response(null, { status: 429 });
         if (url === "https://api.retellai.com/v3/list-calls") return listCalls(init);
         if (url.startsWith("https://api.retellai.com/v2/get-call/")) {
             const id = decodeURIComponent(url.split("/").pop());
@@ -352,4 +355,30 @@ test("the cursor moves to the settle line, so the next run re-reads only the ove
     await publish();
     await run();
     assert.equal(await redis.get(R.cursorKey(profile())), NOW - R.SETTLE_MS);
+});
+
+/* ── sharing Retell with live calls ──────────────────────────────────────── */
+
+test("a 429 stops the client pass at once: no retry, no replay, cursor kept, the rest left for the next run", async () => {
+    // Live calls (/api/voice/no-answer, /api/contact) may share this account's 30 requests per 10 s.
+    // A 429 there is a caller who never reaches the agent, so this pass never pushes back.
+    const first = await publish();
+    const second = await publish(profile({ siteSlug: "_e2e_test_growth_b", acctScope: "fedcba9876543210" }));
+    net.rows = without(GET_CALL);
+    net.retellBusy = true;
+    const before = await redis.get(R.cursorKey(first));
+    const r = await run();
+    assert.equal(net.requests.filter((u) => u.startsWith("https://api.retellai.com/")).length, 1);
+    assert.equal(r.replayed, 0);
+    assert.equal(r.failed, 0);
+    assert.equal(r.skipped, 2);
+    assert.equal(net.hookPosts.length, 0);
+    const busySite = r.results[0].site === first.siteSlug ? first : second;
+    assert.equal(await redis.get(R.cursorKey(busySite)), before);
+
+    // The next run, with Retell free again, starts from that same site and replays the call.
+    net.retellBusy = false;
+    const next = await run(NOW + 15 * 60 * 1000);
+    assert.equal(next.results[0].site, busySite.siteSlug);
+    assert.equal(net.hookPosts.length, 1);
 });

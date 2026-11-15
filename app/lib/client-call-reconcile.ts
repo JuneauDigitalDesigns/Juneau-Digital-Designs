@@ -56,8 +56,16 @@ export const ALERT_AFTER_MS = 10 * 60 * 1000;
 export const WATCH_MS = 14 * 24 * 60 * 60 * 1000;
 /** How long the once-only replay claim lives. Longer than WATCH_MS and the lookback. */
 const REPLAY_TTL_S = 30 * 24 * 60 * 60;
-/** Retell allows 30 requests per 10 s per account (measured 2026-11-15: `ratelimit-policy: 30;w=10`). */
-let retellMinGapMs = 400;
+/**
+ * Retell allows 30 requests per 10 s per account (measured 2026-11-15: `ratelimit-policy: 30;w=10`).
+ * Live calls may draw on the same budget: /api/voice/no-answer registers the call that puts a
+ * caller through to the agent, and /api/contact places callbacks. A 429 there is a caller who
+ * never reaches anyone. So this pass takes at most a third of the budget (one request a second)
+ * and steps back whenever the account is close to the limit.
+ */
+let retellMinGapMs = 1000;
+/** Below this many requests left in the window, wait for the window to reset. */
+const RETELL_HEADROOM = 10;
 /** Tests replay recorded responses and have no limit to respect. */
 export function setRetellPacing(ms: number) {
     retellMinGapMs = ms;
@@ -116,27 +124,24 @@ export interface SiteResult {
 let lastRetellAt = 0;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** One Retell request, paced under the account's limit and retried once after a 429. */
+/** Thrown on a 429: the site is left for the next run, so this pass never competes with live calls. */
+export class RetellBusy extends Error {}
+
+/** One Retell request, paced to a third of the account's limit. Never retried on a 429. */
 async function retell(path: string, init: RequestInit, apiKey: string): Promise<Response> {
-    for (let attempt = 0; ; attempt++) {
-        const wait = lastRetellAt + retellMinGapMs - Date.now();
-        if (wait > 0) await sleep(wait);
-        lastRetellAt = Date.now();
-        const res = await fetch(`https://api.retellai.com${path}`, {
-            ...init,
-            headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-            cache: "no-store",
-        });
-        const remaining = Number(res.headers.get("ratelimit-remaining"));
-        const resetS = Number(res.headers.get("ratelimit-reset"));
-        if (res.status === 429 && attempt === 0) {
-            await sleep((Number.isFinite(resetS) && resetS > 0 ? resetS : 10) * 1000);
-            continue;
-        }
-        // Other jobs share the account (the portal's recordings, retell-usage): leave them room.
-        if (Number.isFinite(remaining) && remaining <= 3 && Number.isFinite(resetS)) await sleep(resetS * 1000);
-        return res;
-    }
+    const wait = lastRetellAt + retellMinGapMs - Date.now();
+    if (wait > 0) await sleep(wait);
+    lastRetellAt = Date.now();
+    const res = await fetch(`https://api.retellai.com${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        cache: "no-store",
+    });
+    if (res.status === 429) throw new RetellBusy("Retell rate limit: left for the next run");
+    const remaining = Number(res.headers.get("ratelimit-remaining"));
+    const resetS = Number(res.headers.get("ratelimit-reset"));
+    if (Number.isFinite(remaining) && remaining <= RETELL_HEADROOM && Number.isFinite(resetS)) await sleep(Math.min(resetS, 10) * 1000);
+    return res;
 }
 
 /** The agent's calls that started at or after `since`, every page. */
@@ -432,6 +437,12 @@ export async function reconcileClientCalls({
             run.stillMissing += r.stillMissing;
             run.results.push(r);
         } catch (e) {
+            if (e instanceof RetellBusy) {
+                // The account is at its limit: stop here and leave every remaining site to the next run.
+                run.skipped = profiles.length - i;
+                run.results.push({ site: p.siteSlug, scanned: 0, unsettled: 0, excluded: 0, present: 0, replayed: 0, stillMissing: 0, resolved: 0, error: e.message });
+                break;
+            }
             run.failed++;
             run.results.push({ site: p.siteSlug, scanned: 0, unsettled: 0, excluded: 0, present: 0, replayed: 0, stillMissing: 0, resolved: 0, error: e instanceof Error ? e.message : String(e) });
             console.error(`[client-call-reconcile] ${p.siteSlug} failed`, e instanceof Error ? e.message : e);
