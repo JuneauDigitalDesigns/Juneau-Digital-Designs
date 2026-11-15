@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * JDD's Google Search Console read access, for the nightly job (L11/L12).
+ * JDD's Google Search Console read access, for the weekly job (L11/L12).
  *
  * One JDD Workspace account verifies every client site (the organization blocks service-account
  * keys). The local console holds that account's OAuth client and refresh token in files; this

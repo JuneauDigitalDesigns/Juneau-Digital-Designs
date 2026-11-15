@@ -6,7 +6,11 @@
     },
     {
       "path": "/api/cron/reconcile-demo-calls",
-      "schedule": "0 7 * * *"
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/search-console",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

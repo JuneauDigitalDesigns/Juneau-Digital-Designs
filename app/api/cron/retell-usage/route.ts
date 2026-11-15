@@ -14,26 +14,21 @@ import { runUsageCycle } from "@/app/lib/usage-billing";
  * Can be triggered manually for testing:
  *   curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/retell-usage
  *
- * SCHEDULING, AND WHY IT LOOKS LIKE THIS. The Vercel team is on the **Hobby** plan, which
- * allows at most 2 cron jobs and rejects any expression firing more than once a day, failing
- * the deployment outright rather than warning. That has already turned a push red once (see
- * d14497a), so this is load-bearing, not trivia.
+ * SCHEDULING. Every cron is in vercel.json; the Vercel team is on Pro (confirmed 2026-11-15),
+ * which allows 100 cron jobs a project at any interval down to a minute, with per-minute timing.
+ * The repo used to assume Hobby (2 cron jobs, at most once a day, and a deployment fails outright
+ * on anything more, as it did once in d14497a). If the team ever moves back to Hobby, vercel.json
+ * has three entries and one every 15 minutes, so every deployment would fail until it is cut down.
  *
- * The schedule in vercel.json fires at 09:00 on every third day of the month, so it never
- * fires twice in one day. That is valid on Hobby today and stays valid on Pro. Nothing here
- * has to change when the plan is upgraded.
+ * This one fires at 09:00 on every third day of the month. It could run daily now; it hasn't been
+ * changed because nothing has asked for it.
  *
  * (Cron expressions are described in prose here rather than quoted: an asterisk followed by
  * a slash closes this comment block and breaks the build.)
  *
- * What upgrading to Pro would unlock, if wanted:
- *   - `/api/cron/reconcile-demo-calls` runs from `.github/workflows/reconcile-demo-calls.yml`
- *     every 15 minutes, only because Hobby could not schedule it. On Pro it may move back
- *     into vercel.json, but delete the workflow in the same commit if it does. Two schedulers
- *     on one endpoint is not a safety net, it is a double run.
- *   - This job could move to daily or hourly instead of every third day.
- *
- * Until then: do not add a sub-daily entry to vercel.json.
+ * One scheduler per endpoint: two schedulers on one endpoint is not a safety net, it is a double
+ * run. The GitHub workflows that ran the demo-call reconcile and the Search Console job were
+ * deleted when those moved here (2026-11-15).
  */
 
 export const runtime = "nodejs";
