@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { carriesLink, ownerTextLinksAllowed } from "./owner-text-campaign";
+import { isIssuedTextConsent, type CustomerTextConsent } from "./customer-text-consent-token";
 
 /**
  * Minimal Twilio client.
@@ -112,7 +113,17 @@ export function reconstructPublicUrl(request: Request): string {
  */
 export type SmsLane =
   | { lane: "account" }
-  | { lane: "customer"; messagingServiceSid: string; from: string };
+  | {
+      lane: "customer";
+      messagingServiceSid: string;
+      from: string;
+      /**
+       * Proof from `checkCustomerTextConsent` that this customer agreed to texts at this number.
+       * Required: no consent on record, no send (Xander, 2026-11-16). Only a token the gate
+       * issued counts, so a path that skipped the gate can't text a customer.
+       */
+      consent: CustomerTextConsent;
+    };
 
 export async function sendSms({
   to,
@@ -135,6 +146,10 @@ export async function sendSms({
   let from: string | undefined;
 
   if (laneOpts.lane === "customer") {
+    // The last line of the consent gate: refuse before anything reaches Twilio.
+    if (!isIssuedTextConsent(laneOpts.consent, to)) {
+      throw new Error("Customer-lane SMS refused: no consent from checkCustomerTextConsent for this number");
+    }
     serviceSid = laneOpts.messagingServiceSid;
     from = laneOpts.from;
   } else {

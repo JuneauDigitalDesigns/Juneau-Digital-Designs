@@ -3,12 +3,11 @@ import { siteFeature } from "@jdd/schema";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { accountScope } from "@/app/lib/portal-kv";
 import { sendSms } from "@/app/lib/twilio";
-import { checkSpokenConsent } from "@/app/lib/spoken-consent-check";
+import { checkCustomerTextConsent } from "@/app/lib/customer-text-consent";
 import { NOT_AGREED_MESSAGE } from "@/app/lib/spoken-consent";
 import {
     appendMessage,
     getCustomer,
-    getReviewSend,
     setNumberOwner,
     setOwnerEmail,
     updateCustomer,
@@ -27,8 +26,9 @@ export const runtime = "nodejs";
  *  • `messaging` gate — requires growth/enterprise **and** a verified A2P campaign. Sending
  *    before the campaign verifies would be filtered by carriers, not delivered.
  *  • The recipient must already be a customer with a number, i.e. someone who reached out.
- *  • An opted-out recipient is blocked outright.
- *  • So is one who said no on a call, or never answered when asked (`spoken-consent.ts`).
+ *  • **Consent on record, or no send** (`customer-text-consent.ts`, 2026-11-16): a yes on a call
+ *    for this number, or the website form's consent record on the lead they came from. An
+ *    opt-out, a no, an unanswered ask, no evidence, or a check that can't complete all refuse.
  *  • Sends go through the client's **own** Messaging Service, so Advanced Opt-Out applies.
  *  • **There is no bulk path.** One request sends one message to one customer, by design.
  */
@@ -74,30 +74,26 @@ export async function POST(request: Request) {
         );
     }
 
-    // An opt-out is recorded against the number by the inbound webhook. Honour it everywhere.
-    const review = await getReviewSend(acct, customer.phone);
-    if (review?.optedOut) {
-        return NextResponse.json(
-            { error: "This customer has opted out of texts, so we can't message them." },
-            { status: 409 },
-        );
-    }
-
-    const spoken = await checkSpokenConsent(ctx, customer.phone);
-    if (spoken === "declined") {
-        return NextResponse.json(
-            { error: "This customer has opted out of texts, so we can't message them." },
-            { status: 409 },
-        );
-    }
-    if (spoken === "not-agreed") {
+    // No consent on record, no send. Opt-outs (recorded by the inbound webhook) and a no on a call
+    // are refused here too. Every refusal uses the words this route already showed.
+    const consent = await checkCustomerTextConsent(ctx, { phone: customer.phone, customer });
+    if (!consent.ok) {
+        if (consent.reason === "opted-out" || consent.reason === "declined") {
+            return NextResponse.json(
+                { error: "This customer has opted out of texts, so we can't message them." },
+                { status: 409 },
+            );
+        }
+        if (consent.reason === "no-number") {
+            return NextResponse.json({ error: "We don't have a mobile number for this customer." }, { status: 422 });
+        }
+        if (consent.reason === "unavailable") {
+            return NextResponse.json(
+                { error: "We couldn't send that just now. Please try again in a moment." },
+                { status: 502 },
+            );
+        }
         return NextResponse.json({ error: NOT_AGREED_MESSAGE }, { status: 409 });
-    }
-    if (spoken === "unavailable") {
-        return NextResponse.json(
-            { error: "We couldn't send that just now. Please try again in a moment." },
-            { status: 502 },
-        );
     }
 
     const site = ctx.site as { twilioNumber?: string | null; messagingServiceSid?: string | null };
@@ -117,6 +113,7 @@ export async function POST(request: Request) {
             lane: "customer",
             messagingServiceSid: site.messagingServiceSid,
             from: site.twilioNumber,
+            consent: consent.consent,
             statusCallback: process.env.TWILIO_STATUS_CALLBACK_URL || undefined,
         });
         sid = res.sid;
