@@ -117,6 +117,26 @@ export function immediateChangeParams({ fromPlan, toPlan }) {
 }
 
 /**
+ * The subscription's PLAN item: the one recurring item whose price is a plan price.
+ *
+ * A subscription can carry more than the plan: the Search add-on is a second recurring item on the
+ * same subscription, and the onboarding fee is a one-time item on the first invoice. Everything
+ * that reads or changes the plan goes through this, so an add-on is never mistaken for the plan
+ * and never blocks a plan change. Null when there is no plan item, or more than one (made by hand
+ * in the Dashboard), which callers refuse rather than guess at.
+ *
+ * @template {{ id?: string, price?: { id?: string, recurring?: unknown } | null }} T
+ * @param {T[]} items
+ * @param {Record<string, { monthly?: string | null }>} priceTable
+ * @returns {T | null}
+ */
+export function planItemOf(items, priceTable) {
+  const planPrices = new Set(Object.values(priceTable).map((p) => p.monthly).filter(Boolean));
+  const plans = items.filter((i) => i.price && i.price.recurring != null && planPrices.has(i.price.id));
+  return plans.length === 1 ? plans[0] : null;
+}
+
+/**
  * The subscription-schedule phases that move a subscription to a lower plan at the end of the
  * month the client has already paid for, with no credit or refund.
  *
@@ -128,19 +148,24 @@ export function immediateChangeParams({ fromPlan, toPlan }) {
  * Phase 2's metadata is copied onto the subscription by Stripe when the phase begins, which is
  * what lets the `customer.subscription.updated` webhook find the site and see the change.
  *
+ * `carriedItems` are the subscription's other recurring items (the Search add-on), kept as they
+ * are in both phases. A phase lists every item the subscription has during it, so an item left
+ * out is removed: listing only the plan would drop the add-on the moment the schedule is made.
+ *
  * @param {{ currentPhaseStart: number, periodEnd: number, currentPriceId: string,
- *           targetPriceId: string, metadata: Record<string, string> }} input  times in epoch seconds
+ *           targetPriceId: string, carriedItems?: { price: string, quantity: number }[],
+ *           metadata: Record<string, string> }} input  times in epoch seconds
  */
-export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, metadata }) {
+export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, carriedItems = [], metadata }) {
   return [
     {
-      items: [{ price: currentPriceId, quantity: 1 }],
+      items: [{ price: currentPriceId, quantity: 1 }, ...carriedItems],
       start_date: currentPhaseStart,
       end_date: periodEnd,
       proration_behavior: "none",
     },
     {
-      items: [{ price: targetPriceId, quantity: 1 }],
+      items: [{ price: targetPriceId, quantity: 1 }, ...carriedItems],
       duration: { interval: "month", interval_count: 1 },
       proration_behavior: "none",
       metadata,
@@ -161,9 +186,7 @@ export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentP
  * @returns {string | null}
  */
 export function planFromItems(items, priceTable) {
-  const recurring = items.filter((i) => i.price && i.price.recurring != null);
-  if (recurring.length !== 1) return null;
-  const id = recurring[0].price?.id;
+  const id = planItemOf(items, priceTable)?.price?.id;
   if (!id) return null;
   for (const [plan, prices] of Object.entries(priceTable)) {
     if (prices.monthly === id) return plan;

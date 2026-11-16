@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 import type Stripe from "stripe";
 import { stripe } from "./stripe";
 import { getPlan } from "./plans";
-import { releaseScheduledChange, resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
+import { planItemOfSubscription, releaseScheduledChange, resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import { consolidationPrice, isMonthly } from "./billing-periods.mjs";
 import { getPlanChange, isPendingPlanChange, savePlanChange } from "./plan-change";
 import { growthSitesForConsolidation, type PortalAccount, type PortalSite } from "@jdd/schema";
@@ -96,7 +96,7 @@ export type ConsolidationPlan =
     }
   | {
       ok: false;
-      code: "no-sites" | "not-monthly" | "different-customers" | "cancel-pending" | "no-price" | "unreadable" | "inactive";
+      code: "no-sites" | "not-monthly" | "has-addon" | "different-customers" | "cancel-pending" | "no-price" | "unreadable" | "inactive";
       /** For `cancel-pending`: when the site is set to cancel, epoch ms. */
       cancelAt?: number;
     };
@@ -141,6 +141,16 @@ export async function planConsolidation(account: PortalAccount): Promise<Consoli
     if (subscription.cancel_at || subscription.cancel_at_period_end) {
       return { ok: false, code: "cancel-pending", cancelAt: (subscription.cancel_at ?? 0) * 1000 || undefined };
     }
+  }
+
+  // A subscription carrying anything besides its plan (the Search add-on) is refused for now:
+  // moving it means merging add-on quantities onto the host, which isn't built yet. Cancelling
+  // the others as they stand would silently drop their add-ons.
+  for (const { subscription } of absorbed) {
+    if (subscription.metadata?.consolidated_into) continue;
+    const planItem = planItemOfSubscription(subscription);
+    const others = subscription.items.data.filter((i) => i.price.recurring !== null && i.id !== planItem?.id);
+    if (others.length > 0) return { ok: false, code: "has-addon" };
   }
 
   // The price rule is `consolidationPrice` (billing-periods.mjs), where the test runs it.
@@ -197,8 +207,7 @@ export async function cancelAbsorbedSubscription(subscriptionId: string, hostSub
 }
 
 function recurringOf(sub: Stripe.Subscription): Stripe.Price.Recurring | null {
-  const recurring = sub.items.data.filter((i) => i.price.recurring !== null);
-  return recurring.length === 1 ? recurring[0].price.recurring : null;
+  return planItemOfSubscription(sub)?.price.recurring ?? null;
 }
 
 function customerOf(sub: Stripe.Subscription): string | null {
