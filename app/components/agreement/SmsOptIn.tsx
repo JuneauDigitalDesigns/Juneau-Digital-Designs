@@ -1,8 +1,10 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import Link from "next/link";
 import { splitConsentText, type SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import { textAlertsCards } from "@/app/lib/text-alerts-choice.mjs";
+import { typePhone } from "@/app/lib/phone-typing";
 
 /**
  * The owner text-alerts choice: two cards, neither chosen when the page opens. One component for
@@ -75,6 +77,18 @@ export default function SmsOptIn({
     onCheckedChange: (v: boolean) => void;
 }) {
     const cards = textAlertsCards(copy.version);
+
+    // The number formats as it's typed ("(407) 555-0288", Xander 2026-11-16). Reformatting moves
+    // the browser's caret to the end, so it's put back beside the digit it was beside, once the
+    // parent has the new value. Display only: the pages post normalizeUsPhone() of it, E.164.
+    const phoneRef = useRef<HTMLInputElement>(null);
+    const pendingCaret = useRef<number | null>(null);
+    useLayoutEffect(() => {
+        const caret = pendingCaret.current;
+        if (caret === null || !phoneRef.current) return;
+        pendingCaret.current = null;
+        phoneRef.current.setSelectionRange(caret, caret);
+    }, [phone]);
     const radio = (value: TextAlertsChoice) => (
         <input
             type="radio"
@@ -116,12 +130,17 @@ export default function SmsOptIn({
                                 ━ {SMS_OPT_IN_PHONE_LABEL}
                             </label>
                             <input
+                                ref={phoneRef}
                                 id={PHONE_ID}
                                 type="tel"
                                 autoComplete="tel-national"
                                 placeholder="(907) 555-0142"
                                 value={phone}
-                                onChange={(e) => onPhoneChange(e.target.value)}
+                                onChange={(e) => {
+                                    const next = typePhone(phone, e.target.value, e.target.selectionStart ?? e.target.value.length);
+                                    pendingCaret.current = next.caret;
+                                    onPhoneChange(next.value);
+                                }}
                                 style={fieldStyle}
                             />
                         </div>
