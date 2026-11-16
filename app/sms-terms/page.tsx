@@ -116,7 +116,7 @@ const OPENING: Section = {
             </table>
             <p>
                 Only the first is a Juneau Digital Designs program, and it is the only one the checkbox on
-                our agreement page opts you into. The second is your business&rsquo;s own program: we build
+                our Terms of Service page opts you into. The second is your business&rsquo;s own program: we build
                 and operate the tools, but your business is the sender and the registrant.
             </p>
         </>

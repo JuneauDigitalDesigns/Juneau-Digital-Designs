@@ -178,6 +178,20 @@ test("the read-aloud script is monthly, says no refunds, and names the Terms of 
   assert.doesNotMatch(s.lines.join("\n"), /year|partial periods|full agreement/);
 });
 
+test("the SMS Terms page names the Terms of Service page, even where JSX wraps a sentence", () => {
+  // S1 (approved 2026-11-16) sat across two JSX lines, so a per-line check let "our agreement
+  // page" ship to /sms-terms. Read the page's text with comment lines dropped and lines joined.
+  const src = readFileSync(fileURLToPath(new URL("../app/sms-terms/page.tsx", import.meta.url)), "utf8");
+  const text = src
+    .split("\n")
+    .filter((l) => !/^\s*(\/\/|\*|\/\*|\{\/\*)/.test(l))
+    .join(" ")
+    .replace(/\s+/g, " ");
+  assert.doesNotMatch(text, /agreement page/i);
+  assert.match(text, /it is the only one the checkbox on our Terms of Service page opts you into\./);
+  assert.match(text, /the checkbox on our Terms of Service page opts you into\./);
+});
+
 test("no page or email a client sees still calls it the Service Agreement", async () => {
   const { readdirSync, statSync } = await import("node:fs");
   const { join } = await import("node:path");
