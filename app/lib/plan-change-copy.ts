@@ -84,9 +84,14 @@ export function consolidationRefusal(code: string, cancelDate?: string): string 
 /**
  * The portal cancellation card. Replaces "Cancellations require 30 days written notice", which
  * v5.3 dropped on 2026-10-12: cancellation takes effect at the end of the period already paid for.
+ *
+ * Reworded 2026-11-16, approved word for word: the old "Your service stays on, and you won't be
+ * charged again, until the end of the month…" read as a charge coming at the month's end. The
+ * overage clause is deliberate: a final month's call-minute overage is still billed after a
+ * cancellation, as `CANCEL_EMAIL_ACCESS` already says.
  */
 export function cancellationCardText(input: { periodEnd: string }): string {
-    return `You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the month you've already paid for, on ${input.periodEnd}.`;
+    return `You can cancel at any time. There's no notice period and no fee. You won't be charged again, apart from any call-minute overage from your final month. Your service stays on until the end of the month you've already paid for, on ${input.periodEnd}.`;
 }
 
 /** The cancellation confirmation email. */
