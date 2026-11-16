@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from "react";
 import type { Section } from "@/app/lib/legal/types";
-import { normalizeE164 } from "@/app/lib/phone";
+import { normalizeUsPhone } from "@/app/lib/phone";
+import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "@/app/lib/agreement-phone.mjs";
 import type { SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import TermsReader from "./TermsReader";
 import LinkInactive from "./LinkInactive";
@@ -72,13 +73,20 @@ export default function AgreeLinkClient({
 
     async function agree() {
         if (!scrollCompletedAt || !accepted || busy) return;
-        // A ticked box with no usable number would record a consent pointing at nothing. An
-        // unticked box sends no number at all, whatever was typed.
-        const consentPhone = hasReceptionist && smsConsent ? normalizeE164(alertPhone) : null;
-        if (hasReceptionist && smsConsent && !consentPhone) {
+        // A ticked box with no usable number would record a consent pointing at nothing. And
+        // whatever is typed in the box is a complete US number, ticked or not: in Xander's
+        // 2026-11-15 test this page accepted an agreement with "555" there, because an unticked
+        // box silently discarded it. An unticked box still sends no number at all.
+        const phoneProblem = hasReceptionist ? alertPhoneProblem(smsConsent, alertPhone) : null;
+        if (phoneProblem === "consent-needs-number") {
             setError(SMS_OPT_IN_PHONE_ERROR);
             return;
         }
+        if (phoneProblem === "invalid-unticked") {
+            setError(ALERT_PHONE_UNTICKED_ERROR);
+            return;
+        }
+        const consentPhone = hasReceptionist && smsConsent ? normalizeUsPhone(alertPhone) : null;
         setBusy(true);
         setError(null);
         try {

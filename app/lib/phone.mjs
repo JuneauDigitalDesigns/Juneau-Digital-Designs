@@ -41,6 +41,30 @@ export function normalizeE164(input) {
 }
 
 /**
+ * Normalize a typed number to E.164 only if it is a complete US (NANP) number, or null.
+ *
+ * Stricter than `normalizeE164` on purpose, for the numbers a client types on the agreement
+ * pages: the mobile number for owner text alerts (JDD's campaign texts US numbers only) and the
+ * line to forward (a US business line). In Xander's 2026-11-15 test an agreement was accepted
+ * with "555" in the phone box; neither page may accept a partial or foreign number.
+ *
+ * Accepts 10 digits, or 11 starting with 1, with any punctuation, and a leading "+1". Refuses
+ * any other country code, and area codes or exchanges starting 0 or 1, which no US number has.
+ * Area codes of the N11 form (211 to 911) are service codes, not area codes.
+ *
+ * @param {string | null | undefined} input
+ * @returns {string | null}
+ */
+export function normalizeUsPhone(input) {
+  const e164 = normalizeE164(input);
+  if (!e164) return null;
+  const m = /^\+1([2-9]\d\d)([2-9]\d\d)(\d{4})$/.exec(e164);
+  if (!m) return null;
+  if (m[1].endsWith("11")) return null;
+  return e164;
+}
+
+/**
  * Display form for a +1 number, e.g. +19305551234 → (930) 555-1234.
  *
  * @param {string} e164

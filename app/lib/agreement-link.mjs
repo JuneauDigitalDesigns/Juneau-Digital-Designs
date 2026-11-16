@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { normalizeE164 } from "./phone.mjs";
+import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "./agreement-phone.mjs";
 
 /**
  * The rules of an order's private agreement link. Pure, so the test runs the same code the
@@ -74,18 +74,21 @@ export function agreementSubmissionError(body, expectedTermsHash) {
 
 /**
  * Why the optional SMS opt-in can't be recorded, or null when it can (or wasn't given). The same
- * two rules, and the same words, as the `/agreement` page's (`agreement-validate.mjs`): consent
- * needs a receptionist to text about, and a number to text. Never a reason to refuse the
- * agreement itself when the box is left unticked.
+ * rules, and the same words, as the `/agreement` page's (`agreement-validate.mjs`): consent
+ * needs a receptionist to text about, and a number to text, and anything typed in the number
+ * box is a complete US number. Never a reason to refuse the agreement itself when the box is
+ * left unticked and the number box blank.
  *
  * @param {{ smsConsent?: unknown, alertPhone?: unknown }} body
  * @param {{ receptionistMode?: string }} order
  */
 export function agreementConsentError(body, order) {
-  if (body?.smsConsent !== true) return null;
+  // A number in the box is a complete US number whether or not the box is ticked: in Xander's
+  // 2026-11-15 test this link accepted an agreement with "555" there (`agreement-phone.mjs`).
+  // Blank and unticked always passes.
+  const problem = alertPhoneProblem(body?.smsConsent === true, body?.alertPhone);
+  if (body?.smsConsent !== true) return problem === "invalid-unticked" ? ALERT_PHONE_UNTICKED_ERROR : null;
   if (order?.receptionistMode === "declined") return "Text alerts require a receptionist";
-  if (!normalizeE164(typeof body.alertPhone === "string" ? body.alertPhone : "")) {
-    return "A valid mobile number is required to enable text alerts";
-  }
+  if (problem) return "A valid mobile number is required to enable text alerts";
   return null;
 }

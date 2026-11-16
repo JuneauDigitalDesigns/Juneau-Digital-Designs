@@ -19,7 +19,8 @@ import { agreementIdempotencyKey } from "@/app/lib/agreement-idempotency";
 import { saveAccount } from "@/app/lib/account-store";
 import { resolveAccountForUser } from "@/app/lib/portal-account";
 import { isHeldForPlanChange } from "@/app/lib/held-agreement";
-import { hashConsentText, normalizeE164, savePendingConsent } from "@/app/lib/sms-consent";
+import { hashConsentText, savePendingConsent } from "@/app/lib/sms-consent";
+import { normalizeUsPhone } from "@/app/lib/phone";
 import { smsConsentCopyForVersion } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import { acceptanceMethod, validateAgreementSubmission } from "@/app/lib/agreement-validate.mjs";
@@ -272,7 +273,7 @@ export async function POST(req: Request) {
   // A signature is the artefact that has to survive; losing one because a secondary write
   // errored would be a far worse outcome than a client having to re-tick a box.
   if (body.smsConsent && consentCopy) {
-    const alertPhone = normalizeE164(body.alertPhone);
+    const alertPhone = normalizeUsPhone(body.alertPhone);
     if (alertPhone) {
       try {
         await savePendingConsent({
