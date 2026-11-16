@@ -103,6 +103,36 @@ export function cancelEmailFooter(submittedOn: string): string {
     return `This email confirms cancellation under the Juneau Digital Designs Terms of Service. Cancellation request submitted ${submittedOn}.`;
 }
 
+/**
+ * The email to JDD when a client cancels (§5.8, approved 2026-11-16). Internal; the subject is
+ * unchanged. The rows replace the old Slug / Plan / Subscription / Effective date table, so the
+ * email names every site the subscription pays for and says when Stripe stops billing.
+ */
+export function cancelOpsEmail(input: {
+    business: string;
+    accountEmail: string;
+    sites: string[];
+    plan: string;
+    subscriptionId: string;
+    termEnds: string;
+    requested: string;
+}): { subject: string; rows: [string, string][]; footer: string } {
+    const plan = input.plan.charAt(0).toUpperCase() + input.plan.slice(1);
+    return {
+        subject: `[JDD] Cancellation request: ${input.business}`,
+        rows: [
+            ["Client", input.business],
+            ["Account", input.accountEmail],
+            ["Sites", input.sites.join(", ")],
+            ["Plan", plan],
+            ["Subscription", input.subscriptionId],
+            ["Term ends", input.termEnds],
+            ["Requested", input.requested],
+        ],
+        footer: `Stripe stops billing on ${input.termEnds}. Run the teardown from the console once that date passes.`,
+    };
+}
+
 /* ── Website-only → receptionist (D7) ─────────────────────────────────────────────────── */
 
 export const RECEPTIONIST_FAILED = `We couldn't switch on your receptionist, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;

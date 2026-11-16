@@ -13,6 +13,7 @@ import { handleOrderSessionExpired } from "@/app/lib/order-link-expiry";
 import { planOfSubscription } from "@/app/lib/plan-billing";
 import { getPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { dropBillingCache } from "@/app/lib/portal-kv";
+import { syncCardToSubscriptions } from "@/app/lib/billing-portal";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
@@ -35,6 +36,25 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "bad signature";
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // The client changed their card on Stripe's page (Q4), which sets the Customer's default.
+  // A subscription with its own card is charged to that one first, so each one still billing is
+  // moved onto the new card. The portal's return route does the same the moment the client comes
+  // back; this covers a client who closed the tab instead. Idempotent, so both running is fine.
+  // Needs `customer.updated` among the endpoint's events in the Stripe Dashboard.
+  if (event.type === "customer.updated") {
+    const customer = event.data.object as Stripe.Customer;
+    const before = event.data.previous_attributes as { invoice_settings?: unknown } | undefined;
+    if (before && "invoice_settings" in before) {
+      try {
+        const moved = await syncCardToSubscriptions(customer.id);
+        if (moved.length) console.log("[stripe webhook] moved subscriptions onto the new card", customer.id, moved);
+      } catch (e) {
+        console.error("[stripe webhook] card sync failed", customer.id, e);
+        return NextResponse.json({ error: "card sync failed" }, { status: 500 });
+      }
+    }
   }
 
   // An operator order's payment link lapsed unpaid (Checkout Sessions live 24 hours). The order
