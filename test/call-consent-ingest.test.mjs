@@ -26,7 +26,7 @@ Object.assign(process.env, {
 });
 
 const { POST } = await import("../app/api/ingest/call-consent/route.ts");
-const { getCallConsentLog } = await import("../app/lib/call-consent.ts");
+const { getCallConsentLog, CALL_CONSENT_TTL_SECONDS } = await import("../app/lib/call-consent.ts");
 
 const TOKEN = "t".repeat(64);
 const SLUG = "acme-plumbing";
@@ -44,11 +44,15 @@ const redis = fakeUpstash({
 const { kv, lists } = redis;
 
 const realFetch = globalThis.fetch;
+/** Every KV request, as sent: its path and its commands, so a test can see what travels together. */
+let requests = [];
 
 beforeEach(() => {
     redis.reset();
+    requests = [];
     globalThis.fetch = async (input, init = {}) => {
         if (!redis.owns(input)) throw new Error(`unexpected fetch: ${input}`);
+        requests.push({ path: new URL(String(input)).pathname, body: JSON.parse(init.body) });
         return redis.handle(input, init);
     };
 });
@@ -130,3 +134,58 @@ for (const [label, over] of Object.entries({
         assert.equal(lists.size, 0);
     });
 }
+
+/* ── retention: five years, as the client privacy policy says ─────────────── */
+
+// Approved 2026-11-16: "Your agreement to a call back: kept for five years, as proof of that
+// agreement." Until then these keys had no expiry at all, so the policy would have been false.
+const FIVE_YEARS = 5 * 365 * 24 * 60 * 60;
+const KEY = `call:consent:log:${SLUG}:+12073181838`;
+
+const ttlOf = async (key) => {
+    const { result } = await (await redis.handle(`${KV_URL}/`, { body: JSON.stringify(["ttl", key]) })).json();
+    return result;
+};
+
+test("the retention period is five years, in seconds", () => {
+    assert.equal(CALL_CONSENT_TTL_SECONDS, 157_680_000);
+    assert.equal(CALL_CONSENT_TTL_SECONDS, FIVE_YEARS);
+});
+
+test("a consent record expires five years after it is written, never sooner", async () => {
+    assert.equal((await send(proof())).status, 200);
+    assert.equal(await ttlOf(KEY), FIVE_YEARS, "a record with no expiry outlives the policy");
+
+    redis.advance((FIVE_YEARS - 60) * 1000);
+    assert.equal((await getCallConsentLog(SLUG, "+12073181838")).length, 1, "still there a minute before");
+    redis.advance(61 * 1000);
+    assert.deepEqual(await getCallConsentLog(SLUG, "+12073181838"), [], "gone after five years");
+});
+
+test("the push and its expiry travel in one transaction, so no record is ever left without one", async () => {
+    await send(proof());
+    const writes = requests.filter((r) => JSON.stringify(r.body).includes(KEY));
+    assert.equal(writes.length, 1, "one request touches the consent key");
+    assert.match(writes[0].path, /\/multi-exec$/);
+    assert.deepEqual(
+        writes[0].body.map(([op, key, arg]) => [op.toLowerCase(), key, op.toLowerCase() === "expire" ? Number(arg) : undefined]),
+        [
+            ["rpush", KEY, undefined],
+            ["expire", KEY, FIVE_YEARS],
+        ],
+    );
+});
+
+test("a new agreement from the same number restarts the five years for the whole record", async () => {
+    await send(proof());
+    redis.advance(4 * 365 * 24 * 60 * 60 * 1000); // four years on, the number agrees again
+    assert.equal((await send(proof())).status, 200);
+    assert.equal(await ttlOf(KEY), FIVE_YEARS);
+
+    redis.advance(2 * 365 * 24 * 60 * 60 * 1000); // six years after the first agreement
+    assert.equal(
+        (await getCallConsentLog(SLUG, "+12073181838")).length,
+        2,
+        "the earlier event lives until five years after the latest one",
+    );
+});
