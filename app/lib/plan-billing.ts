@@ -3,41 +3,56 @@ import type Stripe from "stripe";
 import type { PortalAccount } from "@jdd/schema";
 import { stripe } from "./stripe";
 import { saveAccount } from "./account-store";
-import { getPlan, priceIdFor, type PlanSlug } from "./plans";
+import { getPlan, monthlyPriceIdFor, type PlanSlug } from "./plans";
 import {
-    billingIntervalOf,
     downgradeSchedulePhases,
     immediateChangeParams,
+    isMonthly,
     planChangeKind,
     planFromItems,
+    planItemOf,
 } from "./billing-periods.mjs";
 
 const PLAN_SLUGS: PlanSlug[] = ["starter", "growth", "enterprise"];
 
-/** The price a plan bills at on a given period, or null when that price isn't configured. */
-function expectedPriceIdFor(plan: PlanSlug, interval: "month" | "year"): string | null {
+/** The monthly price a plan bills at, or null when that price isn't configured. */
+function expectedPriceIdFor(plan: PlanSlug): string | null {
     const cfg = getPlan(plan);
-    return cfg ? priceIdFor(cfg, interval === "year" ? "annual" : "monthly") : null;
+    return cfg ? monthlyPriceIdFor(cfg) : null;
 }
 
-/** Every recurring price this app sells, by plan and period. */
-export function planPriceTable(): Record<PlanSlug, { monthly?: string | null; annual?: string | null }> {
-    const table = {} as Record<PlanSlug, { monthly?: string | null; annual?: string | null }>;
+/** Every recurring price this app sells, by plan. Every plan is month to month. */
+export function planPriceTable(): Record<PlanSlug, { monthly?: string | null }> {
+    const table = {} as Record<PlanSlug, { monthly?: string | null }>;
     for (const slug of PLAN_SLUGS) {
-        const cfg = getPlan(slug);
-        table[slug] = { monthly: cfg?.monthlyPriceId ?? null, annual: cfg?.annualPriceId ?? null };
+        table[slug] = { monthly: getPlan(slug)?.monthlyPriceId ?? null };
     }
     return table;
 }
 
-/** Which plan a recurring price belongs to, monthly or annual. Null for a price we don't sell. */
+/** Which plan a recurring price belongs to. Null for a price we don't sell. */
 export function planForPriceId(priceId: string): PlanSlug | null {
     return planFromItems([{ price: { id: priceId, recurring: {} } }], planPriceTable()) as PlanSlug | null;
 }
 
-/** Which plan a subscription is billed on, from its single recurring item. */
+/** Which plan a subscription is billed on, from its plan item. */
 export function planOfSubscription(sub: Stripe.Subscription): PlanSlug | null {
     return planFromItems(sub.items?.data ?? [], planPriceTable()) as PlanSlug | null;
+}
+
+/**
+ * The subscription's plan item, ignoring an add-on beside it (`planItemOf`). Null when there is no
+ * plan item or more than one; callers refuse rather than guess.
+ */
+export function planItemOfSubscription(sub: Stripe.Subscription): Stripe.SubscriptionItem | null {
+    return planItemOf(sub.items?.data ?? [], planPriceTable());
+}
+
+/** Every recurring item that isn't the plan (the Search add-on), to carry through a schedule. */
+function carriedItemsOf(sub: Stripe.Subscription, planItem: Stripe.SubscriptionItem): { price: string; quantity: number }[] {
+    return (sub.items?.data ?? [])
+        .filter((i) => i.id !== planItem.id && i.price.recurring !== null)
+        .map((i) => ({ price: i.price.id, quantity: i.quantity ?? 1 }));
 }
 
 /**
@@ -57,8 +72,10 @@ export function planOfSubscription(sub: Stripe.Subscription): PlanSlug | null {
  * This function does NOT persist `site.plan`. The callers write it once this returns ok, and
  * the `customer.subscription.updated` webhook reconciles from the subscription's price.
  *
- * It only makes changes that take effect NOW: upgrades, and an operator repairing drift. A
- * client downgrade waits for the end of the paid period, so it goes through `scheduleDowngrade`.
+ * It only makes changes that take effect NOW: upgrades, and an operator repairing drift upward. A
+ * downgrade is refused here (`code: "downgrade"`), whoever asks: it takes effect at the end of the
+ * current month with no credit, so it only goes through `scheduleDowngrade`. The console's "Sync
+ * billing" used to reach this with a lower plan and Stripe credited the unused month.
  * The update is made with `payment_behavior: "error_if_incomplete"`: if the proration invoice
  * can't be paid, Stripe refuses the change and nothing moves. It used to apply the new price
  * anyway and leave the subscription `past_due`.
@@ -90,6 +107,8 @@ export type PlanChangeFailure =
     | "ambiguous-items"
     | "payment-failed"
     | "scheduled-change"
+    | "downgrade"
+    | "not-monthly"
     | "stripe-error";
 
 /**
@@ -274,30 +293,6 @@ export function subscriptionPeriod(
     return { start, end };
 }
 
-/**
- * The billing period a site's live subscription is on, for the signing page of an in-place plan
- * change. The accepted agreement's cover states the price on that period, so an annual client
- * moving plan must not be shown, and sign, the monthly one (which is what happened when the period
- * came from a query string the upgrade link never set). Null when it can't be read; the caller
- * refuses rather than guessing.
- */
-export async function billingPeriodOfSite(site: {
-    stripeSubscriptionId?: string;
-    sessionId?: string;
-}): Promise<"monthly" | "annual" | null> {
-    const subscriptionId = await resolveSubscriptionId(site);
-    if (!subscriptionId) return null;
-    try {
-        const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        const recurring = sub.items.data.filter((i) => i.price.recurring !== null);
-        if (recurring.length !== 1) return null;
-        return billingIntervalOf(recurring[0].price.recurring) === "year" ? "annual" : "monthly";
-    } catch (e) {
-        console.error("[plan-billing] could not read billing period", subscriptionId, e);
-        return null;
-    }
-}
-
 export interface PlanInspection {
     subscriptionId: string | null;
     subscriptionStatus: string | null;
@@ -322,8 +317,7 @@ export async function inspectSubscriptionPlan(
     site: { stripeSubscriptionId?: string; sessionId?: string },
     recordPlan: PlanSlug,
 ): Promise<PlanInspection> {
-    // Before the subscription is read, the expectation can only be the monthly price.
-    let expectedPriceId = getPlan(recordPlan)?.monthlyPriceId ?? null;
+    const expectedPriceId = expectedPriceIdFor(recordPlan);
     const empty: PlanInspection = {
         subscriptionId: null,
         subscriptionStatus: null,
@@ -339,12 +333,7 @@ export async function inspectSubscriptionPlan(
 
     try {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
-        const price = recurring.length === 1 ? recurring[0].price : null;
-        // The right price for this plan depends on the period the client bills on. Comparing
-        // every subscription to the MONTHLY price flagged every annual client as drift — paying
-        // for one tier and using another — when they were billed exactly right.
-        expectedPriceId = expectedPriceIdFor(recordPlan, billingIntervalOf(price?.recurring));
+        const price = planItemOfSubscription(subscription)?.price ?? null;
 
         return {
             subscriptionId,
@@ -390,16 +379,15 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
             };
         }
 
-        // Swap the recurring item only. An onboarding fee is a one-time price, not a recurring
-        // one, and replacing it would charge the client for onboarding a second time. This
-        // matters more than it used to: every tier carries an onboarding fee since 2026-10-12,
-        // where previously only Starter did, so every plan change now has one to protect.
-        const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
-        if (recurring.length !== 1) {
+        // Swap the plan item only. An onboarding fee is a one-time price, and replacing it would
+        // charge the client for onboarding a second time; the Search add-on is another recurring
+        // item, and is left exactly as it is (an `items` update only touches the items it names).
+        const planItem = planItemOfSubscription(subscription);
+        if (!planItem) {
             console.error(
-                "[plan-billing] expected exactly one recurring item",
+                "[plan-billing] expected exactly one plan item",
                 subscriptionId,
-                recurring.map((i) => i.price.id),
+                subscription.items.data.map((i) => i.price.id),
             );
             return {
                 ok: false,
@@ -410,30 +398,35 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
         }
 
         /**
-         * Stay on the period the client bills on. This used to swap to the target plan's
-         * MONTHLY price unconditionally, so an annual client who upgraded was silently moved to
-         * monthly billing with the unused year credited back. An annual client moves to the
-         * target plan's ANNUAL price; if that isn't configured the change is refused rather
-         * than quietly changing how often they pay.
+         * Every plan is month to month. A subscription on any other interval was made by hand,
+         * and swapping its price for a monthly one with proration would credit the unused time,
+         * so it is refused rather than re-priced.
          */
-        const interval = billingIntervalOf(recurring[0].price.recurring);
-        const targetPriceId = expectedPriceIdFor(targetPlan, interval);
+        if (!isMonthly(planItem.price.recurring)) {
+            return { ok: false, code: "not-monthly", message: "This subscription isn't billed monthly, so it needs changing by hand in Stripe." };
+        }
+        const targetPriceId = expectedPriceIdFor(targetPlan);
         if (!targetPriceId) {
-            console.error("[plan-billing] no", interval, "price configured for", targetPlan);
-            return {
-                ok: false,
-                code: "no-price",
-                message:
-                    interval === "year"
-                        ? "Annual billing isn't configured for that plan, so the change wasn't made."
-                        : "That plan isn't configured for billing.",
-            };
+            console.error("[plan-billing] no monthly price configured for", targetPlan);
+            return { ok: false, code: "no-price", message: "That plan isn't configured for billing." };
         }
 
         // Already there. Report success without touching Stripe, so a retry, a double click or
         // an operator syncing an already-correct subscription cannot raise a second invoice.
-        if (recurring[0].price.id === targetPriceId) {
+        if (planItem.price.id === targetPriceId) {
             return { ok: true, subscriptionId, changed: false };
+        }
+
+        // Only an upgrade takes effect now. A downgrade waits for the end of the current month,
+        // with no credit, through `scheduleDowngrade`; prorating it now would credit the client.
+        const params = immediateChangeParams({ fromPlan: planForPriceId(planItem.price.id), toPlan: targetPlan });
+        if (!params) {
+            return {
+                ok: false,
+                code: "downgrade",
+                message:
+                    "That's a downgrade. It takes effect at the end of the client's current month, with no credit, so use Request downgrade instead.",
+            };
         }
 
         // A downgrade is waiting for the period end. Changing the price underneath it would
@@ -449,18 +442,14 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
         }
 
         await stripe.subscriptions.update(subscriptionId, {
-            items: [{ id: recurring[0].id, price: targetPriceId }],
+            items: [{ id: planItem.id, price: targetPriceId }],
             /**
-             * Bill the difference now rather than at the next cycle, and refuse the change if the
+             * Bill the difference for the rest of the month now, and refuse the change if the
              * card doesn't pay (`immediateChangeParams`). For a client, they have just accepted
              * the new terms; for an operator, the billing is wrong and every day it stays wrong
-             * costs money. An operator's annual downgrade gives no credit for the paid year.
+             * costs money.
              */
-            ...immediateChangeParams({
-                interval,
-                fromPlan: planForPriceId(recurring[0].price.id),
-                toPlan: targetPlan,
-            }),
+            ...params,
             // The webhook has only a subscription to work from, and the sub→slug index is
             // written on cancellation rather than purchase. Carrying the slug and email here
             // is what lets `customer.subscription.updated` find the record to write. Requiring
@@ -506,9 +495,9 @@ export type DowngradeResult =
           ok: true;
           subscriptionId: string;
           scheduleId: string;
-          /** When the lower plan starts, epoch ms: the end of the period already paid for. */
+          /** When the lower plan starts, epoch ms: the end of the month already paid for. */
           effectiveAt: number;
-          interval: "month" | "year";
+          interval: "month";
       }
     | { ok: false; code: DowngradeFailure; message: string };
 
@@ -520,6 +509,7 @@ export type DowngradeFailure =
     | "not-a-downgrade"
     | "cancel-pending"
     | "no-period"
+    | "not-monthly"
     | "stripe-error";
 
 /**
@@ -533,7 +523,7 @@ export async function downgradePreview(
     site: { stripeSubscriptionId?: string; sessionId?: string },
     targetPlan: PlanSlug,
 ): Promise<
-    | { ok: true; subscriptionId: string; effectiveAt: number; interval: "month" | "year"; fromPlan: PlanSlug }
+    | { ok: true; subscriptionId: string; effectiveAt: number; interval: "month"; fromPlan: PlanSlug }
     | { ok: false; code: DowngradeFailure; message: string }
 > {
     const subscriptionId = await resolveSubscriptionId(site);
@@ -548,7 +538,7 @@ export async function downgradePreview(
             ok: true,
             subscriptionId,
             effectiveAt: checked.period.end * 1000,
-            interval: checked.interval,
+            interval: "month",
             fromPlan: checked.fromPlan,
         };
     } catch (e) {
@@ -565,7 +555,8 @@ function checkDowngradable(
     | {
           ok: true;
           item: Stripe.SubscriptionItem;
-          interval: "month" | "year";
+          /** The other recurring items (the Search add-on), kept through the schedule. */
+          carriedItems: { price: string; quantity: number }[];
           targetPriceId: string;
           fromPlan: PlanSlug;
           period: { start: number; end: number };
@@ -586,8 +577,8 @@ function checkDowngradable(
         };
     }
 
-    const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
-    if (recurring.length !== 1) {
+    const planItem = planItemOfSubscription(subscription);
+    if (!planItem) {
         return {
             ok: false,
             code: "ambiguous-items",
@@ -596,22 +587,17 @@ function checkDowngradable(
         };
     }
 
-    const fromPlan = planForPriceId(recurring[0].price.id);
+    const fromPlan = planForPriceId(planItem.price.id);
     if (!fromPlan || planChangeKind(fromPlan, targetPlan) !== "downgrade") {
         return { ok: false, code: "not-a-downgrade", message: `That subscription isn't on a plan above ${targetPlan}.` };
     }
 
-    const interval = billingIntervalOf(recurring[0].price.recurring);
-    const targetPriceId = expectedPriceIdFor(targetPlan, interval);
+    if (!isMonthly(planItem.price.recurring)) {
+        return { ok: false, code: "not-monthly", message: "This subscription isn't billed monthly, so it needs changing by hand in Stripe." };
+    }
+    const targetPriceId = expectedPriceIdFor(targetPlan);
     if (!targetPriceId) {
-        return {
-            ok: false,
-            code: "no-price",
-            message:
-                interval === "year"
-                    ? "Annual billing isn't configured for that plan, so the change wasn't made."
-                    : "That plan isn't configured for billing.",
-        };
+        return { ok: false, code: "no-price", message: "That plan isn't configured for billing." };
     }
 
     const period = subscriptionPeriod(subscription);
@@ -619,7 +605,7 @@ function checkDowngradable(
         return { ok: false, code: "no-period", message: "Couldn't read the subscription's billing period." };
     }
 
-    return { ok: true, item: recurring[0], interval, targetPriceId, fromPlan, period };
+    return { ok: true, item: planItem, carriedItems: carriedItemsOf(subscription, planItem), targetPriceId, fromPlan, period };
 }
 
 /**
@@ -656,7 +642,7 @@ export async function scheduleDowngrade(input: {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const checked = checkDowngradable(subscription, targetPlan);
         if (!checked.ok) return checked;
-        const { item, interval, targetPriceId, period } = checked;
+        const { item, carriedItems, targetPriceId, period } = checked;
 
         // A schedule already attached (an earlier request for this site, or one made in the
         // Dashboard) is released first, so the phases below start from the subscription as it
@@ -675,7 +661,7 @@ export async function scheduleDowngrade(input: {
                 periodEnd: period.end,
                 currentPriceId: item.price.id,
                 targetPriceId,
-                interval,
+                carriedItems,
                 metadata: {
                     ...(subscription.metadata ?? {}),
                     plan: targetPlan,
@@ -688,7 +674,7 @@ export async function scheduleDowngrade(input: {
             metadata: { kind: "downgrade", site_slug: slug, account_email: accountEmail, to_plan: targetPlan },
         });
 
-        return { ok: true, subscriptionId, scheduleId: schedule.id, effectiveAt: period.end * 1000, interval };
+        return { ok: true, subscriptionId, scheduleId: schedule.id, effectiveAt: period.end * 1000, interval: "month" };
     } catch (e) {
         console.error("[plan-billing] downgrade schedule failed", subscriptionId, e);
         // A schedule created but not configured carries the subscription on unchanged, but it

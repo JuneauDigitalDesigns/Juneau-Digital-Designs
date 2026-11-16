@@ -7,7 +7,7 @@ import type { CallRecord } from "./airtable-calls";
  * Two sources feed it: the Airtable call log, and web-form leads captured into KV. Both resolve
  * to the same contact identity (`normalizeE164`), which is what lets a form submission and the
  * callback it triggered collapse into **one** entry instead of reading as two unrelated
- * enquiries minutes apart.
+ * inquiries minutes apart.
  *
  * Pure and deterministic — the route does the fetching, this does the shaping.
  */
@@ -42,7 +42,7 @@ export interface InboxItem {
     callbackPhone: string | null;
     callbackPhoneDisplay: string | null;
     email: string | null;
-    /** One line for the list. The enquiry text for a form, the call summary for a call. */
+    /** One line for the list. The inquiry text for a form, the call summary for a call. */
     preview: string | null;
     at: string | null;
     read: boolean;
@@ -79,10 +79,10 @@ export interface InboxItem {
     address: string | null;
     outcome: string | null;
     /**
-     * The receptionist's callback, when this form enquiry triggered one.
+     * The receptionist's callback, when this form inquiry triggered one.
      *
-     * Present only on `web-form` items. Rendering it nested under the enquiry is the whole
-     * point: to the client it was one enquiry, and a list that counts it twice is a list they
+     * Present only on `web-form` items. Rendering it nested under the inquiry is the whole
+     * point: to the client it was one inquiry, and a list that counts it twice is a list they
      * stop trusting.
      */
     callback: {
@@ -179,7 +179,7 @@ export function buildInbox({
     const consumed = new Set<string>();
     const callbackFor = new Map<string, CallRecord>();
 
-    // Every enquiry/call pair that *could* be a callback: same contact, call at or after the
+    // Every inquiry/call pair that *could* be a callback: same contact, call at or after the
     // form, inside the window. "At or after" matters — a call that came before the form was
     // filled in is a separate contact, because there was nothing yet to call back about.
     const pairs: { lead: WebLeadLike; call: CallRecord; gap: number }[] = [];
@@ -197,20 +197,20 @@ export function buildInbox({
     }
 
     /**
-     * Claim the closest pairs first, each enquiry and each call claimable once.
+     * Claim the closest pairs first, each inquiry and each call claimable once.
      *
-     * This used to run per call: every call took its own nearest preceding enquiry, and the
-     * "one callback per enquiry" rule was enforced first-come in `calls` array order. So when
-     * two calls from one number both landed inside one enquiry's window, whichever the loop
+     * This used to run per call: every call took its own nearest preceding inquiry, and the
+     * "one callback per inquiry" rule was enforced first-come in `calls` array order. So when
+     * two calls from one number both landed inside one inquiry's window, whichever the loop
      * reached first won — even when the other sat far closer. And `fetchCalls` asks Airtable
      * for `sort[0][direction]=desc`, so this is fed newest-first and the *furthest* call in
-     * the window won: an enquiry at 11:50 with its genuine callback at 11:51 and an unrelated
+     * the window won: an inquiry at 11:50 with its genuine callback at 11:51 and an unrelated
      * call at 12:00 nested the 12:00 one and emitted the 11:51 callback as its own item —
      * exactly the duplicate the collapse exists to prevent.
      *
      * Smallest gap first decides both competitions the same way: the nearest call for an
-     * enquiry, and, where two enquiries from one number want one call, the nearest preceding
-     * enquiry. Ids break exact ties, so the pairing never depends on input order at all.
+     * inquiry, and, where two inquiries from one number want one call, the nearest preceding
+     * inquiry. Ids break exact ties, so the pairing never depends on input order at all.
      */
     pairs.sort(
         (a, b) =>
@@ -496,9 +496,9 @@ export function markOrigin<T extends TimelineLike>(timeline: T[], sourceRef: str
  * Which inbox item a deep link should open.
  *
  * The owner's text carries whatever the voice stack logged. On a Growth site that is often the
- * *callback* — a call `buildInbox` consumed into its parent enquiry, so it is not an item of
- * its own and an id match alone finds nothing. Falling through to the enquiry it belongs to is
- * the right answer: to the client it was one enquiry, which is the whole reason the two were
+ * *callback* — a call `buildInbox` consumed into its parent inquiry, so it is not an item of
+ * its own and an id match alone finds nothing. Falling through to the inquiry it belongs to is
+ * the right answer: to the client it was one inquiry, which is the whole reason the two were
  * collapsed.
  *
  * Null when the id names nothing in the list. The caller renders the inbox as normal — an id
@@ -591,9 +591,9 @@ export interface InboxGroup {
  * view shows one row of four, because it groups whatever that view holds. Grouping first and
  * filtering after would split the same number across two rows.
  *
- * Only calls group. A web enquiry stays its own row: on Starter it is a different channel with
+ * Only calls group. A web inquiry stays its own row: on Starter it is a different channel with
  * different content, and on Growth it never reaches the inbox at all — the form triggers a
- * receptionist callback, so the enquiry arrives as the resulting call. A call with no usable
+ * receptionist callback, so the inquiry arrives as the resulting call. A call with no usable
  * number cannot be grouped either, which is most of what a client actually wants rid of:
  * withheld and spoofed numbers are each their own row, cleared by hand.
  */

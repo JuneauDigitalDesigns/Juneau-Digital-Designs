@@ -68,7 +68,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         Turn the people who call you into repeat customers
                     </h2>
                     <p className="mt-2.5 text-[14.5px] leading-relaxed max-w-[56ch]" style={{ color: "var(--fg-2)" }}>
-                        You already see every call and web enquiry in your Inbox. Growth adds the next
+                        You already see every call and web inquiry in your Inbox. Growth adds the next
                         step — a place to track each one until the job is won, text them straight from
                         the portal, and ask happy customers for a Google review.
                     </p>

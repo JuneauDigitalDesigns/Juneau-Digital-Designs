@@ -1,7 +1,7 @@
 import "server-only";
 import type { PortalSite } from "@jdd/schema";
 import { stripe } from "./stripe";
-import { subscriptionPeriod } from "./plan-billing";
+import { planItemOfSubscription, subscriptionPeriod } from "./plan-billing";
 import { accountScope, billingKey, getCached, setCached, BILLING_TTL } from "./portal-kv";
 
 /**
@@ -64,7 +64,8 @@ async function loadSummary(site: PortalSite): Promise<BillingSummary> {
         }
 
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        const price = sub.items.data[0]?.price;
+        // The plan's price, not whichever item Stripe lists first: an add-on can sit beside it.
+        const price = planItemOfSubscription(sub)?.price;
         const period = subscriptionPeriod(sub);
 
         return {

@@ -53,7 +53,7 @@ const SAME_ACTION_MS = 60_000;
  *
  * - **call** — every call the receptionist answered, including ones since promoted or done:
  *   the feed is what happened, not what is outstanding.
- * - **web** — every web enquiry. Its callback is folded in by `buildInbox` and is not a second
+ * - **web** — every web inquiry. Its callback is folded in by `buildInbox` and is not a second
  *   event.
  * - **text-in** — inbound SMS on a customer thread (Growth, texting live).
  * - **won** — a customer whose stage is Won, at the time it moved there. Read off the record's
@@ -95,7 +95,7 @@ export function activityFeed({
                       id: `web:${i.id}`,
                       kind: "web",
                       at: i.at,
-                      title: `New web enquiry from ${name}`,
+                      title: `New web inquiry from ${name}`,
                       detail: i.preview?.trim() || null,
                   },
         );

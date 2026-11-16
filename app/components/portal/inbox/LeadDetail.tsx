@@ -377,7 +377,7 @@ export default function LeadDetail({
                 {!isDesktop && promoteButton}
 
                 {/* The one destructive path in the inbox, behind the confirmation the parent
-                    owns. Only a web enquiry is ours to destroy (a call is a row in the client's
+                    owns. Only a web inquiry is ours to destroy (a call is a row in the client's
                     own Airtable log), and only once it is Done, as before. */}
                 {item.source === "web-form" && status === "done" && (
                     <button

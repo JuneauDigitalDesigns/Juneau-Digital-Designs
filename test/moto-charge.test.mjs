@@ -46,7 +46,6 @@ Object.assign(process.env, {
     UPSTASH_REDIS_REST_TOKEN: "test-token",
     STRIPE_SECRET_KEY: "sk_test_moto",
     STRIPE_PRICE_GROWTH_MONTHLY: "price_growth_m",
-    STRIPE_PRICE_GROWTH_ANNUAL: "price_growth_y",
     STRIPE_PRICE_GROWTH_ONBOARDING: "price_growth_onb",
 });
 
@@ -294,11 +293,12 @@ test("the charge is the order's period price plus onboarding, on the added card,
     assert.equal(body.get("metadata[order_id]"), "ord_moto");
     assert.equal(body.get("metadata[payment_method]"), "dashboard-moto");
 
-    // Annual: $4,970 for the year + $297 onboarding, on the annual price.
+});
+
+test("an order saved for yearly billing is refused before anything is charged", async () => {
     stripeCalls = [];
-    previewCents = 526_700;
-    await chargeMotoOrder(order({ period: "annual" }), 526_700);
-    assert.equal(new URLSearchParams(creates()[0].body).get("items[0][price]"), "price_growth_y");
+    await assert.rejects(chargeMotoOrder(order({ period: "annual" }), 526_700), (e) => e.code === "not-monthly");
+    assert.equal(creates().length, 0);
 });
 
 test("bank verification charges nothing, and the retry gets a new idempotency key", async () => {
@@ -327,12 +327,11 @@ test("detecting the card answers yes or no, in one read, and says nothing about 
     assert.deepEqual(await detectMotoCard(order()), { cardAdded: false }, "a card already on file isn't the card for this order");
 });
 
-test("the next payment is a month or a year on, the same day, as Stripe anchors it", () => {
+test("the next payment is a month on, the same day, as Stripe anchors it", () => {
     const signed = Date.parse("2026-11-04T15:00:00Z");
-    assert.equal(new Date(nextPaymentAt(signed, "monthly")).toISOString(), "2026-12-04T15:00:00.000Z");
-    assert.equal(new Date(nextPaymentAt(signed, "annual")).toISOString(), "2027-11-04T15:00:00.000Z");
+    assert.equal(new Date(nextPaymentAt(signed)).toISOString(), "2026-12-04T15:00:00.000Z");
     // The 31st clamps to the end of a shorter month rather than spilling into the next.
-    assert.equal(new Date(nextPaymentAt(Date.parse("2027-01-31T15:00:00Z"), "monthly")).toISOString(), "2027-02-28T15:00:00.000Z");
+    assert.equal(new Date(nextPaymentAt(Date.parse("2027-01-31T15:00:00Z"))).toISOString(), "2027-02-28T15:00:00.000Z");
 });
 
 test("the receipt shows what Stripe charged, not what we expected", () => {

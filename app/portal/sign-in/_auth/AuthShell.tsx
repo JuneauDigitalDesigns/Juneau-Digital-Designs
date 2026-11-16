@@ -39,7 +39,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
                     in one place.
                 </p>
                 <p className={s.sub}>
-                    Calls your receptionist answered, enquiries from your website, and the jobs
+                    Calls your receptionist answered, inquiries from your website, and the jobs
                     you&rsquo;re working, on your phone or your computer.
                 </p>
                 <PortalPeek />
@@ -83,7 +83,7 @@ function PortalPeek() {
             </div>
             <div className={s.peekRow}>
                 <strong>Carol O.</strong>
-                <span className={`${s.why} ${s.whyWeb}`}>Web enquiry</span>
+                <span className={`${s.why} ${s.whyWeb}`}>Web inquiry</span>
                 <span className={s.callBack}>Call back</span>
             </div>
         </div>

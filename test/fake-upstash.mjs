@@ -16,6 +16,7 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
     const sets = new Map(); // key -> Set<string>
     const zsets = new Map(); // key -> Map<member, score>
     const lists = new Map(); // key -> string[]
+    const listExp = new Map(); // list key -> expiry (ms), absent when the list has none
     let offset = 0;
     const now = () => Date.now() + offset;
     const commands = [];
@@ -28,6 +29,16 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
             return undefined;
         }
         return e;
+    };
+
+    /** A list, or undefined once its EXPIRE has passed (Redis drops the whole key). */
+    const liveList = (key) => {
+        const exp = listExp.get(key);
+        if (exp !== undefined && exp <= now()) {
+            lists.delete(key);
+            listExp.delete(key);
+        }
+        return lists.get(key);
     };
 
     function run(command) {
@@ -72,7 +83,9 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
                     kv.delete(k);
                     sets.delete(k);
                     zsets.delete(k);
+                    if (liveList(k)) n++;
                     lists.delete(k);
+                    listExp.delete(k);
                 }
                 return n;
             }
@@ -84,12 +97,20 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
                 return n;
             }
             case "expire": {
+                if (liveList(args[0])) {
+                    listExp.set(args[0], now() + Number(args[1]) * 1000);
+                    return 1;
+                }
                 const e = live(args[0]);
                 if (!e) return 0;
                 e.exp = now() + Number(args[1]) * 1000;
                 return 1;
             }
             case "ttl": {
+                if (liveList(args[0])) {
+                    const exp = listExp.get(args[0]);
+                    return exp === undefined ? -1 : Math.ceil((exp - now()) / 1000);
+                }
                 const e = live(args[0]);
                 if (!e) return -2;
                 return e.exp === null ? -1 : Math.ceil((e.exp - now()) / 1000);
@@ -134,13 +155,14 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
                 return n;
             }
             case "rpush": {
-                const l = lists.get(args[0]) ?? [];
+                // Like Redis, pushing onto a list keeps whatever TTL it already has.
+                const l = liveList(args[0]) ?? [];
                 l.push(...args.slice(1).map(String));
                 lists.set(args[0], l);
                 return l.length;
             }
             case "lrange":
-                return (lists.get(args[0]) ?? []).map(b64);
+                return (liveList(args[0]) ?? []).map(b64);
             // @upstash/ratelimit's fixed-window script: [count so far, ms until reset]. Always under.
             case "evalsha":
             case "eval":
@@ -175,6 +197,7 @@ export function fakeUpstash({ url = "https://kv.test.invalid", resolve = () => u
             sets.clear();
             zsets.clear();
             lists.clear();
+            listExp.clear();
             commands.length = 0;
             offset = 0;
         },

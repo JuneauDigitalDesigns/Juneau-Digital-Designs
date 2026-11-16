@@ -153,13 +153,12 @@ export function dashboardCustomerUrl(customerId, secretKey) {
 /**
  * When the second payment falls, for the checkout's "Then $497.00 per month, starting …".
  * Stripe anchors a new subscription's cycle at the moment it is created, so the next charge is
- * one month (or one year) on from the charge, on the same day: v5.3 §3.1.
+ * one month on from the charge, on the same day.
  *
  * @param {number} chargeMs
- * @param {"monthly" | "annual"} period
  */
-export function nextPaymentAt(chargeMs, period) {
-  return addMonthsUtc(chargeMs, period === "annual" ? 12 : 1);
+export function nextPaymentAt(chargeMs) {
+  return addMonthsUtc(chargeMs, 1);
 }
 
 /**

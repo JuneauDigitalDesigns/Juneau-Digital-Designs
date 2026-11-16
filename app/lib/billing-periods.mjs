@@ -1,18 +1,16 @@
 /**
- * The billing-period rules annual prepay needs, as pure functions.
+ * The billing-period rules, as pure functions.
  *
  * Plain ESM, not TypeScript, so the test suite (Node 22.0, no TS loader) runs the real rules.
- * `usage-billing.ts` and `plan-billing.ts` are the only callers.
  *
- * Why this exists: both paths used to read the Stripe subscription as if it were always monthly.
+ * Every plan is month to month (Terms of Service, 2026-11-16). Annual prepay was removed: there
+ * is one recurring price per plan, it bills monthly, and nothing here reads a yearly period. A
+ * subscription that is somehow not monthly (a hand-made one in the Stripe Dashboard) is refused
+ * by the plan-change code rather than guessed at, because swapping a yearly price for a monthly
+ * one with proration credits the unused year.
  *
- *   - Minutes were metered against the subscription's own billing period. On annual that period
- *     is a YEAR, so a Growth client's 350 included minutes covered twelve months, the 80%/100%
- *     warnings fired in the first weeks, and overage was only billed at renewal. The contract
- *     says the allowance is monthly, and Xander approved "allowances reset monthly, overage
- *     invoiced monthly" for annual clients (2026-11-04).
- *   - A plan change always swapped to the target plan's MONTHLY price, silently moving an annual
- *     client to monthly billing with the unused year credited.
+ * No credit, refund or proration of any kind, except the one thing the Terms allow: an upgrade
+ * charges the difference between the two plans for the rest of the current month.
  */
 
 /** Plan order, for "is this an upgrade". */
@@ -52,45 +50,31 @@ export function addMonthsUtc(anchorMs, n) {
 /**
  * The monthly allowance windows to meter, for one subscription at one moment.
  *
- * - `current`: the month the client is in now — what the 80%/100% warnings read.
+ * - `current`: the month the client is in now, which the 80%/100% warnings read. It is the
+ *   subscription's billing period.
  * - `closed`: months that have ended and may still owe overage, oldest first, each billed once
  *   (the caller keys idempotency on `startMs`).
  *
- * A monthly subscription's window IS its billing period. An annual one is cut into twelve
- * monthly windows anchored on the period's start.
+ * `closed` carries the month just BEFORE the current period, when the subscription is old enough
+ * to have one. Stripe moves the subscription to its new period the moment it renews, so the month
+ * that just closed is never "current period, ended" for long: reading only the current period,
+ * no month would ever be billed.
  *
- * `closed` also carries the month just BEFORE the current period, when the subscription is old
- * enough to have one. Stripe moves the subscription to its new period the moment it renews, so
- * a month that closes at renewal is never "current period, ended" for long: reading only the
- * current period, the last month of every period — every month, on monthly billing — would
- * never be billed.
- *
- * @param {{ periodStartMs: number, periodEndMs: number, interval: "month" | "year",
- *           nowMs: number, subscriptionStartMs?: number }} input
+ * @param {{ periodStartMs: number, periodEndMs: number, nowMs: number,
+ *           subscriptionStartMs?: number }} input
  * @returns {{ current: MeteringWindow | null, closed: MeteringWindow[] }}
  */
-export function meteringWindows({ periodStartMs, periodEndMs, interval, nowMs, subscriptionStartMs }) {
-  /** @type {MeteringWindow[]} */
-  const windows = [];
-  if (interval === "year") {
-    for (let k = 0; k < 12; k++) {
-      const startMs = addMonthsUtc(periodStartMs, k);
-      const endMs = k === 11 ? periodEndMs : Math.min(addMonthsUtc(periodStartMs, k + 1), periodEndMs);
-      if (startMs >= periodEndMs) break;
-      windows.push({ startMs, endMs });
-    }
-  } else {
-    windows.push({ startMs: periodStartMs, endMs: periodEndMs });
-  }
+export function meteringWindows({ periodStartMs, periodEndMs, nowMs, subscriptionStartMs }) {
+  const period = { startMs: periodStartMs, endMs: periodEndMs };
 
   const closed = [];
   const previousStart = addMonthsUtc(periodStartMs, -1);
   if (subscriptionStartMs === undefined || previousStart >= subscriptionStartMs) {
     closed.push({ startMs: previousStart, endMs: periodStartMs });
   }
-  for (const w of windows) if (w.endMs <= nowMs) closed.push(w);
+  if (period.endMs <= nowMs) closed.push(period);
 
-  const current = windows.find((w) => w.startMs <= nowMs && nowMs < w.endMs) ?? null;
+  const current = period.startMs <= nowMs && nowMs < period.endMs ? period : null;
   return { current, closed };
 }
 
@@ -110,51 +94,79 @@ export function planChangeKind(fromPlan, toPlan) {
 }
 
 /**
- * The Stripe parameters for a plan change that takes effect NOW (an upgrade, or an operator
- * repairing billing drift).
+ * The Stripe parameters for a plan change that takes effect NOW, or null when the change must
+ * not happen now.
  *
- * `payment_behavior` is the point. Stripe's default for a subscription update is
- * `allow_incomplete`: the new price is applied even when the proration invoice fails, and the
- * subscription goes `past_due`. A client whose card declined was therefore moved to Growth anyway,
- * and lost Starter too once the retries ran out. `error_if_incomplete` makes Stripe answer 402 and
- * leave the subscription exactly as it was.
+ * Only an upgrade takes effect now. It charges the difference for the rest of the current month
+ * (`always_invoice`: the invoice nets the unused time on the old plan against the new one, so it
+ * is always a charge, never a credit). `payment_behavior` is the other half: Stripe's default,
+ * `allow_incomplete`, applies the new price even when that invoice fails; `error_if_incomplete`
+ * answers 402 and leaves the subscription exactly as it was.
  *
- * @param {{ interval: "month" | "year", fromPlan: keyof typeof PLAN_RANK | null,
- *           toPlan: keyof typeof PLAN_RANK }} input
- * @returns {{ proration_behavior: "always_invoice" | "none", payment_behavior: "error_if_incomplete" }}
+ * A downgrade returns null. It takes effect at the end of the current month, with no credit, and
+ * only through a subscription schedule (`downgradeSchedulePhases`). This used to return
+ * `always_invoice` for a monthly downgrade, which is how the console's "Sync billing" could move
+ * a client to a lower plan mid-month and credit the unused time to their balance.
+ *
+ * @param {{ fromPlan: keyof typeof PLAN_RANK | null, toPlan: keyof typeof PLAN_RANK }} input
+ * @returns {{ proration_behavior: "always_invoice", payment_behavior: "error_if_incomplete" } | null}
  */
-export function immediateChangeParams(input) {
-  return { proration_behavior: planChangeProration(input), payment_behavior: "error_if_incomplete" };
+export function immediateChangeParams({ fromPlan, toPlan }) {
+  if (planChangeKind(fromPlan, toPlan) === "downgrade") return null;
+  return { proration_behavior: "always_invoice", payment_behavior: "error_if_incomplete" };
+}
+
+/**
+ * The subscription's PLAN item: the one recurring item whose price is a plan price.
+ *
+ * A subscription can carry more than the plan: the Search add-on is a second recurring item on the
+ * same subscription, and the onboarding fee is a one-time item on the first invoice. Everything
+ * that reads or changes the plan goes through this, so an add-on is never mistaken for the plan
+ * and never blocks a plan change. Null when there is no plan item, or more than one (made by hand
+ * in the Dashboard), which callers refuse rather than guess at.
+ *
+ * @template {{ id?: string, price?: { id?: string, recurring?: unknown } | null }} T
+ * @param {T[]} items
+ * @param {Record<string, { monthly?: string | null }>} priceTable
+ * @returns {T | null}
+ */
+export function planItemOf(items, priceTable) {
+  const planPrices = new Set(Object.values(priceTable).map((p) => p.monthly).filter(Boolean));
+  const plans = items.filter((i) => i.price && i.price.recurring != null && planPrices.has(i.price.id));
+  return plans.length === 1 ? plans[0] : null;
 }
 
 /**
  * The subscription-schedule phases that move a subscription to a lower plan at the end of the
- * period the client has already paid for (contract v5.3 §15.4: "takes effect at the end of the
- * current billing period, and fees already paid for that period are not credited or refunded").
+ * month the client has already paid for, with no credit or refund.
  *
- * Phase 1 is the current price, unchanged, up to the period end. Phase 2 is the lower price on
- * the same period; with `end_behavior: "release"` on the schedule the subscription simply carries
- * on there afterwards. Neither phase prorates, so nothing is credited and nothing is charged until
+ * Phase 1 is the current price, unchanged, up to the period end. Phase 2 is the lower price,
+ * monthly; with `end_behavior: "release"` on the schedule the subscription simply carries on
+ * there afterwards. Neither phase prorates, so nothing is credited and nothing is charged until
  * the renewal, which is billed at the lower price.
  *
  * Phase 2's metadata is copied onto the subscription by Stripe when the phase begins, which is
  * what lets the `customer.subscription.updated` webhook find the site and see the change.
  *
+ * `carriedItems` are the subscription's other recurring items (the Search add-on), kept as they
+ * are in both phases. A phase lists every item the subscription has during it, so an item left
+ * out is removed: listing only the plan would drop the add-on the moment the schedule is made.
+ *
  * @param {{ currentPhaseStart: number, periodEnd: number, currentPriceId: string,
- *           targetPriceId: string, interval: "month" | "year",
+ *           targetPriceId: string, carriedItems?: { price: string, quantity: number }[],
  *           metadata: Record<string, string> }} input  times in epoch seconds
  */
-export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, interval, metadata }) {
+export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, carriedItems = [], metadata }) {
   return [
     {
-      items: [{ price: currentPriceId, quantity: 1 }],
+      items: [{ price: currentPriceId, quantity: 1 }, ...carriedItems],
       start_date: currentPhaseStart,
       end_date: periodEnd,
       proration_behavior: "none",
     },
     {
-      items: [{ price: targetPriceId, quantity: 1 }],
-      duration: { interval, interval_count: 1 },
+      items: [{ price: targetPriceId, quantity: 1 }, ...carriedItems],
+      duration: { interval: "month", interval_count: 1 },
       proration_behavior: "none",
       metadata,
     },
@@ -170,75 +182,81 @@ export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentP
  * would never be seen. The price is what the client actually pays.
  *
  * @param {{ price?: { id?: string, recurring?: unknown } | null }[]} items
- * @param {Record<string, { monthly?: string | null, annual?: string | null }>} priceTable
+ * @param {Record<string, { monthly?: string | null }>} priceTable
  * @returns {string | null}
  */
 export function planFromItems(items, priceTable) {
-  const recurring = items.filter((i) => i.price && i.price.recurring != null);
-  if (recurring.length !== 1) return null;
-  const id = recurring[0].price?.id;
+  const id = planItemOf(items, priceTable)?.price?.id;
   if (!id) return null;
   for (const [plan, prices] of Object.entries(priceTable)) {
-    if (prices.monthly === id || prices.annual === id) return plan;
+    if (prices.monthly === id) return plan;
   }
   return null;
 }
 
 /**
- * How Stripe should prorate a change from `fromPlan` to `toPlan` that takes effect now.
+ * Whether a Stripe recurring price bills once a month. Every price JDD sells does; anything else
+ * was made by hand and is refused by the plan-change code rather than re-priced.
  *
- * Client downgrades no longer come through here; they are scheduled for the period end
- * (`downgradeSchedulePhases`). What remains is upgrades, and an operator correcting billing that
- * drifted from the plan on record:
- *
- * Annual (approved 2026-11-04): an upgrade takes effect now and the client pays the difference
- * for the rest of the paid year (`always_invoice`); a downgrade gives no credit for the year
- * already paid (`none`).
- *
- * Monthly: both directions prorate immediately. For an operator repair where the client was
- * being over-billed, the credit is the correction.
- *
- * @param {{ interval: "month" | "year", fromPlan: keyof typeof PLAN_RANK | null,
- *           toPlan: keyof typeof PLAN_RANK }} input
- * @returns {"always_invoice" | "none"}
+ * @param {{ interval?: string | null, interval_count?: number | null } | null | undefined} recurring
+ * @returns {boolean}
  */
-export function planChangeProration({ interval, fromPlan, toPlan }) {
-  if (interval !== "year") return "always_invoice";
-  const isDowngrade = fromPlan !== null && PLAN_RANK[toPlan] < PLAN_RANK[fromPlan];
-  return isDowngrade ? "none" : "always_invoice";
+export function isMonthly(recurring) {
+  return recurring?.interval === "month" && (recurring.interval_count ?? 1) === 1;
 }
 
 /**
- * The billing period a Stripe recurring price bills on. Anything that isn't yearly is metered
- * and priced as monthly, which is every price JDD has ever sold.
+ * The Enterprise price a Growth → Enterprise consolidation moves the host subscription to.
  *
- * @param {{ interval?: string | null } | null | undefined} recurring
- * @returns {"month" | "year"}
+ * Refuses rather than guessing: when Enterprise has no price configured, and when any absorbed
+ * subscription is not billed monthly (re-pricing a yearly subscription onto a monthly one with
+ * proration would credit the unused year).
+ *
+ * @param {{ monthly: boolean[], priceId?: string | null }} input  one `monthly` entry per subscription
+ * @returns {{ ok: true, priceId: string } | { ok: false, code: "not-monthly" | "no-price" }}
  */
-export function billingIntervalOf(recurring) {
-  return recurring?.interval === "year" ? "year" : "month";
+export function consolidationPrice({ monthly, priceId }) {
+  if (monthly.some((m) => !m)) return { ok: false, code: "not-monthly" };
+  return priceId ? { ok: true, priceId } : { ok: false, code: "no-price" };
 }
 
 /**
- * The Enterprise price a Growth → Enterprise consolidation moves the host subscription to: the period the
- * absorbed Growth subscriptions already bill on. This used to be the Enterprise MONTHLY price
- * unconditionally, so a client prepaying Growth annually was moved onto monthly billing (with
- * the unused year credited back) by the act of upgrading.
+ * The unused Growth minutes one site brings into the Enterprise pool when it moves onto
+ * Enterprise (Xander, 2026-11-16: they "carry over just for the rest of the month").
  *
- * Refuses rather than guessing: when Enterprise has no price for that period (as
- * `changeSubscriptionPlan` does), and when the absorbed sites bill on different periods, so
- * there is no one period to keep.
+ * The pool counts every bundle site's calls from the start of the Enterprise month (the host
+ * subscription's current period), so the site's own month and the pool's month can overlap or
+ * not, and each call must count against exactly one allowance:
  *
- * @param {{ intervals: ("month" | "year")[],
- *           prices: { monthly?: string | null, annual?: string | null } }} input
- * @returns {{ ok: true, interval: "month" | "year", priceId: string }
- *         | { ok: false, code: "mixed-periods" | "no-price", interval?: "month" | "year" }}
+ *   - `usedBeforePoolSeconds`: the site's calls in its own Growth month BEFORE the Enterprise month
+ *     began. The pool doesn't count them, so they come off the Growth minutes the site brings.
+ *   - `poolCountedEarlierSeconds`: calls the pool DOES count that belonged to the site's previous
+ *     Growth month (its month began after the Enterprise month did). That month's allowance
+ *     already covered them, so they are given back.
+ *
+ * Calls in the overlap are counted by the pool and drawn from the minutes brought, which is the
+ * same as drawing them from the site's own Growth allowance. The host's own Growth month IS the
+ * Enterprise month, so it brings all its Growth minutes and its calls so far are in the pool.
+ *
+ * @param {{ capMinutes: number, usedBeforePoolSeconds: number, poolCountedEarlierSeconds: number }} input
+ * @returns {number} whole minutes, rounded down
  */
-export function consolidationPrice({ intervals, prices }) {
-  const distinct = [...new Set(intervals)];
-  if (distinct.length > 1) return { ok: false, code: "mixed-periods" };
-  // No readable subscription to copy from is the monthly case, as it was before.
-  const interval = distinct[0] === "year" ? "year" : "month";
-  const priceId = interval === "year" ? prices.annual : prices.monthly;
-  return priceId ? { ok: true, interval, priceId } : { ok: false, code: "no-price", interval };
+export function carriedMinutes({ capMinutes, usedBeforePoolSeconds, poolCountedEarlierSeconds }) {
+  const leftSeconds = Math.max(0, capMinutes * 60 - usedBeforePoolSeconds);
+  return Math.floor((leftSeconds + poolCountedEarlierSeconds) / 60);
+}
+
+/**
+ * The allowance for one metering window: the plan's cap, plus minutes carried over from moved
+ * Growth sites when the window is the one the move happened in. A carry-over not yet worked out
+ * (`minutes` absent) adds nothing rather than guessing.
+ *
+ * @param {number} baseCap
+ * @param {{ windowStartMs: number, minutes?: number } | null | undefined} carry
+ * @param {number} windowStartMs
+ * @returns {number}
+ */
+export function capForWindow(baseCap, carry, windowStartMs) {
+  if (!carry || carry.windowStartMs !== windowStartMs || typeof carry.minutes !== "number") return baseCap;
+  return baseCap + carry.minutes;
 }

@@ -90,7 +90,7 @@ export async function promote(site: string, item: InboxItem): Promise<Result<str
     return { ok: false, error: errorOf(json) ?? "We couldn't add that customer. Please try again." };
 }
 
-/** Web enquiries only: a call is a row in the client's own Airtable log. */
+/** Web inquiries only: a call is a row in the client's own Airtable log. */
 export async function deleteLead(site: string, id: string): Promise<Result> {
     const { res, json } = await send(`/api/portal/inbox/delete${q(site)}`, "POST", { id });
     return res?.ok

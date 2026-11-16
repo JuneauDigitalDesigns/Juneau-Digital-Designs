@@ -12,7 +12,7 @@ import {
     ANALYTICS_RANGES,
     parseRange,
     type AnalyticsRange,
-    type EnquirySummary,
+    type InquirySummary,
 } from "@/app/lib/portal-analytics";
 
 /** Jump bar entries, with the phone's shorter names from the approved mockup. */
@@ -27,14 +27,14 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]["id"];
 
 /**
- * Analytics: Traffic and Performance on one page, plus site health and enquiries.
+ * Analytics: Traffic and Performance on one page, plus site health and inquiries.
  *
  * One page with a jump bar rather than tabs inside a tab, because the questions run in order:
  * are people coming, where from, what do they read, does the site load fast, is it up. A
  * client scrolling top to bottom gets the whole story; one who came for speed jumps there.
  *
  * The date range lives in `?range=`, like the site does in `?site=`, so a view can be linked
- * and survives a refresh. It drives the traffic request and the enquiry figures. Speed and
+ * and survives a refresh. It drives the traffic request and the inquiry figures. Speed and
  * health are not windowed: a speed score is today's test, and health is now.
  *
  * Each half keeps its own gate. A site with traffic but no speed score (or the reverse) still
@@ -42,12 +42,12 @@ type SectionId = (typeof SECTIONS)[number]["id"];
  */
 export default function AnalyticsSection({
     site,
-    enquiries,
+    inquiries,
     health,
 }: {
     site: PortalSiteProps;
-    /** Web-form enquiries for every range, from the server. Null when they could not be read. */
-    enquiries: EnquirySummary | null;
+    /** Web-form inquiries for every range, from the server. Null when they could not be read. */
+    inquiries: InquirySummary | null;
     /** The Site health card, streamed from the server. */
     health: ReactNode;
 }) {
@@ -137,7 +137,7 @@ export default function AnalyticsSection({
                 site={site}
                 range={range}
                 traffic={traffic}
-                enquiries={enquiries ? enquiries[range] : null}
+                inquiries={inquiries ? inquiries[range] : null}
             />
 
             <SpeedSection site={site} />

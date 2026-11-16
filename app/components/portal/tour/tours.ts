@@ -56,7 +56,7 @@ function step(element: string | undefined, title: string, description: string, s
 const L = {
     welcome: ["👋 Welcome to your portal", "Here's a quick look around. Each tab also gives you its own short tour the first time you open it."], // NEW, approved 2026-11-12
     glance: ["Your day at a glance", "Overview shows who needs you today, your new leads this week, and how fast callers were looked after."],
-    yourInbox: ["Your inbox", "Every call your receptionist answers and every enquiry from your website lands here."], // NEW, approved 2026-11-12
+    yourInbox: ["Your inbox", "Every call your receptionist answers and every inquiry from your website lands here."], // NEW, approved 2026-11-12
     goFurther: [
         "Want to go further?",
         "Growth adds a file for every customer, a calendar for your jobs, texting from your business number, and Google review requests. Open Customers to see it in action.",
@@ -117,7 +117,7 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
                 step(
                     at("inbox-list"),
                     "👋 This is your inbox",
-                    "Every call your receptionist answers and every enquiry from your website lands here. Tap one to see who it was and what they wanted.",
+                    "Every call your receptionist answers and every inquiry from your website lands here. Tap one to see who it was and what they wanted.",
                     isMobile ? "bottom" : "right",
                 ),
                 step(
@@ -138,7 +138,7 @@ export function buildTour(id: TourId, tier: TourTier, isMobile: boolean): DriveS
                                     step(
                                         at("inbox-promote"),
                                         "Keep the ones that matter",
-                                        "When an enquiry is a real job, promote them to a customer. Everything they've said is carried across automatically.",
+                                        "When an inquiry is a real job, promote them to a customer. Everything they've said is carried across automatically.",
                                         "top",
                                         "center",
                                     ),

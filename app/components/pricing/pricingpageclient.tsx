@@ -13,11 +13,10 @@ import {
     Tray,
     type Icon,
 } from "@phosphor-icons/react";
-import { SCHEDULES, ANNUAL } from "@/app/lib/legal/schedules";
+import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { LIVE_FAQ_ID, PRICING_FAQS } from "@/app/data/faq";
 
 type PlanSlug = "starter" | "growth" | "enterprise";
-type BillingPeriod = "monthly" | "annual";
 
 /* Every number on this page comes from Schedule A (app/lib/legal/schedules.ts) —
    the same source the signed agreement renders from. The prose is hand-written;
@@ -106,7 +105,7 @@ const TIERS: PricingTier[] = [
  * shorter, lesser list — the opposite of what is true. Stated once here, the cards carry
  * only the differences and Growth's additions read as additions.
  *
- * "Every call and web enquiry lands in your portal" replaced the old "Lead email" bullet:
+ * "Every call and web inquiry lands in your portal" replaced the old "Lead email" bullet:
  * no plan delivers leads by email any more.
  *
  * Set as a spec line in the page header (three facts between hairlines), not a box: the
@@ -129,7 +128,7 @@ const EVERY_PLAN: { Icon: Icon; title: string; detail: string }[] = [
         // carries no carrier-approval tag.
         Icon: Tray,
         title: "One inbox for every lead",
-        detail: "Every call and web enquiry lands in your portal, and you get a text the moment a new one arrives.",
+        detail: "Every call and web inquiry lands in your portal, and you get a text the moment a new one arrives.",
     },
 ];
 
@@ -157,7 +156,6 @@ function minutesLine(slug: PlanSlug): string {
 export default function PricingPageClient() {
     const [loadingPlan, setLoadingPlan] = useState<PlanSlug | null>(null);
     const [checkoutError] = useState<string | null>(null);
-    const [period, setPeriod] = useState<BillingPeriod>("monthly");
 
     function subscribe(slug: PlanSlug) {
         setLoadingPlan(slug);
@@ -171,14 +169,11 @@ export default function PricingPageClient() {
          * purchase, an addendum, or an upsell.
          *
          * This page stays static and anonymous: it renders identically for everyone and holds
-         * no entitlement logic, so there is nothing here to disagree with the server. The
-         * chosen billing period rides along as a query param and is re-validated server side;
-         * nothing here is trusted.
+         * no entitlement logic, so there is nothing here to disagree with the server. Every
+         * plan is month to month, so the plan is all it sends.
          */
-        window.location.href = `/start?plan=${slug}&period=${period}`;
+        window.location.href = `/start?plan=${slug}`;
     }
-
-    const annual = period === "annual";
 
     return (
         <main
@@ -239,61 +234,6 @@ export default function PricingPageClient() {
                             </li>
                         ))}
                     </ul>
-                </motion.div>
-
-                {/* ── Billing period ──
-                    Annual is ten months of money for twelve months of service. Both figures come
-                    from Schedule A's `annualPrice`, which is derived from the monthly price, so
-                    "2 months free" cannot drift away from the discount actually offered. */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.4, delay: 0.15 }}
-                    style={{ display: "flex", justifyContent: "center", marginBottom: 32 }}
-                >
-                    <div
-                        role="group"
-                        aria-label="Billing period"
-                        style={{
-                            display: "inline-flex",
-                            gap: 4,
-                            padding: 4,
-                            borderRadius: 999,
-                            border: "1px solid var(--rule)",
-                            background: "var(--surface)",
-                        }}
-                    >
-                        {([
-                            ["monthly", "Monthly"],
-                            ["annual", `Annual (${ANNUAL.monthsFree} months free)`],
-                        ] as const).map(([value, label]) => {
-                            const active = period === value;
-                            return (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => setPeriod(value)}
-                                    aria-pressed={active}
-                                    style={{
-                                        appearance: "none",
-                                        border: "none",
-                                        cursor: "pointer",
-                                        borderRadius: 999,
-                                        padding: "8px 18px",
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 11.5,
-                                        letterSpacing: "0.06em",
-                                        textTransform: "uppercase",
-                                        background: active ? "var(--accent-2)" : "transparent",
-                                        color: active ? "#fff" : "var(--fg-2)",
-                                        transition: "background 160ms ease, color 160ms ease",
-                                    }}
-                                >
-                                    {label}
-                                </button>
-                            );
-                        })}
-                    </div>
                 </motion.div>
 
                 {/* Pricing Cards */}
@@ -397,31 +337,7 @@ export default function PricingPageClient() {
                                 >
                                     {tier.name}
                                 </span>
-                                {annual && (
-                                    <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ duration: 0.3, ease: "easeOut" }}
-                                        style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 8, marginBottom: 2 }}
-                                    >
-                                        <span
-                                            style={{
-                                                fontFamily: "var(--font-display)",
-                                                fontSize: 30,
-                                                fontWeight: 600,
-                                                color: "var(--fg-3)",
-                                                letterSpacing: "var(--tracking-tightest)",
-                                                lineHeight: 1,
-                                                textDecoration: "line-through",
-                                                textDecorationColor: "var(--fg-3)",
-                                            }}
-                                        >
-                                            {dollars(schedule.monthlyPrice * 12)}
-                                        </span>
-                                        <span style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 4 }}>/year</span>
-                                    </motion.div>
-                                )}
-                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: annual ? 0 : 8 }}>
+                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 8 }}>
                                     <span
                                         style={{
                                             fontFamily: "var(--font-display)",
@@ -432,32 +348,15 @@ export default function PricingPageClient() {
                                             lineHeight: 1,
                                         }}
                                     >
-                                        {dollars(annual ? schedule.annualPrice : schedule.monthlyPrice)}
+                                        {dollars(schedule.monthlyPrice)}
                                     </span>
                                     <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>
-                                        {annual ? "/year" : "/month"}
+                                        /month
                                     </span>
                                     <span style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 6, marginLeft: 6 }}>
                                         + {dollars(schedule.onboardingFee)} one-time setup
                                     </span>
                                 </div>
-                                {annual && (
-                                    <motion.p
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ duration: 0.3, ease: "easeOut", delay: 0.1 }}
-                                        style={{
-                                            margin: "4px 0 0",
-                                            fontFamily: "var(--font-mono)",
-                                            fontSize: 11,
-                                            fontWeight: 600,
-                                            color: "var(--online)",
-                                            letterSpacing: "0.05em",
-                                        }}
-                                    >
-                                        {ANNUAL.monthsFree} months free
-                                    </motion.p>
-                                )}
                                 <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
                                     {tier.tagline}
                                 </p>

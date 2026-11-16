@@ -1,7 +1,7 @@
 import "server-only";
 import { createAccount, type OperatorOrder } from "@jdd/schema";
 import { stripe } from "./stripe";
-import { getPlan, priceIdFor } from "./plans";
+import { getPlan, monthlyPriceIdFor } from "./plans";
 import { getAccount, saveAccount } from "./account-store";
 import { getOrCreateCustomerId } from "./plan-billing";
 import { newPayCode, savePayCode } from "./operator-orders";
@@ -43,13 +43,10 @@ export async function openOrderCheckout(order: OperatorOrder): Promise<{
 
     const cfg = getPlan(order.plan);
     if (!cfg) throw new OrderCheckoutError("Unknown plan.", "bad-plan");
-    const recurring = priceIdFor(cfg, order.period);
-    if (!recurring) {
-        throw new OrderCheckoutError(
-            order.period === "annual" ? "Annual billing isn't configured for that plan." : "That plan isn't configured for billing.",
-            "no-price",
-        );
-    }
+    // An order saved before yearly billing was withdrawn is refused rather than charged monthly, since its accepted terms state the yearly price.
+    if (order.period !== "monthly") throw new OrderCheckoutError("This order was set up for yearly billing, which is no longer offered. Start a new order.", "not-monthly");
+    const recurring = monthlyPriceIdFor(cfg);
+    if (!recurring) throw new OrderCheckoutError("That plan isn't configured for billing.", "no-price");
     const line_items: { price: string; quantity: number }[] = [{ price: recurring, quantity: 1 }];
     if (cfg.onboardingPriceId) {
         line_items.push({ price: cfg.onboardingPriceId, quantity: 1 });
@@ -70,7 +67,6 @@ export async function openOrderCheckout(order: OperatorOrder): Promise<{
         order_id: order.id,
         agreement_id: order.agreementId,
         plan: order.plan,
-        period: order.period,
         site_slug: order.siteSlug,
     };
 
