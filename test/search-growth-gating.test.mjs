@@ -111,6 +111,10 @@ test("a site has Search Growth while it is active, and while ending until its en
     assert.equal(hasSearchGrowth(site("a", { searchAddon: { status: "ending", since: 1, endsAt: t + 1000 } }), t), true);
     assert.equal(hasSearchGrowth(site("a", { searchAddon: { status: "ending", since: 1, endsAt: t } }), t), false, "ends at its end date");
     assert.equal(hasSearchGrowth(site("a", { searchAddon: { status: "ending", since: 1 } }), t), true, "ending with no date yet: still on");
+    // D3: a start booked for the next renewal date is not on yet, even once its date has passed:
+    // billing turns it "active" when the renewal invoice is paid, and only that.
+    assert.equal(hasSearchGrowth(site("a", { searchAddon: { status: "scheduled", since: 1, startsAt: t + 1000 } }), t), false, "scheduled: not on yet");
+    assert.equal(hasSearchGrowth(site("a", { searchAddon: { status: "scheduled", since: 1, startsAt: t - 1000 } }), t), false, "scheduled past its date: still off until billing says active");
 });
 
 // ── The weekly job ────────────────────────────────────────────────────────────────────────────────
