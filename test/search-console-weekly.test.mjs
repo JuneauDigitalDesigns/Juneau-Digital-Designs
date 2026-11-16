@@ -67,7 +67,8 @@ const profile = (slug) => ({
     spokes: [],
     updatedAt: "2026-11-01T00:00:00.000Z",
 });
-const site = (slug) => ({ slug, plan: "growth", status: "live", addedAt: 1, airtableBaseId: null });
+// These sites have Search Growth, the paid add-on (2026-11-16), so each gets the full weekly cycle.
+const site = (slug) => ({ slug, plan: "growth", status: "live", addedAt: 1, airtableBaseId: null, searchAddon: { status: "active", since: 1 } });
 const seedSites = (...slugs) => {
     seed(`jdd:account:${EMAIL}`, { email: EMAIL, sites: slugs.map(site), createdAt: 1, updatedAt: 1 });
     for (const s of slugs) seed(`jdd:seo:profile:v1:${ACCT}:${s}`, profile(s));

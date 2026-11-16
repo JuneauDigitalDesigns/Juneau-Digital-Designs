@@ -6,6 +6,7 @@ import { accountScope } from "./portal-kv";
 import { accountKey } from "./upload-guard";
 import { factsNeeded, noticeFor, stageOf, type ClientFacts, type ClientJob, type ClientPhoto, type ClientReview, type Notice, type PageProposal } from "./page-additions";
 import { listProposals, proposalKey, readProfile } from "./seo-store";
+import { hasSearchGrowth } from "./search-growth";
 import type { SearchProfile } from "./seo-demand";
 
 /**
@@ -18,6 +19,9 @@ import type { SearchProfile } from "./seo-demand";
  *   jdd:seo:clientfacts:index:v1:{acct}:{slug}          zset of proposalIds by updatedAt (ms)
  * The console writes back only each item's `status` (accepted | rejected) and `decidedAt`, and
  * nothing ever deletes an item the client sent: a client decline never deletes facts.
+ *
+ * Page additions are part of Search Growth, the paid add-on (Xander, 2026-11-16). A site without it
+ * gets no notice and can't open, save or decline a page, whatever records exist (hasSearchGrowth).
  */
 
 let _redis: Redis | null = null;
@@ -60,6 +64,7 @@ async function writeProposal(acct: string, slug: string, p: PageProposal): Promi
  * final notice stays (a client who never signs in never misses one).
  */
 export async function siteNotices(account: PortalAccount, site: PortalSite, now = new Date()): Promise<SiteNotice[]> {
+    if (!hasSearchGrowth(site, now.getTime())) return [];
     const acct = accountScope(account.email);
     const profile = await readProfile(acct, site.slug);
     if (!profile) return [];
@@ -89,6 +94,7 @@ export interface WizardData {
 
 /** What the wizard needs, or null when this page isn't waiting for the client. */
 export async function wizardData(account: PortalAccount, site: PortalSite, id: string): Promise<WizardData | null> {
+    if (!hasSearchGrowth(site)) return null;
     const acct = accountScope(account.email);
     const [profile, proposal] = await Promise.all([readProfile(acct, site.slug), readProposal(acct, site.slug, id)]);
     if (!profile || !proposal || !OPEN_TO_CLIENT.has(stageOf(proposal))) return null;
@@ -195,6 +201,7 @@ export async function declinePage(
     reason: unknown,
     now = new Date(),
 ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+    if (!hasSearchGrowth(site, now.getTime())) return { ok: false, status: 409, error: "Not open" };
     const acct = accountScope(account.email);
     const proposal = await readProposal(acct, site.slug, id);
     if (!proposal || !OPEN_TO_CLIENT.has(stageOf(proposal))) return { ok: false, status: 409, error: "Not open" };

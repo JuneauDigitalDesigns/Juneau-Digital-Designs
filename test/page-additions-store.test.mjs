@@ -40,7 +40,8 @@ afterEach(() => {
 
 const EMAIL = "owner@example.com";
 const ACCT = createHash("sha256").update(EMAIL).digest("hex").slice(0, 16);
-const site = { slug: "acme", name: "Acme Air", plan: "starter", status: "live", addedAt: 1 };
+// Page additions are part of Search Growth, the paid add-on (2026-11-16): this site has it.
+const site = { slug: "acme", name: "Acme Air", plan: "starter", status: "live", addedAt: 1, searchAddon: { status: "active", since: 1 } };
 const account = { email: EMAIL, sites: [site], createdAt: 1, updatedAt: 1 };
 const NOW = new Date("2026-11-20T12:00:00Z");
 const profile = {
