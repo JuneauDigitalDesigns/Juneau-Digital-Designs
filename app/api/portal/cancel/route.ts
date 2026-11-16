@@ -8,7 +8,7 @@ import { writeCancelSignal, writeSubToSlug } from "@/app/lib/cancel-kv";
 import { releaseScheduledChange, subscriptionPeriod } from "@/app/lib/plan-billing";
 import { getPlanChange, isPendingPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { dropBillingCache } from "@/app/lib/portal-kv";
-import { CANCEL_EMAIL_ACCESS, CANCEL_EMAIL_NOTICE, cancelEmailFooter } from "@/app/lib/plan-change-copy";
+import { CANCEL_EMAIL_ACCESS, CANCEL_EMAIL_NOTICE, cancelEmailFooter, cancelOpsEmail } from "@/app/lib/plan-change-copy";
 import { brandedEmailHtml } from "@/app/lib/email-template";
 import { EMAIL, EMAIL_FONT } from "@/app/lib/email-tokens";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
@@ -36,6 +36,11 @@ function firstBoundaryAtOrAfter(
     return boundary;
 }
 
+/** Names and emails come from the account record; never put them in HTML raw. */
+function escapeHtml(s: string): string {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function formatDate(unixMs: number): string {
     return new Date(unixMs).toLocaleDateString("en-US", {
         year: "numeric",
@@ -49,10 +54,10 @@ export async function POST(request: Request) {
     const ctx = await resolvePortalRequest(request);
     if (!ctx.ok) return ctx.response;
 
-    // Only live sites can be cancelled — a "building" site has no subscription to cancel.
-    if (ctx.site.status !== "live") {
-        return NextResponse.json({ error: "Site is not active" }, { status: 409 });
-    }
+    // Any site with a subscription can be cancelled, live or not (Q5, 2026-11-16). A client pays
+    // monthly from checkout, so one whose site is still being built is paying too, and this used
+    // to refuse every site that wasn't live, leaving email as the only way out. A site with no
+    // subscription is refused below, when none resolves.
 
     // Reject if already cancelled.
     if (ctx.site.cancelRequestedAt) {
@@ -152,9 +157,6 @@ export async function POST(request: Request) {
         );
     }
 
-    // Every plan is month to month: what the client has paid for is the current month.
-    const interval = "month";
-
     const nowS = Math.floor(Date.now() / 1000);
     const target = nowS + noticeDays * DAY_S;
     const cancelAtS = firstBoundaryAtOrAfter(period.start, period.end, target);
@@ -170,9 +172,18 @@ export async function POST(request: Request) {
             const pending = await getPlanChange(ctx.account.email, ctx.site.slug);
             if (isPendingPlanChange(pending)) await savePlanChange({ ...pending, status: "cancelled" });
         }
-        await stripe.subscriptions.update(subscriptionId, {
-            cancel_at: cancelAtS,
-        });
+        // Q1: Stripe stops billing by itself at the end of the month already paid for. With no
+        // notice period (every plan) that boundary IS the period end, so it is set with Stripe's
+        // own `cancel_at_period_end`: it can't drift from the real period end by a computed
+        // second, and it never prorates. The exit accepts it as well as `cancel_at`. A notice
+        // period, if a plan ever had one again, needs a later boundary, which only `cancel_at`
+        // can express; that path never prorates either.
+        await stripe.subscriptions.update(
+            subscriptionId,
+            cancelAtS === period.end
+                ? { cancel_at_period_end: true }
+                : { cancel_at: cancelAtS, proration_behavior: "none" },
+        );
     } catch (e) {
         console.error("[portal/cancel] stripe update failed", subscriptionId, e);
         return NextResponse.json({ error: "Failed to schedule cancellation. Please contact support." }, { status: 500 });
@@ -236,35 +247,35 @@ export async function POST(request: Request) {
     if (resendKey && toEmail) {
         const resend = new Resend(resendKey);
 
+        // §5.8: every site the subscription pays for, and the day Stripe stops billing.
+        const ops = cancelOpsEmail({
+            business: siteName,
+            accountEmail: ctx.account.email,
+            sites: ending.map((s) => s.name ?? s.slug),
+            plan,
+            subscriptionId,
+            termEnds: effectiveDateStr,
+            requested: formatDate(now),
+        });
+        const rowHtml = ops.rows
+            .map(
+                ([label, value]) => `
+                        <tr>
+                            <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">${escapeHtml(label)}</td>
+                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};">${escapeHtml(value)}</td>
+                        </tr>`,
+            )
+            .join("");
         const opsHtml = brandedEmailHtml({
             title: "Cancellation Request",
             subtitle: `${siteName}, ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
             body: `
-                <p style="margin:0 0 16px;color:${EMAIL.ink};">
-                    <strong>${siteName}</strong> (${ctx.account.email}) has requested cancellation via the portal.
-                </p>
                 <div style="background:${EMAIL.panelInset};border-radius:8px;padding:14px 16px;margin-bottom:16px;">
-                    <table cellpadding="0" cellspacing="0" style="width:100%">
-                        <tr>
-                            <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">Slug</td>
-                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};">${ctx.site.slug}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">Plan</td>
-                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};">${plan}, cancels at the end of the paid ${interval}${ending.length > 1 ? ` (${ending.length} sites: ${ending.map((s) => s.slug).join(", ")})` : ""}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">Subscription</td>
-                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};">${subscriptionId}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding:4px 12px 4px 0;color:${EMAIL.fg3};font-size:13px;white-space:nowrap;">Effective date</td>
-                            <td style="padding:4px 0;font-size:13px;color:${EMAIL.ink};font-weight:600;">${effectiveDateStr}</td>
-                        </tr>
+                    <table cellpadding="0" cellspacing="0" style="width:100%">${rowHtml}
                     </table>
                 </div>
                 <p style="color:${EMAIL.fg3};font-size:13px;margin:0;">
-                    Run the teardown from the console once the effective date passes.
+                    ${escapeHtml(ops.footer)}
                 </p>
             `,
         });
@@ -272,7 +283,7 @@ export async function POST(request: Request) {
         await resend.emails.send({
             from: fromEmail,
             to: [toEmail],
-            subject: `[JDD] Cancellation request: ${siteName}`,
+            subject: ops.subject,
             html: opsHtml,
         }).catch((e: unknown) => {
             console.error("[portal/cancel] ops notification failed", e);
