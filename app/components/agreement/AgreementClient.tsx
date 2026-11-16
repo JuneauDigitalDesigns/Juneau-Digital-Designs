@@ -12,6 +12,8 @@ import { RECEPTIONIST_FAILED, RECEPTIONIST_SESSION_EXPIRED } from "@/app/lib/pla
 import PlanChip from "./PlanChip";
 import TermsReader from "./TermsReader";
 import SmsOptIn, { SMS_OPT_IN_PHONE_ERROR } from "./SmsOptIn";
+import SmsSkipNotice, { returnToOptIn } from "./SmsSkipNotice";
+import { smsSkipNoticeCopy, smsSkipNoticeDue } from "@/app/lib/sms-skip-notice.mjs";
 
 interface Props {
     plan: PlanSlug;
@@ -240,6 +242,14 @@ export default function AgreementClient({
     const [smsConsent, setSmsConsent] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // "Continue without text alerts?" (`sms-skip-notice.mjs`): the first submit with the box
+    // unticked shows it; once shown, a submit goes through, still unticked. Never ticks the box.
+    const [skipNoticeShown, setSkipNoticeShown] = useState(false);
+    const [skipNoticeOpen, setSkipNoticeOpen] = useState(false);
+    const backToAgreement = useCallback(() => {
+        setSkipNoticeOpen(false);
+        returnToOptIn();
+    }, []);
 
     /**
      * Every API call below goes through this: it carries a fresh Clerk session token, so a
@@ -313,6 +323,11 @@ export default function AgreementClient({
             return;
         }
         const alertPhone = effectiveSmsConsent ? normalizeUsPhone(form.alertPhone) : null;
+        if (smsSkipNoticeDue({ hasReceptionist, smsConsent: effectiveSmsConsent, alreadyShown: skipNoticeShown })) {
+            setSkipNoticeShown(true);
+            setSkipNoticeOpen(true);
+            return;
+        }
 
         const additionalSites = isEnterprise
             ? [form.site1, form.site2, form.site3].filter(Boolean)
@@ -779,6 +794,9 @@ export default function AgreementClient({
                         </div>
                     )}
 
+                    {skipNoticeOpen && (
+                        <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version, "self-serve")} onBack={backToAgreement} />
+                    )}
                     <button
                         type="submit"
                         disabled={submitting || !hasReadTerms}

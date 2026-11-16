@@ -8,6 +8,8 @@ import type { SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import TermsReader from "./TermsReader";
 import LinkInactive from "./LinkInactive";
 import SmsOptIn, { SMS_OPT_IN_PHONE_ERROR } from "./SmsOptIn";
+import SmsSkipNotice, { returnToOptIn } from "./SmsSkipNotice";
+import { smsSkipNoticeCopy, smsSkipNoticeDue } from "@/app/lib/sms-skip-notice.mjs";
 
 /**
  * A client reading and agreeing to their agreement through a private link. Wording approved by
@@ -68,6 +70,14 @@ export default function AgreeLinkClient({
     const [error, setError] = useState<string | null>(null);
     const [done, setDone] = useState(false);
     const [inactive, setInactive] = useState(false);
+    // "Continue without text alerts?" (`sms-skip-notice.mjs`): the first press with the box
+    // unticked shows it; once shown, a press agrees, still unticked. Never ticks the box.
+    const [skipNoticeShown, setSkipNoticeShown] = useState(false);
+    const [skipNoticeOpen, setSkipNoticeOpen] = useState(false);
+    const backToAgreement = useCallback(() => {
+        setSkipNoticeOpen(false);
+        returnToOptIn();
+    }, []);
 
     const onComplete = useCallback(() => setScrollCompletedAt((prev) => prev ?? new Date().toISOString()), []);
 
@@ -87,6 +97,12 @@ export default function AgreeLinkClient({
             return;
         }
         const consentPhone = hasReceptionist && smsConsent ? normalizeUsPhone(alertPhone) : null;
+        if (smsSkipNoticeDue({ hasReceptionist, smsConsent, alreadyShown: skipNoticeShown })) {
+            setError(null);
+            setSkipNoticeShown(true);
+            setSkipNoticeOpen(true);
+            return;
+        }
         setBusy(true);
         setError(null);
         try {
@@ -155,6 +171,7 @@ export default function AgreeLinkClient({
                     {error}
                 </p>
             )}
+            {skipNoticeOpen && <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version, "link")} onBack={backToAgreement} />}
             <button
                 type="button"
                 onClick={agree}
