@@ -99,7 +99,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
         titled(
           "No refunds",
           p(
-            "Every fee is non-refundable, including the onboarding fee and the current month's fee. We do not prorate, credit or refund any part of a month for any reason, including when you cancel, change to a lower plan, or stop using the Service.",
+            "Every fee is non-refundable, including the onboarding fee and the current month's fee. We do not prorate, credit or refund any part of a month for any reason, including when you cancel, change to a lower plan, or stop using the Service. The one exception is a move onto an Enterprise plan, described in Section 3.7.",
           ),
         ),
         clause(
@@ -180,7 +180,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
         titled(
           "Plan changes",
           p(
-            "A change to a higher plan takes effect immediately. You are charged the difference between the two plans' monthly fees, prorated for the rest of the current month, and the higher plan's monthly fee from your next billing date. A change to a lower plan takes effect at the end of the current monthly term, with no credit, refund or proration of any kind.",
+            "A change to a higher plan takes effect immediately. You are charged the difference between the two plans' monthly fees, prorated for the rest of the current month, and the higher plan's monthly fee from your next billing date. A change to a lower plan takes effect at the end of the current monthly term, with no credit, refund or proration of any kind. When sites on a Growth plan move onto an Enterprise plan, the unused part of the current month on each of their Growth subscriptions is credited to your account and taken off your next invoices, and their unused included call minutes are added to your Enterprise allowance for the rest of that month only.",
           ),
         ),
         titled(
@@ -198,7 +198,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
         titled(
           "Optional add-ons",
           p(
-            "We may offer optional services that are not part of any plan. Each has its own price, which we tell you before you add it. An add-on is billed monthly with your plan, is covered by these Terms (including Section 2.2), and can be cancelled at any time, taking effect at the end of the monthly term you have paid for.",
+            "We may offer optional services that are not part of any plan. Each has its own price, which we tell you before you add it. An add-on is billed monthly with your plan, is covered by these Terms (including Section 2.2), and can be cancelled at any time, taking effect at the end of the monthly term you have paid for. An add-on's monthly price is never prorated. You can start it right away, paying its full monthly price that day and then on each billing date, or have it start on your next billing date.",
           ),
         ),
       ],

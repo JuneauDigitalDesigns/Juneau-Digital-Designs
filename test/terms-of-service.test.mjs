@@ -115,6 +115,14 @@ test("the 2026-11-16 decisions read as approved", () => {
   assert.match(d, /we still send your website project and the PDF, and still hand over your domain\. The site content file and the port of your number wait/);
   assert.match(d, /prorated for the rest of the current month, and the higher plan's monthly fee from your next billing date/);
   assert.match(d, /The onboarding fee is charged once only, and never again, including when you change plans\./);
+  // Q8 (Xander, 2026-11-16): the one exception to "no credit", for Growth sites moving onto Enterprise.
+  assert.match(d, /The one exception is a move onto an Enterprise plan, described in Section 3\.7\./);
+  assert.match(
+    d,
+    /When sites on a Growth plan move onto an Enterprise plan, the unused part of the current month on each of their Growth subscriptions is credited to your account and taken off your next invoices, and their unused included call minutes are added to your Enterprise allowance for the rest of that month only\./,
+  );
+  // Add-ons are never prorated (Xander, 2026-11-16), unlike a plan upgrade.
+  assert.match(d, /An add-on's monthly price is never prorated\. You can start it right away, paying its full monthly price that day and then on each billing date, or have it start on your next billing date\./);
   assert.match(d, /We may offer optional services that are not part of any plan\./);
   assert.match(d, /we add it to our own Google Search Console account; that is for our use and is not a service to you/);
   assert.match(d, /search engine optimization services, such as ongoing search optimization, keyword research and adding new pages/);
