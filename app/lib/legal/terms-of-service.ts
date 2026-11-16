@@ -4,6 +4,9 @@ import type { Block, SectionDef, SubsectionDef } from "./types";
 /**
  * The Terms of Service, v6.0 and v6.1. Approved word for word by Xander on 2026-11-16
  * ("The new terms of service looks good. I approve."). Don't reword any of it without his sign-off.
+ * Three later sentences were approved word for word the same day: the §2.2 exception, the §3.7
+ * Growth to Enterprise sentence (Q8), and the §3.10 add-on billing sentence ("billing date", not
+ * "renewal date", his choice; the portal uses the same words).
  *
  * Replaced the Master Services Agreement (v5.4, `terms-v5.ts`, deleted in this change; its text
  * lives in git history and in every stored PDF). What changed, in short:
