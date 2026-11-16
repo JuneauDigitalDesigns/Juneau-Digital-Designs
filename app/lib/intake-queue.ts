@@ -1,7 +1,6 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
 import type { QueuedIntake } from "@jdd/schema";
-import type { IntakeOriginIds } from "./intake-origin";
 
 export type { QueuedIntake };
 
@@ -46,7 +45,7 @@ export function slugifyBrand(name: string): string {
  *
  * Carries the order or purchase the signup came from (see intake-origin.ts).
  */
-export async function enqueueIntake(rec: QueuedIntake & IntakeOriginIds): Promise<void> {
+export async function enqueueIntake(rec: QueuedIntake): Promise<void> {
   const r = getRedis();
   await r.set(itemKey(rec.id), rec, { ex: INTAKE_TTL_SECONDS });
   await r.zadd(INDEX_KEY, { score: rec.receivedAt, member: rec.id });
