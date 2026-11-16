@@ -26,7 +26,8 @@ import { normalizeUsPhone } from "./phone.mjs";
 export const TEXT_ALERTS_CHOICES = /** @type {const} */ (["yes", "no"]);
 
 /*
- * The words below await Xander's word-for-word approval (drafted 2026-11-15).
+ * The words below (errors, heading and both campaigns' cards) were approved word for word by Xander
+ * on 2026-11-15. Don't reword them without sign-off.
  */
 
 /** Agree pressed with neither card chosen. */
