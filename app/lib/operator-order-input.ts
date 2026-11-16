@@ -57,7 +57,8 @@ export function parseOrderFields(body: unknown): { fields: OrderFields } | { err
     if (plan === "enterprise") return { error: "Enterprise isn't available on a call yet." };
     if (plan !== "starter" && plan !== "growth") return { error: "Pick a plan." };
 
-    const period = str(b.period) === "annual" ? "annual" : "monthly";
+    // Every plan is month to month; whatever the console sends, the order is monthly.
+    const period = "monthly" as const;
 
     const siteSlug = str(b.siteSlug).toLowerCase();
     if (!SLUG_RE.test(siteSlug) || siteSlug.length > 60) {
@@ -152,16 +153,16 @@ export function accountFacts(
 export function termsView(order: OperatorOrder, kind: "master" | "addendum") {
     const script = scriptForOrder(order, kind);
     const schedule = getSchedule(order.plan);
-    const recurring = order.period === "annual" ? schedule.annualPrice : schedule.monthlyPrice;
+    const recurring = schedule.monthlyPrice;
     return {
         script,
         termsHash: termsHashForOrder(order, kind),
         totals: {
             today: recurring + schedule.onboardingFee,
             recurring,
-            period: order.period,
-            // What the payment screens say renews when: a month or a year on, the same day.
-            nextPaymentAt: nextPaymentAt(Date.now(), order.period),
+            period: "monthly" as const,
+            // What the payment screens say renews when: a month on, the same day.
+            nextPaymentAt: nextPaymentAt(Date.now()),
         },
     };
 }

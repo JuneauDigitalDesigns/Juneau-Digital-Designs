@@ -15,14 +15,8 @@ import SmsOptIn, { type TextAlertsChoice } from "./SmsOptIn";
 
 interface Props {
     plan: PlanSlug;
-    /**
-     * Monthly or annual prepay, resolved server side from the query string.
-     *
-     * Carried through to checkout so the Session opens on the right recurring price. The
-     * agreement text itself does not vary: Schedule A quotes the monthly fee either way, and
-     * annual prepay is a billing arrangement rather than a different set of terms.
-     */
-    billingPeriod: "monthly" | "annual";
+    /** Always monthly: every plan is month to month. Printed on the PDF cover. */
+    billingPeriod: "monthly";
     sections: Section[];
     version: string;
     /**
@@ -485,7 +479,7 @@ export default function AgreementClient({
             const ckRes = await sessionFetch("/api/checkout", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan, agreement_id: sigData.agreement_id, period: billingPeriod }),
+                body: JSON.stringify({ plan, agreement_id: sigData.agreement_id }),
             });
             const ckData = (await ckRes.json()) as { url?: string; error?: string };
             if (!ckRes.ok || !ckData.url) {

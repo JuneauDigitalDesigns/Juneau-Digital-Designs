@@ -28,7 +28,7 @@ export default async function AgreePage({ params }: { params: Promise<{ code: st
                         sections={view.sections}
                         termsHash={view.termsHash}
                         isAddendum={view.order.agreementKind === "addendum" || view.version.startsWith("addendum")}
-                        businessLine={`${view.order.client.legalName} · ${view.order.plan.charAt(0).toUpperCase()}${view.order.plan.slice(1)} plan, billed ${view.order.period === "annual" ? "yearly" : "monthly"}`}
+                        businessLine={`${view.order.client.legalName} · ${view.order.plan.charAt(0).toUpperCase()}${view.order.plan.slice(1)} plan, billed monthly`}
                         signerLine={`Signer: ${view.order.client.contactName}, ${view.order.client.contactTitle}, ${view.order.client.legalName}`}
                         email={view.order.client.email}
                         smsConsentCopy={smsConsentCopy()}

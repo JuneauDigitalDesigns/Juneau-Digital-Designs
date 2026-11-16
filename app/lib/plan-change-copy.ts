@@ -29,7 +29,8 @@ export function downgradeTile(input: { toName: string; fromName: string; date: s
  */
 export function consolidationParagraph(input: {
     hostName: string;
-    interval: "month" | "year";
+    /** Every plan is month to month. */
+    interval: "month";
     periodEnd: string;
     others: number;
 }): string {
@@ -43,12 +44,12 @@ export function consolidationParagraph(input: {
     return (
         `${hostName}'s Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current ${interval}, which ends on ${periodEnd}.` +
         otherSentence +
-        ` You stay on ${interval === "year" ? "annual" : "monthly"} billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.`
+        ` You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.`
     );
 }
 
-/** "$994 a month" / "$9,940 a year". */
-export function perPeriod(amount: number, interval: "month" | "year"): string {
+/** "$994 a month". */
+export function perPeriod(amount: number, interval: "month"): string {
     return `$${amount.toLocaleString("en-US")} a ${interval}`;
 }
 
@@ -58,8 +59,6 @@ export function poolLine(input: { pools: number; minutes: number; shared: boolea
     if (input.shared) return `one shared pool of ${min} min a month`;
     return input.pools === 1 ? `one pool of ${min} min a month` : `${input.pools} separate pools of ${min} min a month`;
 }
-
-export const CONSOLIDATION_MIXED_PERIODS = `Your Growth sites are billed on different schedules, one monthly and one annual, so this move needs to be set up with us directly. Email ${CONTACT_EMAIL} and we'll sort it out.`;
 
 export const CONSOLIDATION_DIFFERENT_CUSTOMERS = `Your Growth sites are billed separately, so this move needs to be set up with us directly. Email ${CONTACT_EMAIL} and we'll sort it out.`;
 
@@ -75,7 +74,6 @@ export const CONSOLIDATION_UNAVAILABLE = `This move needs to be set up with us d
 
 /** What to show instead of the "Review and accept" button when the move can't be done here. */
 export function consolidationRefusal(code: string, cancelDate?: string): string {
-    if (code === "mixed-periods") return CONSOLIDATION_MIXED_PERIODS;
     if (code === "different-customers") return CONSOLIDATION_DIFFERENT_CUSTOMERS;
     if (code === "cancel-pending" && cancelDate) return consolidationCancelPending(cancelDate);
     return CONSOLIDATION_UNAVAILABLE;
@@ -87,9 +85,8 @@ export function consolidationRefusal(code: string, cancelDate?: string): string 
  * The portal cancellation card. Replaces "Cancellations require 30 days written notice", which
  * v5.3 dropped on 2026-10-12: cancellation takes effect at the end of the period already paid for.
  */
-export function cancellationCardText(input: { interval: "month" | "year"; periodEnd: string }): string {
-    const base = `You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the ${input.interval} you've already paid for, on ${input.periodEnd}.`;
-    return input.interval === "year" ? `${base} Annual fees aren't refunded for the months left in the year.` : base;
+export function cancellationCardText(input: { periodEnd: string }): string {
+    return `You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the month you've already paid for, on ${input.periodEnd}.`;
 }
 
 /** The cancellation confirmation email. */

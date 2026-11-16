@@ -24,12 +24,8 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 test("the cancellation wording is exactly what Xander approved", async () => {
   const copy = await import("../app/lib/plan-change-copy.ts");
   assert.equal(
-    copy.cancellationCardText({ interval: "month", periodEnd: "December 1, 2026" }),
+    copy.cancellationCardText({ periodEnd: "December 1, 2026" }),
     "You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the month you've already paid for, on December 1, 2026.",
-  );
-  assert.equal(
-    copy.cancellationCardText({ interval: "year", periodEnd: "November 1, 2027" }),
-    "You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the year you've already paid for, on November 1, 2027. Annual fees aren't refunded for the months left in the year.",
   );
   assert.equal(
     copy.CANCEL_EMAIL_ACCESS,
@@ -76,5 +72,5 @@ test("usage warnings speak of the month and give the reset date", () => {
 
 test("an ended subscription's final-month overage is invoiced on its own", () => {
   const src = read("app/lib/usage-billing.ts");
-  assert.match(src, /if \(interval === "year" \|\| subscription\.status === "canceled"\)/);
+  assert.match(src, /if \(subscription\.status === "canceled"\)/);
 });

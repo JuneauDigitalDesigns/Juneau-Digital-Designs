@@ -4,7 +4,7 @@ import type Stripe from "stripe";
 import { stripe } from "./stripe";
 import { getPlan } from "./plans";
 import { releaseScheduledChange, resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
-import { billingIntervalOf, consolidationPrice } from "./billing-periods.mjs";
+import { consolidationPrice, isMonthly } from "./billing-periods.mjs";
 import { getPlanChange, isPendingPlanChange, savePlanChange } from "./plan-change";
 import { growthSitesForConsolidation, type PortalAccount, type PortalSite } from "@jdd/schema";
 
@@ -87,7 +87,8 @@ export type ConsolidationPlan =
       host: AbsorbedSubscription;
       /** The other Growth sites, whose subscriptions are cancelled and credited. */
       others: AbsorbedSubscription[];
-      interval: "month" | "year";
+      /** Every plan is month to month. */
+      interval: "month";
       enterprisePriceId: string;
       /** End of the host's current period, epoch ms: what the client pays the difference to. */
       periodEnd: number;
@@ -95,7 +96,7 @@ export type ConsolidationPlan =
     }
   | {
       ok: false;
-      code: "no-sites" | "mixed-periods" | "different-customers" | "cancel-pending" | "no-price" | "unreadable" | "inactive";
+      code: "no-sites" | "not-monthly" | "different-customers" | "cancel-pending" | "no-price" | "unreadable" | "inactive";
       /** For `cancel-pending`: when the site is set to cancel, epoch ms. */
       cancelAt?: number;
     };
@@ -107,7 +108,7 @@ export type ConsolidationPlan =
  * it again, so a refusal is shown up front and never after an agreement has been accepted and
  * emailed. Refuses, rather than guessing, whenever there isn't one obvious way to do it:
  *
- *   - sites billed on different periods (one monthly, one annual) have no one period to keep;
+ *   - a subscription not billed monthly was made by hand, and re-pricing it would credit time;
  *   - subscriptions on different Stripe Customers can't share a credit balance, so the unused
  *     Growth time would land where the Enterprise invoices never see it;
  *   - a site set to cancel would be absorbed and then cancelled.
@@ -142,14 +143,14 @@ export async function planConsolidation(account: PortalAccount): Promise<Consoli
     }
   }
 
-  // The period and price rule is `consolidationPrice` (billing-periods.mjs), where the test runs it.
-  const cfg = getPlan("enterprise");
+  // The price rule is `consolidationPrice` (billing-periods.mjs), where the test runs it.
   const price = consolidationPrice({
-    intervals: absorbed.map(({ subscription }) => intervalOf(subscription)),
-    prices: { monthly: cfg?.monthlyPriceId, annual: cfg?.annualPriceId },
+    monthly: absorbed.map(({ subscription }) => isMonthly(recurringOf(subscription))),
+    priceId: getPlan("enterprise")?.monthlyPriceId,
   });
   if (!price.ok) return { ok: false, code: price.code };
-  const { interval, priceId: enterprisePriceId } = price;
+  const interval = "month" as const;
+  const enterprisePriceId = price.priceId;
 
   const customers = new Set(absorbed.map(({ subscription }) => customerOf(subscription)));
   if (customers.size > 1 || customers.has(null)) return { ok: false, code: "different-customers" };
@@ -195,9 +196,9 @@ export async function cancelAbsorbedSubscription(subscriptionId: string, hostSub
   await stripe.subscriptions.cancel(subscriptionId, { prorate: true, invoice_now: true });
 }
 
-function intervalOf(sub: Stripe.Subscription): "month" | "year" {
+function recurringOf(sub: Stripe.Subscription): Stripe.Price.Recurring | null {
   const recurring = sub.items.data.filter((i) => i.price.recurring !== null);
-  return billingIntervalOf(recurring[0]?.price.recurring);
+  return recurring.length === 1 ? recurring[0].price.recurring : null;
 }
 
 function customerOf(sub: Stripe.Subscription): string | null {

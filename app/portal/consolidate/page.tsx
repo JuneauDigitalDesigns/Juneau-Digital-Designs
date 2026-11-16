@@ -46,12 +46,11 @@ export default async function ConsolidatePage() {
     if (absorbing.length === 0) redirect("/start?plan=enterprise");
 
     const move = await planConsolidation(account);
-    const interval = move.ok ? move.interval : "month";
+    const interval = "month" as const;
 
     const growth = getSchedule("growth");
     const enterprise = getSchedule("enterprise");
-    const priceOf = (s: { monthlyPrice: number; annualPrice: number }) =>
-        interval === "year" ? s.annualPrice : s.monthlyPrice;
+    const priceOf = (s: { monthlyPrice: number }) => s.monthlyPrice;
     const sites = move.ok ? [move.host, ...move.others].map(({ site }) => site) : absorbing;
 
     return (

@@ -262,7 +262,6 @@ export default function BillingSection({
             {site.status === "live" && (
                 <CancellationCard
                     site={site}
-                    interval={data.interval === "year" ? "year" : "month"}
                     periodEnd={data.currentPeriodEnd ?? null}
                 />
             )}
@@ -279,12 +278,10 @@ export default function BillingSection({
  */
 function CancellationCard({
     site,
-    interval,
     periodEnd,
 }: {
     site: PortalSiteProps;
-    /** The period the client bills on, and when the paid one ends (epoch ms). */
-    interval: "month" | "year";
+    /** When the month already paid for ends (epoch ms). */
     periodEnd: number | null;
 }) {
     const invalidate = useInvalidate();
@@ -350,7 +347,7 @@ function CancellationCard({
             {/* v5.3 has no notice period: cancellation takes effect at the end of the paid period.
                 This used to quote 30 (60 on Enterprise) days' notice and an extra billed month. */}
             <p className="text-sm mb-4" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                {cancellationCardText({ interval, periodEnd: date(periodEnd) })}
+                {cancellationCardText({ periodEnd: date(periodEnd) })}
             </p>
 
             {site.plan === "enterprise" && (

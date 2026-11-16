@@ -38,7 +38,7 @@ export function termsHashForOrder(order: OperatorOrder, kind: "master" | "addend
 
 /** The read-aloud script for this order. */
 export function scriptForOrder(order: OperatorOrder, kind: "master" | "addendum"): CallScript {
-    return buildCallScript(order.plan, order.period, { webOnly: isWebOnly(order, kind) });
+    return buildCallScript(order.plan, "monthly", { webOnly: isWebOnly(order, kind) });
 }
 
 export class TermsChangedError extends Error {
@@ -152,7 +152,7 @@ async function storeOrderAgreement(
         scrollCompletedAt: facts.scrollCompletedAt,
         ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
-        billingPeriod: order.period,
+        billingPeriod: "monthly",
     };
 
     const audit: AgreementAudit = {
@@ -182,7 +182,7 @@ async function storeOrderAgreement(
         additionalSites: [],
         ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber.trim() } : {}),
-        billingPeriod: order.period,
+        billingPeriod: "monthly",
         pdfUrl,
         audit,
         agreementVersion: input.kind === "addendum" ? ADDENDUM_VERSION : TERMS_VERSION,

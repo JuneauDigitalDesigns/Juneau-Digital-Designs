@@ -48,9 +48,9 @@ test("refusals are decided before the client is offered the agreement", () => {
   assert.match(agreement, /if \(!move\?\.ok\) redirect\("\/portal\/consolidate"\)/);
 });
 
-test("the Enterprise agreement for a move states the period the Growth sites bill on", () => {
+test("the Enterprise agreement for a move states the monthly price", () => {
   const agreement = read("app/agreement/page.tsx");
-  assert.match(agreement, /billingPeriod = move\.interval === "year" \? "annual" : "monthly"/);
+  assert.match(agreement, /const billingPeriod = "monthly" as const;/);
 });
 
 test("the consolidation page wording is exactly what Xander approved", async () => {
@@ -61,15 +61,14 @@ test("the consolidation page wording is exactly what Xander approved", async () 
     "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current month, which ends on December 1, 2026. Your other Growth subscription is cancelled at the same time, and its unused part is credited to your account and taken off your next invoices. You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.",
   );
   assert.equal(
-    copy.consolidationParagraph({ ...base, interval: "year", others: 0 }),
-    "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current year, which ends on December 1, 2026. You stay on annual billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.",
+    copy.consolidationParagraph({ ...base, others: 0 }),
+    "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current month, which ends on December 1, 2026. You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.",
   );
   assert.match(
     copy.consolidationParagraph({ ...base, others: 2 }),
     / Your other Growth subscriptions are cancelled at the same time, and the unused part of each is credited to your account and taken off your next invoices\. /,
   );
   assert.equal(copy.perPeriod(994, "month"), "$994 a month");
-  assert.equal(copy.perPeriod(10970, "year"), "$10,970 a year");
   assert.equal(copy.poolLine({ pools: 2, minutes: 350, shared: false }), "2 separate pools of 350 min a month");
   assert.equal(copy.poolLine({ pools: 1, minutes: 1050, shared: true }), "one shared pool of 1,050 min a month");
   assert.equal(copy.poolLine({ pools: 1, minutes: 350, shared: false }), "one pool of 350 min a month");
@@ -77,9 +76,10 @@ test("the consolidation page wording is exactly what Xander approved", async () 
     copy.consolidationRefusal("unreadable"),
     "This move needs to be set up with us directly. Email hello@juneaudigitaldesigns.com and we'll sort it out.",
   );
+  // A subscription not billed monthly gets the general refusal; there is no mixed-period case.
   assert.equal(
-    copy.consolidationRefusal("mixed-periods"),
-    "Your Growth sites are billed on different schedules, one monthly and one annual, so this move needs to be set up with us directly. Email hello@juneaudigitaldesigns.com and we'll sort it out.",
+    copy.consolidationRefusal("not-monthly"),
+    "This move needs to be set up with us directly. Email hello@juneaudigitaldesigns.com and we'll sort it out.",
   );
   assert.equal(
     copy.consolidationRefusal("different-customers"),
