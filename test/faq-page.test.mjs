@@ -62,8 +62,8 @@ test("/faq exists and is public, signed out", () => {
   assert.equal(matchers.some((re) => re.test("/faq")), false, "/faq is behind Clerk");
 });
 
-test("the footer links to /faq and to /terms as the Service Agreement", () => {
+test("the footer links to /faq and to /terms as the Terms of Service", () => {
   const footer = readFileSync(root("app/components/footer/footer.tsx"), "utf8");
   assert.match(footer, /href="\/faq"[^>]*>FAQ</);
-  assert.match(footer, /href="\/terms"[^>]*>Service Agreement</);
+  assert.match(footer, /href="\/terms"[^>]*>Terms of Service</);
 });

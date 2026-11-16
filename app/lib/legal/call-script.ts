@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import type { PlanSlug } from "../agreement-types";
 import type { BillingPeriod } from "../plans";
 import { getSchedule, TERMS_VERSION, WEB_ONLY_SCHEDULE } from "./index";
-import { ANNUAL } from "./schedules";
 
 /**
  * The lines an operator reads aloud on a sales call before ticking "Client verbally agreed".
@@ -39,7 +38,9 @@ const RECORDING_OPENER = "We're now recording. You're okay with that?";
  * acceptance names the words that were read, so the same version must never mean two scripts.
  * Versions with no revision are the first script, which had no recording lines.
  */
-const SCRIPT_REVISION = "r2";
+// r3 (Terms of Service v6.0, 2026-11-16): monthly only, "there are no refunds", and "the full
+// Terms of Service" (call-script items R1 and R2, approved by Xander).
+const SCRIPT_REVISION = "r3";
 
 export function buildCallScript(
   plan: PlanSlug,
@@ -47,30 +48,21 @@ export function buildCallScript(
   opts: { webOnly?: boolean } = {},
 ): CallScript {
   const s = opts.webOnly ? WEB_ONLY_SCHEDULE : getSchedule(plan);
-  const annual = period === "annual";
   const money = (n: number) => `$${n.toLocaleString("en-US")}`;
-  const recurring = annual ? s.annualPrice : s.monthlyPrice;
-  const today = recurring + s.onboardingFee;
-
-  const billed = annual
-    ? `yearly at ${money(s.annualPrice)} a year, which is ${ANNUAL.monthsCharged} months of ${money(s.monthlyPrice)}`
-    : `monthly at ${money(s.monthlyPrice)} a month`;
+  const today = s.monthlyPrice + s.onboardingFee;
 
   const lines = [
-    `You are signing up for ${s.name}, billed ${billed}.`,
-    `There is a one-time onboarding fee of ${money(s.onboardingFee)}, charged today with your first ${annual ? "year" : "month"}. That makes ${money(today)} today.`,
-    annual
-      ? `It renews automatically every year, and you are charged ${money(s.annualPrice)} on this date each year until you cancel.`
-      : `It renews automatically every month, and you are charged ${money(s.monthlyPrice)} on this date each month until you cancel. There is no minimum term.`,
-    // Annual prepay is non-refundable and runs to the end of the paid year (Xander, 2026-11-03).
-    "You can cancel any time from your portal or by emailing us. It stops at the end of the period you have already paid for, and there are no refunds for partial periods.",
+    `You are signing up for ${s.name}, billed monthly at ${money(s.monthlyPrice)} a month.`,
+    `There is a one-time onboarding fee of ${money(s.onboardingFee)}, charged today with your first month. That makes ${money(today)} today.`,
+    `It renews automatically every month, and you are charged ${money(s.monthlyPrice)} on this date each month until you cancel. There is no minimum term.`,
+    "You can cancel any time from your portal or by emailing us. It stops at the end of the period you have already paid for, and there are no refunds.",
     ...(s.callMinutes != null
       ? [
           `Your plan includes ${s.callMinutes.toLocaleString("en-US")} call-minutes a month. Extra minutes are $${(s.overagePerMinute ?? 0).toFixed(2)} each.`,
         ]
       : []),
     "Disputes are handled individually through arbitration, not in court, and the terms limit our liability.",
-    "By saying yes, you accept these terms and the full agreement we'll email you. Do you agree?",
+    "By saying yes, you accept these terms and the full Terms of Service we'll email you. Do you agree?",
   ];
 
   const version = `${TERMS_VERSION}-${opts.webOnly ? "web-only" : plan}-${period}-${SCRIPT_REVISION}`;

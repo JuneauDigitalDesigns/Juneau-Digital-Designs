@@ -45,7 +45,7 @@ export function GrowthProvisioning({
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}
                 >
                     {justUpgraded
-                        ? `Thanks. Your agreement is signed and your billing is updated. `
+                        ? `Thanks. Your acceptance is recorded and your billing is updated. `
                         : `You're on ${planLabel} and your billing is updated. `}
                     We&rsquo;re putting your AI receptionist together now, and that&rsquo;s a
                     dedicated business number, an agent trained on your services, and the call log

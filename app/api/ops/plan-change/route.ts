@@ -118,7 +118,7 @@ export async function POST(request: Request) {
         toPlan: record.toPlan,
         effectiveAt: record.effectiveAt,
         interval: record.interval,
-        acceptUrl: `${origin}/agreement?plan=${record.toPlan}&downgrade=${encodeURIComponent(slug)}`,
+        acceptUrl: `${origin}/terms/accept?plan=${record.toPlan}&downgrade=${encodeURIComponent(slug)}`,
     });
 
     console.log("[ops/plan-change] downgrade requested", account.email, slug, record.toPlan, record.effectiveAt);

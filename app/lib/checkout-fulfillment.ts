@@ -196,8 +196,8 @@ export async function provisionPaidSession(
 /**
  * Payment cleared, so any SMS consent held since the agreement was accepted becomes real.
  *
- * Shared by both kinds of purchase: the self-serve `/agreement` holds a ticked box against its
- * agreement id, and so does an order's private agreement link (`/agree/[code]`). Idempotent,
+ * Shared by both kinds of purchase: the self-serve `/terms/accept` holds a ticked box against its
+ * agreement id, and so does an order's private agreement link (`/terms/[code]`). Idempotent,
  * because `promotePendingConsent` reads and deletes the pending key in one step, so a replayed
  * webhook or a second caller finds nothing. A no-op when the box was never ticked.
  *

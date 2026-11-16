@@ -104,7 +104,7 @@ export async function recordClickwrapOrderAcceptance(
         scrollCompletedAt: string;
         ip: string;
         userAgent: string;
-        /** Where they agreed, for the audit page: `juneaudigitaldesigns.com/agree/ABC…`. */
+        /** Where they agreed, for the audit page: `juneaudigitaldesigns.com/terms/ABC…`. */
         path: string;
     },
 ): Promise<{ record: AgreementRecord; pdfBytes: Uint8Array }> {

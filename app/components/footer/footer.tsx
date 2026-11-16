@@ -50,7 +50,7 @@ export default function Footer() {
                             {/* /terms is the service agreement each plan signs, not a general
                                 terms page, so it is named for that and can't be mistaken for the
                                 SMS Terms above it. Approved by Xander, 9 Nov 2026. */}
-                            <li><Link href="/terms" className="footer-link">Service Agreement</Link></li>
+                            <li><Link href="/terms" className="footer-link">Terms of Service</Link></li>
                         </ul>
                     </div>
 

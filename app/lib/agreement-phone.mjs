@@ -2,7 +2,7 @@ import { normalizeUsPhone } from "./phone.mjs";
 
 /**
  * The rule for the mobile number box beside the optional SMS opt-in, on both agreement pages
- * (`/agreement` and `/agree/[code]`), in the browser and on the server. One function, so the page
+ * (`/terms/accept` and `/terms/[code]`), in the browser and on the server. One function, so the page
  * can never accept a number the server refuses, or the other way round.
  *
  * Client-safe (no node builtins): the pages import it as well as the routes.

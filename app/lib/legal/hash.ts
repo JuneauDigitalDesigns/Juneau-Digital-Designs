@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import type { PlanSlug } from "../agreement-types";
-import { getAddendumForPlan, getSchedule, getTermsForPlan } from "./index";
+import { getAddendumForPlan, getSchedule, getTermsForPlan, type TermsCampaign } from "./index";
 import type { Block, Section } from "./types";
 
 /**
@@ -16,7 +16,10 @@ import type { Block, Section } from "./types";
  * Kept in its own module so the node:crypto import never reaches a client
  * bundle via the barrel in ./index.
  */
-export function hashTermsForPlan(plan: PlanSlug, opts: { webOnly?: boolean } = {}): string {
+export function hashTermsForPlan(
+  plan: PlanSlug,
+  opts: { webOnly?: boolean; campaign?: TermsCampaign } = {},
+): string {
   const { version, sections } = getTermsForPlan(plan, opts);
   /**
    * The variant is folded into the canonical form as well as changing the sections.

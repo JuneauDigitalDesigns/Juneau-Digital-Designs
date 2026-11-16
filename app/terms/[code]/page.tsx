@@ -7,7 +7,7 @@ import AgreeLinkClient, { AgreeDone, AgreeInactive } from "@/app/components/agre
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Service agreement | Juneau Digital Designs",
+    title: "Terms of Service | Juneau Digital Designs",
     robots: { index: false, follow: false },
 };
 

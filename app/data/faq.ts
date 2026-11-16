@@ -66,7 +66,7 @@ const MINUTES: FaqEntry = {
 
 const CONTRACT: FaqEntry = {
     q: "Am I locked into a contract?",
-    a: "No. There is no minimum term, no commitment period, and no cancellation fee on any plan. It's month to month. If you cancel, you keep everything through the end of the month you've already paid for, and then it stops.", // MSA term and termination
+    a: "No. There is no minimum term, no commitment period, and no cancellation fee on any plan. It's month to month. If you cancel, everything keeps running through the end of the month you've already paid for. Then we send you your website, ready to host anywhere, with your call log.", // MSA term and termination
 };
 
 const NOT_HAPPY: FaqEntry = {
@@ -98,12 +98,12 @@ const FORWARDING: FaqEntry = {
    stated rather than discovered later. */
 const KEEP_NUMBER: FaqEntry = {
     q: "Do I get to keep my phone number?",
-    a: "You get exclusive use of it for as long as you're a client: put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool.", // MSA phone number ownership
+    a: "You get exclusive use of it for as long as you're a client: put it on your truck, your cards, your Google listing. It lives on our telephony account, so if you leave and want to keep it, tell us within 30 days and we'll port it to your carrier for a one-time $50 fee. Miss that window and it goes back into the pool. A number you already had and forward to ours stays yours either way.", // MSA phone number ownership
 };
 
 const OWN_SITE: FaqEntry = {
     q: "Do I own my website?",
-    a: "Your content is yours: name, logo, photos, and copy, always. The site runs on our platform while you're a client. If you leave, ask within 30 days and we hand over a full static export of the site, your content as a file, and your call log. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA intellectual property
+    a: "Your content is yours: name, logo and photos, always. Your onboarding fee also buys you a permanent licence to use your website. When you leave, we send it to you as a project you can host anywhere, with your call log and website inquiries as a PDF. You'd need to arrange new hosting, but you leave with your site rather than a screenshot of it.", // MSA intellectual property
 };
 
 const HAVE_A_SITE: FaqEntry = {

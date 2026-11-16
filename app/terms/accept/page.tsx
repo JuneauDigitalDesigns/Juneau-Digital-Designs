@@ -2,22 +2,22 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import AgreementClient from "../components/agreement/AgreementClient";
-import UpgradeUnavailable from "../components/agreement/UpgradeUnavailable";
-import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../lib/legal";
-import { getAgreement } from "../lib/kv";
+import AgreementClient from "../../components/agreement/AgreementClient";
+import UpgradeUnavailable from "../../components/agreement/UpgradeUnavailable";
+import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../../lib/legal";
+import { getAgreement } from "../../lib/kv";
 import { isWebOnly, legacyMasterFrom } from "@jdd/schema";
-import { resolveAccountForUser } from "../lib/portal-account";
-import { upgradeBlockReason } from "../lib/plan-billing";
-import { getPlanChange } from "../lib/plan-change";
-import { planConsolidation } from "../lib/consolidation";
-import type { PlanSlug } from "../lib/agreement-types";
-import { smsConsentCopy } from "../lib/sms-consent-text";
+import { resolveAccountForUser } from "../../lib/portal-account";
+import { upgradeBlockReason } from "../../lib/plan-billing";
+import { getPlanChange } from "../../lib/plan-change";
+import { planConsolidation } from "../../lib/consolidation";
+import type { PlanSlug } from "../../lib/agreement-types";
+import { smsConsentCopy } from "../../lib/sms-consent-text";
 
 const SIGNING_METADATA: Metadata = {
-    title: "Sign Service Agreement | Juneau Digital Designs",
+    title: "Accept the Terms of Service | Juneau Digital Designs",
     description:
-        "Review and sign the Juneau Digital Designs Service Agreement before completing your subscription payment.",
+        "Review and accept the Juneau Digital Designs Terms of Service before completing your subscription payment.",
 };
 
 /**
@@ -75,10 +75,10 @@ export default async function AgreementPage({
         // in and bring them straight back instead.
         if (upgradeSlug || downgradeSlug || receptionistSlug) {
             const back = upgradeSlug
-                ? `/agreement?plan=growth&upgrade=${encodeURIComponent(upgradeSlug)}`
+                ? `/terms/accept?plan=growth&upgrade=${encodeURIComponent(upgradeSlug)}`
                 : downgradeSlug
-                  ? `/agreement?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug)}`
-                  : `/agreement?plan=starter&receptionist=${encodeURIComponent(receptionistSlug!)}`;
+                  ? `/terms/accept?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug)}`
+                  : `/terms/accept?plan=starter&receptionist=${encodeURIComponent(receptionistSlug!)}`;
             redirect(`/portal/sign-in?redirect_url=${encodeURIComponent(back)}`);
         }
         redirect(`/start?plan=${selectedPlan}`);

@@ -112,7 +112,7 @@ export default async function StartPage({
     const master = account.masterAgreement ?? legacyMasterFrom(account.sites);
     const kind = masterNeedsResign(master, TERMS_VERSION, plan) ? "master" : "addendum";
 
-    redirect(`/agreement?plan=${plan}&kind=${kind}`);
+    redirect(`/terms/accept?plan=${plan}&kind=${kind}`);
 }
 
 /**

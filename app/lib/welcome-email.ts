@@ -196,7 +196,6 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
   // A client closed on a call never signed in, so their first step is the portal login the
   // invite sets up (never a password we chose). A returning client signs in as usual. Neither
   // flag set is the self-serve email, unchanged.
-  const operatorClose = Boolean(data.inviteUrl || data.existingLogin);
   const stepsHtml = data.inviteUrl
     ? `
     ${step(
@@ -239,9 +238,8 @@ export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; h
 
   const innerHtml = `
     <p style="margin:0 0 20px;">${
-      operatorClose
-        ? "Thanks for joining Juneau Digital Designs. We've got your agreement and your first payment. Before we start building, here's what we need from you."
-        : "Thanks for signing on with Juneau Digital Designs. We've got your signed agreement and your first payment. Before we start building, here's what we need from you."
+      // One sentence for both routes since Terms of Service v6.0 (item E10).
+      "Thanks for joining Juneau Digital Designs. You've accepted our Terms of Service and we've got your first payment. Before we start building, here's what we need from you."
     }</p>
 ${stepsHtml}
 

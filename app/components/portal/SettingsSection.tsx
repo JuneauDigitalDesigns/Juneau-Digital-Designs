@@ -756,15 +756,17 @@ function SmsAlertsControls({ consent, consentCopy }: { consent: SmsConsentProps 
  */
 function agreementTitle(a: AccountAgreement): string {
     if (a.kind === "addendum") return "Addendum";
-    return a.current ? "Master agreement" : "Earlier master agreement";
+    // A master accepted before v6.0 keeps the name it was accepted under (item O2).
+    if (a.legacyAgreement) return "Service Agreement";
+    return a.current ? "Terms of Service" : "Earlier Terms of Service";
 }
 
 function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
     return (
-        <SectionCard title="Agreements">
+        <SectionCard title="Your terms">
             {agreements.length === 0 ? (
                 <p className="px-5 py-4 text-sm" style={{ color: "var(--fg-2)" }}>
-                    No signed agreements yet.
+                    No accepted terms yet.
                 </p>
             ) : (
                 <ul>
@@ -780,7 +782,7 @@ function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
                                     {a.siteName ? `: ${a.siteName}` : ""}
                                 </p>
                                 <p className="text-xs mt-0.5" style={{ color: "var(--fg-3)" }}>
-                                    Signed {SIGNED_DATE.format(new Date(a.signedAt))}
+                                    Accepted {SIGNED_DATE.format(new Date(a.signedAt))}
                                 </p>
                             </div>
                             <a

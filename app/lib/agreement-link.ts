@@ -190,6 +190,6 @@ export async function acceptAgreementLink(
         }
         return { order: saved, result };
     });
-    if (!outcome) throw new AgreementLinkError("This agreement is being recorded. Reload the page in a moment.", "in-progress");
+    if (!outcome) throw new AgreementLinkError("Your acceptance is being recorded. Reload the page in a moment.", "in-progress");
     return outcome;
 }

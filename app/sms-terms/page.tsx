@@ -12,7 +12,7 @@ export const metadata = {
  *
  * Written to be read by two audiences at once: a client deciding whether to tick the box,
  * and a carrier or TCR reviewer checking that the program described here matches the
- * campaign registration and the consent language on /agreement. The sample message must
+ * campaign registration and the consent language on /terms/accept. The sample message must
  * stay byte-identical to the body the Make.com post-call scenario actually sends and to
  * the sample submitted with the campaign.
  *
@@ -25,7 +25,7 @@ export const metadata = {
  *   Customer lane  the business -> its customer  the CLIENT's own CUSTOMER_CARE campaign and number
  *
  * The distinction is legal, not cosmetic: different registrant, different consent basis, and the
- * client cannot grant consent on their own customers' behalf. So the opt-in on /agreement covers
+ * client cannot grant consent on their own customers' behalf. So the opt-in on /terms/accept covers
  * the account lane ONLY, and this page says so before describing either.
  *
  * Both programs live on one page on purpose (operator's call): a reader who gets a text and comes
@@ -233,8 +233,8 @@ const PROGRAM_ONE: Section[] = [
             <>
                 <p style={{ marginBottom: 14 }}>
                     Opt-in happens on our{" "}
-                    <a href="/agreement" style={linkStyle}>
-                        service agreement page
+                    <a href="/terms/accept" style={linkStyle}>
+                        Terms of Service page
                     </a>
                     . You enter the mobile number that should receive call alerts, and check the box beside it
                     that reads:
@@ -254,7 +254,7 @@ const PROGRAM_ONE: Section[] = [
                     <ConsentQuote />
                 </blockquote>
                 <p style={{ marginBottom: 14 }}>
-                    The box starts unchecked and is separate from the checkbox accepting the service agreement.
+                    The box starts unchecked and is separate from the checkbox accepting the Terms of Service.
                     Consent is not a condition of purchase: the service is sold, built, and billed the same way
                     whether you opt in or not.
                 </p>
@@ -516,7 +516,7 @@ export default function SmsTermsPage() {
                 <ProgramHeading
                     label="Program One"
                     title="Juneau Digital Designs Call Alerts"
-                    blurb="Messages we send to you about your own account. This is the program the checkbox on our agreement page opts you into."
+                    blurb="Messages we send to you about your own account. This is the program the checkbox on our Terms of Service page opts you into."
                 />
                 {PROGRAM_ONE.map((section) => (
                     <SectionBlock key={`one-${section.heading}`} section={section} />

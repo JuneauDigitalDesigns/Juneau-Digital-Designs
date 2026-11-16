@@ -63,19 +63,19 @@ export function acceptanceMethod(body) {
 export function validateAgreementSubmission(body) {
   if (!VALID_PLANS.includes(body.plan)) return "Invalid plan";
   if (body.kind && body.kind !== "master" && body.kind !== "addendum") {
-    return "Invalid agreement kind";
+    return "Invalid document kind";
   }
   // An addendum with no master to adopt is not an addendum. `/start` always supplies this;
   // its absence means the client reached the signing form some other way.
   if (body.kind === "addendum" && !nonEmpty(body.parentAgreementId)) {
-    return "Missing parent agreement";
+    return "Missing the earlier acceptance this one depends on";
   }
   if (!nonEmpty(body.clientLegalName)) return "Missing client legal name";
   if (!nonEmpty(body.clientEntityType)) return "Missing entity type";
   if (!nonEmpty(body.clientAddress)) return "Missing client address";
-  if (!nonEmpty(body.signerName)) return "Missing signer name";
-  if (!nonEmpty(body.signerTitle)) return "Missing signer title";
-  if (!validEmail(body.signerEmail)) return "Invalid signer email";
+  if (!nonEmpty(body.signerName)) return "Missing your name";
+  if (!nonEmpty(body.signerTitle)) return "Missing your title";
+  if (!validEmail(body.signerEmail)) return "Invalid email";
   if (!acceptanceMethod(body)) {
     return "Please tick the box to agree to the Terms of Service";
   }
@@ -83,7 +83,7 @@ export function validateAgreementSubmission(body) {
   // the end of the terms must not be accepted just because it skipped the UI.
   if (!validTimestamp(body.pageOpenedAt)) return "Missing page open timestamp";
   if (!validTimestamp(body.scrollCompletedAt)) {
-    return "Agreement was not read to the end";
+    return "The terms were not read to the end";
   }
   // Only on a master. The Enterprise master is where the client commits to the site list, so
   // it has to be named there. An addendum adding a site to an existing Enterprise bundle

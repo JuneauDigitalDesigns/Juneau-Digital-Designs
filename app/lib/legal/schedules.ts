@@ -2,40 +2,26 @@ import type { PlanSlug } from "../agreement-types";
 import type { PlanSchedule } from "./types";
 
 /**
- * Schedule A — the per-plan facts. This is the single place plan pricing,
- * allowances, and notice periods live. Anything in terms-v5.ts that varies by
- * plan should read from here rather than hardcode a number in prose.
+ * The plan summary: the per-plan facts (Schedule A until Terms of Service v6.0). This is the
+ * single place plan pricing and allowances live. Anything in the Terms that varies by plan reads
+ * from here rather than hardcoding a number in prose.
  *
- * The numbers below are declared once as constants and then formatted into the
- * `included` bullets and `feeTable` rows. Both of those render into the signed
- * agreement, so a figure written twice by hand is a figure that can eventually
- * contradict itself *inside the same contract*.
+ * The numbers are declared once as constants and then formatted into the `included` bullets and
+ * `feeTable` rows. Both render into the accepted document, so a figure written twice by hand is a
+ * figure that can eventually contradict itself inside the same document.
  *
- * Repriced 2026-10-12. Three things changed shape, not just value:
- *   1. **Every tier includes the AI receptionist.** Starter is no longer website-only, so it
- *      carries `hasVoiceAgent: true` and its own 100 included minutes. Tiers differentiate by
- *      capability now: Starter reports the call, Growth also acts on the web lead.
- *   2. **No minimum term.** `cancellationNoticeDays` is `0` everywhere. See the field's doc.
- *   3. **The onboarding fee is charged at signing on every tier** and is covered by a
- *      first-month guarantee rather than being non-refundable.
+ * Terms of Service v6.0 (approved by Xander word for word, 2026-11-16):
+ *   - month to month only: the annual prepay price, row and constants are gone;
+ *   - the site lines and the extra-pages row carry over MSA v5.5's approved wording (PR #113);
+ *   - the text-alert line matches the live SMS campaign (v1); `TEXT_ALERT_LINE_V2` replaces it
+ *     under `OWNER_TEXT_CAMPAIGN=v2` (Terms v6.1), swapped in by `getTermsForPlan`;
+ *   - Google Analytics is gone; site statistics come from Vercel Analytics and Lighthouse;
+ *   - new lines for the search-ready build and the domain.
  */
 const STARTER_MINUTES = 100;
 const GROWTH_MINUTES = 350;
 const ENTERPRISE_MINUTES = 1050;
 const OVERAGE_PER_MINUTE = 0.2;
-
-/** The guarantee threshold. Fewer than this many qualified leads in 30 days refunds the fee. */
-const GUARANTEE_MIN_LEADS = 3;
-const GUARANTEE_WINDOW_DAYS = 30;
-
-/**
- * Months charged on an annual prepay: twelve months of service for ten months of money.
- *
- * Every annual figure derives from this, so "two months free" and the actual discount cannot
- * disagree. Changing a monthly price automatically keeps the annual one honest.
- */
-const ANNUAL_MONTHS_CHARGED = 10;
-const annual = (monthly: number) => monthly * ANNUAL_MONTHS_CHARGED;
 
 const mins = (n: number) => n.toLocaleString("en-US");
 const rate = (n: number) => `$${n.toFixed(2)}`;
@@ -45,31 +31,34 @@ const overageRow = (): [string, string] => [
   `${rate(OVERAGE_PER_MINUTE)} per minute`,
 ];
 
-/**
- * The onboarding-fee row, stated with its guarantee attached.
- *
- * The fee and the promise that refunds it belong on the same line. Quoting the charge in the
- * fee table and burying the remedy elsewhere is how a client ends up believing the fee is
- * simply non-refundable, which is what the old wording actually said.
- */
 const onboardingRow = (fee: number): [string, string] => [
-  "One-time onboarding fee (charged at signing)",
+  "One-time onboarding fee (charged once, at checkout)",
   money(fee),
 ];
 
-/** v5.3: the annual price in every fee table, derived from the monthly one like `annualPrice`. */
-const annualRow = (monthly: number): [string, string] => [
-  "Annual prepay",
-  `${money(annual(monthly))} per year (12 months for the price of ${ANNUAL_MONTHS_CHARGED})`,
-];
-/** v5.3: true on both periods — no minimum term monthly, the paid year on annual. */
-const MINIMUM_TERM_ROW: [string, string] = ["Minimum term", "None on monthly billing. Annual prepay runs for the paid year."];
+const MINIMUM_TERM_ROW: [string, string] = ["Minimum term", "None"];
+const EXTRA_PAGES_ROW: [string, string] = ["Additional pages beyond those included", "Quoted per request"];
+const CHARGEBACK_ROW: [string, string] = ["Chargeback reimbursement", "The processor's fee"];
+
+/** v6.0 (SMS campaign v1). Swapped for `TEXT_ALERT_LINE_V2` under the v2 campaign (v6.1). */
+export const TEXT_ALERT_LINE =
+  "A text summary from Juneau Digital Designs to the Client's mobile phone after each call the AI receptionist handles, if the Client opts in to text alerts";
+export const TEXT_ALERT_LINE_V2 =
+  "A text alert from Juneau Digital Designs to the Client's mobile phone whenever a new lead, from a call or the website contact form, is recorded in the client portal, if the Client opts in to text alerts";
+
+const SITE_LINE =
+  "One (1) custom website of four (4) or more pages (Home, Services, About, and Contact, plus individual service pages where the Client's information supports them) at a single domain, with an optional additional page available";
+const SEARCH_LINE =
+  "A search-ready build: page titles, descriptions and canonical addresses, a sitemap, structured data, and fast pages that work on phones";
+const DOMAIN_LINE =
+  "Domain name registration and renewals, in the Client's own Cloudflare account, once the domain is chosen with the Client after launch";
+const STATS_LINE = "Site statistics through Vercel Analytics, and Lighthouse performance checks";
 
 /** Shared by every tier: the receptionist bullets, which no longer vary by plan. */
 const RECEPTIONIST_INCLUDED = [
   "One (1) dedicated business phone number",
   "One (1) AI receptionist answering inbound calls 24/7, which answers only when the Client's own line is not picked up",
-  "A text alert from Juneau Digital Designs to the Client's phone whenever a new lead, from a call or the website contact form, is recorded in the client portal",
+  TEXT_ALERT_LINE,
   "A lead record for every call, with the caller's name, number, and reason for calling, delivered to the client portal",
   "Auto-generated call summaries and call metadata for every call, viewable in the client portal",
 ];
@@ -79,7 +68,6 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     slug: "starter",
     name: "Starter",
     monthlyPrice: 197,
-    annualPrice: annual(197),
     onboardingFee: 297,
     siteLabel: "one (1) website",
     maxSites: 1,
@@ -90,30 +78,31 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     supportResponse: "one (1) business day",
     cancellationNoticeDays: 0,
     included: [
-      "One (1) custom four-page website (Home, Services, About, and Contact) at a single domain, with an optional fifth page available",
+      SITE_LINE,
+      SEARCH_LINE,
       "Hosting on enterprise-grade infrastructure (Vercel)",
       "SSL certificate and secure HTTPS delivery",
       "Daily backups and uptime monitoring",
+      DOMAIN_LINE,
       ...RECEPTIONIST_INCLUDED,
       "Website contact form submissions recorded as leads in the client portal",
       "Two (2) content edit requests per month (copy and colors only)",
-      "One Google Analytics 4 property setup",
+      STATS_LINE,
       "Client portal access for website health, site status, and the call log",
       "Support response within one (1) business day",
       `Up to ${mins(STARTER_MINUTES)} call-minutes per month`,
     ],
     feeTable: [
       ["Monthly subscription", "$197 per month"],
-      annualRow(197),
       onboardingRow(297),
       ["Call-minutes included", `${mins(STARTER_MINUTES)} per month`],
       overageRow(),
       ["Content edits included", "2 per month (copy and colors only)"],
       ["Additional edits, layout, or design changes", "Quoted per request"],
-      ["Additional pages beyond five", "Quoted per request"],
+      EXTRA_PAGES_ROW,
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
-      ["Chargeback reimbursement", "$15-$25 per occurrence"],
-      ["Phone number port-out (on termination)", "$50 per number"],
+      CHARGEBACK_ROW,
+      ["Phone number port-out (when you leave)", "$50 per number"],
       MINIMUM_TERM_ROW,
     ],
   },
@@ -122,7 +111,6 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     slug: "growth",
     name: "Growth",
     monthlyPrice: 497,
-    annualPrice: annual(497),
     onboardingFee: 297,
     siteLabel: "one (1) website",
     maxSites: 1,
@@ -145,16 +133,15 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     ],
     feeTable: [
       ["Monthly subscription", "$497 per month"],
-      annualRow(497),
       onboardingRow(297),
       ["Call-minutes included", `${mins(GROWTH_MINUTES)} per month`],
       overageRow(),
       ["Content edits included", "2 per month (copy and colors only)"],
       ["Additional edits, layout, or design changes", "Quoted per request"],
-      ["Additional pages beyond five", "Quoted per request"],
+      EXTRA_PAGES_ROW,
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
-      ["Chargeback reimbursement", "$15-$25 per occurrence"],
-      ["Phone number port-out (on termination)", "$50 per number"],
+      CHARGEBACK_ROW,
+      ["Phone number port-out (when you leave)", "$50 per number"],
       MINIMUM_TERM_ROW,
     ],
   },
@@ -163,7 +150,6 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     slug: "enterprise",
     name: "Enterprise",
     monthlyPrice: 1097,
-    annualPrice: annual(1097),
     onboardingFee: 697,
     siteLabel: "two (2) to three (3) websites",
     maxSites: 3,
@@ -175,7 +161,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     cancellationNoticeDays: 0,
     included: [
       "Everything included in the Growth plan",
-      "Two (2) to three (3) custom four-page websites (Home, Services, About, and Contact), each at its own domain, with an optional fifth page per site",
+      "Two (2) to three (3) custom websites of four (4) or more pages each (Home, Services, About, and Contact, plus individual service pages where the Client's information supports them), each at its own domain, with an optional additional page per site",
       "One (1) dedicated business phone number per site",
       "One (1) AI receptionist per site, each tuned to that site's business",
       "One shared call log covering every site under this Agreement",
@@ -186,17 +172,16 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     ],
     feeTable: [
       ["Monthly subscription", "$1,097 per month"],
-      annualRow(1097),
       onboardingRow(697),
       ["Websites covered", "2 to 3"],
       ["Call-minutes included", `${mins(ENTERPRISE_MINUTES)} per month, pooled across all sites`],
       overageRow(),
       ["Content edits included", "2 per month per site (up to 6 total)"],
       ["Additional edits, layout, or design changes", "Quoted per request"],
-      ["Additional pages beyond five", "Quoted per request"],
+      EXTRA_PAGES_ROW,
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
-      ["Chargeback reimbursement", "$15-$25 per occurrence"],
-      ["Phone number port-out (on termination)", "$50 per number (up to $150 for all three)"],
+      CHARGEBACK_ROW,
+      ["Phone number port-out (when you leave)", "$50 per number (up to $150 for all three)"],
       MINIMUM_TERM_ROW,
     ],
   },
@@ -206,24 +191,16 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
  * The off-menu website-only plan, for a prospect who refuses to have AI on their phone line.
  *
  * **Never priced or listed as a public tier.** It is a sales concession, priced identically to
- * Starter on purpose so it is never the economically attractive choice. The pricing page
- * acknowledges it only as an FAQ answer — "can I get the website without the receptionist?" —
- * and never as a fourth card carrying a price.
+ * Starter on purpose so it is never the economically attractive choice.
  *
- * Deliberately not a member of `SCHEDULES`, and `slug` stays `"starter"`: `PlanSlug` is a
- * union consumed by the portal account record, the entitlement gate, metering and the console,
- * and widening it for a variant that bills exactly like Starter would ripple through all of
- * them. Web-only is a property of a Starter site (`receptionistMode: "declined"`), not a
- * product of its own. Only the agreement renderer consumes this.
- *
- * This is also the one schedule where `hasVoiceAgent: false`, which is why those branches in
- * terms-v5.ts must stay. See `PlanSchedule.hasVoiceAgent`.
+ * Deliberately not a member of `SCHEDULES`, and `slug` stays `"starter"`: web-only is a property
+ * of a Starter site (`receptionistMode: "declined"`), not a product of its own. Only the Terms
+ * renderer consumes this. It is the one schedule where `hasVoiceAgent: false`.
  */
 export const WEB_ONLY_SCHEDULE: PlanSchedule = {
   slug: "starter",
   name: "Starter (Website Only)",
   monthlyPrice: 197,
-  annualPrice: annual(197),
   onboardingFee: 297,
   siteLabel: "one (1) website",
   maxSites: 1,
@@ -234,26 +211,27 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
   supportResponse: "one (1) business day",
   cancellationNoticeDays: 0,
   included: [
-    "One (1) custom four-page website (Home, Services, About, and Contact) at a single domain, with an optional fifth page available",
+    SITE_LINE,
+    SEARCH_LINE,
     "Hosting on enterprise-grade infrastructure (Vercel)",
     "SSL certificate and secure HTTPS delivery",
     "Daily backups and uptime monitoring",
+    DOMAIN_LINE,
     "Website contact form submissions recorded as leads in the client portal",
     "Two (2) content edit requests per month (copy and colors only)",
-    "One Google Analytics 4 property setup",
+    STATS_LINE,
     "Client portal access for website health and site status",
     "Support response within one (1) business day",
   ],
   feeTable: [
     ["Monthly subscription", "$197 per month"],
-    annualRow(197),
     onboardingRow(297),
     ["AI receptionist", "Not included on this plan"],
     ["Content edits included", "2 per month (copy and colors only)"],
     ["Additional edits, layout, or design changes", "Quoted per request"],
-    ["Additional pages beyond five", "Quoted per request"],
+    EXTRA_PAGES_ROW,
     ["Late fee (invoice unpaid more than 15 days)", "$25"],
-    ["Chargeback reimbursement", "$15-$25 per occurrence"],
+    CHARGEBACK_ROW,
     MINIMUM_TERM_ROW,
   ],
 };
@@ -261,18 +239,6 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
 export function getSchedule(plan: PlanSlug): PlanSchedule {
   return SCHEDULES[plan];
 }
-
-/** The first-month guarantee's terms, shared by the agreement and the pricing page. */
-export const GUARANTEE = {
-  minQualifiedLeads: GUARANTEE_MIN_LEADS,
-  windowDays: GUARANTEE_WINDOW_DAYS,
-} as const;
-
-/** Annual prepay terms, shared by the pricing page's toggle and the billing layer. */
-export const ANNUAL = {
-  monthsCharged: ANNUAL_MONTHS_CHARGED,
-  monthsFree: 12 - ANNUAL_MONTHS_CHARGED,
-} as const;
 
 /** Included minutes per tier, for the one place that injects metering caps. */
 export const MINUTES = {

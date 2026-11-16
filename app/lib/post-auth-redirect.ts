@@ -7,9 +7,9 @@
  *
  * Why the hop: Clerk finishes a sign-up by pushing the destination through the Next router, a
  * client-side transition. From `/portal/sign-up` to `/start`, that transition leaves the portal
- * layout, which is the only place Clerk is mounted, while `/start` redirects on to `/agreement`.
+ * layout, which is the only place Clerk is mounted, while `/start` redirects on to `/terms/accept`.
  * On the 2026-11-04 Stripe test run that transition never finished: the server answered with
- * `/agreement` and the browser kept showing the sign-up page until a reload. Both fresh sign-ups
+ * `/terms/accept` and the browser kept showing the sign-up page until a reload. Both fresh sign-ups
  * hit it. A reload fixed it because a reload is a full page load, so the hop does that
  * reload for the buyer: Clerk's push stays inside the portal layout, and the funnel starts with
  * a full page load carrying the session cookie that was just set.

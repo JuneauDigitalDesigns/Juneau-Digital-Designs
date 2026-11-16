@@ -44,7 +44,7 @@ export function consolidationParagraph(input: {
     return (
         `${hostName}'s Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current ${interval}, which ends on ${periodEnd}.` +
         otherSentence +
-        ` You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.`
+        ` You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Terms of Service for the Enterprise plan on the next screen before anything is charged.`
     );
 }
 
@@ -93,16 +93,16 @@ export function cancellationCardText(input: { periodEnd: string }): string {
 export const CANCEL_EMAIL_ACCESS =
     "You keep full access until that date, and you won't be charged again for this site apart from any call-minute overage from your final month.";
 export const CANCEL_EMAIL_NOTICE =
-    "This email is your written confirmation of cancellation under your service agreement. No notice period applies. If you have questions, reply to this email.";
+    "This email is your written confirmation of cancellation under our Terms of Service. No notice period applies. If you have questions, reply to this email.";
 export function cancelEmailFooter(submittedOn: string): string {
-    return `This email confirms cancellation under the Juneau Digital Designs Master Services Agreement. Cancellation request submitted ${submittedOn}.`;
+    return `This email confirms cancellation under the Juneau Digital Designs Terms of Service. Cancellation request submitted ${submittedOn}.`;
 }
 
 /* ── Website-only → receptionist (D7) ─────────────────────────────────────────────────── */
 
 export const RECEPTIONIST_FAILED = `We couldn't switch on your receptionist, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;
 export const RECEPTIONIST_SESSION_EXPIRED =
-    "Your session expired while signing. Your agreement is saved. Please sign in and try again.";
+    "Your session expired before you finished. Your acceptance is saved. Please sign in and try again.";
 
 /** A downgrade the client accepted that could not be scheduled, or a stale accept link. */
 export const DOWNGRADE_FAILED = `We couldn't schedule your plan change, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;
