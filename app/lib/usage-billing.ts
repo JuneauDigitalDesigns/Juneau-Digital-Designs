@@ -10,7 +10,8 @@ import { listAccounts } from "./account-store";
 import { resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import type { PortalAccount } from "@jdd/schema";
 import type Stripe from "stripe";
-import { meteringWindows } from "./billing-periods.mjs";
+import { capForWindow, meteringWindows } from "./billing-periods.mjs";
+import { carriedMinutesFor } from "./minute-carry";
 
 // $0.20/min = 20 cents/min in Stripe's integer-cents currency
 const OVERAGE_CENTS_PER_MINUTE = 20;
@@ -141,11 +142,18 @@ async function processGroup(
     subscriptionStartMs: subscription.start_date * 1000,
   });
 
+  // Unused Growth minutes carried into an Enterprise pool for the month Growth sites moved onto
+  // it (minute-carry.ts). Throws if they can't be worked out, which skips this allowance for the
+  // run: billing or warning against a guessed allowance is the thing to avoid.
+  const carry = await carriedMinutesFor(account, group, retellApiKey);
+  const capOf = (windowStartMs: number) => capForWindow(cap, carry, windowStartMs);
+
   // Usage for THIS allowance in THIS month — one site on Growth, the whole bundle on Enterprise.
   const secondsUsed = current
     ? await sumAgentSeconds(retellApiKey, voiceSites, current.startMs, now)
     : 0;
-  const capSeconds = cap * 60;
+  const currentCap = current ? capOf(current.startMs) : cap;
+  const capSeconds = currentCap * 60;
   const pct = capSeconds > 0 ? secondsUsed / capSeconds : 0;
 
   /**
@@ -172,12 +180,12 @@ async function processGroup(
   if (!current) {
     // Between windows (a period boundary): nothing to warn about until the next month opens.
   } else if (pct >= 1.0 && !warnFlags.sent100) {
-    await sendUsageWarning(email, "100pct", secondsUsed, cap, groupLabel, current.endMs);
+    await sendUsageWarning(email, "100pct", secondsUsed, currentCap, groupLabel, current.endMs);
     await getRedis().set(warnKey, { sent80: true, sent100: true });
     warned80 = true;
     warned100 = true;
   } else if (pct >= 0.8 && !warnFlags.sent80) {
-    await sendUsageWarning(email, "80pct", secondsUsed, cap, groupLabel, current.endMs);
+    await sendUsageWarning(email, "80pct", secondsUsed, currentCap, groupLabel, current.endMs);
     await getRedis().set(warnKey, { ...warnFlags, sent80: true });
     warned80 = true;
   }
@@ -216,7 +224,8 @@ async function processGroup(
         periodStartMs,
         periodEndMs,
       );
-      const overageSeconds = Math.max(0, closedSeconds - capSeconds);
+      const windowCap = capOf(periodStartMs);
+      const overageSeconds = Math.max(0, closedSeconds - windowCap * 60);
 
       // Prorated to the second, rounded once to the nearest cent. Billing whole minutes meant
       // a client who ran 30 seconds over paid for a full minute they never used, and it broke
@@ -224,7 +233,7 @@ async function processGroup(
       const amount = Math.round((overageSeconds / 60) * OVERAGE_CENTS_PER_MINUTE);
 
       if (amount > 0) {
-        const description = `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`;
+        const description = `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${windowCap} min included)`;
         if (subscription.status === "canceled") {
           // A cancelled subscription has no next invoice at all. Its final month only closes
           // once it has ended, so that month's overage goes on its own invoice too, rather than
@@ -243,7 +252,7 @@ async function processGroup(
         }
         console.log(`[usage-billing] billed overage for ${email}/${groupRef}: ${duration(overageSeconds)}, ${amount}c`);
       } else {
-        console.log(`[usage-billing] ${email}/${groupRef}: period closed, no billable overage (${duration(closedSeconds)} of ${cap} min)`);
+        console.log(`[usage-billing] ${email}/${groupRef}: period closed, no billable overage (${duration(closedSeconds)} of ${windowCap} min)`);
       }
 
       // Mark billed regardless — "no overage" is a valid billed state that should not re-run.

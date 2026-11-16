@@ -219,3 +219,44 @@ export function consolidationPrice({ monthly, priceId }) {
   if (monthly.some((m) => !m)) return { ok: false, code: "not-monthly" };
   return priceId ? { ok: true, priceId } : { ok: false, code: "no-price" };
 }
+
+/**
+ * The unused Growth minutes one site brings into the Enterprise pool when it moves onto
+ * Enterprise (Xander, 2026-11-16: they "carry over just for the rest of the month").
+ *
+ * The pool counts every bundle site's calls from the start of the Enterprise month (the host
+ * subscription's current period), so the site's own month and the pool's month can overlap or
+ * not, and each call must count against exactly one allowance:
+ *
+ *   - `usedBeforePoolSeconds`: the site's calls in its own Growth month BEFORE the Enterprise month
+ *     began. The pool doesn't count them, so they come off the Growth minutes the site brings.
+ *   - `poolCountedEarlierSeconds`: calls the pool DOES count that belonged to the site's previous
+ *     Growth month (its month began after the Enterprise month did). That month's allowance
+ *     already covered them, so they are given back.
+ *
+ * Calls in the overlap are counted by the pool and drawn from the minutes brought, which is the
+ * same as drawing them from the site's own Growth allowance. The host's own Growth month IS the
+ * Enterprise month, so it brings all its Growth minutes and its calls so far are in the pool.
+ *
+ * @param {{ capMinutes: number, usedBeforePoolSeconds: number, poolCountedEarlierSeconds: number }} input
+ * @returns {number} whole minutes, rounded down
+ */
+export function carriedMinutes({ capMinutes, usedBeforePoolSeconds, poolCountedEarlierSeconds }) {
+  const leftSeconds = Math.max(0, capMinutes * 60 - usedBeforePoolSeconds);
+  return Math.floor((leftSeconds + poolCountedEarlierSeconds) / 60);
+}
+
+/**
+ * The allowance for one metering window: the plan's cap, plus minutes carried over from moved
+ * Growth sites when the window is the one the move happened in. A carry-over not yet worked out
+ * (`minutes` absent) adds nothing rather than guessing.
+ *
+ * @param {number} baseCap
+ * @param {{ windowStartMs: number, minutes?: number } | null | undefined} carry
+ * @param {number} windowStartMs
+ * @returns {number}
+ */
+export function capForWindow(baseCap, carry, windowStartMs) {
+  if (!carry || carry.windowStartMs !== windowStartMs || typeof carry.minutes !== "number") return baseCap;
+  return baseCap + carry.minutes;
+}
