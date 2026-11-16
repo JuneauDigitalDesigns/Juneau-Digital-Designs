@@ -86,13 +86,16 @@ test("what blocks", () => {
     assert.equal(NOT_AGREED_MESSAGE, "This customer hasn't agreed to texts, so we can't message them.");
 });
 
+// Since 2026-11-16 the spoken answer is read by the consent gate (`customer-text-consent.ts`), which
+// also requires consent on record; `test/customer-text-consent.test.mjs` drives both routes.
 test("both ways of texting a customer check it before sending", () => {
     for (const path of ["messages", "review-request"]) {
         const src = readFileSync(new URL(`../app/api/portal/${path}/route.ts`, import.meta.url), "utf8");
-        const gate = src.indexOf("await checkSpokenConsent(");
+        const gate = src.indexOf("await checkCustomerTextConsent(");
         assert.ok(gate > -1, `${path} has no consent check`);
         assert.ok(gate < src.indexOf("await sendSms("), `${path} sends before it checks`);
-        assert.match(src, /spoken === "unavailable"/, `${path} must refuse when the log can't be read`);
+        assert.match(src, /consent\.reason === "unavailable"|consent\.reason !== "unavailable"/, `${path} must refuse when consent can't be checked`);
+        assert.match(src, /consent: consent\.consent/, `${path} hands the gate's proof to sendSms`);
     }
 });
 

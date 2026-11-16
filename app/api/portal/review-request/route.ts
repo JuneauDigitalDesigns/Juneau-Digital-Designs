@@ -6,7 +6,7 @@ import { normalizeE164 } from "@/app/lib/phone";
 import { sendSms } from "@/app/lib/twilio";
 import { appendActivity, findCustomerByPhone, recordReviewSend } from "@/app/lib/portal-crm";
 import { reviewRequestActivity } from "@/app/lib/review-message";
-import { checkSpokenConsent } from "@/app/lib/spoken-consent-check";
+import { checkCustomerTextConsent } from "@/app/lib/customer-text-consent";
 import { NOT_AGREED_MESSAGE } from "@/app/lib/spoken-consent";
 import {
     canSendReview,
@@ -76,13 +76,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: REASON_MESSAGE[reason], reason }, { status: statusFor(reason) });
     }
 
-    // What they said on a call. After `canSendReview`, so its setup answers come first.
-    const spoken = await checkSpokenConsent(ctx, phone);
-    if (spoken === "declined" || spoken === "not-agreed") {
-        const reason: ReviewBlockReason = spoken === "declined" ? "opted-out" : "not-agreed";
+    // No consent on record, no send (`customer-text-consent.ts`, 2026-11-16): a yes on a call for
+    // this number, or the form's consent record on the lead their customer record came from.
+    // After `canSendReview`, so its setup answers come first.
+    const consent = await checkCustomerTextConsent(ctx, { phone });
+    if (!consent.ok && consent.reason !== "unavailable") {
+        const reason: ReviewBlockReason =
+            consent.reason === "no-number"
+                ? "no-number"
+                : consent.reason === "declined" || consent.reason === "opted-out"
+                  ? "opted-out"
+                  : "not-agreed";
         return NextResponse.json({ error: REASON_MESSAGE[reason], reason }, { status: statusFor(reason) });
     }
-    if (spoken === "unavailable") {
+    if (!consent.ok) {
         return NextResponse.json(
             { error: "We couldn't send that just now. Please try again in a moment." },
             { status: 502 },
@@ -113,6 +120,7 @@ export async function POST(request: Request) {
             lane: "customer",
             messagingServiceSid: serviceSid,
             from: fromNumber,
+            consent: consent.consent,
             statusCallback,
         });
         sid = res.sid;

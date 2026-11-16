@@ -44,6 +44,8 @@ Object.assign(process.env, {
 
 // Dynamic, so the hook above is in place before `server-only` is resolved.
 const { sendSms } = await import("../app/lib/twilio.ts");
+// A customer-lane send needs the consent gate's proof since 2026-11-16 (customer-text-consent.test.mjs).
+const { issueTextConsentToken } = await import("../app/lib/customer-text-consent-token.ts");
 const { notifyOwnerOfLead, leadAlertBodyV2, leadAlertName } = await import("../app/lib/lead-alert.ts");
 const { accountScope } = await import("../app/lib/portal-kv.ts");
 
@@ -163,6 +165,7 @@ test("customer lane is unaffected: its own service and number, no notification n
         from: CLIENT_NUMBER,
         to: "+14075550001",
         body: "hi",
+        consent: issueTextConsentToken("+14075550001", "call"),
     });
 
     assert.equal(twilioCalls.length, 1);
