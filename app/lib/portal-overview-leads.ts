@@ -27,7 +27,7 @@ export type NeedsReason = "callback" | "web" | "hung-up";
 /** Approved wording (copy draft, batch 2, "Needs you card"). */
 export const REASON_LABEL: Record<NeedsReason, string> = {
     callback: "Wants a callback",
-    web: "Web enquiry",
+    web: "Web inquiry",
     "hung-up": "Hung up, no message",
 };
 
@@ -44,7 +44,7 @@ export const HANG_UP_MAX_SECONDS = 15;
 /**
  * The reason chip, from real fields only.
  *
- * - A web-form item is always "Web enquiry" — that is what it is, whether or not the
+ * - A web-form item is always "Web inquiry" — that is what it is, whether or not the
  *   receptionist has since rung them back.
  * - A call is "Hung up, no message" when there is nothing to call back *about*: no summary
  *   text, a duration under `HANG_UP_MAX_SECONDS`, or the receptionist's own triage word
@@ -196,7 +196,7 @@ export interface LeadWeek {
  * Thursday are two leads that week. Promoted and done items still count — they came in this
  * week, which is what the card says; whether they still need anything is the Needs you card.
  *
- * A Growth web enquiry and the receptionist's callback to it are already one item (see
+ * A Growth web inquiry and the receptionist's callback to it are already one item (see
  * `buildInbox`), so the callback is not a second "call answered".
  */
 export function leadWeek(
@@ -262,13 +262,13 @@ export function caughtAfterHours(
 /**
  * Average seconds from a web-form submission to the receptionist's callback, this week.
  *
- * Only enquiries with a logged callback count — `buildInbox` nests that call under the
- * enquiry as `callback`, so both timestamps are already on the item. Enquiries the receptionist
+ * Only inquiries with a logged callback count — `buildInbox` nests that call under the
+ * inquiry as `callback`, so both timestamps are already on the item. Inquiries the receptionist
  * has not rung (yet, or at all) are left out rather than counted as zero or as infinity: the
  * tile's approved line is "Average time for your receptionist to call a web lead back", which
  * is a claim about the calls that happened. Null when there were none, and the tile hides.
  *
- * "This week" is by when the enquiry arrived. A negative gap cannot come out of `buildInbox`
+ * "This week" is by when the inquiry arrived. A negative gap cannot come out of `buildInbox`
  * (it pairs only calls at or after the form) but is skipped anyway rather than averaged.
  */
 export function callbackSpeedSeconds(items: InboxItem[], week: WeekBounds): number | null {

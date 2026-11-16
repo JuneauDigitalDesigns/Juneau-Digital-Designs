@@ -3,8 +3,8 @@
  * page, the client sections and the tests all read one definition.
  *
  * Days are UTC `YYYYMMDD` strings throughout, because that is how the traffic payload buckets
- * its visits (`portal-traffic.ts` slices Vercel's ISO timestamps). Bucketing enquiries any other
- * way would put a 9pm enquiry on a different day from the visit that sent it.
+ * its visits (`portal-traffic.ts` slices Vercel's ISO timestamps). Bucketing inquiries any other
+ * way would put a 9pm inquiry on a different day from the visit that sent it.
  */
 
 export const ANALYTICS_RANGES = [7, 30, 90] as const;
@@ -24,31 +24,31 @@ export function utcDayKey(ms: number): string {
     return new Date(ms).toISOString().slice(0, 10).replace(/-/g, "");
 }
 
-export interface EnquiryWindow {
-    /** Form enquiries in the window. */
+export interface InquiryWindow {
+    /** Form inquiries in the window. */
     count: number;
-    /** Form enquiries in the window of the same length just before it. */
+    /** Form inquiries in the window of the same length just before it. */
     previous: number;
-    /** The days in the window on which at least one enquiry arrived, for the chart markers. */
+    /** The days in the window on which at least one inquiry arrived, for the chart markers. */
     days: string[];
 }
 
-export type EnquirySummary = Record<AnalyticsRange, EnquiryWindow>;
+export type InquirySummary = Record<AnalyticsRange, InquiryWindow>;
 
 /**
- * Web-form enquiries per range, current and previous window.
+ * Web-form inquiries per range, current and previous window.
  *
  * Every range is computed at once from one read of the leads, so switching 7/30/90 days on the
  * page costs no request. The window starts on the same UTC day the traffic query's `since`
- * does (`today − N days`), so "enquiries" and "visits" describe the same days.
+ * does (`today − N days`), so "inquiries" and "visits" describe the same days.
  */
-export function summarizeEnquiries(createdAt: string[], nowMs: number): EnquirySummary {
+export function summarizeInquiries(createdAt: string[], nowMs: number): InquirySummary {
     const dayKeys = createdAt
         .map((iso) => new Date(iso).getTime())
         .filter((t) => !Number.isNaN(t) && t <= nowMs)
         .map(utcDayKey);
 
-    const out = {} as EnquirySummary;
+    const out = {} as InquirySummary;
     for (const range of ANALYTICS_RANGES) {
         const since = utcDayKey(nowMs - range * DAY_MS);
         const prevSince = utcDayKey(nowMs - 2 * range * DAY_MS);
@@ -63,19 +63,19 @@ export function summarizeEnquiries(createdAt: string[], nowMs: number): EnquiryS
 }
 
 /**
- * Visits → enquiries as a percentage and as "1 in N".
+ * Visits → inquiries as a percentage and as "1 in N".
  *
  * Null when there were no visits, since a rate over nothing is not a fact. `oneIn` is null when
- * there were no enquiries: "1 in ∞" is not something to print either.
+ * there were no inquiries: "1 in ∞" is not something to print either.
  */
-export function enquiryRate(
-    enquiries: number,
+export function inquiryRate(
+    inquiries: number,
     visits: number,
 ): { pct: number; oneIn: number | null } | null {
     if (visits <= 0) return null;
     return {
-        pct: (enquiries / visits) * 100,
-        oneIn: enquiries > 0 ? Math.round(visits / enquiries) : null,
+        pct: (inquiries / visits) * 100,
+        oneIn: inquiries > 0 ? Math.round(visits / inquiries) : null,
     };
 }
 

@@ -278,7 +278,7 @@ function callRow(id, at, number = LEAD_PHONE) {
     };
 }
 
-test("callback speed averages form-to-callback gaps on this week's enquiries", () => {
+test("callback speed averages form-to-callback gaps on this week's inquiries", () => {
     const week = weekBounds(NOW, TZ);
     const t1 = est(10, 9, 0);
     const t2 = est(11, 9, 0);
@@ -286,12 +286,12 @@ test("callback speed averages form-to-callback gaps on this week's enquiries", (
         calls: [callRow("recCallbackAAAAAA1", t1 + 40_000), callRow("recCallbackAAAAAA2", t2 + 56_000, "+15125550148")],
         leads: [webLead("one", t1), { ...webLead("two", t2), phone: "+15125550148" }],
     });
-    // Both calls were folded into their enquiries rather than listed on their own.
+    // Both calls were folded into their inquiries rather than listed on their own.
     assert.equal(items.length, 2);
     assert.equal(callbackSpeedSeconds(items, week), 48);
 });
 
-test("callback speed ignores enquiries with no callback, and last week's", () => {
+test("callback speed ignores inquiries with no callback, and last week's", () => {
     const week = weekBounds(NOW, TZ);
     const lastWeek = est(4, 9, 0);
     const items = buildInbox({
@@ -511,7 +511,7 @@ test("activity merges sources newest first, in the approved wording", () => {
         [
             "Ana Ruiz texted back",
             "Your receptionist answered Dave Kowalski",
-            "New web enquiry from Priya Nair",
+            "New web inquiry from Priya Nair",
             "Ana Ruiz moved to Won · $2,140",
         ],
     );

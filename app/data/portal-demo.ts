@@ -31,7 +31,7 @@ export const DEMO_STEPS: DemoStep[] = [
         key: "inbox",
         short: "Inbox",
         plan: "Every plan",
-        caption: "Every call and web enquiry lands in your inbox. Open one to see who it was and what they need.",
+        caption: "Every call and web inquiry lands in your inbox. Open one to see who it was and what they need.",
         ms: 7200,
     },
     {

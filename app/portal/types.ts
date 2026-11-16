@@ -62,8 +62,8 @@ export interface PortalClientProps {
 export const PORTAL_TABS = [
     { id: "overview", label: "Overview", shortLabel: "Overview", href: "", feature: null },
     // Renamed from "Call Log": this is now the triage surface for calls *and* web-form
-    // enquiries. The href stays `calls` so existing links and bookmarks keep working, and its
-    // gate moved to `leads` — web-only sites have no call log but do receive form enquiries.
+    // inquiries. The href stays `calls` so existing links and bookmarks keep working, and its
+    // gate moved to `leads` — web-only sites have no call log but do receive form inquiries.
     { id: "calls", label: "Inbox", shortLabel: "Inbox", href: "calls", feature: "leads" },
     { id: "customers", label: "Customers", shortLabel: "Customers", href: "customers", feature: "crm" },
     // Scheduling and follow-ups (Xander, 2026-11-12), part of the CRM: same gate as Customers,

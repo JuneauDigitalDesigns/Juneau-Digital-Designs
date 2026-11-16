@@ -166,7 +166,7 @@ the callback attached beneath it ("We called them back — 2m 41s"). `callbackPl
 that a call should be expected. Promotion then creates one customer with both activities on the
 timeline.
 
-Never show the raw pair as two unrelated items: to the client it was one enquiry, and a lead list
+Never show the raw pair as two unrelated items: to the client it was one inquiry, and a lead list
 that double-counts is a lead list they stop trusting.
 
 ---
@@ -351,7 +351,7 @@ A chronological triage list of inbound items (calls, form leads) for the selecte
 - Promoted items get a quiet "In your customers →" affordance; they are not removed from the Inbox
   (it is a log, not a queue to empty). _(decide)_ a "hide promoted" toggle, default off.
 - **Form + callback collapse** (§1.5): a form submission and the Retell callback it triggered render
-  as one item, the call nested beneath the enquiry.
+  as one item, the call nested beneath the inquiry.
 - **Read state** uses `WebLead.readAt` for form leads (set on open). Do not invent a parallel
   read-state store; calls get an equivalent marker in the v2 namespace.
 - Starter sees this exactly as Growth does, minus Promote.
@@ -404,7 +404,7 @@ the drawer will use this as a list of names.
 So the Growth tour gains a **second act, inside the drawer**, driven by the same driver.js
 instance. Tour stops become:
 
-1. **Inbox** — "every call and web enquiry lands here"
+1. **Inbox** — "every call and web inquiry lands here"
 2. **Promote** — "when it's a real job, make them a customer"
 3. **Board** — "drag them along as the job moves"
 4. → *opens a customer* → **drawer stops:**

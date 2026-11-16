@@ -14,7 +14,7 @@ export const runtime = "nodejs";
  * The Inbox — raw inbound awaiting triage, on every tier.
  *
  * Gated on `leads`, not `calls`: a web-only site has no Airtable base and never will, but does
- * receive web-form enquiries. When the call feature isn't available we return the lead-only
+ * receive web-form inquiries. When the call feature isn't available we return the lead-only
  * inbox rather than an error.
  *
  * Both sources degrade independently. A site with no Airtable base yields a lead-only inbox; a
