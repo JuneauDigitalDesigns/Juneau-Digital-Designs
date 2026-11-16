@@ -31,6 +31,7 @@ delete process.env.INTAKE_QUEUE_ENABLED;
 
 const { POST } = await import("../app/api/portal/onboarding/route.ts");
 const { intakeOriginIds } = await import("../app/lib/intake-origin.ts");
+const { intakeOrigin } = await import("@jdd/schema");
 
 const EMAIL = "cora@copperline.test";
 const redis = fakeUpstash({ url: KV_URL });
@@ -95,6 +96,7 @@ test("self-serve: the queued intake carries the purchase id and no order id", as
     const rec = await queued(site({ purchaseId: "pur_copperline" }));
     assert.equal(rec.purchaseId, "pur_copperline");
     assert.equal("orderId" in rec, false);
+    assert.equal(intakeOrigin(rec), "self-serve", "the console reads it as self-serve");
 });
 
 test("closed on a call: the queued intake carries the order id, and keeps the locked address", async () => {
@@ -102,12 +104,14 @@ test("closed on a call: the queued intake carries the order id, and keeps the lo
     assert.equal(rec.orderId, "ord_copperline");
     assert.equal(rec.slugGuess, "copperline-heating");
     assert.equal("purchaseId" in rec, false);
+    assert.equal(intakeOrigin(rec), "operator-call", "the console reads it as a call close");
 });
 
 test("a site with neither id (pre-cutover) queues neither key, never an empty one", async () => {
     const rec = await queued(site());
     assert.equal("orderId" in rec, false);
     assert.equal("purchaseId" in rec, false);
+    assert.equal(intakeOrigin(rec), null, "unknown, so the console falls back to the address claim");
 });
 
 test("intakeOriginIds leaves out blank and null ids", () => {
