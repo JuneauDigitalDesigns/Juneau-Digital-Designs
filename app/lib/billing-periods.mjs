@@ -117,6 +117,26 @@ export function immediateChangeParams({ fromPlan, toPlan }) {
 }
 
 /**
+ * The subscription's PLAN item: the one recurring item whose price is a plan price.
+ *
+ * A subscription can carry more than the plan: the Search add-on is a second recurring item on the
+ * same subscription, and the onboarding fee is a one-time item on the first invoice. Everything
+ * that reads or changes the plan goes through this, so an add-on is never mistaken for the plan
+ * and never blocks a plan change. Null when there is no plan item, or more than one (made by hand
+ * in the Dashboard), which callers refuse rather than guess at.
+ *
+ * @template {{ id?: string, price?: { id?: string, recurring?: unknown } | null }} T
+ * @param {T[]} items
+ * @param {Record<string, { monthly?: string | null }>} priceTable
+ * @returns {T | null}
+ */
+export function planItemOf(items, priceTable) {
+  const planPrices = new Set(Object.values(priceTable).map((p) => p.monthly).filter(Boolean));
+  const plans = items.filter((i) => i.price && i.price.recurring != null && planPrices.has(i.price.id));
+  return plans.length === 1 ? plans[0] : null;
+}
+
+/**
  * The subscription-schedule phases that move a subscription to a lower plan at the end of the
  * month the client has already paid for, with no credit or refund.
  *
@@ -128,19 +148,24 @@ export function immediateChangeParams({ fromPlan, toPlan }) {
  * Phase 2's metadata is copied onto the subscription by Stripe when the phase begins, which is
  * what lets the `customer.subscription.updated` webhook find the site and see the change.
  *
+ * `carriedItems` are the subscription's other recurring items (the Search add-on), kept as they
+ * are in both phases. A phase lists every item the subscription has during it, so an item left
+ * out is removed: listing only the plan would drop the add-on the moment the schedule is made.
+ *
  * @param {{ currentPhaseStart: number, periodEnd: number, currentPriceId: string,
- *           targetPriceId: string, metadata: Record<string, string> }} input  times in epoch seconds
+ *           targetPriceId: string, carriedItems?: { price: string, quantity: number }[],
+ *           metadata: Record<string, string> }} input  times in epoch seconds
  */
-export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, metadata }) {
+export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentPriceId, targetPriceId, carriedItems = [], metadata }) {
   return [
     {
-      items: [{ price: currentPriceId, quantity: 1 }],
+      items: [{ price: currentPriceId, quantity: 1 }, ...carriedItems],
       start_date: currentPhaseStart,
       end_date: periodEnd,
       proration_behavior: "none",
     },
     {
-      items: [{ price: targetPriceId, quantity: 1 }],
+      items: [{ price: targetPriceId, quantity: 1 }, ...carriedItems],
       duration: { interval: "month", interval_count: 1 },
       proration_behavior: "none",
       metadata,
@@ -161,9 +186,7 @@ export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentP
  * @returns {string | null}
  */
 export function planFromItems(items, priceTable) {
-  const recurring = items.filter((i) => i.price && i.price.recurring != null);
-  if (recurring.length !== 1) return null;
-  const id = recurring[0].price?.id;
+  const id = planItemOf(items, priceTable)?.price?.id;
   if (!id) return null;
   for (const [plan, prices] of Object.entries(priceTable)) {
     if (prices.monthly === id) return plan;
@@ -195,4 +218,45 @@ export function isMonthly(recurring) {
 export function consolidationPrice({ monthly, priceId }) {
   if (monthly.some((m) => !m)) return { ok: false, code: "not-monthly" };
   return priceId ? { ok: true, priceId } : { ok: false, code: "no-price" };
+}
+
+/**
+ * The unused Growth minutes one site brings into the Enterprise pool when it moves onto
+ * Enterprise (Xander, 2026-11-16: they "carry over just for the rest of the month").
+ *
+ * The pool counts every bundle site's calls from the start of the Enterprise month (the host
+ * subscription's current period), so the site's own month and the pool's month can overlap or
+ * not, and each call must count against exactly one allowance:
+ *
+ *   - `usedBeforePoolSeconds`: the site's calls in its own Growth month BEFORE the Enterprise month
+ *     began. The pool doesn't count them, so they come off the Growth minutes the site brings.
+ *   - `poolCountedEarlierSeconds`: calls the pool DOES count that belonged to the site's previous
+ *     Growth month (its month began after the Enterprise month did). That month's allowance
+ *     already covered them, so they are given back.
+ *
+ * Calls in the overlap are counted by the pool and drawn from the minutes brought, which is the
+ * same as drawing them from the site's own Growth allowance. The host's own Growth month IS the
+ * Enterprise month, so it brings all its Growth minutes and its calls so far are in the pool.
+ *
+ * @param {{ capMinutes: number, usedBeforePoolSeconds: number, poolCountedEarlierSeconds: number }} input
+ * @returns {number} whole minutes, rounded down
+ */
+export function carriedMinutes({ capMinutes, usedBeforePoolSeconds, poolCountedEarlierSeconds }) {
+  const leftSeconds = Math.max(0, capMinutes * 60 - usedBeforePoolSeconds);
+  return Math.floor((leftSeconds + poolCountedEarlierSeconds) / 60);
+}
+
+/**
+ * The allowance for one metering window: the plan's cap, plus minutes carried over from moved
+ * Growth sites when the window is the one the move happened in. A carry-over not yet worked out
+ * (`minutes` absent) adds nothing rather than guessing.
+ *
+ * @param {number} baseCap
+ * @param {{ windowStartMs: number, minutes?: number } | null | undefined} carry
+ * @param {number} windowStartMs
+ * @returns {number}
+ */
+export function capForWindow(baseCap, carry, windowStartMs) {
+  if (!carry || carry.windowStartMs !== windowStartMs || typeof carry.minutes !== "number") return baseCap;
+  return baseCap + carry.minutes;
 }

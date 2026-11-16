@@ -10,6 +10,7 @@ import {
     isMonthly,
     planChangeKind,
     planFromItems,
+    planItemOf,
 } from "./billing-periods.mjs";
 
 const PLAN_SLUGS: PlanSlug[] = ["starter", "growth", "enterprise"];
@@ -34,9 +35,24 @@ export function planForPriceId(priceId: string): PlanSlug | null {
     return planFromItems([{ price: { id: priceId, recurring: {} } }], planPriceTable()) as PlanSlug | null;
 }
 
-/** Which plan a subscription is billed on, from its single recurring item. */
+/** Which plan a subscription is billed on, from its plan item. */
 export function planOfSubscription(sub: Stripe.Subscription): PlanSlug | null {
     return planFromItems(sub.items?.data ?? [], planPriceTable()) as PlanSlug | null;
+}
+
+/**
+ * The subscription's plan item, ignoring an add-on beside it (`planItemOf`). Null when there is no
+ * plan item or more than one; callers refuse rather than guess.
+ */
+export function planItemOfSubscription(sub: Stripe.Subscription): Stripe.SubscriptionItem | null {
+    return planItemOf(sub.items?.data ?? [], planPriceTable());
+}
+
+/** Every recurring item that isn't the plan (the Search add-on), to carry through a schedule. */
+function carriedItemsOf(sub: Stripe.Subscription, planItem: Stripe.SubscriptionItem): { price: string; quantity: number }[] {
+    return (sub.items?.data ?? [])
+        .filter((i) => i.id !== planItem.id && i.price.recurring !== null)
+        .map((i) => ({ price: i.price.id, quantity: i.quantity ?? 1 }));
 }
 
 /**
@@ -317,8 +333,7 @@ export async function inspectSubscriptionPlan(
 
     try {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
-        const price = recurring.length === 1 ? recurring[0].price : null;
+        const price = planItemOfSubscription(subscription)?.price ?? null;
 
         return {
             subscriptionId,
@@ -364,16 +379,15 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
             };
         }
 
-        // Swap the recurring item only. An onboarding fee is a one-time price, not a recurring
-        // one, and replacing it would charge the client for onboarding a second time. This
-        // matters more than it used to: every tier carries an onboarding fee since 2026-10-12,
-        // where previously only Starter did, so every plan change now has one to protect.
-        const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
-        if (recurring.length !== 1) {
+        // Swap the plan item only. An onboarding fee is a one-time price, and replacing it would
+        // charge the client for onboarding a second time; the Search add-on is another recurring
+        // item, and is left exactly as it is (an `items` update only touches the items it names).
+        const planItem = planItemOfSubscription(subscription);
+        if (!planItem) {
             console.error(
-                "[plan-billing] expected exactly one recurring item",
+                "[plan-billing] expected exactly one plan item",
                 subscriptionId,
-                recurring.map((i) => i.price.id),
+                subscription.items.data.map((i) => i.price.id),
             );
             return {
                 ok: false,
@@ -388,7 +402,7 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
          * and swapping its price for a monthly one with proration would credit the unused time,
          * so it is refused rather than re-priced.
          */
-        if (!isMonthly(recurring[0].price.recurring)) {
+        if (!isMonthly(planItem.price.recurring)) {
             return { ok: false, code: "not-monthly", message: "This subscription isn't billed monthly, so it needs changing by hand in Stripe." };
         }
         const targetPriceId = expectedPriceIdFor(targetPlan);
@@ -399,13 +413,13 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
 
         // Already there. Report success without touching Stripe, so a retry, a double click or
         // an operator syncing an already-correct subscription cannot raise a second invoice.
-        if (recurring[0].price.id === targetPriceId) {
+        if (planItem.price.id === targetPriceId) {
             return { ok: true, subscriptionId, changed: false };
         }
 
         // Only an upgrade takes effect now. A downgrade waits for the end of the current month,
         // with no credit, through `scheduleDowngrade`; prorating it now would credit the client.
-        const params = immediateChangeParams({ fromPlan: planForPriceId(recurring[0].price.id), toPlan: targetPlan });
+        const params = immediateChangeParams({ fromPlan: planForPriceId(planItem.price.id), toPlan: targetPlan });
         if (!params) {
             return {
                 ok: false,
@@ -428,7 +442,7 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
         }
 
         await stripe.subscriptions.update(subscriptionId, {
-            items: [{ id: recurring[0].id, price: targetPriceId }],
+            items: [{ id: planItem.id, price: targetPriceId }],
             /**
              * Bill the difference for the rest of the month now, and refuse the change if the
              * card doesn't pay (`immediateChangeParams`). For a client, they have just accepted
@@ -541,6 +555,8 @@ function checkDowngradable(
     | {
           ok: true;
           item: Stripe.SubscriptionItem;
+          /** The other recurring items (the Search add-on), kept through the schedule. */
+          carriedItems: { price: string; quantity: number }[];
           targetPriceId: string;
           fromPlan: PlanSlug;
           period: { start: number; end: number };
@@ -561,8 +577,8 @@ function checkDowngradable(
         };
     }
 
-    const recurring = subscription.items.data.filter((i) => i.price.recurring !== null);
-    if (recurring.length !== 1) {
+    const planItem = planItemOfSubscription(subscription);
+    if (!planItem) {
         return {
             ok: false,
             code: "ambiguous-items",
@@ -571,12 +587,12 @@ function checkDowngradable(
         };
     }
 
-    const fromPlan = planForPriceId(recurring[0].price.id);
+    const fromPlan = planForPriceId(planItem.price.id);
     if (!fromPlan || planChangeKind(fromPlan, targetPlan) !== "downgrade") {
         return { ok: false, code: "not-a-downgrade", message: `That subscription isn't on a plan above ${targetPlan}.` };
     }
 
-    if (!isMonthly(recurring[0].price.recurring)) {
+    if (!isMonthly(planItem.price.recurring)) {
         return { ok: false, code: "not-monthly", message: "This subscription isn't billed monthly, so it needs changing by hand in Stripe." };
     }
     const targetPriceId = expectedPriceIdFor(targetPlan);
@@ -589,7 +605,7 @@ function checkDowngradable(
         return { ok: false, code: "no-period", message: "Couldn't read the subscription's billing period." };
     }
 
-    return { ok: true, item: recurring[0], targetPriceId, fromPlan, period };
+    return { ok: true, item: planItem, carriedItems: carriedItemsOf(subscription, planItem), targetPriceId, fromPlan, period };
 }
 
 /**
@@ -626,7 +642,7 @@ export async function scheduleDowngrade(input: {
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         const checked = checkDowngradable(subscription, targetPlan);
         if (!checked.ok) return checked;
-        const { item, targetPriceId, period } = checked;
+        const { item, carriedItems, targetPriceId, period } = checked;
 
         // A schedule already attached (an earlier request for this site, or one made in the
         // Dashboard) is released first, so the phases below start from the subscription as it
@@ -645,6 +661,7 @@ export async function scheduleDowngrade(input: {
                 periodEnd: period.end,
                 currentPriceId: item.price.id,
                 targetPriceId,
+                carriedItems,
                 metadata: {
                     ...(subscription.metadata ?? {}),
                     plan: targetPlan,

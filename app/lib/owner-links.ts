@@ -142,7 +142,7 @@ export async function resolveOwnerLink({
 
     // Ownership is settled; now WHICH view still holds it. A lead the owner already promoted has
     // left the Inbox (it's a worklist), so it opens in Customers; a callback folded under its
-    // enquiry opens the enquiry. That rule is the CRM's, owned by `resolveInboxDeepLink`, which
+    // inquiry opens the inquiry. That rule is the CRM's, owned by `resolveInboxDeepLink`, which
     // never throws and answers `gone` for anything it can't place.
     const target = await resolveInboxDeepLink(rec.acctScope, rec.slug, rec.itemId);
     if (target.kind === "customer") return customerOpenPath({ slug: rec.slug, customerId: target.customerId });

@@ -134,7 +134,7 @@ test("the welcome tour walks down the tabs, per tier", () => {
 test("the lines Xander approved in the first draft are kept word for word", () => {
     assert.equal(
         body("inbox", "starter", "👋 This is your inbox"),
-        "Every call your receptionist answers and every enquiry from your website lands here. Tap one to see who it was and what they wanted.",
+        "Every call your receptionist answers and every inquiry from your website lands here. Tap one to see who it was and what they wanted.",
     );
     assert.equal(
         body("inbox", "starter", "Find anything fast"),
@@ -145,7 +145,7 @@ test("the lines Xander approved in the first draft are kept word for word", () =
     assert.equal(body("inbox", "starter", "What they said"), "Your receptionist writes up what they wanted. Play the recording to hear the whole call.");
     assert.equal(
         body("inbox", "growth", "Keep the ones that matter"),
-        "When an enquiry is a real job, promote them to a customer. Everything they've said is carried across automatically.",
+        "When an inquiry is a real job, promote them to a customer. Everything they've said is carried across automatically.",
     );
     assert.equal(
         body("welcome", "starter", "Want to go further?"),

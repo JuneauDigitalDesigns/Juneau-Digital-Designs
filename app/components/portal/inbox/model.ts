@@ -20,7 +20,7 @@ import {
 
 /* ── rows ─────────────────────────────────────────────────────────────────── */
 
-/** A list row: one person's run of calls, or one enquiry, all in one status. */
+/** A list row: one person's run of calls, or one inquiry, all in one status. */
 export interface InboxRow extends InboxGroup {
     status: InboxStatus;
 }
@@ -229,7 +229,7 @@ export type Reason = "callback" | "web" | "missed";
  * Why the lead is waiting, from what the item actually carries.
  *
  * There is no intent or urgency field in the payload, so this does not pretend to one: a web
- * form is a web enquiry; a call is "hung up" when it has no summary, lasted under 15 seconds,
+ * form is a web inquiry; a call is "hung up" when it has no summary, lasted under 15 seconds,
  * or Airtable's Outcome says "Hung up"; any other call left a message to answer.
  *
  * The same rule as the Overview's `needsReason()` (#87, `app/lib/portal-overview-leads.ts`),
@@ -248,7 +248,7 @@ export function reasonFor(item: InboxItem): Reason {
 
 export const REASON_LABEL: Record<Reason, string> = {
     callback: "Wants a callback",
-    web: "Web enquiry",
+    web: "Web inquiry",
     missed: "Hung up, no message",
 };
 

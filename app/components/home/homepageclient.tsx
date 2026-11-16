@@ -655,7 +655,7 @@ const EVERY_PLAN: { Icon: typeof Browser; label: string; title: string; detail: 
     Icon: Tray,
     label: "Your leads",
     title: "One inbox for every lead",
-    detail: "Every call and web enquiry lands in your portal, and you get a text the moment a new one arrives.",
+    detail: "Every call and web inquiry lands in your portal, and you get a text the moment a new one arrives.",
   },
 ];
 

@@ -25,7 +25,7 @@ test("the cancellation wording is exactly what Xander approved", async () => {
   const copy = await import("../app/lib/plan-change-copy.ts");
   assert.equal(
     copy.cancellationCardText({ periodEnd: "December 1, 2026" }),
-    "You can cancel at any time. There's no notice period and no fee. Your service stays on, and you won't be charged again, until the end of the month you've already paid for, on December 1, 2026.",
+    "You can cancel at any time. There's no notice period and no fee. You won't be charged again, apart from any call-minute overage from your final month. Your service stays on until the end of the month you've already paid for, on December 1, 2026.",
   );
   assert.equal(
     copy.CANCEL_EMAIL_ACCESS,

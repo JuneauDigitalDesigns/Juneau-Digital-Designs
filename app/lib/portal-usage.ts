@@ -5,6 +5,8 @@ import { getBillingPeriod, type WhichPeriod } from "./billing-period";
 import { getSchedule } from "./legal/schedules";
 import type { PlanSlug } from "./agreement-types";
 import { accountScope, usageKey, getCached, setCached, USAGE_TTL } from "./portal-kv";
+import { carriedMinutesFor } from "./minute-carry";
+import { capForWindow } from "./billing-periods.mjs";
 
 /**
  * How much of this client's included call-time they've used in a billing period.
@@ -129,7 +131,9 @@ async function loadUsage(
             Math.min(period.endMs, Date.now()),
         );
 
-        const cap = group.cap;
+        // The same allowance the billing cron uses, carried-over Growth minutes included.
+        const carry = await carriedMinutesFor(account, group, apiKey);
+        const cap = capForWindow(group.cap, carry, period.startMs);
         const capSeconds = cap * 60;
         const overageSeconds = Math.max(0, secondsUsed - capSeconds);
 

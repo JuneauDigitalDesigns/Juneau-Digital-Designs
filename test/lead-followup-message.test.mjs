@@ -2,7 +2,7 @@
  * The message box a visitor gets when an AI callback couldn't be placed.
  *
  * The lead is already in the inbox by then, and the owner already texted. So the message has to
- * land on that lead: a second lead would show one enquiry twice and text the owner twice.
+ * land on that lead: a second lead would show one inquiry twice and text the owner twice.
  *
  * The real route and store. The network is the only double: an in-memory Upstash on `fetch`.
  */
@@ -67,7 +67,7 @@ const send = (body, token = TOKEN) =>
 const seedLead = async (message = null) =>
     (await recordLeadOnce({ acctScope: ACCT, slug: SLUG, name: "Dana", phoneRaw: "4075550188", message })).lead;
 
-test("the message lands on the existing lead, so the inbox still shows one enquiry", async () => {
+test("the message lands on the existing lead, so the inbox still shows one inquiry", async () => {
     const lead = await seedLead();
     const res = await send({ leadId: lead.leadId, message: " Leak under the sink " });
 

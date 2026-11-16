@@ -105,7 +105,7 @@ const TIERS: PricingTier[] = [
  * shorter, lesser list — the opposite of what is true. Stated once here, the cards carry
  * only the differences and Growth's additions read as additions.
  *
- * "Every call and web enquiry lands in your portal" replaced the old "Lead email" bullet:
+ * "Every call and web inquiry lands in your portal" replaced the old "Lead email" bullet:
  * no plan delivers leads by email any more.
  *
  * Set as a spec line in the page header (three facts between hairlines), not a box: the
@@ -128,7 +128,7 @@ const EVERY_PLAN: { Icon: Icon; title: string; detail: string }[] = [
         // carries no carrier-approval tag.
         Icon: Tray,
         title: "One inbox for every lead",
-        detail: "Every call and web enquiry lands in your portal, and you get a text the moment a new one arrives.",
+        detail: "Every call and web inquiry lands in your portal, and you get a text the moment a new one arrives.",
     },
 ];
 

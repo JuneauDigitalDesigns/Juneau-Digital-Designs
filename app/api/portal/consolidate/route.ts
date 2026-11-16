@@ -6,7 +6,8 @@ import { sendStoredAgreementEmail } from "@/app/lib/agreement-email";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
-import { changeSubscriptionPlan } from "@/app/lib/plan-billing";
+import { changeSubscriptionPlan, subscriptionPeriod } from "@/app/lib/plan-billing";
+import { recordMinuteCarry } from "@/app/lib/minute-carry";
 import { dropBillingCache } from "@/app/lib/portal-kv";
 import { sendOpsNotice } from "@/app/lib/ops-notice";
 import { CARD_DECLINED, consolidationRefusal } from "@/app/lib/plan-change-copy";
@@ -124,6 +125,35 @@ export async function POST(request: Request) {
   }
   record = { ...record, status: "cancelling" };
   await saveConsolidation(record);
+
+  // 1b. The moved sites' unused Growth minutes join the Enterprise pool for the rest of this
+  //     month (Xander, 2026-11-16). Only dates are recorded here; the minutes are worked out from
+  //     Retell when the pool is first metered (minute-carry.ts). The Enterprise month is the host's
+  //     current period, which an upgrade doesn't move.
+  try {
+    const hostPeriod = subscriptionPeriod(plan.host.subscription);
+    if (!hostPeriod) throw new Error("host period unreadable");
+    const sites = [plan.host, ...plan.others].map(({ site, subscription }) => {
+      const own = subscriptionPeriod(subscription);
+      return { slug: site.slug, growthWindowStartMs: (own ?? hostPeriod).start * 1000 };
+    });
+    await recordMinuteCarry({
+      accountEmail: account.email,
+      windowStartMs: hostPeriod.start * 1000,
+      windowEndMs: hostPeriod.end * 1000,
+      movedAt: Date.now(),
+      sites,
+    });
+  } catch (e) {
+    // The host is already on Enterprise and paid for, so the move carries on; without a record
+    // the pool is the plain Enterprise cap. Ops is told so the minutes can be put right by hand.
+    console.error("[consolidate] minute carry-over not recorded", account.email, e);
+    after(() =>
+      sendOpsNotice(`[JDD] Minute carry-over not recorded: ${account.email}`, [
+        `${account.email} moved onto Enterprise, but the unused Growth minutes for this month were not recorded. Their pool this month is the plain Enterprise allowance until this is fixed.`,
+      ]),
+    );
+  }
 
   // 2. Every other Growth subscription is cancelled, its unused time credited to the balance.
   for (const { site, subscription } of plan.others) {

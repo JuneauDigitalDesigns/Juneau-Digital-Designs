@@ -17,7 +17,7 @@ import { normalizeE164 } from "./phone";
  *
  * **Contact identity is `normalizeE164(phone)`**, the same id the CRM groups calls by, so a form
  * submission and a later phone call from the same person collapse onto one customer. `buildInbox`
- * relies on that to pair an enquiry with the callback that followed it.
+ * relies on that to pair an inquiry with the callback that followed it.
  *
  * Every key carries `acctScope` (`accountScope(account.email)`) — the invariant the rest of the
  * portal namespaces hold, because these records are caller PII and a key must never be reachable
@@ -169,7 +169,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * Record a lead, or add this submission to the lead the same person sent in the last 24 hours.
  *
  * `merged: true` means no new lead exists, so the caller must not text the owner again: one
- * enquiry, one text. The visitor is answered exactly as for a new lead.
+ * inquiry, one text. The visitor is answered exactly as for a new lead.
  *
  * A burst of identical submissions races on one SET NX for the contact: the winner writes the
  * lead, every loser joins it. A loser can arrive before the winner's write lands, so it waits
@@ -366,7 +366,7 @@ const MAX_MESSAGE_CHARS = 2000;
 /**
  * Add a visitor's follow-up to their lead, after an AI callback that couldn't be placed.
  *
- * Updates the lead rather than recording another, so the owner has one enquiry and one text. It
+ * Updates the lead rather than recording another, so the owner has one inquiry and one text. It
  * goes back to unread, or a message arriving after the owner opened the lead would go unseen.
  * Capped in total, so repeating the request can't grow a record without limit.
  */
@@ -394,7 +394,7 @@ export async function appendLeadMessage(
 /**
  * Delete one lead, for good.
  *
- * The only destructive action the Inbox offers, and only for a web enquiry: a call is a row in
+ * The only destructive action the Inbox offers, and only for a web inquiry: a call is a row in
  * the client's own Airtable log with a recording hanging off it, which this portal reads and
  * has no business deleting.
  *
@@ -403,7 +403,7 @@ export async function appendLeadMessage(
  *
  * Touches nothing in `sms-consent.ts`. Those records are keyed by phone number, append-only and
  * deliberately without a TTL, because they answer "prove this person asked for these texts"
- * years after the enquiry itself stopped mattering. A lead is not their system of record, and
+ * years after the inquiry itself stopped mattering. A lead is not their system of record, and
  * no inbox action may make it one.
  */
 export async function deleteLead(

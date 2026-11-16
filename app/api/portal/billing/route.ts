@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/app/lib/stripe";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
-import { subscriptionPeriod } from "@/app/lib/plan-billing";
+import { planItemOfSubscription, subscriptionPeriod } from "@/app/lib/plan-billing";
 import { getPlanChange } from "@/app/lib/plan-change";
 import { accountScope, billingKey, getCached, setCached, BILLING_TTL } from "@/app/lib/portal-kv";
 
@@ -88,8 +88,8 @@ export async function GET(request: Request) {
         );
     }
 
-    const item = sub.items.data[0];
-    const price = item?.price;
+    // The plan's price, not whichever item Stripe lists first: an add-on can sit beside it.
+    const price = planItemOfSubscription(sub)?.price;
 
     // Nullable on purpose: this used to multiply the raw field by 1000, and once Stripe moved
     // it onto the subscription item that produced `NaN` as the client's renewal date.

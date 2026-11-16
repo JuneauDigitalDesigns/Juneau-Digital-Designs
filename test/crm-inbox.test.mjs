@@ -3,7 +3,7 @@
  *
  * This is the one piece of CRM v2 that depends on both inbound sources at once. Everything
  * else in the Inbox reads one store and shapes it; this merges the Airtable call log with the
- * portal's web-form leads and has to recognise when two rows are the *same* enquiry. On
+ * portal's web-form leads and has to recognise when two rows are the *same* inquiry. On
  * Growth, a form submission makes the receptionist ring the submitter back, so one person
  * filling in one form produces a lead row and a call row minutes apart. A list that shows
  * both is a list the client stops trusting, and the function's own comment says exactly that.
@@ -92,12 +92,12 @@ const ids = (items) => items.map((i) => i.id);
 test("a form lead and the callback it triggered collapse into one item", () => {
     const items = buildInbox({ calls: [call()], leads: [lead()] });
 
-    assert.equal(items.length, 1, "the enquiry and its callback are one entry, not two");
+    assert.equal(items.length, 1, "the inquiry and its callback are one entry, not two");
 
     const [item] = items;
     assert.equal(item.id, "lead:L1");
     assert.equal(item.source, "web-form");
-    // The enquiry's own details lead. It is what the client's customer actually wrote.
+    // The inquiry's own details lead. It is what the client's customer actually wrote.
     assert.equal(item.preview, "Need a quote for a bathroom refit.");
     assert.equal(item.at, at(-10 * MIN));
 
@@ -158,8 +158,8 @@ test("items are ordered newest first, undated last", () => {
     assert.deepEqual(ids(items), ["recNew", "lead:Lmid", "recOld", "recUndated"]);
 });
 
-test("a collapsed item sorts on the enquiry, not on its callback", () => {
-    // Deliberate: to the client this is one enquiry, and the moment they care about is when
+test("a collapsed item sorts on the inquiry, not on its callback", () => {
+    // Deliberate: to the client this is one inquiry, and the moment they care about is when
     // their customer got in touch. The callback is a detail inside it.
     const items = buildInbox({
         calls: [
@@ -200,9 +200,9 @@ test("a call that came in before the form was filled in is a separate contact", 
     assert.equal(items[0].callback, null);
 });
 
-test("a call simultaneous with the enquiry still collapses", () => {
+test("a call simultaneous with the inquiry still collapses", () => {
     // Zero gap is inside the window: the Make webhook and the lead capture write from the
-    // same submission, and identical timestamps are a rounding artefact, not two enquiries.
+    // same submission, and identical timestamps are a rounding artefact, not two inquiries.
     const items = buildInbox({
         calls: [call({ date: at(0) })],
         leads: [lead({ createdAt: at(0) })],
@@ -212,7 +212,7 @@ test("a call simultaneous with the enquiry still collapses", () => {
     assert.notEqual(items[0].callback, null);
 });
 
-test("with two enquiries from one number, the nearest preceding one claims the call", () => {
+test("with two inquiries from one number, the nearest preceding one claims the call", () => {
     const items = buildInbox({
         calls: [call({ date: at(0) })],
         leads: [
@@ -222,12 +222,12 @@ test("with two enquiries from one number, the nearest preceding one claims the c
     });
 
     assert.deepEqual(ids(items), ["lead:Lnew", "lead:Lold"]);
-    assert.notEqual(items[0].callback, null, "the 5-minute-old enquiry owns the callback");
+    assert.notEqual(items[0].callback, null, "the 5-minute-old inquiry owns the callback");
     assert.equal(items[1].callback, null, "and the older one is not given a second copy of it");
 });
 
-test("only one call is ever nested under one enquiry", () => {
-    // Two calls, both from the enquiry's number, both inside its window. Whichever is taken
+test("only one call is ever nested under one inquiry", () => {
+    // Two calls, both from the inquiry's number, both inside its window. Whichever is taken
     // as the callback, the other has to surface on its own — swallowing it would hide a real
     // inbound from the client.
     const items = buildInbox({
@@ -249,16 +249,16 @@ test("the nearest call is nested, whichever order the calls arrive in", () => {
     /**
      * The bug this file was written to find, kept as the test that would catch it again.
      *
-     * Matching used to run per call: each call took its own nearest preceding enquiry, but the
-     * "one callback per enquiry" rule was enforced first-come in `calls` array order, so the
+     * Matching used to run per call: each call took its own nearest preceding inquiry, but the
+     * "one callback per inquiry" rule was enforced first-come in `calls` array order, so the
      * first call the loop happened to reach claimed the slot even when a later one sat much
      * closer. It was not a rarity either: `fetchCalls` requests `sort[0][direction]=desc`, so
      * production fed this newest-first and the *furthest* call inside the window won. The
-     * enquiry at 11:50 with its genuine callback at 11:51 and an unrelated call at 12:00
+     * inquiry at 11:50 with its genuine callback at 11:51 and an unrelated call at 12:00
      * nested the 12:00 one and showed the 11:51 callback as a standalone item — the duplicate
      * the collapse exists to prevent, one step removed.
      *
-     * Pairing is decided per enquiry by gap now, so both orders agree on the nearer call.
+     * Pairing is decided per inquiry by gap now, so both orders agree on the nearer call.
      */
     const calls = [call({ id: "recEarly", date: at(-9 * MIN) }), call({ id: "recLate", date: at(0) })];
     const leads = [lead({ createdAt: at(-10 * MIN) })];
@@ -276,7 +276,7 @@ test("the nearest call is nested, whichever order the calls arrive in", () => {
 test("with three calls in one window, only the nearest is nested", () => {
     // A busy morning on one number: the callback a minute after the form, then two unrelated
     // inbound calls, all three inside the hour. Only one can be the callback, and swallowing
-    // either of the others would hide a real inbound — so the inbox is the enquiry plus two
+    // either of the others would hide a real inbound — so the inbox is the inquiry plus two
     // calls, and which one is nested cannot turn on the order Airtable returned them in.
     const calls = [
         call({ id: "recFar", date: at(40 * MIN) }),
@@ -296,7 +296,7 @@ test("with three calls in one window, only the nearest is nested", () => {
 
 test("a lead whose number cannot be parsed still reaches the inbox", () => {
     // It can never collapse — there is no identity to match on — but dropping it would lose
-    // an enquiry outright, which is worse than showing it unmatched. The raw string is shown
+    // an inquiry outright, which is worse than showing it unmatched. The raw string is shown
     // rather than a tidy "No number", because it is sometimes the only contact detail there.
     const items = buildInbox({
         calls: [call()],
@@ -541,10 +541,10 @@ test("a deep link to a call opens that call", () => {
     assert.equal(inboxItemForDeepLink(items, "recCall").id, "recCall");
 });
 
-test("a deep link to a nested callback opens the enquiry it belongs to", () => {
+test("a deep link to a nested callback opens the inquiry it belongs to", () => {
     /**
      * The case that makes this helper necessary. On Growth the owner is texted about the call
-     * the receptionist made, but `buildInbox` consumes that call into the enquiry that caused
+     * the receptionist made, but `buildInbox` consumes that call into the inquiry that caused
      * it — so it is not an item, and matching ids alone finds nothing at all.
      */
     const items = buildInbox({
@@ -681,10 +681,10 @@ test("different numbers stay different rows, newest run first", () => {
     );
 });
 
-test("a web enquiry never joins a caller's run", () => {
+test("a web inquiry never joins a caller's run", () => {
     /**
      * Different channel, different content. It also cannot arise on Growth, where a form
-     * triggers a receptionist callback and the enquiry reaches the inbox as the resulting
+     * triggers a receptionist callback and the inquiry reaches the inbox as the resulting
      * call — so a lead sitting beside calls from the same number means a Starter site, where
      * the person filled the form *and* rang, and the two are worth seeing separately.
      */
@@ -748,7 +748,7 @@ test("a deep link finds the row holding its call, nested callbacks included", ()
     assert.equal(groupForItem(groups, "recGone00000000000"), null);
     assert.equal(groupForItem(groups, null), null);
 
-    // A call folded under an enquiry is reachable through the row that swallowed it.
+    // A call folded under an inquiry is reachable through the row that swallowed it.
     const withCallback = groupInbox(
         buildInbox({
             calls: [call({ id: "recCallback", date: at(0) })],
@@ -854,7 +854,7 @@ test("an item that is both promoted and archived reads as promoted", () => {
 });
 
 test("an archived item is still reachable by deep link", () => {
-    // An owner's text links to one enquiry. Archiving it later must not turn that link into a
+    // An owner's text links to one inquiry. Archiving it later must not turn that link into a
     // dead end — the item is out of the worklist, not gone.
     const items = buildInbox({ calls: [call()], archived: new Set(["recCall"]) });
 

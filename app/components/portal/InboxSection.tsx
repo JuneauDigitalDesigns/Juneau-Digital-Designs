@@ -39,7 +39,7 @@ import UndoToast, { type UndoState } from "./inbox/UndoToast";
 import { ShortcutHelp } from "./inbox/ShortcutHelp";
 
 /**
- * The Inbox — every call and web enquiry, sorted into what still needs the owner and what
+ * The Inbox — every call and web inquiry, sorted into what still needs the owner and what
  * does not.
  *
  * Follows the approved Inbox mockups (desktop split view, phone list with a lead screen that
@@ -48,7 +48,7 @@ import { ShortcutHelp } from "./inbox/ShortcutHelp";
  * `./inbox/model.ts` and `app/lib/crm-contacts.ts`, away from React.
  *
  * **The URL is the state** for anything a link or a reload should land back on: `?f=` (the
- * view), `?q=` (search) and `?open=` (the lead). The owner's text links to one enquiry —
+ * view), `?q=` (search) and `?open=` (the lead). The owner's text links to one inquiry —
  * `/portal/l/<id>` redirects here with `?open=` — so that one has to work from a cold load.
  * On a phone, opening a lead *pushes* a history entry, so the phone's back gesture closes it
  * instead of leaving the Inbox (as #82 did for customers); on desktop, moving between leads
@@ -723,19 +723,19 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
 
             {/* The one destructive path in the inbox, and the only one with a confirmation:
                 Done is reversible and a dialog on a reversible action teaches people to
-                dismiss dialogs. This says what survives, because a client deleting an enquiry
+                dismiss dialogs. This says what survives, because a client deleting an inquiry
                 is entitled to know the call log and the consent record are not going with it. */}
             <Drawer
                 open={confirmDelete !== null}
                 onClose={() => setConfirmDelete(null)}
-                title="Delete this enquiry?"
+                title="Delete this inquiry?"
                 width="md"
                 surface="raised"
             >
                 {confirmDelete && (
                     <div className="space-y-5">
                         <p className="text-sm leading-relaxed" style={{ color: "var(--fg-2)" }}>
-                            This removes {confirmDelete.name ?? "this"}&rsquo;s enquiry for good,
+                            This removes {confirmDelete.name ?? "this"}&rsquo;s inquiry for good,
                             including their message and contact details. You cannot undo it. Your
                             call log and recordings are not affected.
                         </p>

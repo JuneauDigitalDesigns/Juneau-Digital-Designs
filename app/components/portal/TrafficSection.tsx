@@ -12,13 +12,13 @@ import type { CachedResult } from "./PortalDataProvider";
 import { AnalyticsBlock, Responsive } from "./analytics/AnalyticsHeading";
 import {
     deviceLabel,
-    enquiryRate,
+    inquiryRate,
     formatRate,
     shares,
     sourceRows,
     topBrowsers,
     type AnalyticsRange,
-    type EnquiryWindow,
+    type InquiryWindow,
 } from "@/app/lib/portal-analytics";
 
 interface DailyPoint {
@@ -70,20 +70,20 @@ export function trafficLayout(
  * is fetched by the page (`AnalyticsSection`) rather than here, because the page needs the
  * same result to build its jump bar.
  *
- * Enquiries come from the portal's own web-form leads, computed server-side for every range at
- * once; null means they could not be read, and the two enquiry tiles then show a dash rather
+ * Inquiries come from the portal's own web-form leads, computed server-side for every range at
+ * once; null means they could not be read, and the two inquiry tiles then show a dash rather
  * than a zero we cannot stand behind.
  */
 export default function TrafficSections({
     site,
     range,
     traffic,
-    enquiries,
+    inquiries,
 }: {
     site: PortalSiteProps;
     range: AnalyticsRange;
     traffic: CachedResult<TrafficData>;
-    enquiries: EnquiryWindow | null;
+    inquiries: InquiryWindow | null;
 }) {
     const availability = site.features.traffic;
     const { data, isLoading, refresh: retry } = traffic;
@@ -160,7 +160,7 @@ export default function TrafficSections({
 
     return (
         <>
-            <Visitors data={data} range={range} enquiries={enquiries} />
+            <Visitors data={data} range={range} inquiries={inquiries} />
             <Sources data={data} />
             <PagesAndDevices data={data} />
         </>
@@ -172,22 +172,22 @@ export default function TrafficSections({
 function Visitors({
     data,
     range,
-    enquiries,
+    inquiries,
 }: {
     data: TrafficData;
     range: AnalyticsRange;
-    enquiries: EnquiryWindow | null;
+    inquiries: InquiryWindow | null;
 }) {
     const visits = data.totalSessions ?? 0;
-    const rate = enquiries ? enquiryRate(enquiries.count, visits) : null;
-    const more = enquiries ? enquiries.count - enquiries.previous : 0;
-    const enquiryDays = new Set(enquiries?.days ?? []);
+    const rate = inquiries ? inquiryRate(inquiries.count, visits) : null;
+    const more = inquiries ? inquiries.count - inquiries.previous : 0;
+    const inquiryDays = new Set(inquiries?.days ?? []);
 
     const chart = (data.daily ?? []).map((d) => ({
         date: d.date,
         label: dayLabel(d.date),
         sessions: d.sessions,
-        enquiry: enquiryDays.has(d.date),
+        inquiry: inquiryDays.has(d.date),
     }));
 
     return (
@@ -200,8 +200,8 @@ function Visitors({
                 <Tile label="Visits" value={visits.toLocaleString()} />
                 <Tile label="New visitors" value={(data.totalNewUsers ?? 0).toLocaleString()} />
                 <Tile
-                    label={<Responsive desktop="Enquiries from the site" phone="Enquiries" />}
-                    value={enquiries ? enquiries.count.toLocaleString() : null}
+                    label={<Responsive desktop="Inquiries from the site" phone="Inquiries" />}
+                    value={inquiries ? inquiries.count.toLocaleString() : null}
                     sub={
                         // TODO(wording): only the "more" case is approved. A fall or no change
                         // shows nothing until Xander approves words for it.
@@ -216,12 +216,12 @@ function Visitors({
                     }
                 />
                 <Tile
-                    label="Visits → enquiries"
+                    label="Visits → inquiries"
                     value={rate ? formatRate(rate.pct) : null}
                     sub={
                         rate?.oneIn ? (
                             <Responsive
-                                desktop={`About 1 in ${rate.oneIn.toLocaleString()} visits sends an enquiry`}
+                                desktop={`About 1 in ${rate.oneIn.toLocaleString()} visits sends an inquiry`}
                                 phone={`1 in ${rate.oneIn.toLocaleString()} visits`}
                             />
                         ) : undefined
@@ -240,7 +240,7 @@ function Visitors({
                             />
                             Visits
                         </span>
-                        {enquiryDays.size > 0 && (
+                        {inquiryDays.size > 0 && (
                             <span className="inline-flex items-center gap-1.5">
                                 <span
                                     aria-hidden="true"
@@ -253,7 +253,7 @@ function Visitors({
                                         boxSizing: "border-box",
                                     }}
                                 />
-                                A day someone sent an enquiry
+                                A day someone sent an inquiry
                             </span>
                         )}
                     </span>
@@ -278,8 +278,8 @@ function Visitors({
                                 strokeWidth={2}
                                 fill="url(#visitsFill)"
                                 isAnimationActive={false}
-                                dot={(props: { cx?: number; cy?: number; index?: number; payload?: { enquiry?: boolean } }) =>
-                                    props.payload?.enquiry && props.cx != null && props.cy != null ? (
+                                dot={(props: { cx?: number; cy?: number; index?: number; payload?: { inquiry?: boolean } }) =>
+                                    props.payload?.inquiry && props.cx != null && props.cy != null ? (
                                         <circle
                                             key={`enq-${props.index}`}
                                             cx={props.cx}
@@ -345,8 +345,8 @@ function dayLabel(yyyymmdd: string): string {
 /**
  * Visits by source.
  *
- * The mockup's second card, "Enquiries by source", is not built: a web-form lead records what
- * the visitor typed, not where they arrived from, so there is nothing to attribute an enquiry
+ * The mockup's second card, "Inquiries by source", is not built: a web-form lead records what
+ * the visitor typed, not where they arrived from, so there is nothing to attribute an inquiry
  * to. It needs the client sites' forms to post the referrer first.
  */
 function Sources({ data }: { data: TrafficData }) {

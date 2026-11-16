@@ -162,11 +162,11 @@ test("the date range is 7, 30 or 90 days, 30 by default", () => {
   assert.match(read("app/api/portal/traffic/route.ts"), /parseRange\(/);
 });
 
-test("enquiries are counted per range, with the window before it and the days they arrived", () => {
+test("inquiries are counted per range, with the window before it and the days they arrived", () => {
   const now = Date.UTC(2026, 10, 9, 15, 0); // Nov 9, 15:00 UTC
   const at = (d, h = 12) => new Date(Date.UTC(2026, 10, d, h)).toISOString();
   const oct = (d) => new Date(Date.UTC(2026, 9, d, 12)).toISOString();
-  const s = analytics.summarizeEnquiries(
+  const s = analytics.summarizeInquiries(
     [at(9), at(9, 8), at(5), at(1), oct(28), oct(20), oct(5), "not a date", at(10)],
     now,
   );
@@ -178,11 +178,11 @@ test("enquiries are counted per range, with the window before it and the days th
   assert.equal(s[90].count, 7);
 });
 
-test("visits → enquiries is a rate and a 1-in-N, and never divides by nothing", () => {
-  assert.deepEqual(analytics.enquiryRate(23, 1359), { pct: (23 / 1359) * 100, oneIn: 59 });
-  assert.equal(analytics.formatRate(analytics.enquiryRate(23, 1359).pct), "1.7%");
-  assert.deepEqual(analytics.enquiryRate(0, 400), { pct: 0, oneIn: null });
-  assert.equal(analytics.enquiryRate(3, 0), null);
+test("visits → inquiries is a rate and a 1-in-N, and never divides by nothing", () => {
+  assert.deepEqual(analytics.inquiryRate(23, 1359), { pct: (23 / 1359) * 100, oneIn: 59 });
+  assert.equal(analytics.formatRate(analytics.inquiryRate(23, 1359).pct), "1.7%");
+  assert.deepEqual(analytics.inquiryRate(0, 400), { pct: 0, oneIn: null });
+  assert.equal(analytics.inquiryRate(3, 0), null);
   assert.equal(analytics.formatRate(0), "0%");
   assert.equal(analytics.formatRate(12.4), "12%");
 });
@@ -246,11 +246,11 @@ test("Analytics and Settings say what Xander approved", () => {
     assert.ok(page.includes(s), s);
   }
   const traffic = read("app/components/portal/TrafficSection.tsx");
-  for (const s of ["Enquiries from the site", "Visits → enquiries", "Visits per day", "A day someone sent an enquiry", "Visits by source"]) {
+  for (const s of ["Inquiries from the site", "Visits → inquiries", "Visits per day", "A day someone sent an inquiry", "Visits by source"]) {
     assert.ok(traffic.includes(s), s);
   }
-  // Not built: leads carry no referrer, so there is nothing to attribute an enquiry to.
-  assert.ok(!traffic.includes(">Enquiries by source<"));
+  // Not built: leads carry no referrer, so there is nothing to attribute an inquiry to.
+  assert.ok(!traffic.includes(">Inquiries by source<"));
   const speed = read("app/components/portal/PerformanceSection.tsx").replace(/\s+/g, " ");
   for (const s of ["Shows up quickly.", "Reacts straight away.", "Nothing jumps around.", "Technical details", "Tested on a phone,"]) {
     assert.ok(speed.includes(s), s);

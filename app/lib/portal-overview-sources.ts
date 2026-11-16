@@ -74,7 +74,7 @@ export type OverviewInbox =
 /**
  * The Inbox, assembled exactly as `GET /api/portal/inbox` assembles it.
  *
- * Same gate (`leads`, not `calls` — a web-only site has form enquiries and no call log), same
+ * Same gate (`leads`, not `calls` — a web-only site has form inquiries and no call log), same
  * sources, same `buildInbox`. Calls come through `getSiteCalls`, so the Airtable read is shared
  * with anything else on the page that needs it. Both halves degrade the way the route's do:
  * no receptionist yields a lead-only inbox, a lead-store failure a call-only one.

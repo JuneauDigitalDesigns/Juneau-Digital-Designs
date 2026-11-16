@@ -9,17 +9,17 @@ import { getInfraSnapshot, type InfraSnapshot } from "@/app/lib/portal-infra";
 import { getSiteCalls } from "@/app/lib/portal-overview";
 import { listLeads } from "@/app/lib/portal-leads";
 import { accountScope } from "@/app/lib/portal-kv";
-import { summarizeEnquiries, type EnquirySummary } from "@/app/lib/portal-analytics";
+import { summarizeInquiries, type InquirySummary } from "@/app/lib/portal-analytics";
 import type { PortalSiteProps } from "@/app/portal/types";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Analytics: the old Traffic and Performance tabs on one page, plus site health and the
- * visits → enquiries rate.
+ * visits → inquiries rate.
  *
  * Traffic and speed are fetched in the browser through the portal's cache, as the two tabs
- * were. What only the server can read is resolved here: the enquiry counts (from the
+ * were. What only the server can read is resolved here: the inquiry counts (from the
  * account's own lead records) and the infra snapshot behind Site health, which streams in its
  * own Suspense boundary because it makes a live request to the client's site.
  */
@@ -33,13 +33,13 @@ export default async function AnalyticsPage({
     if (!ctx) return <PortalNoAccess />;
     const { props: site, raw, account } = ctx;
 
-    const enquiries = await loadEnquiries(site, account);
+    const inquiries = await loadInquiries(site, account);
 
     return (
         <AnalyticsSection
             key={site.slug}
             site={site}
-            enquiries={enquiries}
+            inquiries={inquiries}
             health={
                 <Suspense fallback={<HealthStripSkeleton />}>
                     <HealthBlock site={site} raw={raw} account={account} />
@@ -50,17 +50,17 @@ export default async function AnalyticsPage({
 }
 
 /**
- * Form enquiries for every range at once, so the 7 / 30 / 90 control never waits on a request.
+ * Form inquiries for every range at once, so the 7 / 30 / 90 control never waits on a request.
  *
  * Null rather than zeros when the Inbox is not live for this site or the read fails: "0
- * enquiries" beside real visits would read as a website that converts nobody, which is a claim
+ * inquiries" beside real visits would read as a website that converts nobody, which is a claim
  * we would be making about a number we never had.
  */
-async function loadEnquiries(site: PortalSiteProps, account: PortalAccount): Promise<EnquirySummary | null> {
+async function loadInquiries(site: PortalSiteProps, account: PortalAccount): Promise<InquirySummary | null> {
     if (site.features.leads.state !== "ready") return null;
     try {
         const leads = await listLeads(accountScope(account.email), site.slug);
-        return summarizeEnquiries(
+        return summarizeInquiries(
             leads.map((l) => l.createdAt),
             Date.now(),
         );

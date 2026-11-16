@@ -4,7 +4,7 @@
  *
  * Opening a lead marks it read; Mark unread puts it back. The state is ours, kept in KV beside
  * the archive set, because a call's row is the client's own Airtable log and not ours to write.
- * One store for both sources, so Mark unread works the same on a call and a web enquiry.
+ * One store for both sources, so Mark unread works the same on a call and a web inquiry.
  *
  * Runs the real store against the in-memory Upstash fake, and the real `buildInbox`.
  *
@@ -134,7 +134,7 @@ const lead = (leadId, readAt = null) => ({
     callbackPlaced: false,
 });
 
-test("one read set marks calls and web enquiries alike", () => {
+test("one read set marks calls and web inquiries alike", () => {
     const items = buildInbox({
         calls: [call(CALL), call(CALL_2)],
         leads: [lead("L123"), lead("L456")],

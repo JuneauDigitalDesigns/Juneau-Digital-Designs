@@ -44,7 +44,7 @@ test("every entry names the actor", () => {
     const incoming = ev({ kind: "sms-in", actor: "customer" });
 
     assert.equal(entryTitle(call, [call], NAME), "Rosalind Mackay called you");
-    assert.equal(entryTitle(form, [form], NAME), "Rosalind Mackay sent an enquiry from your website");
+    assert.equal(entryTitle(form, [form], NAME), "Rosalind Mackay sent an inquiry from your website");
     assert.equal(entryTitle(out, [out], NAME), "You texted Rosalind Mackay");
     assert.equal(entryTitle(incoming, [incoming], NAME), "Rosalind Mackay texted you");
 });

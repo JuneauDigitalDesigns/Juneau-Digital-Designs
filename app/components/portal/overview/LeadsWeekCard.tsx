@@ -86,7 +86,7 @@ export function LeadsWeekCard({
                 label={<ByWidth desktop="Calls your receptionist answered" phone="Answered by your receptionist" />}
                 value={week.calls}
             />
-            <Split label="Web enquiries" value={week.web} />
+            <Split label="Web inquiries" value={week.web} />
             {/* Hidden, not zeroed, while the client's hours are unknown. See `isAfterHours`. */}
             {week.afterHours !== null && <Split label="Came in after hours" value={week.afterHours} />}
         </Card>
