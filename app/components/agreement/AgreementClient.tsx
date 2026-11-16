@@ -262,7 +262,7 @@ export default function AgreementClient({
         setError(null);
 
         if (!hasReadTerms) {
-            setError("Please scroll to the end of the agreement before agreeing.");
+            setError("Please scroll to the end of the Terms of Service before accepting.");
             return;
         }
         // The ticked box IS the acceptance (no signature since 2026-11-03), so it is required.
@@ -371,7 +371,7 @@ export default function AgreementClient({
             });
             const sigData = (await sigRes.json()) as { agreement_id?: string; error?: string };
             if (!sigRes.ok || !sigData.agreement_id) {
-                throw new Error(sigData.error || `Signing failed (${sigRes.status})`);
+                throw new Error(sigData.error || `Your acceptance could not be recorded (${sigRes.status})`);
             }
 
             // 2. Charge. The endings differ, and picking the wrong one costs the client money:
@@ -390,7 +390,7 @@ export default function AgreementClient({
                 // seconds after they signed.
                 if (!conRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved. Please sign in and start the move again.",
+                        "Your session expired before you finished. Your acceptance is saved. Please sign in and start the move again.",
                     );
                 }
                 const conData = (await conRes.json()) as { ok?: boolean; error?: string };
@@ -434,7 +434,7 @@ export default function AgreementClient({
                 );
                 if (!dnRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved. Please sign in and open the link again.",
+                        "Your session expired before you finished. Your acceptance is saved. Please sign in and open the link again.",
                     );
                 }
                 const dnData = (await dnRes.json()) as { ok?: boolean; error?: string };
@@ -465,7 +465,7 @@ export default function AgreementClient({
                 // moments after they signed, so check what came back before trusting it.
                 if (!upRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved. Please sign in and try the upgrade again.",
+                        "Your session expired before you finished. Your acceptance is saved. Please sign in and try the upgrade again.",
                     );
                 }
                 const upData = (await upRes.json()) as { ok?: boolean; error?: string };
@@ -501,17 +501,17 @@ export default function AgreementClient({
                 </div>
 
                 <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: 10 }}>
-                    Service Agreement.
+                    Terms of Service.
                 </h1>
                 <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
-                    Read the agreement in full, fill in your details, then sign below to continue to
+                    Read the Terms of Service in full, fill in your details, then accept below to continue to
                     payment. You&apos;ll receive a copy by email.
                 </p>
 
                 <form onSubmit={handleSubmit}>
-                    {/* Agreement — must be read to the end before the acceptance box unlocks */}
+                    {/* The terms must be read to the end before the acceptance box unlocks. */}
                     <span id="terms" />
-                    <Section title={`Agreement, ${activeVersion}`}>
+                    <Section title={`Terms of Service, ${activeVersion}`}>
                         {/* Keyed on the variant so switching to/from website-only remounts the
                             reader, resetting its internal scroll tracking along with the gate. */}
                         <TermsReader
@@ -548,14 +548,14 @@ export default function AgreementClient({
                             />
                             <FieldRow>
                                 <Field
-                                    label="Signer name"
+                                    label="Your name"
                                     placeholder="Jane Smith"
                                     value={form.signerName}
                                     onChange={(v) => update("signerName", v)}
                                     required
                                 />
                                 <Field
-                                    label="Signer title"
+                                    label="Your title"
                                     placeholder="Owner"
                                     value={form.signerTitle}
                                     onChange={(v) => update("signerTitle", v)}
@@ -563,13 +563,13 @@ export default function AgreementClient({
                                 />
                             </FieldRow>
                             <Field
-                                label="Signer email"
+                                label="Your email"
                                 type="email"
                                 placeholder="jane@acme.com"
                                 value={form.signerEmail}
                                 onChange={(v) => update("signerEmail", v)}
                                 required
-                                hint="The agreement copy is sent here."
+                                hint="We send your copy here."
                             />
                             {isEnterprise && (
                                 <div
@@ -738,7 +738,7 @@ export default function AgreementClient({
                                 <>
                                     I have read and agree to the{" "}
                                     <a href="#terms" style={{ color: "var(--fg)", fontWeight: 600 }}>Terms of Service</a>,
-                                    including the plan details in Schedule A.
+                                    including my plan summary.
                                 </>
                             )}
                         </span>
@@ -748,7 +748,7 @@ export default function AgreementClient({
                     {/*
                         Optional SMS opt-in. Sits below the binding acceptance, in its own
                         visually distinct card, and is never gated on `hasReadTerms` — a
-                        consent that unlocks only by working through the service agreement
+                        consent that unlocks only by working through the Terms of Service
                         reads as bundled into it, which is exactly what "not a condition of
                         purchase" rules out. Nothing here touches the submit button.
                     */}
@@ -800,10 +800,10 @@ export default function AgreementClient({
                         }}
                     >
                         {submitting
-                            ? "Signing and preparing payment…"
+                            ? "Recording your acceptance and preparing payment…"
                             : hasReadTerms
-                              ? "Sign & continue to payment →"
-                              : "Scroll to the end of the agreement"}
+                              ? "Accept & continue to payment →"
+                              : "Scroll to the end of the terms"}
                     </button>
 
                     <p
@@ -816,7 +816,7 @@ export default function AgreementClient({
                             letterSpacing: "0.05em",
                         }}
                     >
-                        Signed PDF emailed to you · ESIGN Act & UETA compliant
+                        A PDF copy is emailed to you · ESIGN Act & UETA compliant
                     </p>
                 </form>
             </div>
@@ -838,7 +838,7 @@ function LockNote() {
                 letterSpacing: "0.04em",
             }}
         >
-            ━ THE BOX UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL AGREEMENT ABOVE
+            ━ THE BOX UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL TERMS ABOVE
         </p>
     );
 }

@@ -13,7 +13,7 @@ import SmsOptIn, { type TextAlertsChoice } from "./SmsOptIn";
  * A client reading and agreeing to their agreement through a private link. Wording approved by
  * Xander 2026-11-08 (mockup: https://claude.ai/artifact/TvSLZo2M3JV4qVT784wm5p).
  *
- * Carries the same owner text-alerts choice as `/agreement` (Xander, 2026-11-11: "Technically,
+ * Carries the same owner text-alerts choice as `/terms/accept` (Xander, 2026-11-11: "Technically,
  * it is still the agreement page"): two cards, one required. Yes reveals the mobile number and,
  * beside it, the separate unchecked box in the words the live campaign registers; No records
  * nothing. Texts stay optional: No always agrees (`text-alerts-choice.mjs`).
@@ -29,7 +29,7 @@ export function AgreeInactive() {
 export function AgreeDone({ email }: { email: string }) {
     return (
         <div style={{ textAlign: "center", padding: "32px 0" }}>
-            <h1 style={heading}>Agreement recorded</h1>
+            <h1 style={heading}>Terms accepted</h1>
             <p style={muted}>Copy sent to {email}.</p>
         </div>
     );
@@ -119,7 +119,7 @@ export default function AgreeLinkClient({
             const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
             if (res.ok) return setDone(true);
             if (body.code === "inactive") return setInactive(true);
-            setError(body.error ?? "The agreement could not be recorded. Try again.");
+            setError(body.error ?? "Your acceptance could not be recorded. Try again.");
         } catch {
             setError("The agreement could not be recorded. Try again.");
         } finally {
@@ -134,7 +134,7 @@ export default function AgreeLinkClient({
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
-                <h1 style={heading}>Service agreement</h1>
+                <h1 style={heading}>Terms of Service</h1>
                 <p style={muted}>{businessLine}</p>
             </div>
             <TermsReader sections={sections} onComplete={onComplete} height={420} />
@@ -186,7 +186,7 @@ export default function AgreeLinkClient({
                     cursor: ready ? "pointer" : "not-allowed",
                 }}
             >
-                {busy ? "Recording…" : scrollCompletedAt ? "Agree" : "Scroll to the end of the agreement"}
+                {busy ? "Recording…" : scrollCompletedAt ? "Agree" : "Scroll to the end of the terms"}
             </button>
         </div>
     );

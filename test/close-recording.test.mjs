@@ -210,8 +210,8 @@ test("the recording lines are the approved words, and the script's hash covers t
 });
 
 test("the version names this revision of the script, so one version never means two sets of words", () => {
-    assert.equal(buildCallScript("growth", "monthly").version, `${TERMS_VERSION}-growth-monthly-r2`);
-    assert.equal(buildCallScript("starter", "annual", { webOnly: true }).version, `${TERMS_VERSION}-web-only-annual-r2`);
+    assert.equal(buildCallScript("growth", "monthly").version, `${TERMS_VERSION}-growth-monthly-r3`);
+    assert.equal(buildCallScript("starter", "monthly", { webOnly: true }).version, `${TERMS_VERSION}-web-only-monthly-r3`);
 });
 
 /* ── accepting ────────────────────────────────────────────────────────────── */

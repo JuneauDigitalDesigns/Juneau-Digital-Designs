@@ -87,7 +87,7 @@ export function downgradeAcceptEmail(input: DowngradeEmailInput & { acceptUrl: s
     const subject = `Your move to ${to}: please accept the terms`;
     const body =
         paragraph(
-            `You asked to move ${input.siteName} from ${from} to ${to}. Before we make the change, please read and accept the ${to} service agreement.`,
+            `You asked to move ${input.siteName} from ${from} to ${to}. Before we make the change, please read and accept the Terms of Service for the ${to} plan.`,
         ) +
         button(input.acceptUrl, "Review and accept") +
         paragraph(

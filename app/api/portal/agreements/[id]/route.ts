@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
  * signing email attaches. A refusal and a missing file are the same 404, so this can't be used
  * to find out which agreement ids exist.
  */
-const NOT_FOUND = () => NextResponse.json({ error: "Agreement not available" }, { status: 404 });
+const NOT_FOUND = () => NextResponse.json({ error: "Document not available" }, { status: 404 });
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const ctx = await resolvePortalRequest(request);

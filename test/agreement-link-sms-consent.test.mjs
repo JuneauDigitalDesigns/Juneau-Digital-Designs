@@ -1,6 +1,6 @@
 /**
- * An order's private agreement link (`/agree/[code]`) collects the owner SMS opt-in the way the
- * `/agreement` page does (Xander, 2026-11-11: "add the opt-in agreement to the agreement page
+ * An order's private agreement link (`/terms/[code]`) collects the owner SMS opt-in the way the
+ * `/terms/accept` page does (Xander, 2026-11-11: "add the opt-in agreement to the agreement page
  * that we use when we send a on-sales call client a link ... Technically, it is still the
  * agreement page").
  *
@@ -11,7 +11,7 @@
  *  - the box shows beside the mobile number field, unticked, in the live campaign's words (v1:
  *    the registered text; v2: today's text), and not at all on a website-only order;
  *  - agreeing without it works and records no consent;
- *  - a ticked box is held exactly as `/agreement` holds one (acceptance time, IP, user agent,
+ *  - a ticked box is held exactly as `/terms/accept` holds one (acceptance time, IP, user agent,
  *    number, version, hash) and becomes the account's consent when the order is paid, which is
  *    when `textAccountOwner` starts texting, and not before.
  *
@@ -54,7 +54,7 @@ Object.assign(process.env, {
 const { createAgreementLink } = await import("../app/lib/agreement-link.ts");
 const { termsHashForOrder } = await import("../app/lib/verbal-agreement.ts");
 const agree = await import("../app/api/agree/[code]/route.ts");
-const { default: AgreePage } = await import("../app/agree/[code]/page.tsx");
+const { default: AgreePage } = await import("../app/terms/[code]/page.tsx");
 const { fulfilOperatorPayment } = await import("../app/lib/checkout-fulfillment.ts");
 const { textAccountOwner } = await import("../app/lib/lead-alert.ts");
 const { getConsentLog, getConsentStateForAccount, isDeliverable } = await import("../app/lib/sms-consent.ts");
@@ -228,7 +228,7 @@ for (const [mode, version, hash] of [
     ["v1", "sms-consent-v1", V1_HASH],
     ["v2", "sms-consent-v2", V2_HASH],
 ]) {
-    test(`${mode}: a ticked box is held against the new agreement, as /agreement holds one`, async () => {
+    test(`${mode}: a ticked box is held against the new agreement, as /terms/accept holds one`, async () => {
         if (mode === "v2") process.env.OWNER_TEXT_CAMPAIGN = "v2";
         const { code } = await createAgreementLink(order());
         const res = await submit(code, { smsConsent: true, alertPhone: "(407) 555-0188", smsConsentVersion: version });

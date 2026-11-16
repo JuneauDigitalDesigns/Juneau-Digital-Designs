@@ -84,7 +84,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
             };
         case "trade": return { q: "What kind of work do you do?", help: "This shapes everything we suggest from here." };
         case "name": return { q: "What's your business called?", help: "Exactly as you want it on your site." };
-        case "contact": return { q: "How do customers reach you?", help: "These go on your site. Your email is already filled in from your agreement." };
+        case "contact": return { q: "How do customers reach you?", help: "These go on your site. Your email is already filled in from your sign-up." };
         case "toptowns": return { q: C.topTownsQ, help: C.topTownsHelp }; // Q2 (local SEO, 2026-11-12)
         case "area": return { q: "Which towns do you cover?", help: 'Named towns read better than "the surrounding area". Your receptionist uses them too.' };
         case "website": return { q: "Do you have a website now?", help: "We'll read it so you don't have to retype anything." };
@@ -1256,7 +1256,7 @@ function SetupScreen({ state, update, ctx, errors, goTo }: ScreenProps) {
             {RECEPTIONIST_OPTIONS.filter((o) => allowed.includes(o.id) || (signed && o.id === signed)).map((o) => (
                 <button key={o.id} type="button" className={s.opt} aria-pressed={state.receptionistMode === o.id} onClick={() => update({ receptionistMode: o.id })}>
                     <span className={s.optLabel}>{o.label}</span>
-                    {o.id === signed ? <em className={s.tag} style={{ fontStyle: "normal" }}>You chose this when you signed</em> : null}
+                    {o.id === signed ? <em className={s.tag} style={{ fontStyle: "normal" }}>You chose this when you signed up</em> : null}
                     <span className={s.optDetail}>{o.detail}</span>
                 </button>
             ))}

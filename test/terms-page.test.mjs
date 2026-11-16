@@ -3,7 +3,7 @@
  *
  * Stripe Checkout's `consent_collection.terms_of_service: "required"` links the buyer to the
  * Terms of Service URL in Stripe's public details. Before this page the agency had none a
- * signed-out buyer could open (`/agreement` sends them to `/start`), so the box a client ticks on
+ * signed-out buyer could open (`/terms/accept` sends them to `/start`), so the box a client ticks on
  * Stripe's page pointed at nothing they could read.
  *
  * Node 22.0 cannot import the TypeScript page, so these read the source: what matters is that the

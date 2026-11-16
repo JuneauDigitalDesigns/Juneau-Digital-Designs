@@ -116,7 +116,7 @@ const EVERY_PLAN: { Icon: Icon; title: string; detail: string }[] = [
     {
         Icon: Browser,
         title: "A custom 4+ page site",
-        detail: "Home, Services, About and Contact. Hosting, SSL and maintenance included, plus 2 content edits a month.",
+        detail: "Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month.",
     },
     {
         Icon: Phone,
@@ -162,7 +162,7 @@ export default function PricingPageClient() {
         /**
          * Everyone goes to `/start`, signed in or not.
          *
-         * This used to jump straight to `/agreement`, which meant the funnel did not learn who
+         * This used to jump straight to `/terms/accept`, which meant the funnel did not learn who
          * the buyer was until they typed an email into the signature form — after reading the
          * terms, and with no way to tell a returning client from a new one. `/start`
          * authenticates, resolves the account, and only then decides whether this is a

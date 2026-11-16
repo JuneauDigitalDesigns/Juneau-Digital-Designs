@@ -98,7 +98,7 @@ export function shortPayUrl(code: string): string {
     return `${SITE_URL.replace(/^https?:\/\//, "")}/pay/${code}`;
 }
 
-/** The private agreement link: `juneaudigitaldesigns.com/agree/K7M2QX4P9A`. */
+/** The private agreement link: `juneaudigitaldesigns.com/terms/K7M2QX4P9A`. */
 export function shortAgreeUrl(code: string): string {
-    return `${SITE_URL.replace(/^https?:\/\//, "")}/agree/${code}`;
+    return `${SITE_URL.replace(/^https?:\/\//, "")}/terms/${code}`;
 }

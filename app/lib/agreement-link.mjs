@@ -66,16 +66,16 @@ export function agreementLinkState({ link, order, fingerprint, nowMs }) {
  */
 export function agreementSubmissionError(body, expectedTermsHash) {
   if (body?.accepted !== true) return "Please tick the box to agree to the Terms of Service.";
-  if (body.termsHash !== expectedTermsHash) return "This agreement has changed. Reload the page to read the current version.";
+  if (body.termsHash !== expectedTermsHash) return "These terms have changed. Reload the page to read the current version.";
   const valid = (v) => typeof v === "string" && !Number.isNaN(Date.parse(v));
   if (!valid(body.pageOpenedAt)) return "Missing page open timestamp.";
-  if (!valid(body.scrollCompletedAt)) return "Agreement was not read to the end.";
+  if (!valid(body.scrollCompletedAt)) return "The terms were not read to the end.";
   return null;
 }
 
 /**
  * Why the optional SMS opt-in can't be recorded, or null when it can (or wasn't given). The same
- * rules, and the same words, as the `/agreement` page's (`agreement-validate.mjs`): consent
+ * rules, and the same words, as the `/terms/accept` page's (`agreement-validate.mjs`): consent
  * needs a receptionist to text about, and a number to text, and anything typed in the number
  * box is a complete US number. Never a reason to refuse the agreement itself when the box is
  * left unticked and the number box blank.

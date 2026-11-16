@@ -39,7 +39,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid request." }, { status: 400 });
     }
     const agreementId = body.agreement_id?.trim();
-    if (!agreementId) return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
+    if (!agreementId) return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
 
     // The standard Starter master, accepted by this account (it is held, so it isn't the
     // account's master yet), with a receptionist chosen.

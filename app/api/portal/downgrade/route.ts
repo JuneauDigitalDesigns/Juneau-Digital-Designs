@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid request." }, { status: 400 });
     }
     const agreementId = body.agreement_id?.trim();
-    if (!agreementId) return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
+    if (!agreementId) return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
 
     // The agreement has to be for the plan being moved to, and has to be this account's own
     // (accepted while it was signed in). Without that check an agreement id is a bearer token
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         agreement.kind === "addendum" ||
         !acceptedBy(agreement, account)
     ) {
-        return NextResponse.json({ error: "That agreement isn't for this change." }, { status: 400 });
+        return NextResponse.json({ error: "That acceptance isn't for this change." }, { status: 400 });
     }
 
     const result = await scheduleDowngrade({

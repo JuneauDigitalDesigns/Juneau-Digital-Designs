@@ -3,13 +3,11 @@ import "server-only";
 export type PlanSlug = "starter" | "growth" | "enterprise";
 
 /**
- * The billing period, as the contract text in `app/lib/legal/` still types it.
- *
- * Every plan is month to month (Terms of Service, 2026-11-16), and nothing outside `legal/` ever
- * passes anything but "monthly". The wider type stays only so `legal/call-script.ts` and stored
- * acceptance records still type-check; the Terms of Service PR removes the yearly branches there.
+ * The billing period. Every plan is month to month (Terms of Service v6.0, 2026-11-16). Stored
+ * acceptance records keep their own wider type in `agreement-types.ts`, since older ones may name
+ * the yearly period.
  */
-export type BillingPeriod = "monthly" | "annual";
+export type BillingPeriod = "monthly";
 
 export interface PlanConfig {
   slug: PlanSlug;

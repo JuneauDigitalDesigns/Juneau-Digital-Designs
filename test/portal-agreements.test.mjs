@@ -233,8 +233,19 @@ test("a master replaced by an upgrade stays listed, marked as earlier", async ()
         current: false,
         signedAt: "2026-10-01T12:00:00.000Z",
         siteName: null,
+        // The fixture is a v5.4 Service Agreement, so Settings keeps that name for it (item O2).
+        legacyAgreement: true,
     });
     assert.equal(rows[0].id, MASTER, "the current master stays first");
+});
+
+test("a Terms of Service acceptance (v6.x) is named as one; an older master keeps its name", async () => {
+    const tos = "66666666-6666-4666-8666-666666666666";
+    seed(tos, { agreementVersion: "v6.0", audit: { signedAt: "2026-11-20T12:00:00.000Z" } });
+    await persistAgreement(tos, OWNER);
+    const rows = await listAccountAgreements(owner());
+    assert.equal(rows.find((a) => a.id === tos).legacyAgreement, false);
+    assert.equal(rows.find((a) => a.id === MASTER).legacyAgreement, true);
 });
 
 /* ── the operator's path ──────────────────────────────────────────────────── */

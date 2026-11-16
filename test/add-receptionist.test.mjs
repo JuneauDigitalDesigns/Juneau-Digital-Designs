@@ -62,7 +62,7 @@ test("the switch-on errors say exactly what Xander approved", async () => {
   );
   assert.equal(
     copy.RECEPTIONIST_SESSION_EXPIRED,
-    "Your session expired while signing. Your agreement is saved. Please sign in and try again.",
+    "Your session expired before you finished. Your acceptance is saved. Please sign in and try again.",
   );
 });
 
@@ -76,7 +76,7 @@ test("the switch-on charges nothing, records the choice and tells Xander", () =>
 });
 
 test("a website-only upgrade to Growth asks for, and records, the phone choice", () => {
-  const page = read("app/agreement/page.tsx");
+  const page = read("app/terms/accept/page.tsx");
   assert.match(page, /askPhoneChoice = isWebOnly\(site\)/);
   const route = read("app/api/portal/upgrade/route.ts");
   assert.match(route, /webOnly && phoneMode !== "forwarded" && phoneMode !== "published"/);

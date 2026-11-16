@@ -30,7 +30,7 @@ function formatDate(ms: number): string {
  * set to cancel, billing that can't be read) is checked HERE, before the client is offered the
  * agreement. It used to be checked only after they had accepted it and been emailed a copy.
  *
- * Acceptance happens on `/agreement`; `?consolidate=1` sends the accepted agreement to
+ * Acceptance happens on `/terms/accept`; `?consolidate=1` sends the accepted agreement to
  * `/api/portal/consolidate` instead of checkout. Wording approved word for word by Xander on
  * 2026-11-04 (`plan-change-copy.ts`).
  */
@@ -136,7 +136,7 @@ export default async function ConsolidatePage() {
 
                     <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
                         {move.ok && (
-                            <Link href="/agreement?plan=enterprise&consolidate=1" className="btn primary">
+                            <Link href="/terms/accept?plan=enterprise&consolidate=1" className="btn primary">
                                 Review and accept
                             </Link>
                         )}

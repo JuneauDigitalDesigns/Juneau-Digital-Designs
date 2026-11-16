@@ -1,10 +1,12 @@
 import type { PlanSlug } from "../agreement-types";
-import { getSchedule, WEB_ONLY_SCHEDULE } from "./schedules";
-import { buildSections, TERMS_VERSION } from "./terms-v5";
-import type { Block, PlanSchedule, ResolvedTerms, Section, SectionDef } from "./types";
+import { ownerTextCampaign } from "../owner-text-campaign";
+import { getSchedule, TEXT_ALERT_LINE, TEXT_ALERT_LINE_V2, WEB_ONLY_SCHEDULE } from "./schedules";
+import { buildSections, PREAMBLE, termsVersion, type TermsCampaign } from "./terms-of-service";
+import type { Block, PlanSchedule, ResolvedTerms, Section } from "./types";
 
-export { TERMS_VERSION, PROVIDER } from "./terms-v5";
-export { getSchedule, SCHEDULES, WEB_ONLY_SCHEDULE, GUARANTEE, MINUTES } from "./schedules";
+export { TERMS_VERSION, TERMS_VERSIONS, PROVIDER, termsVersion } from "./terms-of-service";
+export type { TermsCampaign } from "./terms-of-service";
+export { getSchedule, SCHEDULES, WEB_ONLY_SCHEDULE, MINUTES } from "./schedules";
 // The short instrument a returning client signs for their second site and every one after.
 // Built from the same Section/Block vocabulary as the master, so `TermsReader` and
 // `pdf-renderer` consume it without knowing which document they were handed.
@@ -26,16 +28,27 @@ interface Options {
    * the sales-assisted case where someone refuses AI up front and the document should say so.
    */
   webOnly?: boolean;
+  /**
+   * Which SMS campaign's wording to render: v1 gives Terms v6.0, v2 gives v6.1. Defaults to the
+   * live `OWNER_TEXT_CAMPAIGN`; tests pass it to check both versions.
+   */
+  campaign?: TermsCampaign;
 }
 
 /**
- * Resolves the shared body for one plan: drops sections and subsections that
- * don't apply, numbers what remains so there are no gaps, replaces every
- * {§id} cross-reference with its final number, and appends Schedule A.
+ * Resolves the Terms for one plan: numbers the sections and clauses, replaces every {§id}
+ * cross-reference with its final number, and appends the plan summary. The body is the same for
+ * every plan; only the plan summary differs.
  */
 export function getTermsForPlan(plan: PlanSlug, opts: Options = {}): ResolvedTerms {
-  const schedule = opts.webOnly ? WEB_ONLY_SCHEDULE : getSchedule(plan);
-  const defs = buildSections(schedule).filter((d) => applies(d.plans, plan));
+  const campaign = opts.campaign ?? ownerTextCampaign();
+  const base = opts.webOnly ? WEB_ONLY_SCHEDULE : getSchedule(plan);
+  // The plan summary's text-alert line follows the campaign, as §4.6 does.
+  const schedule: PlanSchedule =
+    campaign === "v2"
+      ? { ...base, included: base.included.map((l) => (l === TEXT_ALERT_LINE ? TEXT_ALERT_LINE_V2 : l)) }
+      : base;
+  const defs = buildSections(campaign).filter((d) => applies(d.plans, plan));
 
   const numById = new Map<string, number>();
   defs.forEach((d, i) => numById.set(d.id, i + 1));
@@ -61,7 +74,11 @@ export function getTermsForPlan(plan: PlanSlug, opts: Options = {}): ResolvedTer
 
   sections.push(buildScheduleA(schedule, opts.siteNames));
 
-  return { version: TERMS_VERSION, plan, sections, schedule };
+  // The preamble rides as an unnumbered first section (num 0, no heading), so every renderer and
+  // the hash take it with the rest of the text.
+  sections.unshift({ num: 0, heading: "", intro: PREAMBLE, subsections: [] });
+
+  return { version: termsVersion(campaign), plan, sections, schedule };
 }
 
 function applies(plans: PlanSlug[] | undefined, plan: PlanSlug): boolean {
@@ -85,10 +102,9 @@ function mapBlock(block: Block, fn: (t: string) => string): Block {
 }
 
 /**
- * Schedule A renders as a trailing section with `num: 0`, which both renderers
- * treat as "print the heading without a number" — contracts don't number their
- * schedules, and it keeps Schedule A inside the single scroll container so
- * reaching the bottom means the client saw the plan terms too.
+ * The plan summary (Schedule A until v6.0) renders as a trailing section with `num: 0`, which
+ * the renderers treat as "print the heading without a number", and it stays inside the single
+ * scroll container so reaching the bottom means the client saw the plan terms too.
  */
 function buildScheduleA(s: PlanSchedule, siteNames?: string[]): Section {
   const subsections: Section["subsections"] = [
@@ -112,7 +128,7 @@ function buildScheduleA(s: PlanSchedule, siteNames?: string[]): Section {
       blocks: [
         {
           kind: "para",
-          text: "The Enterprise plan covers two (2) to three (3) sites. Sites may be multiple locations of the same business, multiple separate businesses owned by Client, or multiple brands of a single parent business owned by Client. If signing with two sites, a third may be added later under the site list terms of this Agreement.",
+          text: "The Enterprise plan covers two (2) to three (3) sites. Sites may be multiple locations of the same business, multiple separate businesses owned by Client, or multiple brands of a single parent business owned by Client. If signing with two sites, a third may be added later under Section 3.8 of the Terms of Service.",
         },
         names.length > 0
           ? { kind: "bullets", items: names.map((n, i) => `Site ${i + 1}: ${n}`) }
@@ -128,11 +144,11 @@ function buildScheduleA(s: PlanSchedule, siteNames?: string[]): Section {
     num: 0,
     // No em-dashes in rendered text. These two strings print into the signed PDF, so they are
     // user-facing copy and the house style applies to them exactly as it does to a web page.
-    heading: `SCHEDULE A: ${s.name.toUpperCase()} PLAN DETAILS`,
+    heading: `PLAN SUMMARY: ${s.name.toUpperCase()} PLAN`,
     intro: [
       {
         kind: "para",
-        text: `Plan: ${s.name}. $${s.monthlyPrice.toLocaleString("en-US")} per month, plus a one-time onboarding fee of $${s.onboardingFee.toLocaleString("en-US")} charged at signing.`,
+        text: `Plan: ${s.name}. $${s.monthlyPrice.toLocaleString("en-US")} per month, plus a one-time onboarding fee of $${s.onboardingFee.toLocaleString("en-US")} charged at checkout.`,
       },
     ],
     subsections,

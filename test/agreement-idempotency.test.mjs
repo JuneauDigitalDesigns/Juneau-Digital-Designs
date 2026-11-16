@@ -177,7 +177,7 @@ test("a failed acceptance does not block the retry: it signs afresh and is saved
  */
 async function signMasterThenReturn() {
   const master = await accept(submission({}, "2026-11-04T18:00:00.000Z"));
-  // What /start and /agreement see next time: the account with that master on it.
+  // What /start and /terms/accept see next time: the account with that master on it.
   state.accounts.user_rivera = state.savedAccounts.at(-1);
   assert.equal(state.accounts.user_rivera.masterAgreement.agreementId, master.agreement_id);
   return master;

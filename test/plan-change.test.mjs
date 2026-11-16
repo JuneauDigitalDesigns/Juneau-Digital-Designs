@@ -118,7 +118,7 @@ test("an upgrade keeps its agreement, binds it to the account, and words a decli
 });
 
 test("the signing page states the monthly price on every plan change", () => {
-  const src = read("app/agreement/page.tsx");
+  const src = read("app/terms/accept/page.tsx");
   assert.match(src, /const billingPeriod = "monthly" as const;/);
   // Nothing later reassigns it (it used to be re-read from the subscription or the query string).
   assert.doesNotMatch(src, /\bbillingPeriod = (?!"monthly")/);
@@ -154,7 +154,7 @@ test("the downgrade emails say exactly what Xander approved", async () => {
   assert.equal(accept.subject, "Your move to Starter: please accept the terms");
   assert.ok(
     accept.html.includes(
-      "You asked to move Acme Plumbing from Growth to Starter. Before we make the change, please read and accept the Starter service agreement.",
+      "You asked to move Acme Plumbing from Growth to Starter. Before we make the change, please read and accept the Terms of Service for the Starter plan.",
     ),
   );
   assert.ok(accept.html.includes(">Review and accept</a>"));

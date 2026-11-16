@@ -8,7 +8,7 @@ import { useAuth } from "@clerk/nextjs";
  *
  * `location.replace` rather than the Next router, deliberately. A full page load lets the
  * middleware read the session cookie that sign-up just set, and lets `/start` answer with an
- * ordinary 307 to `/agreement`, which the browser follows and paints. No client-side transition
+ * ordinary 307 to `/terms/accept`, which the browser follows and paints. No client-side transition
  * is involved, so none can stall. `replace` also keeps this page out of the back button: going back
  * from the agreement returns to the pricing page, not to a page that sends them forward again.
  *

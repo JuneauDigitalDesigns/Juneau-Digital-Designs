@@ -10,7 +10,7 @@ import { stripLastPage } from "@/app/lib/pdf-signer";
 export const runtime = "nodejs";
 
 /**
- * A client agreeing through their private link (`/agree/[code]`). No login: the code is the
+ * A client agreeing through their private link (`/terms/[code]`). No login: the code is the
  * credential, tied to one order and one version of the document. Everything the page enforces is
  * checked again here.
  */
@@ -34,7 +34,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
         const copy = smsConsentCopyForVersion(body.smsConsentVersion);
         const phone = normalizeUsPhone(String(body.alertPhone));
         if (!copy) {
-            return NextResponse.json({ error: "This agreement has changed. Reload the page to read the current version." }, { status: 400 });
+            return NextResponse.json({ error: "These terms have changed. Reload the page to read the current version." }, { status: 400 });
         }
         if (phone) smsConsent = { phone, copy };
     }
@@ -58,7 +58,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
     } catch (e) {
         if (e instanceof AgreementLinkError) return NextResponse.json({ error: e.message, code: e.code }, { status: e.status });
         console.error("[agree] could not record the agreement", e);
-        return NextResponse.json({ error: "The agreement could not be recorded. Try again." }, { status: 500 });
+        return NextResponse.json({ error: "Your acceptance could not be recorded. Try again." }, { status: 500 });
     }
 }
 

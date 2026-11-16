@@ -170,7 +170,7 @@ test("No: the number and the box stay hidden", () => {
     assert.match(yesPanel(render(SMS_CONSENT_V1, "no")), /hidden/);
 });
 
-/* ── /agreement (self-serve) ──────────────────────────────────────────────── */
+/* ── /terms/accept (self-serve) ──────────────────────────────────────────────── */
 
 const NOW = "2026-11-15T15:00:00.000Z";
 const submission = (o = {}) => ({
@@ -189,7 +189,7 @@ const submission = (o = {}) => ({
     ...o,
 });
 
-test("/agreement: the choice is checked by the same rule", () => {
+test("/terms/accept: the choice is checked by the same rule", () => {
     assert.equal(validateAgreementSubmission(submission({ smsChoice: "maybe" })), CHOOSE);
     assert.equal(validateAgreementSubmission(submission({ smsChoice: "yes", smsConsent: true, alertPhone: "555" })), NUMBER);
     assert.equal(validateAgreementSubmission(submission({ smsChoice: "yes", alertPhone: CELL })), TICK);
@@ -204,7 +204,7 @@ test("/agreement: the choice is checked by the same rule", () => {
     );
 });
 
-/* ── /agree/[code] (the close wizard's link) ──────────────────────────────── */
+/* ── /terms/[code] (the close wizard's link) ──────────────────────────────── */
 
 const order = (o = {}) => ({
     id: "ord_agree",

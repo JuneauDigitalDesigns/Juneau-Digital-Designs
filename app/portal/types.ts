@@ -223,12 +223,12 @@ export function tabHref(href: string, slug: string): string {
  *
  * The upgrade starts at the agreement rather than at checkout on purpose: Growth is a
  * materially different schedule (a voice agent, 350 call minutes, overage at $0.20/min), so
- * the terms are re-signed before the subscription changes. `/agreement` already renders the
+ * the terms are re-signed before the subscription changes. `/terms/accept` already renders the
  * right schedule from `?plan=`; `?upgrade=` tells it to finish at the upgrade endpoint
  * instead of the first-purchase checkout.
  */
 export function upgradeHref(slug: string): string {
-    return `/agreement?plan=growth&upgrade=${encodeURIComponent(slug)}`;
+    return `/terms/accept?plan=growth&upgrade=${encodeURIComponent(slug)}`;
 }
 
 /**
@@ -240,5 +240,5 @@ export function upgradeHref(slug: string): string {
  * provisions it with onboard.js.
  */
 export function addReceptionistHref(slug: string): string {
-    return `/agreement?plan=starter&receptionist=${encodeURIComponent(slug)}`;
+    return `/terms/accept?plan=starter&receptionist=${encodeURIComponent(slug)}`;
 }

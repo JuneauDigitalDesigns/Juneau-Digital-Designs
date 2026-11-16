@@ -145,8 +145,8 @@ test("both agreement pages render the one shared opt-in, with the wording the se
         assert.match(src, /smsConsentVersion: smsConsentCopy\.version/, `${p} sends the version it showed`);
         assert.doesNotMatch(src, /splitConsentText\(/, `${p} renders the consent text only through SmsOptIn`);
     }
-    assert.match(read("app/agreement/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
-    assert.match(read("app/agree/[code]/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
+    assert.match(read("app/terms/accept/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
+    assert.match(read("app/terms/[code]/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
 });
 
 /* ── /api/agreement records the words shown ───────────────────────────────── */
@@ -207,7 +207,7 @@ const pendingFor = (id) => {
     return v === undefined ? null : JSON.parse(v);
 };
 
-test("v1: a ticked box on /agreement is held with the registered version and hash", async () => {
+test("v1: a ticked box on /terms/accept is held with the registered version and hash", async () => {
     const out = await sign({ smsConsent: true, alertPhone: "+14075550143", smsConsentVersion: "sms-consent-v1" });
     assert.equal(out.status, 200);
     const pending = pendingFor(out.agreement_id);
@@ -218,7 +218,7 @@ test("v1: a ticked box on /agreement is held with the registered version and has
     assert.equal(pending.userAgent, "laptop-browser");
 });
 
-test("v2: a ticked box on /agreement is held with today's version and hash", async () => {
+test("v2: a ticked box on /terms/accept is held with today's version and hash", async () => {
     process.env.OWNER_TEXT_CAMPAIGN = "v2";
     const out = await sign({ smsConsent: true, alertPhone: "+14075550143", smsConsentVersion: "sms-consent-v2" });
     const pending = pendingFor(out.agreement_id);

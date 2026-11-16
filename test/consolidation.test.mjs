@@ -43,13 +43,13 @@ test("refusals are decided before the client is offered the agreement", () => {
   const page = read("app/portal/consolidate/page.tsx");
   assert.match(page, /await planConsolidation\(account\)/);
   // The accept button only exists when the move can be made.
-  assert.match(page, /\{move\.ok && \(\s*<Link href="\/agreement\?plan=enterprise&consolidate=1"/);
-  const agreement = read("app/agreement/page.tsx");
+  assert.match(page, /\{move\.ok && \(\s*<Link href="\/terms\/accept\?plan=enterprise&consolidate=1"/);
+  const agreement = read("app/terms/accept/page.tsx");
   assert.match(agreement, /if \(!move\?\.ok\) redirect\("\/portal\/consolidate"\)/);
 });
 
 test("the Enterprise agreement for a move states the monthly price", () => {
-  const agreement = read("app/agreement/page.tsx");
+  const agreement = read("app/terms/accept/page.tsx");
   assert.match(agreement, /const billingPeriod = "monthly" as const;/);
 });
 
@@ -58,11 +58,11 @@ test("the consolidation page wording is exactly what Xander approved", async () 
   const base = { hostName: "Acme Plumbing", interval: "month", periodEnd: "December 1, 2026" };
   assert.equal(
     copy.consolidationParagraph({ ...base, others: 1 }),
-    "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current month, which ends on December 1, 2026. Your other Growth subscription is cancelled at the same time, and its unused part is credited to your account and taken off your next invoices. You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.",
+    "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current month, which ends on December 1, 2026. Your other Growth subscription is cancelled at the same time, and its unused part is credited to your account and taken off your next invoices. You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Terms of Service for the Enterprise plan on the next screen before anything is charged.",
   );
   assert.equal(
     copy.consolidationParagraph({ ...base, others: 0 }),
-    "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current month, which ends on December 1, 2026. You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.",
+    "Acme Plumbing's Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current month, which ends on December 1, 2026. You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Terms of Service for the Enterprise plan on the next screen before anything is charged.",
   );
   assert.match(
     copy.consolidationParagraph({ ...base, others: 2 }),

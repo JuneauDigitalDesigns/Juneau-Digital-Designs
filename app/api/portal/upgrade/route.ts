@@ -111,16 +111,16 @@ export async function POST(request: Request) {
 
     const agreementId = body.agreement_id?.trim();
     if (!agreementId) {
-        return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
+        return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
     }
 
     const agreement = await getAgreement(agreementId);
     if (!agreement) {
-        return NextResponse.json({ error: "We couldn't find that agreement." }, { status: 400 });
+        return NextResponse.json({ error: "We couldn't find that acceptance." }, { status: 400 });
     }
     if (agreement.plan !== "growth") {
         return NextResponse.json(
-            { error: "That agreement isn't for the Growth plan." },
+            { error: "That acceptance isn't for the Growth plan." },
             { status: 400 },
         );
     }
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     // else is someone else's agreement being replayed. (Not `account.masterAgreement`: a held
     // upgrade agreement is only recorded there once the upgrade below succeeds.)
     if (!acceptedBy(agreement, account)) {
-        return NextResponse.json({ error: "That agreement isn't for this account." }, { status: 403 });
+        return NextResponse.json({ error: "That acceptance isn't for this account." }, { status: 403 });
     }
     // A website-only site has no phone setup to carry onto Growth, so the agreement has to say
     // how the phone is handled. Without it the site would be Growth with the receptionist still

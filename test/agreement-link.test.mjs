@@ -119,8 +119,9 @@ test("the script states the renewal charge, the overage, the disputes clause, an
     assert.match(all, /Extra minutes are \$0\.20 each/);
     assert.match(all, /handled individually through arbitration, not in court/);
     assert.match(all, /the terms limit our liability/);
-    assert.match(all, /By saying yes, you accept these terms and the full agreement we'll email you\. Do you agree\?/);
-    assert.match(buildCallScript("growth", "annual").lines.join(" "), /charged \$4,970 on this date each year/);
+    assert.match(all, /By saying yes, you accept these terms and the full Terms of Service we'll email you\. Do you agree\?/);
+    // Month to month only since Terms of Service v6.0: nothing yearly is ever read.
+    assert.doesNotMatch(all, /year|annual/i);
     // Website-only has no call minutes to state.
     assert.equal(buildCallScript("starter", "monthly", { webOnly: true }).lines.some((l) => /call-minutes/.test(l)), false);
 });

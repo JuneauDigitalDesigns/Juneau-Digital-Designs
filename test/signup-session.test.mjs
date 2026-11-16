@@ -4,9 +4,9 @@
  *
  * F2 from the 2026-11-04 Stripe test run, seen on both fresh sign-ups:
  *   1. Clerk finished sign-up with a client-side push from `/portal/sign-up` (the only layout
- *      with Clerk mounted) to `/start`, which redirects to `/agreement`. The transition never
+ *      with Clerk mounted) to `/start`, which redirects to `/terms/accept`. The transition never
  *      finished; a reload, which is a full page load, fixed it.
- *   2. `/agreement` had no Clerk on it, so nothing renewed the 60-second session token while the
+ *   2. `/terms/accept` had no Clerk on it, so nothing renewed the 60-second session token while the
  *      buyer read the terms. Clerk's middleware renews an expired token only on a page load, not
  *      on a POST, so `/api/checkout` answered 401 four seconds after the agreement saved. Since
  *      #55 `/api/agreement` makes the same check, and would refuse first.
@@ -74,7 +74,7 @@ test("the hop page is reachable straight after sign-up and leaves by a full page
 // 2. The agreement page's API calls carry a fresh session token.
 
 test("the agreement page mounts Clerk, and every API call on it goes through sessionFetch", () => {
-  const layout = read("app/agreement/layout.tsx");
+  const layout = read("app/terms/accept/layout.tsx");
   assert.match(layout, /<ClerkProvider[\s>]/);
 
   const client = read("app/components/agreement/AgreementClient.tsx");
