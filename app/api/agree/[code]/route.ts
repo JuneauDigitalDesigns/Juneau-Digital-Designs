@@ -1,7 +1,7 @@
 import { NextResponse, after } from "next/server";
 import { AgreementLinkError, acceptAgreementLink, resolveAgreementLink } from "@/app/lib/agreement-link";
 import { AGREE_CODE, agreementConsentError, agreementSubmissionError } from "@/app/lib/agreement-link.mjs";
-import { normalizeE164 } from "@/app/lib/phone";
+import { normalizeUsPhone } from "@/app/lib/phone";
 import { smsConsentCopyForVersion } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
 import { shortAgreeUrl } from "@/app/lib/order-checkout";
@@ -32,7 +32,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
     let smsConsent: { phone: string; copy: NonNullable<ReturnType<typeof smsConsentCopyForVersion>> } | undefined;
     if (body?.smsConsent === true) {
         const copy = smsConsentCopyForVersion(body.smsConsentVersion);
-        const phone = normalizeE164(String(body.alertPhone));
+        const phone = normalizeUsPhone(String(body.alertPhone));
         if (!copy) {
             return NextResponse.json({ error: "This agreement has changed. Reload the page to read the current version." }, { status: 400 });
         }

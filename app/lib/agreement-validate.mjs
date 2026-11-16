@@ -1,4 +1,5 @@
-import { normalizeE164 } from "./phone.mjs";
+import { normalizeUsPhone } from "./phone.mjs";
+import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "./agreement-phone.mjs";
 
 /**
  * The rules a self-serve agreement submission must pass before anything is stored.
@@ -120,7 +121,8 @@ export function validateAgreementSubmission(body) {
   }
   // Forwarding needs a number to forward from. A choice of "forward" with nothing to forward
   // is not a usable instruction.
-  if (body.receptionistMode === "forwarded" && !normalizeE164(body.forwardingNumber)) {
+  // A complete US number: "555", or a foreign number, can't be forwarded to (2026-11-15).
+  if (body.receptionistMode === "forwarded" && !normalizeUsPhone(body.forwardingNumber)) {
     return "A valid number to forward is required";
   }
 
@@ -132,8 +134,11 @@ export function validateAgreementSubmission(body) {
   }
   // Consent without a reachable number is not consent to anything. Checked in the UI too,
   // but a record claiming permission to text an unparseable string is worse than no record.
-  if (body.smsConsent && !normalizeE164(body.alertPhone)) {
-    return "A valid mobile number is required to enable text alerts";
-  }
+  // And a number in the box, ticked or not, is a complete US number: an agreement was accepted
+  // with "555" there in Xander's 2026-11-15 test (`agreement-phone.mjs`).
+  // `Boolean()`: the route stores consent for any truthy `smsConsent`, so this checks the same.
+  const phoneProblem = alertPhoneProblem(Boolean(body.smsConsent), body.alertPhone);
+  if (phoneProblem === "consent-needs-number") return "A valid mobile number is required to enable text alerts";
+  if (phoneProblem === "invalid-unticked") return ALERT_PHONE_UNTICKED_ERROR;
   return null;
 }

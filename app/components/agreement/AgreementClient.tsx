@@ -4,7 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
-import { normalizeE164 } from "@/app/lib/phone";
+import { normalizeUsPhone } from "@/app/lib/phone";
+import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "@/app/lib/agreement-phone.mjs";
 import { makeSessionFetch } from "@/app/lib/session-fetch";
 import type { SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import { RECEPTIONIST_FAILED, RECEPTIONIST_SESSION_EXPIRED } from "@/app/lib/plan-change-copy";
@@ -265,8 +266,16 @@ export default function AgreementClient({
             setError("Please tick the box to agree to the Terms of Service.");
             return;
         }
-        if (!form.clientLegalName || !form.clientAddress || !form.signerName || !form.signerTitle || !form.signerEmail) {
+        // Trimmed, as the server checks them: a field of spaces is not filled in.
+        const blank = (v: string) => v.trim() === "";
+        if (blank(form.clientLegalName) || blank(form.clientAddress) || blank(form.signerName) || blank(form.signerTitle) || blank(form.signerEmail)) {
             setError("Please complete all fields above.");
+            return;
+        }
+        // The server's own rule and words (`agreement-validate.mjs`), so the page never sends
+        // what the server will refuse. The browser's type="email" lets "jane@acme" through.
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.signerEmail.trim())) {
+            setError("Invalid signer email");
             return;
         }
         if (isEnterprise && (!form.site1 || !form.site2)) {
@@ -280,7 +289,7 @@ export default function AgreementClient({
             return;
         }
         const normalizedForwarding =
-            receptionistMode === "forwarded" ? normalizeE164(forwardingNumber) : null;
+            receptionistMode === "forwarded" ? normalizeUsPhone(forwardingNumber) : null;
         if (receptionistMode === "forwarded" && !normalizedForwarding) {
             setError("Enter the number you want forwarded to your receptionist.");
             return;
@@ -288,14 +297,22 @@ export default function AgreementClient({
         // Consent only counts when a receptionist exists to text about: the opt-in is hidden once
         // website-only is chosen, so a box ticked before that switch is discarded here.
         const effectiveSmsConsent = hasReceptionist && smsConsent;
-        // A checked box with no usable number is the one combination that must not pass:
-        // it would record a consent pointing at nothing. An unchecked box discards whatever
-        // was typed, so no number we have no permission to text is ever transmitted.
-        const alertPhone = effectiveSmsConsent ? normalizeE164(form.alertPhone) : null;
-        if (effectiveSmsConsent && !alertPhone) {
+        // A checked box with no usable number must not pass: it would record a consent pointing
+        // at nothing. And whatever is typed in the box is a complete US number, ticked or not:
+        // in Xander's 2026-11-15 test an agreement went through with "555" there, because an
+        // unchecked box silently discarded it. An unchecked box still never transmits the
+        // number, so no number we have no permission to text leaves the browser. Only shown
+        // with a receptionist, so only checked with one.
+        const phoneProblem = hasReceptionist ? alertPhoneProblem(effectiveSmsConsent, form.alertPhone) : null;
+        if (phoneProblem === "consent-needs-number") {
             setError(SMS_OPT_IN_PHONE_ERROR);
             return;
         }
+        if (phoneProblem === "invalid-unticked") {
+            setError(ALERT_PHONE_UNTICKED_ERROR);
+            return;
+        }
+        const alertPhone = effectiveSmsConsent ? normalizeUsPhone(form.alertPhone) : null;
 
         const additionalSites = isEnterprise
             ? [form.site1, form.site2, form.site3].filter(Boolean)
