@@ -101,8 +101,8 @@ export function validateAgreementSubmission(body) {
   // A downgrade keeps the phone setup the client already has, so it is skipped there too.
   const needsPhoneChoice =
     !body.upgradeSlug && !body.downgradeSlug && (body.plan === "starter" || body.plan === "growth");
-  // Optional: the cover states the period when it is known, and both prices when it is not.
-  if (body.billingPeriod && body.billingPeriod !== "monthly" && body.billingPeriod !== "annual") {
+  // Optional: the cover states the period when it is known. Every plan is month to month.
+  if (body.billingPeriod && body.billingPeriod !== "monthly") {
     return "Invalid billing period";
   }
   if (body.receptionistMode && !VALID_RECEPTIONIST_MODES.includes(body.receptionistMode)) {

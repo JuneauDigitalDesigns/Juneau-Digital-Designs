@@ -39,16 +39,15 @@ test("plan changes are classified by tier, and an unknown starting price is trea
 });
 
 test("an immediate change refuses to apply when the card does not pay", () => {
-  for (const interval of ["month", "year"]) {
-    const params = immediateChangeParams({ interval, fromPlan: "starter", toPlan: "growth" });
-    assert.equal(params.payment_behavior, "error_if_incomplete");
-    assert.equal(params.proration_behavior, "always_invoice");
-  }
+  const params = immediateChangeParams({ fromPlan: "starter", toPlan: "growth" });
+  assert.equal(params.payment_behavior, "error_if_incomplete");
+  assert.equal(params.proration_behavior, "always_invoice");
 });
 
 test("changeSubscriptionPlan uses those parameters rather than Stripe's allow_incomplete default", () => {
   const src = read("app/lib/plan-billing.ts");
-  assert.match(src, /\.\.\.immediateChangeParams\(/);
+  assert.match(src, /\.\.\.params,/);
+  assert.match(src, /immediateChangeParams\(/);
   assert.doesNotMatch(src, /proration_behavior:\s*planChangeProration\(/);
   assert.match(src, /code: "payment-failed"/);
 });
@@ -59,7 +58,6 @@ test("a downgrade is two phases: the current price to the period end, then the l
     periodEnd: 1_796_083_200, // 2026-12-01
     currentPriceId: "price_growth_m",
     targetPriceId: "price_starter_m",
-    interval: "month",
     metadata: { plan: "starter", site_slug: "acme", account_email: "a@b.c" },
   });
   assert.equal(phases.length, 2);
@@ -75,25 +73,13 @@ test("a downgrade is two phases: the current price to the period end, then the l
   assert.equal(phases[1].metadata.site_slug, "acme");
 });
 
-test("an annual downgrade keeps annual billing", () => {
-  const phases = downgradeSchedulePhases({
-    currentPhaseStart: 1,
-    periodEnd: 2,
-    currentPriceId: "g_y",
-    targetPriceId: "s_y",
-    interval: "year",
-    metadata: {},
-  });
-  assert.deepEqual(phases[1].duration, { interval: "year", interval_count: 1 });
-});
-
 test("the plan is read from the recurring price, ignoring one-time items", () => {
   const table = {
-    starter: { monthly: "s_m", annual: "s_y" },
-    growth: { monthly: "g_m", annual: "g_y" },
-    enterprise: { monthly: "e_m", annual: "e_y" },
+    starter: { monthly: "s_m" },
+    growth: { monthly: "g_m" },
+    enterprise: { monthly: "e_m" },
   };
-  assert.equal(planFromItems([{ price: { id: "g_y", recurring: { interval: "year" } } }], table), "growth");
+  assert.equal(planFromItems([{ price: { id: "g_m", recurring: { interval: "month" } } }], table), "growth");
   assert.equal(
     planFromItems(
       [
@@ -131,9 +117,11 @@ test("an upgrade keeps its agreement, binds it to the account, and words a decli
   assert.match(src, /upgradeCancelPending\(/);
 });
 
-test("the signing page reads an upgrade's billing period from the live subscription", () => {
+test("the signing page states the monthly price on every plan change", () => {
   const src = read("app/agreement/page.tsx");
-  assert.match(src, /billingPeriodOfSite\(site\)/);
+  assert.match(src, /const billingPeriod = "monthly" as const;/);
+  // Nothing later reassigns it (it used to be re-read from the subscription or the query string).
+  assert.doesNotMatch(src, /\bbillingPeriod = (?!"monthly")/);
 });
 
 test("client wording is exactly what Xander approved (2026-11-04)", async () => {
@@ -176,11 +164,11 @@ test("the downgrade emails say exactly what Xander approved", async () => {
     ),
   );
 
-  const done = email.downgradeConfirmedEmail({ ...base, interval: "year" });
+  const done = email.downgradeConfirmedEmail(base);
   assert.equal(done.subject, "Your plan change to Starter");
   assert.ok(
     done.html.includes(
-      "Your plan changes from Growth to Starter on December 1, 2026, at the end of the year you've already paid for. Until then nothing changes. From December 1, 2026 you're billed $1,970 a year. Your number, receptionist and call history all stay. Questions? Reply to this email.",
+      "Your plan changes from Growth to Starter on December 1, 2026, at the end of the month you've already paid for. Until then nothing changes. From December 1, 2026 you're billed $197 a month. Your number, receptionist and call history all stay. Questions? Reply to this email.",
     ),
   );
   assert.equal(email.pricePerPeriod("starter", "month"), "$197 a month");

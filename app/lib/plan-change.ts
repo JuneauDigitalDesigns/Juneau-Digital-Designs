@@ -44,8 +44,8 @@ export interface PlanChangeRecord {
   status: PlanChangeStatus;
   /** When the lower plan starts: the end of the period already paid for, epoch ms. */
   effectiveAt: number;
-  /** "month" or "year", the period that carries over to the new plan. */
-  interval: "month" | "year";
+  /** Every plan is month to month. */
+  interval: "month";
   subscriptionId: string;
   requestedAt: number;
   requestedBy: "operator";

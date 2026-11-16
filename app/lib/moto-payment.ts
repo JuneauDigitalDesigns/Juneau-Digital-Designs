@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 import type Stripe from "stripe";
 import { createAccount, type OperatorOrder } from "@jdd/schema";
 import { stripe } from "./stripe";
-import { getPlan, priceIdFor } from "./plans";
+import { getPlan, monthlyPriceIdFor } from "./plans";
 import { getSchedule } from "./legal";
 import { getAccount, saveAccount } from "./account-store";
 // Read-only reuse: plan-billing.ts belongs to the plan-change-review session.
@@ -141,20 +141,17 @@ export function motoDashboardUrl(customerId: string): string {
 /** The order's amount due today, in cents, from Schedule A: the amount read aloud on the call. */
 export function orderAmountCents(order: OperatorOrder): { todayCents: number; recurringCents: number } {
     const schedule = getSchedule(order.plan);
-    const recurring = order.period === "annual" ? schedule.annualPrice : schedule.monthlyPrice;
+    const recurring = schedule.monthlyPrice;
     return { todayCents: Math.round((recurring + schedule.onboardingFee) * 100), recurringCents: Math.round(recurring * 100) };
 }
 
 function prices(order: OperatorOrder): { recurring: string; onboarding: string | null } {
     const cfg = getPlan(order.plan);
     if (!cfg) throw new MotoError("Unknown plan.", "bad-plan");
-    const recurring = priceIdFor(cfg, order.period);
-    if (!recurring) {
-        throw new MotoError(
-            order.period === "annual" ? "Annual billing isn't configured for that plan." : "That plan isn't configured for billing.",
-            "no-price",
-        );
-    }
+    // An order saved before yearly billing was withdrawn is refused rather than charged monthly, since its accepted terms state the yearly price.
+    if (order.period !== "monthly") throw new MotoError("This order was set up for yearly billing, which is no longer offered. Start a new order.", "not-monthly");
+    const recurring = monthlyPriceIdFor(cfg);
+    if (!recurring) throw new MotoError("That plan isn't configured for billing.", "no-price");
     return { recurring, onboarding: cfg.onboardingPriceId || null };
 }
 
@@ -235,7 +232,7 @@ export interface ChargePreview {
     period: OperatorOrder["period"];
     /** Stripe's own figure for the first invoice. Charging is refused unless it equals `amountCents`. */
     stripeAmountCents: number | null;
-    /** When the next charge falls if the card is charged now: a month or a year on, same day. */
+    /** When the next charge falls if the card is charged now: a month on, same day. */
     nextPaymentAt: number;
     /** What the client's bank statement will show, from the Stripe account's settings. */
     statementDescriptor: string | null;
@@ -315,9 +312,9 @@ export async function previewMotoCharge(order: OperatorOrder): Promise<ChargePre
             : null,
         amountCents: todayCents,
         recurringCents,
-        period: order.period,
+        period: "monthly",
         stripeAmountCents,
-        nextPaymentAt: nextPaymentAt(Date.now(), order.period),
+        nextPaymentAt: nextPaymentAt(Date.now()),
         statementDescriptor: descriptor,
     };
 }
@@ -418,7 +415,6 @@ export async function chargeMotoOrder(
                         order_id: order.id,
                         agreement_id: order.agreementId ?? "",
                         plan: order.plan,
-                        period: order.period,
                         site_slug: order.siteSlug,
                         payment_method: "dashboard-moto",
                     },

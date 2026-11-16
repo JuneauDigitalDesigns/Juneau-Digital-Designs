@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     const prices = Object.fromEntries(
         Object.values(SCHEDULES).map((s) => [
             s.slug,
-            { name: s.name, monthly: s.monthlyPrice, annual: s.annualPrice, onboardingFee: s.onboardingFee },
+            { name: s.name, monthly: s.monthlyPrice, onboardingFee: s.onboardingFee },
         ]),
     );
     return NextResponse.json({ ok: true, prices });

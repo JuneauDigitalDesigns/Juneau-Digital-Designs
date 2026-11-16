@@ -6,7 +6,6 @@ import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { saveAccount } from "@/app/lib/account-store";
 import { writeCancelSignal, writeSubToSlug } from "@/app/lib/cancel-kv";
 import { releaseScheduledChange, subscriptionPeriod } from "@/app/lib/plan-billing";
-import { billingIntervalOf } from "@/app/lib/billing-periods.mjs";
 import { getPlanChange, isPendingPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { dropBillingCache } from "@/app/lib/portal-kv";
 import { CANCEL_EMAIL_ACCESS, CANCEL_EMAIL_NOTICE, cancelEmailFooter } from "@/app/lib/plan-change-copy";
@@ -153,8 +152,8 @@ export async function POST(request: Request) {
         );
     }
 
-    const recurringItem = sub.items.data.find((i) => i.price.recurring !== null);
-    const interval = billingIntervalOf(recurringItem?.price.recurring);
+    // Every plan is month to month: what the client has paid for is the current month.
+    const interval = "month";
 
     const nowS = Math.floor(Date.now() / 1000);
     const target = nowS + noticeDays * DAY_S;

@@ -118,18 +118,20 @@ test("changed details are a new agreement, sent to the address now given", async
   assert.deepEqual(state.emailsTo, ["marisol@riverapd.example", "office@riverapd.example"]);
 });
 
-test("a different plan, period or receptionist choice is a different agreement", async () => {
+test("a different plan or receptionist choice is a different agreement", async () => {
   const base = await accept(submission());
-  for (const change of [
-    { plan: "growth" },
-    { billingPeriod: "annual" },
-    { receptionistMode: "declined" },
-  ]) {
+  for (const change of [{ plan: "growth" }, { receptionistMode: "declined" }]) {
     const other = await accept(submission(change));
     assert.equal(other.status, 200, JSON.stringify(change));
     assert.notEqual(other.agreement_id, base.agreement_id, JSON.stringify(change));
   }
-  assert.equal(state.savedAgreements.length, 4);
+  assert.equal(state.savedAgreements.length, 3);
+});
+
+test("a yearly billing period is refused: every plan is month to month", async () => {
+  const res = await accept(submission({ billingPeriod: "annual" }));
+  assert.equal(res.status, 400);
+  assert.equal(state.savedAgreements.length, 0);
 });
 
 test("another account accepting identical details gets its own agreement", async () => {

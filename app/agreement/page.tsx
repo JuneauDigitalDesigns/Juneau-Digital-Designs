@@ -8,7 +8,7 @@ import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../lib/legal";
 import { getAgreement } from "../lib/kv";
 import { isWebOnly, legacyMasterFrom } from "@jdd/schema";
 import { resolveAccountForUser } from "../lib/portal-account";
-import { billingPeriodOfSite, upgradeBlockReason } from "../lib/plan-billing";
+import { upgradeBlockReason } from "../lib/plan-billing";
 import { getPlanChange } from "../lib/plan-change";
 import { planConsolidation } from "../lib/consolidation";
 import type { PlanSlug } from "../lib/agreement-types";
@@ -43,22 +43,16 @@ const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 export default async function AgreementPage({
     searchParams,
 }: {
-    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string; receptionist?: string }>;
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; downgrade?: string; receptionist?: string }>;
 }) {
-    const { plan, upgrade, kind, consolidate, period, downgrade, receptionist } = await searchParams;
+    const { plan, upgrade, kind, consolidate, downgrade, receptionist } = await searchParams;
     const downgradeSlug = downgrade?.trim() || null;
     const receptionistSlug = receptionist?.trim() || null;
     let selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
         ? (plan as PlanSlug)
         : "starter";
-    // Anything but an exact "annual" is monthly. Same reasoning as `/start`: a tampered or
-    // stale link must not be able to escalate a monthly intent into a yearly charge.
-    //
-    // For a first purchase only. An in-place plan change (`?upgrade=`, `?downgrade=`) keeps the
-    // period the client already bills on, so it is read from their subscription below and the
-    // query string is ignored: the upgrade link never carried one, and every annual client who
-    // upgraded was shown, and accepted, the monthly price.
-    let billingPeriod: "monthly" | "annual" = period === "annual" ? "annual" : "monthly";
+    // Every plan is month to month, so the cover always states the monthly price.
+    const billingPeriod = "monthly" as const;
 
     /**
      * Nobody signs anonymously any more.
@@ -87,11 +81,10 @@ export default async function AgreementPage({
                   : `/agreement?plan=starter&receptionist=${encodeURIComponent(receptionistSlug!)}`;
             redirect(`/portal/sign-in?redirect_url=${encodeURIComponent(back)}`);
         }
-        redirect(`/start?plan=${selectedPlan}&period=${billingPeriod}`);
+        redirect(`/start?plan=${selectedPlan}`);
     }
 
-    // A Growth → Enterprise move: the period is the one the Growth sites bill on, and the site
-    // list starts with them. A move that can't be done here goes back to its page, which says
+    // A Growth → Enterprise move: the site list starts with the Growth sites. A move that can't be done here goes back to its page, which says
     // why, so nothing is accepted for a move that would then be refused.
     let prefillSites: string[] | undefined;
     if (consolidate === "1") {
@@ -99,7 +92,6 @@ export default async function AgreementPage({
         const move = account ? await planConsolidation(account) : null;
         if (!move?.ok) redirect("/portal/consolidate");
         selectedPlan = "enterprise";
-        billingPeriod = move.interval === "year" ? "annual" : "monthly";
         prefillSites = [move.host, ...move.others].map(({ site }) => site.name ?? site.slug);
     }
 
@@ -109,19 +101,15 @@ export default async function AgreementPage({
         // or not theirs. Nothing to accept, so back to the portal.
         if (!change) redirect("/portal");
         selectedPlan = change.toPlan;
-        billingPeriod = change.interval === "year" ? "annual" : "monthly";
     }
 
-    // A website-only site switching the receptionist on: the standard Starter terms, on the
-    // period it already bills on. Any other site has nothing to switch on here.
+    // A website-only site switching the receptionist on: the standard Starter terms. Any other
+    // site has nothing to switch on here.
     if (receptionistSlug) {
         const owner = await resolveAccountForUser(userId);
         const site = owner?.sites.find((s) => s.slug === receptionistSlug);
         if (!site || !isWebOnly(site)) redirect("/portal");
-        const sitePeriod = await billingPeriodOfSite(site);
-        if (!sitePeriod) redirect("/portal");
         selectedPlan = "starter";
-        billingPeriod = sitePeriod;
     }
 
     /**
@@ -187,14 +175,6 @@ export default async function AgreementPage({
         const site = await upgradableSite(upgradeSlug);
         if (!site) return <UpgradeUnavailable />;
         askPhoneChoice = isWebOnly(site);
-        // The period the upgrade keeps, read from the live subscription. Unreadable means we
-        // can't say what they are agreeing to pay, so no form.
-        const sitePeriod = await billingPeriodOfSite(site);
-        if (!sitePeriod) {
-            console.error(`[agreement] upgrade blocked: could not read the billing period for ${upgradeSlug}`);
-            return <UpgradeUnavailable />;
-        }
-        billingPeriod = sitePeriod;
     }
 
     return (

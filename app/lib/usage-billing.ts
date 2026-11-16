@@ -10,7 +10,7 @@ import { listAccounts } from "./account-store";
 import { resolveSubscriptionId, subscriptionPeriod } from "./plan-billing";
 import type { PortalAccount } from "@jdd/schema";
 import type Stripe from "stripe";
-import { billingIntervalOf, meteringWindows } from "./billing-periods.mjs";
+import { meteringWindows } from "./billing-periods.mjs";
 
 // $0.20/min = 20 cents/min in Stripe's integer-cents currency
 const OVERAGE_CENTS_PER_MINUTE = 20;
@@ -43,12 +43,12 @@ export interface CycleResult {
  * Main entry point for the billing cron.
  *
  * For every **allowance** on every account:
- *   1. Pulls Retell usage for that allowance's current MONTH: the subscription's billing period
- *      on monthly billing, one of twelve monthly windows on annual (`billing-periods.mjs`).
+ *   1. Pulls Retell usage for that allowance's current month: the subscription's billing period
+ *      (`billing-periods.mjs`).
  *   2. Sends email warnings at 80% and 100% of the included minutes (deduplicated in KV).
- *   3. For each month that has closed and isn't billed yet, bills any overage: on monthly, a
- *      pending invoice item collected with that subscription's next invoice; on annual, its own
- *      invoice charged now, since the subscription's next invoice is a year away.
+ *   3. For each month that has closed and isn't billed yet, bills any overage: a pending invoice
+ *      item collected with that subscription's next invoice, or, once the subscription has
+ *      ended, its own invoice charged now.
  *
  * An allowance is not an account. Starter and Growth are each sold per site with their own
  * 100 and 350 minutes; only Enterprise pools, across the sites of its one bundle. See
@@ -130,19 +130,13 @@ async function processGroup(
   const now = Date.now();
 
   /**
-   * The monthly allowance windows to meter (billing-periods.mjs). A monthly subscription's
-   * window is its billing period, as before. An ANNUAL one is cut into twelve monthly windows:
-   * the allowance is per month in the contract, and metering against the subscription period
-   * gave an annual client one month's minutes for the whole year, warned them in week two, and
-   * billed overage only at renewal. `closed` also includes the month just before the current
-   * period, because Stripe moves the subscription on the moment it renews.
+   * The monthly allowance windows to meter (billing-periods.mjs): the subscription's billing
+   * month, plus the month just before it, because Stripe moves the subscription on the moment
+   * it renews.
    */
-  const recurringItem = subscription.items.data.find((i) => i.price.recurring !== null);
-  const interval = billingIntervalOf(recurringItem?.price.recurring);
   const { current, closed } = meteringWindows({
     periodStartMs: period.start * 1000,
     periodEndMs: period.end * 1000,
-    interval,
     nowMs: now,
     subscriptionStartMs: subscription.start_date * 1000,
   });
@@ -231,11 +225,7 @@ async function processGroup(
 
       if (amount > 0) {
         const description = `Voice AI overage, ${groupLabel}: ${duration(overageSeconds)} at $0.20/min (${duration(closedSeconds)} used, ${cap} min included)`;
-        if (interval === "year" || subscription.status === "canceled") {
-          // An annual subscription's next invoice is its renewal, up to a year away, so a
-          // pending item attached to it would collect this month's overage next year. Annual
-          // overage is invoiced monthly on its own invoice (approved 2026-11-04).
-          //
+        if (subscription.status === "canceled") {
           // A cancelled subscription has no next invoice at all. Its final month only closes
           // once it has ended, so that month's overage goes on its own invoice too, rather than
           // on an invoice item for a subscription Stripe will never bill again.
@@ -251,7 +241,7 @@ async function processGroup(
             subscription: subscriptionId,
           });
         }
-        console.log(`[usage-billing] billed overage for ${email}/${groupRef} (${interval}): ${duration(overageSeconds)}, ${amount}c`);
+        console.log(`[usage-billing] billed overage for ${email}/${groupRef}: ${duration(overageSeconds)}, ${amount}c`);
       } else {
         console.log(`[usage-billing] ${email}/${groupRef}: period closed, no billable overage (${duration(closedSeconds)} of ${cap} min)`);
       }
@@ -324,9 +314,7 @@ async function sendUsageWarning(
    */
   groupLabel: string,
   /**
-   * When this month's allowance ends and the next one starts, epoch ms. The email used to say
-   * minutes reset at the start of the next billing period, which on annual billing reads as next
-   * year; allowances are monthly on both periods (contract v5.3 §3).
+   * When this month's allowance ends and the next one starts, epoch ms.
    */
   resetAt: number,
 ): Promise<void> {

@@ -28,10 +28,9 @@ function formatDate(ms: number): string {
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-/** "$197 a month" or "$1,970 a year": the price of the new plan on the period that carries over. */
-export function pricePerPeriod(plan: PlanSlug, interval: "month" | "year"): string {
-    const s = SCHEDULES[plan];
-    return interval === "year" ? `${money(s.annualPrice)} a year` : `${money(s.monthlyPrice)} a month`;
+/** "$197 a month": the monthly price of the new plan. */
+export function pricePerPeriod(plan: PlanSlug, interval: "month"): string {
+    return `${money(SCHEDULES[plan].monthlyPrice)} a ${interval}`;
 }
 
 function paragraph(html: string): string {
@@ -73,7 +72,8 @@ export interface DowngradeEmailInput {
     fromPlan: PlanSlug;
     toPlan: PlanSlug;
     effectiveAt: number;
-    interval: "month" | "year";
+    /** Every plan is month to month. */
+    interval: "month";
 }
 
 /** The accept-link email. `acceptUrl` is the signing page for the lower plan. */
