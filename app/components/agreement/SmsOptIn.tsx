@@ -1,24 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { SMS_CONSENT_V1, splitConsentText, type SmsConsentCopy } from "@/app/lib/sms-consent-text";
+import { splitConsentText, type SmsConsentCopy } from "@/app/lib/sms-consent-text";
+import { textAlertsCards } from "@/app/lib/text-alerts-choice.mjs";
 
 /**
- * The optional owner SMS opt-in: a mobile number field and, beside it, a separate, unchecked
- * consent box. One component for both agreement pages, the self-serve `/agreement` and an order's
- * private link (`/agree/[code]`), so the two can never show different words.
+ * The owner text-alerts choice: two cards, neither chosen when the page opens. One component for
+ * both agreement pages, the self-serve `/agreement` and an order's private link (`/agree/[code]`),
+ * so the two can never show different words. Rules: `app/lib/text-alerts-choice.mjs`.
  *
- * Sits below the binding acceptance, in its own visually distinct card, and is never gated on
+ *  - **Yes** reveals the mobile number field and, directly beside it, the registered unchecked
+ *    consent box with the registered words, both exactly as before. The tick is the consent.
+ *  - **No** reveals nothing. No number, no consent, no texts.
+ *
+ * Sits below the binding acceptance, in its own visually distinct block, and is never gated on
  * reading the terms: a consent that unlocks only by working through the service agreement reads
- * as bundled into it, which is exactly what "not a condition of purchase" rules out. Nothing here
- * touches the submit button.
+ * as bundled into it, which is exactly what "not a condition of purchase" rules out.
  *
  * `copy` is chosen on the server by the campaign switch (`smsConsentCopy()`); the page sends its
- * `version` back with a ticked box so the record names exactly these words.
+ * `version` back with a ticked box so the record names exactly these words, and the cards follow
+ * the same campaign.
+ *
+ * The Yes panel is in the markup from the start, `hidden` until Yes is chosen, so the registered
+ * words are always on the page as served.
  */
 
-/** Shown when the box is ticked with no usable number. Same words on both pages. */
-export const SMS_OPT_IN_PHONE_ERROR = "Enter a valid mobile number for text alerts, or uncheck the text alerts box.";
+export type TextAlertsChoice = "yes" | "no";
 
 const fieldStyle: React.CSSProperties = {
     padding: "11px 14px",
@@ -32,109 +39,147 @@ const fieldStyle: React.CSSProperties = {
     width: "100%",
 };
 
-/** "Text alerts", not "call alerts", in both modes (Xander, 2026-11-11). */
-export const SMS_OPT_IN_KICKER = "OPTIONAL · TEXT ALERTS";
 export const SMS_OPT_IN_PHONE_LABEL = "Mobile number for text alerts";
 const PHONE_ID = "mobile-number-for-text-alerts";
+const HEADING_ID = "text-alerts-heading";
 
-/**
- * The line under the number field, per campaign (Xander, 2026-11-11): unchanged under v1, whose
- * registered text offers call summaries; "text alerts" under v2.
- */
-export function smsOptInPhoneHint(copy: SmsConsentCopy): string {
-    return copy.version === SMS_CONSENT_V1.version
-        ? "Optional. Used only if you turn on call summary texts below."
-        : "Optional. Used only if you turn on text alerts below.";
+function cardStyle(selected: boolean): React.CSSProperties {
+    return {
+        display: "block",
+        padding: "14px 16px",
+        borderRadius: 10,
+        border: selected ? "2px solid var(--accent)" : "1px solid var(--rule)",
+        // Keeps the text from shifting by a pixel when the border thickens.
+        margin: selected ? 0 : 1,
+        background: "var(--surface)",
+        cursor: "pointer",
+    };
 }
 
 export default function SmsOptIn({
     copy,
+    choice,
+    onChoiceChange,
     phone,
     onPhoneChange,
     checked,
     onCheckedChange,
 }: {
     copy: SmsConsentCopy;
+    /** Null until a card is chosen. */
+    choice: TextAlertsChoice | null;
+    onChoiceChange: (v: TextAlertsChoice) => void;
     phone: string;
     onPhoneChange: (v: string) => void;
     checked: boolean;
     onCheckedChange: (v: boolean) => void;
 }) {
-    return (
-        <div style={{ marginTop: 16 }}>
-            <div className="kicker" style={{ marginBottom: 10 }}>
-                ━ {SMS_OPT_IN_KICKER}
-            </div>
-            <div style={{ marginBottom: 12 }}>
-                <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label htmlFor={PHONE_ID} className="kicker">
-                        ━ {SMS_OPT_IN_PHONE_LABEL}
-                    </label>
-                    <input
-                        id={PHONE_ID}
-                        type="tel"
-                        placeholder="(907) 555-0142"
-                        value={phone}
-                        onChange={(e) => onPhoneChange(e.target.value)}
-                        style={fieldStyle}
-                        aria-describedby={`${PHONE_ID}-hint`}
-                    />
-                    <p id={`${PHONE_ID}-hint`} style={{ margin: 0, fontSize: 12, color: "var(--fg-3)", lineHeight: 1.5 }}>
-                        {smsOptInPhoneHint(copy)}
-                    </p>
-                </div>
-            </div>
-            <label
-                style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    padding: "16px 18px",
-                    background: "transparent",
-                    border: "1px dashed var(--rule)",
-                    borderRadius: 10,
-                    cursor: "pointer",
-                }}
-            >
-                <input
-                    type="checkbox"
-                    name="smsConsent"
-                    checked={checked}
-                    onChange={(e) => onCheckedChange(e.target.checked)}
-                    style={{
-                        marginTop: 2,
-                        width: 18,
-                        height: 18,
-                        accentColor: "var(--accent)",
-                        cursor: "pointer",
-                    }}
-                />
-                <span style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
-                    {/*
-                        Rendered from the same constant that gets hashed into the consent record,
-                        so the words on screen and the words we can prove they saw cannot drift
-                        apart.
-                    */}
-                    {splitConsentText(copy.text).map((seg, i) =>
-                        seg.kind === "link" ? (
-                            <Link
-                                key={i}
-                                href={seg.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                // Inside a <label>, a click would otherwise toggle the box on the
-                                // way to opening the link.
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ color: "var(--accent)", textDecoration: "underline" }}
-                            >
-                                {seg.value}
-                            </Link>
-                        ) : (
-                            <span key={i}>{seg.value}</span>
-                        ),
-                    )}
+    const cards = textAlertsCards(copy.version);
+    const radio = (value: TextAlertsChoice) => (
+        <input
+            type="radio"
+            name="textAlertsChoice"
+            value={value}
+            checked={choice === value}
+            onChange={() => onChoiceChange(value)}
+            style={{ width: 18, height: 18, marginTop: 2, flex: "none", accentColor: "var(--accent)", cursor: "pointer" }}
+        />
+    );
+    const cardHead = (value: TextAlertsChoice) => {
+        const card = cards[value];
+        return (
+            <label style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer" }}>
+                {radio(value)}
+                <span>
+                    <span style={{ display: "block", fontSize: 14.5, fontWeight: 600, color: "var(--fg)", lineHeight: 1.4 }}>
+                        {card.title}
+                    </span>
+                    <span style={{ display: "block", marginTop: 2, fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.5 }}>
+                        {card.line}
+                    </span>
                 </span>
             </label>
+        );
+    };
+
+    return (
+        <div style={{ marginTop: 16 }}>
+            <div id={HEADING_ID} className="kicker" style={{ marginBottom: 10 }}>
+                ━ {cards.heading}
+            </div>
+            <div role="radiogroup" aria-labelledby={HEADING_ID} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={cardStyle(choice === "yes")}>
+                    {cardHead("yes")}
+                    <div id="text-alerts-yes-panel" hidden={choice !== "yes"} style={{ marginTop: 14 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                            <label htmlFor={PHONE_ID} className="kicker">
+                                ━ {SMS_OPT_IN_PHONE_LABEL}
+                            </label>
+                            <input
+                                id={PHONE_ID}
+                                type="tel"
+                                autoComplete="tel-national"
+                                placeholder="(907) 555-0142"
+                                value={phone}
+                                onChange={(e) => onPhoneChange(e.target.value)}
+                                style={fieldStyle}
+                            />
+                        </div>
+                        <label
+                            style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 12,
+                                padding: "16px 18px",
+                                background: "transparent",
+                                border: "1px dashed var(--rule)",
+                                borderRadius: 10,
+                                cursor: "pointer",
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                name="smsConsent"
+                                checked={checked}
+                                onChange={(e) => onCheckedChange(e.target.checked)}
+                                style={{
+                                    marginTop: 2,
+                                    width: 18,
+                                    height: 18,
+                                    accentColor: "var(--accent)",
+                                    cursor: "pointer",
+                                }}
+                            />
+                            <span style={{ fontSize: 13.5, color: "var(--fg-2)", lineHeight: 1.55 }}>
+                                {/*
+                                    Rendered from the same constant that gets hashed into the consent record,
+                                    so the words on screen and the words we can prove they saw cannot drift
+                                    apart.
+                                */}
+                                {splitConsentText(copy.text).map((seg, i) =>
+                                    seg.kind === "link" ? (
+                                        <Link
+                                            key={i}
+                                            href={seg.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            // Inside a <label>, a click would otherwise toggle the box on the
+                                            // way to opening the link.
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ color: "var(--accent)", textDecoration: "underline" }}
+                                        >
+                                            {seg.value}
+                                        </Link>
+                                    ) : (
+                                        <span key={i}>{seg.value}</span>
+                                    ),
+                                )}
+                            </span>
+                        </label>
+                    </div>
+                </div>
+                <div style={cardStyle(choice === "no")}>{cardHead("no")}</div>
+            </div>
         </div>
     );
 }

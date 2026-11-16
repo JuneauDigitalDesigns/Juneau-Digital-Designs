@@ -5,15 +5,13 @@ import { useAuth } from "@clerk/nextjs";
 import type { AgreementKind, PlanSlug, ReceptionistMode } from "@/app/lib/agreement-types";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeUsPhone } from "@/app/lib/phone";
-import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "@/app/lib/agreement-phone.mjs";
+import { textAlertsChoiceError } from "@/app/lib/text-alerts-choice.mjs";
 import { makeSessionFetch } from "@/app/lib/session-fetch";
 import type { SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import { RECEPTIONIST_FAILED, RECEPTIONIST_SESSION_EXPIRED } from "@/app/lib/plan-change-copy";
 import PlanChip from "./PlanChip";
 import TermsReader from "./TermsReader";
-import SmsOptIn, { SMS_OPT_IN_PHONE_ERROR } from "./SmsOptIn";
-import SmsSkipNotice, { returnToOptIn } from "./SmsSkipNotice";
-import { smsSkipNoticeCopy, smsSkipNoticeDue } from "@/app/lib/sms-skip-notice.mjs";
+import SmsOptIn, { type TextAlertsChoice } from "./SmsOptIn";
 
 interface Props {
     plan: PlanSlug;
@@ -237,19 +235,21 @@ export default function AgreementClient({
         site3: prefillSites?.[2] ?? "",
     });
     const [agreed, setAgreed] = useState(false);
-    // Separate from `agreed` in every sense: its own state, its own box, its own place in
-    // the form, and no bearing on whether the submit button works.
+    // Separate from `agreed` in every sense: its own state, its own box, its own place in the
+    // form. Submitting needs a card chosen, never the Yes card (`text-alerts-choice.mjs`).
+    const [textChoice, setTextChoice] = useState<TextAlertsChoice | null>(null);
     const [smsConsent, setSmsConsent] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    // "Continue without text alerts?" (`sms-skip-notice.mjs`): the first submit with the box
-    // unticked shows it; once shown, a submit goes through, still unticked. Never ticks the box.
-    const [skipNoticeShown, setSkipNoticeShown] = useState(false);
-    const [skipNoticeOpen, setSkipNoticeOpen] = useState(false);
-    const backToAgreement = useCallback(() => {
-        setSkipNoticeOpen(false);
-        returnToOptIn();
-    }, []);
+    // Choosing No drops the number and the tick, so nothing about texts leaves the browser.
+    function chooseTexts(v: TextAlertsChoice) {
+        setTextChoice(v);
+        if (v === "no") {
+            setForm((f) => ({ ...f, alertPhone: "" }));
+            setSmsConsent(false);
+        }
+        setError(null);
+    }
 
     /**
      * Every API call below goes through this: it carries a fresh Clerk session token, so a
@@ -306,28 +306,23 @@ export default function AgreementClient({
         }
         // Consent only counts when a receptionist exists to text about: the opt-in is hidden once
         // website-only is chosen, so a box ticked before that switch is discarded here.
-        const effectiveSmsConsent = hasReceptionist && smsConsent;
-        // A checked box with no usable number must not pass: it would record a consent pointing
-        // at nothing. And whatever is typed in the box is a complete US number, ticked or not:
-        // in Xander's 2026-11-15 test an agreement went through with "555" there, because an
-        // unchecked box silently discarded it. An unchecked box still never transmits the
-        // number, so no number we have no permission to text leaves the browser. Only shown
-        // with a receptionist, so only checked with one.
-        const phoneProblem = hasReceptionist ? alertPhoneProblem(effectiveSmsConsent, form.alertPhone) : null;
-        if (phoneProblem === "consent-needs-number") {
-            setError(SMS_OPT_IN_PHONE_ERROR);
-            return;
-        }
-        if (phoneProblem === "invalid-unticked") {
-            setError(ALERT_PHONE_UNTICKED_ERROR);
-            return;
+        const effectiveSmsConsent = hasReceptionist && textChoice === "yes" && smsConsent;
+        // A card must be chosen. Yes needs a complete US number and the registered box ticked: in
+        // Xander's 2026-11-15 retest a number went through with the box unticked, a number with no
+        // consent. No sends no number at all. The server checks the same rule. Only shown with a
+        // receptionist, so only checked with one.
+        if (hasReceptionist) {
+            const problem = textAlertsChoiceError({
+                choice: textChoice,
+                smsConsent,
+                alertPhone: textChoice === "yes" ? form.alertPhone : undefined,
+            });
+            if (problem) {
+                setError(problem);
+                return;
+            }
         }
         const alertPhone = effectiveSmsConsent ? normalizeUsPhone(form.alertPhone) : null;
-        if (smsSkipNoticeDue({ hasReceptionist, smsConsent: effectiveSmsConsent, alreadyShown: skipNoticeShown })) {
-            setSkipNoticeShown(true);
-            setSkipNoticeOpen(true);
-            return;
-        }
 
         const additionalSites = isEnterprise
             ? [form.site1, form.site2, form.site3].filter(Boolean)
@@ -361,6 +356,8 @@ export default function AgreementClient({
                     // Omitted entirely when the box is unchecked, rather than sent as false
                     // with a number attached. Nothing to discard server-side if it never
                     // leaves the browser.
+                    // The text-alerts card chosen; none without a receptionist, which has no cards.
+                    ...(hasReceptionist ? { smsChoice: textChoice } : {}),
                     ...(alertPhone
                         ? { smsConsent: true, alertPhone, smsConsentVersion: smsConsentCopy.version }
                         : {}),
@@ -770,6 +767,8 @@ export default function AgreementClient({
                     {hasReceptionist && (
                         <SmsOptIn
                             copy={smsConsentCopy}
+                            choice={textChoice}
+                            onChoiceChange={chooseTexts}
                             phone={form.alertPhone}
                             onPhoneChange={(v) => update("alertPhone", v)}
                             checked={smsConsent}
@@ -794,9 +793,6 @@ export default function AgreementClient({
                         </div>
                     )}
 
-                    {skipNoticeOpen && (
-                        <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version, "self-serve")} onBack={backToAgreement} />
-                    )}
                     <button
                         type="submit"
                         disabled={submitting || !hasReadTerms}

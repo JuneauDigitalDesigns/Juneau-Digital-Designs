@@ -3,21 +3,20 @@
 import { useCallback, useState } from "react";
 import type { Section } from "@/app/lib/legal/types";
 import { normalizeUsPhone } from "@/app/lib/phone";
-import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "@/app/lib/agreement-phone.mjs";
+import { textAlertsChoiceError } from "@/app/lib/text-alerts-choice.mjs";
 import type { SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import TermsReader from "./TermsReader";
 import LinkInactive from "./LinkInactive";
-import SmsOptIn, { SMS_OPT_IN_PHONE_ERROR } from "./SmsOptIn";
-import SmsSkipNotice, { returnToOptIn } from "./SmsSkipNotice";
-import { smsSkipNoticeCopy, smsSkipNoticeDue } from "@/app/lib/sms-skip-notice.mjs";
+import SmsOptIn, { type TextAlertsChoice } from "./SmsOptIn";
 
 /**
  * A client reading and agreeing to their agreement through a private link. Wording approved by
  * Xander 2026-11-08 (mockup: https://claude.ai/artifact/TvSLZo2M3JV4qVT784wm5p).
  *
- * Carries the same optional owner SMS opt-in as `/agreement` (Xander, 2026-11-11: "Technically,
- * it is still the agreement page"): the mobile number field and, beside it, a separate unchecked
- * box, in the words the live campaign registers. Agreeing never depends on it.
+ * Carries the same owner text-alerts choice as `/agreement` (Xander, 2026-11-11: "Technically,
+ * it is still the agreement page"): two cards, one required. Yes reveals the mobile number and,
+ * beside it, the separate unchecked box in the words the live campaign registers; No records
+ * nothing. Texts stay optional: No always agrees (`text-alerts-choice.mjs`).
  */
 
 const heading = { margin: "0 0 8px", fontSize: 32, lineHeight: 1.15, color: "var(--fg)" } as const;
@@ -62,47 +61,44 @@ export default function AgreeLinkClient({
     const [pageOpenedAt] = useState(() => new Date().toISOString());
     const [scrollCompletedAt, setScrollCompletedAt] = useState<string | null>(null);
     const [accepted, setAccepted] = useState(false);
-    // Separate from `accepted` in every sense: its own state, its own box, and no bearing on
-    // whether Agree works.
+    // Separate from `accepted` in every sense: its own state and its own box. Agreeing needs a
+    // card chosen, never the Yes card.
+    const [textChoice, setTextChoice] = useState<TextAlertsChoice | null>(null);
     const [alertPhone, setAlertPhone] = useState("");
     const [smsConsent, setSmsConsent] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [done, setDone] = useState(false);
     const [inactive, setInactive] = useState(false);
-    // "Continue without text alerts?" (`sms-skip-notice.mjs`): the first press with the box
-    // unticked shows it; once shown, a press agrees, still unticked. Never ticks the box.
-    const [skipNoticeShown, setSkipNoticeShown] = useState(false);
-    const [skipNoticeOpen, setSkipNoticeOpen] = useState(false);
-    const backToAgreement = useCallback(() => {
-        setSkipNoticeOpen(false);
-        returnToOptIn();
-    }, []);
+    // Choosing No drops the number and the tick, so nothing about texts leaves the browser.
+    function chooseTexts(v: TextAlertsChoice) {
+        setTextChoice(v);
+        if (v === "no") {
+            setAlertPhone("");
+            setSmsConsent(false);
+        }
+        setError(null);
+    }
 
     const onComplete = useCallback(() => setScrollCompletedAt((prev) => prev ?? new Date().toISOString()), []);
 
     async function agree() {
         if (!scrollCompletedAt || !accepted || busy) return;
-        // A ticked box with no usable number would record a consent pointing at nothing. And
-        // whatever is typed in the box is a complete US number, ticked or not: in Xander's
-        // 2026-11-15 test this page accepted an agreement with "555" there, because an unticked
-        // box silently discarded it. An unticked box still sends no number at all.
-        const phoneProblem = hasReceptionist ? alertPhoneProblem(smsConsent, alertPhone) : null;
-        if (phoneProblem === "consent-needs-number") {
-            setError(SMS_OPT_IN_PHONE_ERROR);
-            return;
+        // A card must be chosen. Yes needs a complete US number and the registered box ticked: in
+        // Xander's 2026-11-15 retest a number went through with the box unticked, a number with no
+        // consent. The server checks the same rule; this only saves a round trip.
+        if (hasReceptionist) {
+            const problem = textAlertsChoiceError({
+                choice: textChoice,
+                smsConsent,
+                alertPhone: textChoice === "yes" ? alertPhone : undefined,
+            });
+            if (problem) {
+                setError(problem);
+                return;
+            }
         }
-        if (phoneProblem === "invalid-unticked") {
-            setError(ALERT_PHONE_UNTICKED_ERROR);
-            return;
-        }
-        const consentPhone = hasReceptionist && smsConsent ? normalizeUsPhone(alertPhone) : null;
-        if (smsSkipNoticeDue({ hasReceptionist, smsConsent, alreadyShown: skipNoticeShown })) {
-            setError(null);
-            setSkipNoticeShown(true);
-            setSkipNoticeOpen(true);
-            return;
-        }
+        const consentPhone = hasReceptionist && textChoice === "yes" && smsConsent ? normalizeUsPhone(alertPhone) : null;
         setBusy(true);
         setError(null);
         try {
@@ -114,6 +110,7 @@ export default function AgreeLinkClient({
                     termsHash,
                     pageOpenedAt,
                     scrollCompletedAt,
+                    ...(hasReceptionist ? { smsChoice: textChoice } : {}),
                     ...(consentPhone
                         ? { smsConsent: true, alertPhone: consentPhone, smsConsentVersion: smsConsentCopy.version }
                         : {}),
@@ -160,6 +157,8 @@ export default function AgreeLinkClient({
             {hasReceptionist && (
                 <SmsOptIn
                     copy={smsConsentCopy}
+                    choice={textChoice}
+                    onChoiceChange={chooseTexts}
                     phone={alertPhone}
                     onPhoneChange={setAlertPhone}
                     checked={smsConsent}
@@ -171,7 +170,6 @@ export default function AgreeLinkClient({
                     {error}
                 </p>
             )}
-            {skipNoticeOpen && <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version, "link")} onBack={backToAgreement} />}
             <button
                 type="button"
                 onClick={agree}

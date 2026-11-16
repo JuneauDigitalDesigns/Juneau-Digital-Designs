@@ -257,14 +257,16 @@ test("the link refuses the tick box left empty and a stale or missing read-throu
 
 /* ── the pages ────────────────────────────────────────────────────────────── */
 
-test("both pages check the number box with the shared rule before they submit", () => {
+// Since 2026-11-15 the number lives in the Yes card of a required choice, so the pages check it with
+// `textAlertsChoiceError` (`test/agreement-text-alerts-choice.test.mjs`), which holds the same
+// complete-US-number rule. The server keeps `alertPhoneProblem` for pages loaded before that.
+test("both pages check the number with a US-only rule before they submit", () => {
     for (const file of ["app/components/agreement/AgreeLinkClient.tsx", "app/components/agreement/AgreementClient.tsx"]) {
         const src = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-        const check = src.indexOf("alertPhoneProblem(");
+        const check = src.indexOf("textAlertsChoiceError(");
         const post = src.search(/[fF]etch\(\s*[`"]\/api\/agree/);
-        assert.ok(check > 0, `${file} calls alertPhoneProblem`);
+        assert.ok(check > 0, `${file} calls textAlertsChoiceError`);
         assert.ok(post > check, `${file} checks before it posts`);
-        assert.ok(src.includes("ALERT_PHONE_UNTICKED_ERROR"), `${file} shows the unticked-box error`);
         assert.doesNotMatch(src, /normalizeE164\(/, `${file} uses the US-only rule, not normalizeE164`);
     }
 });
