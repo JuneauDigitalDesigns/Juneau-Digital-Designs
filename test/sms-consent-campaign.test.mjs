@@ -42,7 +42,8 @@ Object.assign(process.env, {
 
 const consentText = await import("../app/lib/sms-consent-text.ts");
 const { hashConsentText } = await import("../app/lib/sms-consent.ts");
-const { default: SmsOptIn, SMS_OPT_IN_PHONE_ERROR } = await import("../app/components/agreement/SmsOptIn.tsx");
+const { default: SmsOptIn } = await import("../app/components/agreement/SmsOptIn.tsx");
+const textAlerts = await import("../app/lib/text-alerts-choice.mjs");
 const { POST } = await import("../app/api/agreement/route.ts");
 const { renderWelcomeEmail } = await import("../app/lib/welcome-email.ts");
 const { default: SmsTermsPage } = await import("../app/sms-terms/page.tsx");
@@ -93,33 +94,37 @@ test("a submission's version names the words it showed; none means a page from b
 
 const renderOptIn = (copy) =>
     renderToStaticMarkup(
-        createElement(SmsOptIn, { copy, phone: "", onPhoneChange: () => {}, checked: false, onCheckedChange: () => {} }),
+        // With the Yes card chosen, which is where the box and the number live since 2026-11-15.
+        createElement(SmsOptIn, {
+            copy, choice: "yes", onChoiceChange: () => {}, phone: "", onPhoneChange: () => {}, checked: false, onCheckedChange: () => {},
+        }),
     );
 
-test("v1 opt-in: the registered text beside the number field, unticked, labelled text alerts, the v1 hint", () => {
+test("v1 opt-in: the registered text beside the number field, unticked, labelled text alerts, v1's card", () => {
     const html = renderOptIn(consentText.SMS_CONSENT_V1);
     const text = strip(html);
     assert.ok(text.includes(V1_TEXT));
-    assert.ok(text.includes("━ OPTIONAL · TEXT ALERTS"));
+    assert.ok(text.includes("━ TEXT ALERTS · CHOOSE ONE"));
     assert.ok(text.includes("━ Mobile number for text alerts"));
-    assert.ok(text.includes("Optional. Used only if you turn on call summary texts below."));
+    assert.ok(text.includes("Yes, text me about my calls"));
     assert.doesNotMatch(text, /call alert/i);
     assert.match(html, /<a [^>]*href="\/sms-terms"[^>]*>SMS Terms<\/a>/);
     assert.match(html, /<a [^>]*href="\/privacy-policy"[^>]*>Privacy Policy<\/a>/);
     assert.doesNotMatch(html.match(/<input type="checkbox"[^>]*>/)[0], /checked/);
 });
 
-test("v2 opt-in: today's text, labelled text alerts, the v2 hint", () => {
+test("v2 opt-in: today's text, labelled text alerts, v2's card", () => {
     const text = strip(renderOptIn(consentText.SMS_CONSENT_V2));
     assert.ok(text.includes(V2_TEXT));
-    assert.ok(text.includes("━ OPTIONAL · TEXT ALERTS"));
+    assert.ok(text.includes("━ TEXT ALERTS · CHOOSE ONE"));
     assert.ok(text.includes("━ Mobile number for text alerts"));
-    assert.ok(text.includes("Optional. Used only if you turn on text alerts below."));
-    assert.doesNotMatch(text, /call alert|call summary texts below/i);
+    assert.ok(text.includes("Yes, text me about new leads and calls"));
+    assert.doesNotMatch(text, /call alert/i);
 });
 
 test("the validation messages say text alerts", () => {
-    assert.equal(SMS_OPT_IN_PHONE_ERROR, "Enter a valid mobile number for text alerts, or uncheck the text alerts box.");
+    assert.equal(textAlerts.TEXT_ALERTS_NUMBER_ERROR, "Enter a complete 10-digit mobile number, or choose No text messages.");
+    assert.equal(textAlerts.TEXT_ALERTS_TICK_ERROR, "Tick the box to agree to text alerts, or choose No text messages.");
     const base = {
         plan: "starter", clientLegalName: "R LLC", clientEntityType: "LLC", clientAddress: "1 A St", signerName: "M R",
         signerTitle: "Owner", signerEmail: "m@r.example", additionalSites: [], termsAccepted: true,

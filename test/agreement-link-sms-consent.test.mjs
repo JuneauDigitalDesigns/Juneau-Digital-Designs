@@ -179,8 +179,9 @@ test("v1: the link page shows the registered opt-in, word for word, unticked, be
     assert.ok(text.includes(V1_TEXT), "the registered checkbox text");
     assert.ok(!text.includes(V2_TEXT));
     assert.ok(text.includes("Mobile number for text alerts"), "the label, \"text alerts\" in both modes");
-    assert.ok(text.includes("OPTIONAL · TEXT ALERTS"));
-    assert.ok(text.includes("Optional. Used only if you turn on call summary texts below."), "v1 keeps its hint");
+    // Since 2026-11-15 the box sits in the Yes card of a required choice (`text-alerts-choice.mjs`).
+    assert.ok(text.includes("TEXT ALERTS · CHOOSE ONE"));
+    assert.ok(text.includes("Yes, text me about my calls"), "v1's Yes card");
     assert.doesNotMatch(text, /call alerts|CALL ALERT TEXTS/);
     assert.match(html, /<a [^>]*href="\/sms-terms"[^>]*>SMS Terms<\/a>/);
     assert.match(html, /<a [^>]*href="\/privacy-policy"[^>]*>Privacy Policy<\/a>/);
@@ -197,9 +198,9 @@ test("v2: the link page shows today's text", async () => {
     assert.ok(text.includes(V2_TEXT));
     assert.ok(!text.includes(V1_TEXT));
     assert.ok(text.includes("Mobile number for text alerts"));
-    assert.ok(text.includes("OPTIONAL · TEXT ALERTS"));
-    assert.ok(text.includes("Optional. Used only if you turn on text alerts below."), "v2's hint");
-    assert.doesNotMatch(text, /call alerts|CALL ALERT TEXTS|call summary texts below/);
+    assert.ok(text.includes("TEXT ALERTS · CHOOSE ONE"));
+    assert.ok(text.includes("Yes, text me about new leads and calls"), "v2's Yes card");
+    assert.doesNotMatch(text, /call alerts|CALL ALERT TEXTS/);
 });
 
 test("a website-only order has nothing to text about, so no opt-in", async () => {

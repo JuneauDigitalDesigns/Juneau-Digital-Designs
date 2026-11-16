@@ -1,5 +1,6 @@
 import { normalizeUsPhone } from "./phone.mjs";
 import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "./agreement-phone.mjs";
+import { textAlertsChoiceError } from "./text-alerts-choice.mjs";
 
 /**
  * The rules a self-serve agreement submission must pass before anything is stored.
@@ -129,8 +130,15 @@ export function validateAgreementSubmission(body) {
   // A website-only site produces no calls, so there is nothing to text a summary about.
   // Replaces the old Starter-wide block: since the 2026-10-12 reprice every plan includes the
   // receptionist, and the one case with no calls is the website-only choice, not the tier.
-  if (body.smsConsent && body.receptionistMode === "declined") {
+  if ((body.smsConsent || body.smsChoice === "yes") && body.receptionistMode === "declined") {
     return "Text alerts require a receptionist";
+  }
+  // The two-card choice (`text-alerts-choice.mjs`): Yes needs a complete US number and the
+  // registered box ticked; No carries neither. A page loaded before the cards shipped sends no
+  // choice, and falls through to the box-and-number rules below, as it was checked before (#137).
+  if (body.smsChoice !== undefined && body.receptionistMode !== "declined") {
+    const choiceProblem = textAlertsChoiceError({ choice: body.smsChoice, smsConsent: body.smsConsent, alertPhone: body.alertPhone });
+    if (choiceProblem) return choiceProblem;
   }
   // Consent without a reachable number is not consent to anything. Checked in the UI too,
   // but a record claiming permission to text an unparseable string is worse than no record.

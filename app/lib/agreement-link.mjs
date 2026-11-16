@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "./agreement-phone.mjs";
+import { textAlertsChoiceError } from "./text-alerts-choice.mjs";
 
 /**
  * The rules of an order's private agreement link. Pure, so the test runs the same code the
@@ -83,6 +84,16 @@ export function agreementSubmissionError(body, expectedTermsHash) {
  * @param {{ receptionistMode?: string }} order
  */
 export function agreementConsentError(body, order) {
+  // The two-card choice (`text-alerts-choice.mjs`). A website-only order has no cards and nothing
+  // to text about, so only a claim of consent is refused there, as before.
+  if (body?.smsChoice !== undefined && order?.receptionistMode !== "declined") {
+    return textAlertsChoiceError({ choice: body.smsChoice, smsConsent: body.smsConsent, alertPhone: body.alertPhone });
+  }
+  if (order?.receptionistMode === "declined" && (body?.smsChoice === "yes" || body?.smsConsent === true)) {
+    return "Text alerts require a receptionist";
+  }
+  // A page loaded before the cards shipped sends no choice: its box and number are checked as they
+  // were (#137), so a client mid-signing across the deploy isn't turned away.
   // A number in the box is a complete US number whether or not the box is ticked: in Xander's
   // 2026-11-15 test this link accepted an agreement with "555" there (`agreement-phone.mjs`).
   // Blank and unticked always passes.
