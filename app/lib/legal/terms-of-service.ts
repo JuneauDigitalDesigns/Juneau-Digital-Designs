@@ -149,7 +149,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
         titled(
           "Your plan and your website",
           p(
-            "Your plan summary lists what your plan includes. Your website is a site at a single domain of four (4) or more pages: Home, Services, About and Contact, an individual page for each service for which you give us enough detail to support one, and an optional additional page. Pages beyond those, including pages added later, are not included in any plan and are paid add-on work. Landing pages and microsites do not count as separate sites. Anything else your plan summary does not list is outside your plan, and we will quote it separately before doing it.",
+            "Your plan summary lists what your plan includes. Your website is a site at a single domain of four (4) or more pages: Home, Services, About and Contact, an individual page for each service for which you give us enough detail to support one, an individual page for each town you work in for which you give us enough real details about your work there, such as photos of jobs or reviews from customers in that town, and an optional additional page. Other pages, including pages added later and new pages proposed from search data, are not included in any plan and are paid add-on work. Landing pages and microsites do not count as separate sites. Anything else your plan summary does not list is outside your plan, and we will quote it separately before doing it.",
           ),
         ),
         titled(
@@ -173,7 +173,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
         titled(
           "Not included",
           p(
-            "Unless your plan summary lists them, these are not included: e-commerce or online payments; paid ads, social media or email marketing; content marketing and link building; search engine optimization services, such as ongoing search optimization, keyword research and adding new pages; integrations with other software; custom AI receptionist flows; and a full accessibility audit (see Section 8.2).",
+            "Unless your plan summary lists them, these are not included: e-commerce or online payments; paid ads, social media or email marketing; content marketing and link building; search engine optimization services, such as ongoing search optimization, keyword research and new pages proposed from search data; integrations with other software; custom AI receptionist flows; and a full accessibility audit (see Section 8.2).",
           ),
         ),
         titled(

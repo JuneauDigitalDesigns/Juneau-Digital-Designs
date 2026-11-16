@@ -83,12 +83,14 @@ for (const [plan, opts] of PLANS) {
       assert.doesNotMatch(d, /four-page|up to five pages|beyond five|fifth page/);
       assert.match(
         d,
-        /Your website is a site at a single domain of four \(4\) or more pages: Home, Services, About and Contact, an individual page for each service for which you give us enough detail to support one, and an optional additional page\. Pages beyond those, including pages added later, are not included in any plan and are paid add-on work\./,
+        // Town pages are part of the base site at launch (T1, approved by Xander 2026-11-16); later
+        // pages, and pages proposed from search data, are paid.
+        /Your website is a site at a single domain of four \(4\) or more pages: Home, Services, About and Contact, an individual page for each service for which you give us enough detail to support one, an individual page for each town you work in for which you give us enough real details about your work there, such as photos of jobs or reviews from customers in that town, and an optional additional page\. Other pages, including pages added later and new pages proposed from search data, are not included in any plan and are paid add-on work\./,
       );
       assert.match(d, /Additional pages beyond those included \| Quoted per request/);
       if (plan !== "growth") {
         assert.match(d, /four \(4\) or more pages/);
-        assert.match(d, /plus individual service pages where the Client's information supports them/);
+        assert.match(d, /plus individual service pages and town pages where the Client's information supports them/);
       }
     });
   }
@@ -125,7 +127,18 @@ test("the 2026-11-16 decisions read as approved", () => {
   assert.match(d, /An add-on's monthly price is never prorated\. You can start it right away, paying its full monthly price that day and then on each billing date, or have it start on your next billing date\./);
   assert.match(d, /We may offer optional services that are not part of any plan\./);
   assert.match(d, /we add it to our own Google Search Console account; that is for our use and is not a service to you/);
-  assert.match(d, /search engine optimization services, such as ongoing search optimization, keyword research and adding new pages/);
+  assert.match(d, /search engine optimization services, such as ongoing search optimization, keyword research and new pages proposed from search data/);
+  // The homepage and pricing site line say the same as the plan summary, and never name Search Console (T5).
+  for (const f of ["app/components/pricing/pricingpageclient.tsx", "app/components/home/homepageclient.tsx"]) {
+    const src = readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), "utf8");
+    assert.ok(
+      src.includes(
+        '"Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month."',
+      ),
+      f,
+    );
+    assert.doesNotMatch(src, /Search Console/, f);
+  }
   assert.match(d, /WE DO NOT GUARANTEE ANY NUMBER OF LEADS, CALLS, INQUIRIES, CUSTOMERS, VISITORS OR SEARCH RANKINGS\./);
   assert.match(d, /Florida is an all-party consent state \(Fla\. Stat\. § 934\.03\)/);
 });

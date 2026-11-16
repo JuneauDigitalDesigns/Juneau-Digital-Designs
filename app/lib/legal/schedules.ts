@@ -47,7 +47,7 @@ export const TEXT_ALERT_LINE_V2 =
   "A text alert from Juneau Digital Designs to the Client's mobile phone whenever a new lead, from a call or the website contact form, is recorded in the client portal, if the Client opts in to text alerts";
 
 const SITE_LINE =
-  "One (1) custom website of four (4) or more pages (Home, Services, About, and Contact, plus individual service pages where the Client's information supports them) at a single domain, with an optional additional page available";
+  "One (1) custom website of four (4) or more pages (Home, Services, About, and Contact, plus individual service pages and town pages where the Client's information supports them) at a single domain, with an optional additional page available";
 const SEARCH_LINE =
   "A search-ready build: page titles, descriptions and canonical addresses, a sitemap, structured data, and fast pages that work on phones";
 const DOMAIN_LINE =
@@ -161,7 +161,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     cancellationNoticeDays: 0,
     included: [
       "Everything included in the Growth plan",
-      "Two (2) to three (3) custom websites of four (4) or more pages each (Home, Services, About, and Contact, plus individual service pages where the Client's information supports them), each at its own domain, with an optional additional page per site",
+      "Two (2) to three (3) custom websites of four (4) or more pages each (Home, Services, About, and Contact, plus individual service pages and town pages where the Client's information supports them), each at its own domain, with an optional additional page per site",
       "One (1) dedicated business phone number per site",
       "One (1) AI receptionist per site, each tuned to that site's business",
       "One shared call log covering every site under this Agreement",
