@@ -1401,7 +1401,7 @@ function LeadDrawer({ w }: { w: World }) {
                         {w.promoting ? "Adding…" : "Promote to customer"}
                     </span>
                     <p className="mt-2 text-xs text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                        Creates a customer record with this enquiry already attached.
+                        Creates a customer record with this inquiry already attached.
                     </p>
                 </div>
                 <div className="pt-1">

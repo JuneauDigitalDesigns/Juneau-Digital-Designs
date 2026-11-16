@@ -108,7 +108,7 @@ because both state the old product to a prospect.
   brief sends from the client's own number with no messaging service, which fails `30034` for a real
   client. Both are the dependencies in §7; this plan's copy assumes they land.
 - The portal already runs this plan's Starter logic: `app/components/portal/crm/StarterShowcase.tsx`
-  never hides the Customers tab, leads with what Starter already has ("every call and web enquiry in
+  never hides the Customers tab, leads with what Starter already has ("every call and web inquiry in
   your Inbox"), and makes the upgrade a guided walkthrough. The public page should say the same
   thing the portal does.
 - The film's own header rule: "Act 2 is a ring nobody answers and one text. That imbalance is the

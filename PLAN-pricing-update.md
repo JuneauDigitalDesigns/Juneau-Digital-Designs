@@ -310,7 +310,7 @@ Per tier:
 
 **Starter** (lines 26-61): `monthlyPrice: 197`, `onboardingFee: 297`, `hasVoiceAgent: true`, `callMinutes: 100`, `overagePerMinute: OVERAGE_PER_MINUTE`, `cancellationNoticeDays: 0`, remove `includesSeo`. Add a `STARTER_MINUTES = 100` constant beside the existing `GROWTH_MINUTES`/`ENTERPRISE_MINUTES` at lines 14-16 and interpolate it, matching the file's existing discipline that no figure is written twice.
 
-`included` must now carry the receptionist, the post-call text brief, and the lead email. Keep the four-page site, hosting, SSL, backups, the two content edits, GA4, and portal access. Remove nothing except what D10 removes. Minutes go **last**.
+`included` must now carry the receptionist, the post-call text brief, and the lead email. Keep the four-page site, hosting, SSL, backups, the two content edits, and portal access. Remove nothing except what D10 removes. Minutes go **last**.
 
 **Growth** (lines 63-101): `monthlyPrice: 497`, `onboardingFee: 297`, `cancellationNoticeDays: 0`, remove `includesSeo`. `included` must **lead with the 60-second callback**, then AI qualification, then the searchable call log with transcripts, then urgency and caller-name extraction. Remove the "Ongoing technical on-page SEO" bullet. Minutes last.
 

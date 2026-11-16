@@ -49,8 +49,8 @@ const COPY: Record<PortalFeature, FeatureCopy> = {
     leads: {
         noun: "Your inbox",
         whatItDoes:
-            "Every call your receptionist answers and every enquiry from your website, in one place.",
-        whenLive: "Calls and website enquiries will land here as they come in.",
+            "Every call your receptionist answers and every inquiry from your website, in one place.",
+        whenLive: "Calls and website inquiries will land here as they come in.",
         emptyTitle: "Nothing yet",
         emptyBody:
             "When someone calls or fills in your website form, they'll show up here straight away.",
@@ -58,7 +58,7 @@ const COPY: Record<PortalFeature, FeatureCopy> = {
     crm: {
         noun: "Customers",
         whatItDoes:
-            "Keep track of each customer from first enquiry to finished job, with notes, follow-ups and their full history.",
+            "Keep track of each customer from first inquiry to finished job, with notes, follow-ups and their full history.",
         whenLive: "Customers you add from your inbox will appear here.",
         emptyTitle: "No customers yet",
         emptyBody:

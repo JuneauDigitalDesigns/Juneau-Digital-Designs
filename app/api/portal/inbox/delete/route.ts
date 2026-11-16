@@ -9,9 +9,9 @@ import { isDeepLinkId } from "@/app/lib/crm-contacts";
 export const runtime = "nodejs";
 
 /**
- * Delete one web enquiry for good.
+ * Delete one web inquiry for good.
  *
- * **Web enquiries only.** A call item's id names a row in the client's Airtable call log, with a
+ * **Web inquiries only.** A call item's id names a row in the client's Airtable call log, with a
  * recording attached, read by the client and by the ops console. Deleting one would destroy a
  * third party's record from a portal that otherwise only reads it, with no undo — so a `rec…`
  * id is refused here rather than handled. Archiving covers the same need for calls.
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     await setArchived(acct, ctx.site.slug, [id], false, ctx.userId);
 
     if (!existed) {
-        return NextResponse.json({ error: "That enquiry is already gone." }, { status: 404 });
+        return NextResponse.json({ error: "That inquiry is already gone." }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
 }

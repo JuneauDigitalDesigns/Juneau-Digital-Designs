@@ -92,7 +92,7 @@ export function kindLabel(kind: TimelineEventLike["kind"]): string {
 /**
  * Does this event's kind describe something the customer did?
  *
- * A call and a web enquiry are things that happen *to* the business, so the stored kind
+ * A call and a web inquiry are things that happen *to* the business, so the stored kind
  * normally implies a customer actor. It does not always: promotion writes the **source's**
  * kind onto a bookkeeping entry — `customers/route.ts` stores `kind: "call"`, `actor: "client"`,
  * summary "Added to your customers from your inbox" — which records where the customer came
@@ -197,7 +197,7 @@ export function entryTitle(
         case "call":
             return `${Who} called you`;
         case "web-form":
-            return `${Who} sent an enquiry from your website`;
+            return `${Who} sent an inquiry from your website`;
         case "stage-change": {
             const to = typeof lead.meta?.to === "string" ? lead.meta.to : null;
             return to ? `You moved ${who} to ${titleCase(to)}` : lead.summary;

@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     // the visitor would be told it didn't send and post it again.
     //
     // A repeat from the same person within 24 h joined their earlier lead: that lead's text has
-    // already gone, so a second would only be noise (one enquiry, one text). The visitor is
+    // already gone, so a second would only be noise (one inquiry, one text). The visitor is
     // answered the same either way.
     if (!merged) {
         after(() => notifyOwnerOfLead({ acctScope: owner.acctScope, slug: owner.slug, name, leadId: lead.leadId }));
