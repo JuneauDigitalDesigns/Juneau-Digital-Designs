@@ -13,6 +13,7 @@ import {
     type PortalSiteInput,
 } from "@jdd/schema";
 import { getCached, setCached, dropCached, accountCacheKey, accountScope, ACCOUNT_TTL } from "./portal-kv";
+import { intakeOriginIds, type IntakeOriginIds } from "./intake-origin";
 
 /**
  * Portal account store — the source of truth for which sites a client can see.
@@ -173,7 +174,7 @@ const PENDING_TTL = 60 * 60 * 24 * 30; // 30 days
 const PENDING_INDEX_KEY = "jdd:pending-onboard:index";
 const pendingKey = (slug: string) => `jdd:pending-onboard:${slug}`;
 
-export interface PendingOnboardRecord {
+export interface PendingOnboardRecord extends IntakeOriginIds {
     slug: string;
     signerEmail: string;
     signerName: string;
@@ -193,6 +194,8 @@ async function writePendingRecord(site: PortalSite): Promise<void> {
         plan: site.plan,
         name: site.name ?? site.slug,
         createdAt: site.addedAt,
+        // The order (sales-call close) or purchase (self-serve) this site came from.
+        ...intakeOriginIds(site),
     };
     await Promise.all([
         redis.set(pendingKey(site.slug), record, { ex: PENDING_TTL }),
