@@ -36,16 +36,30 @@ export const SMS_SKIP_NOTICE_BODY_V2 =
 
 export const SMS_SKIP_NOTICE_BUTTON = "Back to the agreement";
 
+/** The sentence naming the button to press again, as the link page (`/agree/[code]`) says it. */
+const AGREE_AGAIN_LINK = "To agree without them, press Agree again.";
+
+/**
+ * The same sentence on the self-serve `/agreement` page, whose button reads "Sign & continue to
+ * payment →", not "Agree". Approved word for word by Xander 2026-11-15, for that page only, in
+ * both campaigns.
+ */
+export const AGREE_AGAIN_SELF_SERVE = "To agree without them, press Sign & continue to payment again.";
+
 /**
  * The words for the campaign the page's opt-in shows, named by that opt-in's version
  * (`SmsConsentCopy.version`, which `smsConsentCopy()` picks from `OWNER_TEXT_CAMPAIGN`), so the
  * notice and the box can never be on different campaigns. Anything but v2 is v1, as the switch is.
  *
+ * `page` names which agreement page asks, because each names its own button.
+ *
  * @param {string} consentVersion
+ * @param {"link" | "self-serve"} page
  * @returns {SmsSkipNoticeCopy}
  */
-export function smsSkipNoticeCopy(consentVersion) {
-  const body = consentVersion === "sms-consent-v2" ? SMS_SKIP_NOTICE_BODY_V2 : SMS_SKIP_NOTICE_BODY_V1;
+export function smsSkipNoticeCopy(consentVersion, page) {
+  const campaignBody = consentVersion === "sms-consent-v2" ? SMS_SKIP_NOTICE_BODY_V2 : SMS_SKIP_NOTICE_BODY_V1;
+  const body = page === "self-serve" ? campaignBody.replace(AGREE_AGAIN_LINK, AGREE_AGAIN_SELF_SERVE) : campaignBody;
   return { title: SMS_SKIP_NOTICE_TITLE, body, button: SMS_SKIP_NOTICE_BUTTON };
 }
 

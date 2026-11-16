@@ -795,7 +795,7 @@ export default function AgreementClient({
                     )}
 
                     {skipNoticeOpen && (
-                        <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version)} onBack={backToAgreement} />
+                        <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version, "self-serve")} onBack={backToAgreement} />
                     )}
                     <button
                         type="submit"

@@ -171,7 +171,7 @@ export default function AgreeLinkClient({
                     {error}
                 </p>
             )}
-            {skipNoticeOpen && <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version)} onBack={backToAgreement} />}
+            {skipNoticeOpen && <SmsSkipNotice copy={smsSkipNoticeCopy(smsConsentCopy.version, "link")} onBack={backToAgreement} />}
             <button
                 type="button"
                 onClick={agree}

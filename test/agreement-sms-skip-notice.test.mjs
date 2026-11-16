@@ -38,12 +38,22 @@ const BODY_V1 =
 const BODY_V2 =
     "Without text alerts, we won't text you when a new lead comes in or your AI receptionist takes a call. Every lead and call still reaches your portal inbox, so you would need to check it yourself. Text alerts are optional. To turn them on, tick the box and add your mobile number. To agree without them, press Agree again. You can also turn them on later in your portal Settings.";
 const BUTTON = "Back to the agreement";
+/**
+ * The self-serve page's button reads "Sign & continue to payment →", so its last sentence names
+ * that (approved word for word by Xander 2026-11-15, that page only, both campaigns).
+ */
+const SELF_SERVE_V1 =
+    "Without text alerts, we won't text you when your AI receptionist takes a call. Every call still reaches your portal inbox, so you would need to check it yourself. Text alerts are optional. To turn them on, tick the box and add your mobile number. To agree without them, press Sign & continue to payment again.";
+const SELF_SERVE_V2 =
+    "Without text alerts, we won't text you when a new lead comes in or your AI receptionist takes a call. Every lead and call still reaches your portal inbox, so you would need to check it yourself. Text alerts are optional. To turn them on, tick the box and add your mobile number. To agree without them, press Sign & continue to payment again. You can also turn them on later in your portal Settings.";
 
-test("each campaign's notice is in its own approved words", () => {
-    assert.deepEqual(notice.smsSkipNoticeCopy("sms-consent-v1"), { title: TITLE, body: BODY_V1, button: BUTTON });
-    assert.deepEqual(notice.smsSkipNoticeCopy("sms-consent-v2"), { title: TITLE, body: BODY_V2, button: BUTTON });
+test("each campaign's notice, on each page, is in its own approved words", () => {
+    assert.deepEqual(notice.smsSkipNoticeCopy("sms-consent-v1", "link"), { title: TITLE, body: BODY_V1, button: BUTTON });
+    assert.deepEqual(notice.smsSkipNoticeCopy("sms-consent-v2", "link"), { title: TITLE, body: BODY_V2, button: BUTTON });
+    assert.deepEqual(notice.smsSkipNoticeCopy("sms-consent-v1", "self-serve"), { title: TITLE, body: SELF_SERVE_V1, button: BUTTON });
+    assert.deepEqual(notice.smsSkipNoticeCopy("sms-consent-v2", "self-serve"), { title: TITLE, body: SELF_SERVE_V2, button: BUTTON });
     // Anything but v2 is v1, as the campaign switch is.
-    assert.equal(notice.smsSkipNoticeCopy("unknown").body, BODY_V1);
+    assert.equal(notice.smsSkipNoticeCopy("unknown", "link").body, BODY_V1);
 });
 
 test("each campaign shows only its own body, and v1 claims no new-lead text and no portal opt-in", async () => {
@@ -52,14 +62,14 @@ test("each campaign shows only its own body, and v1 claims no new-lead text and 
     const saved = process.env.OWNER_TEXT_CAMPAIGN;
     try {
         delete process.env.OWNER_TEXT_CAMPAIGN;
-        const v1 = notice.smsSkipNoticeCopy(smsConsentCopy().version);
+        const v1 = notice.smsSkipNoticeCopy(smsConsentCopy().version, "link");
         assert.equal(v1.body, BODY_V1);
         assert.ok(!v1.body.includes(BODY_V2));
         // v1 neither sends nor registers new-lead texts, and its portal Settings turn texts off only.
         assert.doesNotMatch(v1.body, /lead|later|portal Settings/);
 
         process.env.OWNER_TEXT_CAMPAIGN = "v2";
-        const v2 = notice.smsSkipNoticeCopy(smsConsentCopy().version);
+        const v2 = notice.smsSkipNoticeCopy(smsConsentCopy().version, "link");
         assert.equal(v2.body, BODY_V2);
         assert.notEqual(v2.body, BODY_V1);
     } finally {
@@ -70,9 +80,13 @@ test("each campaign shows only its own body, and v1 claims no new-lead text and 
 
 test("the notice says plainly that texts are optional and that they can agree without them", () => {
     for (const v of ["sms-consent-v1", "sms-consent-v2"]) {
-        const { body } = notice.smsSkipNoticeCopy(v);
-        assert.ok(body.includes("Text alerts are optional."));
-        assert.ok(body.includes("To agree without them, press Agree again."));
+        const link = notice.smsSkipNoticeCopy(v, "link").body;
+        assert.ok(link.includes("Text alerts are optional."));
+        assert.ok(link.includes("To agree without them, press Agree again."));
+        const selfServe = notice.smsSkipNoticeCopy(v, "self-serve").body;
+        assert.ok(selfServe.includes("Text alerts are optional."));
+        assert.ok(selfServe.includes("To agree without them, press Sign & continue to payment again."));
+        assert.ok(!selfServe.includes("press Agree again"), "the self-serve page has no Agree button");
     }
 });
 
@@ -85,7 +99,7 @@ test("only the first unticked press shows it; a second press agrees; a ticked bo
 });
 
 test("the notice renders as a labelled dialog with one button that goes back, and no checkbox", () => {
-    const html = renderToStaticMarkup(createElement(SmsSkipNotice, { copy: notice.smsSkipNoticeCopy("sms-consent-v1"), onBack: () => {} }));
+    const html = renderToStaticMarkup(createElement(SmsSkipNotice, { copy: notice.smsSkipNoticeCopy("sms-consent-v1", "link"), onBack: () => {} }));
     assert.match(html, /role="alertdialog"/);
     assert.match(html, /aria-modal="true"/);
     assert.match(html, /aria-labelledby="sms-skip-notice-title"/);
@@ -131,7 +145,8 @@ for (const file of ["app/components/agreement/AgreeLinkClient.tsx", "app/compone
         assert.ok(phone > 0 && phone < due, "a bad number is reported before the notice");
         assert.ok(due < post, "the notice comes before anything is recorded");
         assert.match(src, /<SmsSkipNotice\b/);
-        assert.match(src, /smsSkipNoticeCopy\(smsConsentCopy\.version\)/, "the notice follows the opt-in's campaign");
+        const page = file.endsWith("AgreeLinkClient.tsx") ? "link" : "self-serve";
+        assert.ok(src.includes(`smsSkipNoticeCopy(smsConsentCopy.version, "${page}")`), "the opt-in's campaign, and this page's own button");
         assert.doesNotMatch(src, /setSmsConsent\(true\)/, "nothing ticks the box for them");
     });
 }
