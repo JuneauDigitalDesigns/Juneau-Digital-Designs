@@ -8,6 +8,7 @@ import {
 import { sendClientCompleteNotification } from "@/app/lib/notification-email";
 import { gatherClientContext } from "@/app/lib/client-context";
 import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
+import { intakeOriginIds } from "@/app/lib/intake-origin";
 import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
@@ -124,6 +125,8 @@ export async function POST(request: Request) {
                     slugGuess: newSlug,
                     sessionId,
                     intake: normalizeEmpties(intake) as Intake,
+                    // The order (sales-call close) or purchase (self-serve) this site came from.
+                    ...intakeOriginIds(site),
                 });
             } catch (e) {
                 console.error("[portal/onboarding] intake queue push failed", e);
