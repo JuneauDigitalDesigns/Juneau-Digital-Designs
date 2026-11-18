@@ -18,7 +18,8 @@ import { ownerTextCampaign, type OwnerTextCampaign } from "./owner-text-campaign
  *   v1 (unset, the approved campaign) → `SMS_CONSENT_V1`, the checkbox text registered in the
  *     campaign's message flow, word for word (read live from Twilio 2026-11-11). It is the same
  *     text, version id and hash this file shipped with on 2026-08-13, so it reuses them.
- *   v2 (the replacement campaign)     → `SMS_CONSENT_V2`, unchanged since 2026-10-31.
+ *   v2 (the replacement campaign)     → `SMS_CONSENT_V3` since 2026-11-18 (`SMS_CONSENT_V2`,
+ *                                       its first text, is kept as history).
  *
  * `smsConsentCopy()` reads the env, so call it on the server and hand the result to a client
  * component as a prop. A browser has no OWNER_TEXT_CAMPAIGN and would always read v1.
@@ -72,10 +73,31 @@ export const SMS_CONSENT_V2: SmsConsentCopy = {
     "lead volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.",
 };
 
+/**
+ * v3 (2026-11-18) — the v2 campaign's text, now naming customer-reply alerts, which the replacement
+ * campaign sends and `SMS_CONSENT_V2` left out. Approved by Xander word for word.
+ *
+ * A new version rather than an edit: every consent record keeps its version and a hash of the exact
+ * words, and records already point at `sms-consent-v2` (including every one saved before forms named
+ * a version), so those words stay here, unchanged, for them.
+ */
+export const SMS_CONSENT_V3: SmsConsentCopy = {
+  version: "sms-consent-v3",
+  text:
+    "Yes, text me call summaries, new-lead alerts, customer-reply alerts, and service alerts about " +
+    "my own Juneau Digital Designs account at the mobile number above. Consent is not a condition " +
+    "of purchase. Message and data rates may apply. Message frequency varies based on call and lead " +
+    "volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.",
+};
+
+/** What each campaign shows today. */
 export const SMS_CONSENT_COPY: Record<OwnerTextCampaign, SmsConsentCopy> = {
   v1: SMS_CONSENT_V1,
-  v2: SMS_CONSENT_V2,
+  v2: SMS_CONSENT_V3,
 };
+
+/** Every text a record can name, current or not, so a stored version always finds its words. */
+const SMS_CONSENT_HISTORY: SmsConsentCopy[] = [SMS_CONSENT_V1, SMS_CONSENT_V2, SMS_CONSENT_V3];
 
 type Env = Record<string, string | undefined>;
 
@@ -93,7 +115,7 @@ export function smsConsentCopy(env: Env = process.env): SmsConsentCopy {
  */
 export function smsConsentCopyForVersion(version: unknown): SmsConsentCopy | null {
   if (version === undefined || version === null || version === "") return SMS_CONSENT_V2;
-  return Object.values(SMS_CONSENT_COPY).find((c) => c.version === version) ?? null;
+  return SMS_CONSENT_HISTORY.find((c) => c.version === version) ?? null;
 }
 
 /** Phrases inside the consent text that render as links. */

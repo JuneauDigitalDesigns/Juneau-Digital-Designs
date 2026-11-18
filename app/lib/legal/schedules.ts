@@ -14,7 +14,7 @@ import type { PlanSchedule } from "./types";
  *   - month to month only: the annual prepay price, row and constants are gone;
  *   - the site lines and the extra-pages row carry over MSA v5.5's approved wording (PR #113);
  *   - the text-alert line matches the live SMS campaign (v1); `TEXT_ALERT_LINE_V2` replaces it
- *     under `OWNER_TEXT_CAMPAIGN=v2` (Terms v6.1), swapped in by `getTermsForPlan`;
+ *     under `OWNER_TEXT_CAMPAIGN=v2` (Terms v6.2), swapped in by `getTermsForPlan`;
  *   - Google Analytics is gone; site statistics come from Vercel Analytics and Lighthouse;
  *   - new lines for the search-ready build and the domain.
  */
@@ -40,7 +40,7 @@ const MINIMUM_TERM_ROW: [string, string] = ["Minimum term", "None"];
 const EXTRA_PAGES_ROW: [string, string] = ["Additional pages beyond those included", "Quoted per request"];
 const CHARGEBACK_ROW: [string, string] = ["Chargeback reimbursement", "The processor's fee"];
 
-/** v6.0 (SMS campaign v1). Swapped for `TEXT_ALERT_LINE_V2` under the v2 campaign (v6.1). */
+/** v6.0 (SMS campaign v1). Swapped for `TEXT_ALERT_LINE_V2` under the v2 campaign (v6.2). */
 export const TEXT_ALERT_LINE =
   "A text summary from Juneau Digital Designs to the Client's mobile phone after each call the AI receptionist handles, if the Client opts in to text alerts";
 export const TEXT_ALERT_LINE_V2 =

@@ -29,7 +29,7 @@ interface Options {
    */
   webOnly?: boolean;
   /**
-   * Which SMS campaign's wording to render: v1 gives Terms v6.0, v2 gives v6.1. Defaults to the
+   * Which SMS campaign's wording to render: v1 gives Terms v6.0, v2 gives v6.2. Defaults to the
    * live `OWNER_TEXT_CAMPAIGN`; tests pass it to check both versions.
    */
   campaign?: TermsCampaign;

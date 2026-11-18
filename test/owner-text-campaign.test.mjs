@@ -536,8 +536,8 @@ const KEYWORD_REPLIES = {
     },
     v2: {
         optIn:
-            "Juneau Digital Designs: You are opted in to account alerts about your calls, leads and service. Msg & data rates may apply. Message frequency varies. Reply HELP for help, STOP to opt out.",
-        help: "Juneau Digital Designs account alerts: texts about your calls, leads and service. Msg & data rates may apply. Reply STOP to opt out. Help: support@juneaudigitaldesigns.com",
+            "Juneau Digital Designs: You are opted in to account alerts about your calls, leads, customer messages and service. Msg & data rates may apply. Message frequency varies. Reply HELP for help, STOP to opt out.",
+        help: "Juneau Digital Designs account alerts: texts about your calls, leads, customer messages and service. Msg & data rates may apply. Reply STOP to opt out. Help: support@juneaudigitaldesigns.com",
         optInWords: ["START", "YES", "UNSTOP"],
         optOutWords: ["STOP", "CANCEL", "QUIT", "OPTOUT", "UNSUBSCRIBE", "STOPALL", "REVOKE", "END"],
     },

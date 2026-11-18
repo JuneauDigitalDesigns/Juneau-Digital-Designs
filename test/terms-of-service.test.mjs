@@ -53,10 +53,10 @@ function text(sections) {
 
 const doc = (plan, opts = {}, campaign = "v1") => text(getTermsForPlan(plan, { ...opts, campaign }).sections);
 
-test("the versions are v6.0 (SMS v1) and v6.1 (SMS v2), and each document carries its own", () => {
-  assert.deepEqual(TERMS_VERSIONS, { v1: "v6.0", v2: "v6.1" });
+test("the versions are v6.0 (SMS v1) and v6.2 (SMS v2), and each document carries its own", () => {
+  assert.deepEqual(TERMS_VERSIONS, { v1: "v6.0", v2: "v6.2" });
   assert.equal(getTermsForPlan("growth", { campaign: "v1" }).version, "v6.0");
-  assert.equal(getTermsForPlan("growth", { campaign: "v2" }).version, "v6.1");
+  assert.equal(getTermsForPlan("growth", { campaign: "v2" }).version, "v6.2");
   // Different words, different hash: an acceptance proves which version the client saw.
   assert.notEqual(
     hashTermsForPlan("growth", { campaign: "v1" }),
@@ -101,7 +101,7 @@ test("§4.6 and the plan summary's text line follow the campaign, and only they 
   const v2 = doc("starter", {}, "v2");
   assert.match(v1, /we text you a summary after each call the AI receptionist handles/);
   assert.match(v1, /A text summary from Juneau Digital Designs to the Client's mobile phone after each call/);
-  assert.match(v2, /we text you call summaries, new-lead alerts and occasional service alerts/);
+  assert.match(v2, /we text you call summaries, new-lead alerts, customer-reply alerts and occasional service alerts/);
   assert.match(v2, /A text alert from Juneau Digital Designs to the Client's mobile phone whenever a new lead/);
   // Same text otherwise, line for line.
   const strip = (s) =>

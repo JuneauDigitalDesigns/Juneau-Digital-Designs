@@ -92,10 +92,10 @@ export const SMS_KEYWORD_RULES: Record<OwnerTextCampaign, SmsKeywordRules> = {
         optOut: new Set(["STOP", "CANCEL", "QUIT", "OPTOUT", "UNSUBSCRIBE", "STOPALL", "REVOKE", "END"]),
         help: new Set(["HELP", "INFO"]),
         optInReply:
-            "Juneau Digital Designs: You are opted in to account alerts about your calls, leads and service. " +
+            "Juneau Digital Designs: You are opted in to account alerts about your calls, leads, customer messages and service. " +
             "Msg & data rates may apply. Message frequency varies. Reply HELP for help, STOP to opt out.",
         helpReply:
-            "Juneau Digital Designs account alerts: texts about your calls, leads and service. Msg & data " +
+            "Juneau Digital Designs account alerts: texts about your calls, leads, customer messages and service. Msg & data " +
             "rates may apply. Reply STOP to opt out. Help: support@juneaudigitaldesigns.com",
     },
 };

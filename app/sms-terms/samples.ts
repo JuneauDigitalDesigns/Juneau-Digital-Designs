@@ -3,7 +3,7 @@ import type { OwnerTextCampaign } from "@/app/lib/owner-text-campaign";
 /**
  * Program One's wording on /sms-terms, per owner-text campaign (Xander, 2026-11-18).
  *
- * The page follows `OWNER_TEXT_CAMPAIGN`, exactly as Terms v6.0/v6.1 and the consent sentence do:
+ * The page follows `OWNER_TEXT_CAMPAIGN`, exactly as Terms v6.0/v6.2 and the consent sentence do:
  * under v1 (live today) it describes what v1 registered and sends; under v2 it describes the
  * replacement campaign. So it is true at every moment and flips with the cutover deploy. Every
  * line here was approved by Xander word for word on 2026-11-18, except the three v2 lead-ins marked
