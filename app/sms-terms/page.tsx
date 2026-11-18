@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { smsConsentCopy, splitConsentText } from "@/app/lib/sms-consent-text";
-import { CALL_SUMMARY_SAMPLE } from "./samples";
+import { ownerTextCampaign } from "@/app/lib/owner-text-campaign";
+import { PROGRAM_ONE_COPY } from "./samples";
 
 export const metadata = {
     title: "SMS Terms | Juneau Digital Designs",
@@ -125,6 +126,43 @@ const OPENING: Section = {
 };
 
 /**
+ * Program One's kinds of message, samples and frequency, per owner-text campaign (samples.ts).
+ *
+ * Read when the page renders, like the consent sentence below, so it is always the wording the
+ * campaign switch picks: v1 (live today) or v2 after the cutover deploy (Xander, 2026-11-18).
+ */
+function ProgramOne({ part }: { part: "kindsIntro" | "kinds" | "samples" | "frequency" }) {
+    const copy = PROGRAM_ONE_COPY[ownerTextCampaign()];
+    if (part === "kindsIntro") return <>{copy.kindsIntro}</>;
+    if (part === "frequency") return <>{copy.frequency}</>;
+    if (part === "kinds") {
+        return (
+            <ul style={ulStyle}>
+                {copy.kinds.map((k) => (
+                    <li key={k.term}>
+                        <span style={termStyle}>{k.term}</span> {k.text}
+                    </li>
+                ))}
+            </ul>
+        );
+    }
+    return (
+        <>
+            {copy.samples.map((group) => (
+                <div key={group.leadIn}>
+                    <p style={{ marginBottom: 14 }}>{group.leadIn}</p>
+                    {group.texts.map((t) => (
+                        <blockquote key={t} style={{ ...sampleStyle, whiteSpace: "pre-line" }}>
+                            {t}
+                        </blockquote>
+                    ))}
+                </div>
+            ))}
+        </>
+    );
+}
+
+/**
  * The consent sentence, read when the page renders rather than when this module loads, so it is
  * always the wording the campaign switch picks. (The page is prerendered, so in production that
  * is the deploy's env, the same as every other reader of the switch.)
@@ -154,25 +192,9 @@ const PROGRAM_ONE: Section[] = [
             <>
                 <p style={{ marginBottom: 14 }}>
                     Juneau Digital Designs Call Alerts is a customer care text messaging program for business
-                    owners who use our AI receptionist service. It sends three kinds of message:
+                    owners who use our AI receptionist service. <ProgramOne part="kindsIntro" />
                 </p>
-                <ul style={ulStyle}>
-                    <li>
-                        <span style={termStyle}>Call summaries.</span> When the receptionist handles a call for
-                        your business, a short text tells you who called, what they wanted, and how urgent it
-                        is.
-                    </li>
-                    <li>
-                        <span style={termStyle}>New-lead alerts.</span> When someone fills in the contact form
-                        on your website, a short text tells you a new lead arrived so you can open your portal
-                        and follow up.
-                    </li>
-                    <li>
-                        <span style={termStyle}>Service alerts.</span> Occasional notices about your own
-                        account, such as your receptionist being unreachable, your included minutes running
-                        low, or planned maintenance that affects call handling.
-                    </li>
-                </ul>
+                <ProgramOne part="kinds" />
                 <p style={{ marginBottom: 14 }}>
                     The program is available to Juneau Digital Designs clients who use our AI receptionist,
                     and only for the mobile number that client provides. We do not send marketing or
@@ -191,14 +213,7 @@ const PROGRAM_ONE: Section[] = [
         heading: "What the messages look like",
         content: (
             <>
-                <p style={{ marginBottom: 14 }}>A typical call summary reads:</p>
-                {/* The text v1 actually sends, line for line (samples.ts; approved 2026-11-18). */}
-                <blockquote style={{ ...sampleStyle, whiteSpace: "pre-line" }}>{CALL_SUMMARY_SAMPLE}</blockquote>
-                <p style={{ marginBottom: 14 }}>A typical service alert reads:</p>
-                <blockquote style={{ ...sampleStyle, margin: "0 0 14px" }}>
-                    Juneau Digital Designs service alert: you have used 90% of your included minutes this billing
-                    period. Reply STOP to opt out.
-                </blockquote>
+                <ProgramOne part="samples" />
                 <p>
                     Call summaries are sent only for calls the AI receptionist handles. Calls you answer yourself
                     do not generate a text.
@@ -210,10 +225,7 @@ const PROGRAM_ONE: Section[] = [
         heading: "Message frequency",
         content: (
             <p>
-                Message frequency varies based on call and lead volume. You receive at most one message per
-                handled call and one per new lead, so a quiet week may produce none and a busy day may produce
-                several. Service alerts are infrequent and only sent when something about your own account
-                needs your attention. We do not send scheduled or recurring messages of any other kind.
+                <ProgramOne part="frequency" />
             </p>
         ),
     },
