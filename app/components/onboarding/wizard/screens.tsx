@@ -66,7 +66,7 @@ import { RECEPTIONIST_OPTIONS } from "./receptionist-options";
 import { REVIEW, reviewCards } from "./review";
 export { RECEPTIONIST_OPTIONS };
 
-const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roofing: "⌂", "lawn-care": "✿", "car-detailing": "◆", health: "✚" };
+const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roofing: "⌂", "lawn-care": "✿", "car-detailing": "◆", "pressure-washing": "≋", health: "✚" };
 
 export type ScreenCopy = { q: string; help: string };
 
