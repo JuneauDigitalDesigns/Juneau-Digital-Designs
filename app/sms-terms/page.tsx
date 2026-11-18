@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { smsConsentCopy, splitConsentText } from "@/app/lib/sms-consent-text";
+import { CALL_SUMMARY_SAMPLE } from "./samples";
 
 export const metadata = {
     title: "SMS Terms | Juneau Digital Designs",
@@ -191,10 +192,8 @@ const PROGRAM_ONE: Section[] = [
         content: (
             <>
                 <p style={{ marginBottom: 14 }}>A typical call summary reads:</p>
-                <blockquote style={sampleStyle}>
-                    Juneau Digital Designs call alert: Callback requested. New lead Maria Alvarez, callback (930)
-                    555-0117. Reply STOP to opt out.
-                </blockquote>
+                {/* The text v1 actually sends, line for line (samples.ts; approved 2026-11-18). */}
+                <blockquote style={{ ...sampleStyle, whiteSpace: "pre-line" }}>{CALL_SUMMARY_SAMPLE}</blockquote>
                 <p style={{ marginBottom: 14 }}>A typical service alert reads:</p>
                 <blockquote style={{ ...sampleStyle, margin: "0 0 14px" }}>
                     Juneau Digital Designs service alert: you have used 90% of your included minutes this billing
