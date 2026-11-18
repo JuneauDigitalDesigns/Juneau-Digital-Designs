@@ -105,7 +105,7 @@ export const C = {
     hPhotos: "Up to 3. The first one becomes this service's picture across your site. The rest show on its page.", // #37
     photosCap: "Up to 3 photos per service.", // #37
     // A job's before photo (2026-11-18), on trades whose site shows the pair (app/lib/before-after.ts).
-    // DRAFTS BA1 to BA5, sent to Xander for word-for-word approval on 2026-11-18.
+    // BA1 to BA5, approved word for word by Xander on 2026-11-18. Don't reword without his sign-off.
     beforeAdd: "+ Before photo", // BA1
     beforeHelp: "Have a photo of the same spot before you cleaned it? Add it to that job photo and your site shows the two side by side.", // BA2
     beforeTag: "Before", // BA3
