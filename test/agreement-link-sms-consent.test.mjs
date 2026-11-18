@@ -64,10 +64,14 @@ const { accountScope } = await import("../app/lib/portal-kv.ts");
 const V1_TEXT =
     "Yes, text me call summaries and service alerts from Juneau Digital Designs at the mobile number above. Consent is not a condition of purchase. Message and data rates may apply. Message frequency varies based on call volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.";
 const V1_HASH = "ec4b199541d31b556e643c6a387198ae73daf3df3a41b68a18147505c7c725b8";
-/** Today's text, unchanged since 2026-10-31. */
+/** The v2 campaign's first text (2026-10-31), kept for records made under it. */
 const V2_TEXT =
     "Yes, text me call summaries, new-lead alerts, and service alerts about my own Juneau Digital Designs account at the mobile number above. Consent is not a condition of purchase. Message and data rates may apply. Message frequency varies based on call and lead volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.";
 const V2_HASH = "8f05b3bedd688820a666c740e7dcf2720a6161a319742ade984836ea3666c460";
+/** The v2 campaign's text since 2026-11-18 (`sms-consent-v3`, adds customer-reply alerts). */
+const V3_TEXT =
+    "Yes, text me call summaries, new-lead alerts, customer-reply alerts, and service alerts about my own Juneau Digital Designs account at the mobile number above. Consent is not a condition of purchase. Message and data rates may apply. Message frequency varies based on call and lead volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.";
+const V3_HASH = "205f4816e59d07e22c0107565971630c4df4d6b8678b1e12d593bcf96c5f842c";
 
 const EMAIL = "arthur@arthursplumbing.com";
 const CELL = "+14075550188";
@@ -195,8 +199,9 @@ test("v2: the link page shows today's text", async () => {
     process.env.OWNER_TEXT_CAMPAIGN = "v2";
     const { code } = await createAgreementLink(order());
     const { text } = await pageText(code);
-    assert.ok(text.includes(V2_TEXT));
+    assert.ok(text.includes(V3_TEXT));
     assert.ok(!text.includes(V1_TEXT));
+    void V3_HASH;
     assert.ok(text.includes("Mobile number for text alerts"));
     assert.ok(text.includes("TEXT ALERTS · CHOOSE ONE"));
     assert.ok(text.includes("Yes, text me about new leads and calls"), "v2's Yes card");

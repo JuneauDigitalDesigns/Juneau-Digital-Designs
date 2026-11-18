@@ -2,7 +2,7 @@ import { ownerTextCampaign, type OwnerTextCampaign } from "../owner-text-campaig
 import type { Block, SectionDef, SubsectionDef } from "./types";
 
 /**
- * The Terms of Service, v6.0 and v6.1. Approved word for word by Xander on 2026-11-16
+ * The Terms of Service, v6.0 and v6.2. Approved word for word by Xander on 2026-11-16
  * ("The new terms of service looks good. I approve."). Don't reword any of it without his sign-off.
  * Three later sentences were approved word for word the same day: the §2.2 exception, the §3.7
  * Growth to Enterprise sentence (Q8), and the §3.10 add-on billing sentence ("billing date", not
@@ -21,7 +21,12 @@ import type { Block, SectionDef, SubsectionDef } from "./types";
  * so instead of disappearing, so every client reads the same numbers. Only the plan summary
  * (Schedule A's successor, built in `index.ts` from `schedules.ts`) varies by plan.
  *
- * TWO VERSIONS, ONE DIFFERENCE. v6.0 is the text under the SMS campaign live today (v1); v6.1 is
+ * v6.1 → v6.2 on 2026-11-18 (Xander, word for word): §4.6 under v2 names customer-reply alerts, as
+ * the replacement campaign and its consent text (`sms-consent-v3`) do. v6.1 was only ever shown
+ * under `OWNER_TEXT_CAMPAIGN=v2`; it was bumped rather than edited because whether any preview
+ * deploy had recorded a v6.1 acceptance could not be checked, and a version names one text.
+ *
+ * TWO VERSIONS, ONE DIFFERENCE. v6.0 is the text under the SMS campaign live today (v1); v6.2 is
  * the same text with §4.6 and the plan summary's text-alert line in the v2 wording. Which one is
  * shown follows `OWNER_TEXT_CAMPAIGN`, exactly as the SMS checkbox does, and each has its own
  * version string and hash, so an acceptance proves the words that client saw. The env is read on
@@ -32,7 +37,7 @@ import type { Block, SectionDef, SubsectionDef } from "./types";
 
 export type TermsCampaign = OwnerTextCampaign;
 
-export const TERMS_VERSIONS: Record<TermsCampaign, string> = { v1: "v6.0", v2: "v6.1" };
+export const TERMS_VERSIONS: Record<TermsCampaign, string> = { v1: "v6.0", v2: "v6.2" };
 
 /** The version for a campaign. Defaults to the live switch. */
 export function termsVersion(campaign: TermsCampaign = ownerTextCampaign()): string {
@@ -69,7 +74,7 @@ export const PREAMBLE: Block[] = [
 const TEXTS_V1 =
   "If you opt in, we text you a summary after each call the AI receptionist handles, and occasional service alerts about your account. These texts are optional, are covered by our SMS Terms, and are not a condition of buying the Service. Message frequency varies based on call volume. Reply STOP to stop them, or HELP for help. If your plan lets your business text its own customers, you are responsible for having each customer's consent and for what your business sends.";
 const TEXTS_V2 =
-  "If you opt in, we text you call summaries, new-lead alerts and occasional service alerts about your own account. These texts are optional, are covered by our SMS Terms, and are not a condition of buying the Service. Message frequency varies based on call and lead volume. Reply STOP to stop them, or HELP for help. If your plan lets your business text its own customers, you are responsible for having each customer's consent and for what your business sends.";
+  "If you opt in, we text you call summaries, new-lead alerts, customer-reply alerts and occasional service alerts about your own account. These texts are optional, are covered by our SMS Terms, and are not a condition of buying the Service. Message frequency varies based on call and lead volume. Reply STOP to stop them, or HELP for help. If your plan lets your business text its own customers, you are responsible for having each customer's consent and for what your business sends.";
 
 export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): SectionDef[] {
   return [

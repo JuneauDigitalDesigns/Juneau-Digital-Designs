@@ -57,7 +57,8 @@ export const TEXT_ALERTS_HEADING = "TEXT ALERTS · CHOOSE ONE";
  * @returns {TextAlertsCards}
  */
 export function textAlertsCards(consentVersion) {
-  if (consentVersion === "sms-consent-v2") {
+  // v3 is the v2 campaign's text since 2026-11-18; v2 its first. Both get the v2 cards.
+  if (consentVersion === "sms-consent-v2" || consentVersion === "sms-consent-v3") {
     return {
       heading: TEXT_ALERTS_HEADING,
       yes: {
