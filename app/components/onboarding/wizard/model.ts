@@ -201,8 +201,17 @@ function townIn(towns: string[], raw: string | undefined): string {
 function sentPhoto(img: ImageMeta, towns: string[]): ImageMeta {
     const rest: ImageMeta = { ...img };
     delete rest.town;
+    // A before photo (v1.41.0) only when it is a real upload: a blank one is never sent.
+    if (!rest.before?.url?.trim()) delete rest.before;
     const t = townIn(towns, img.town);
     return t ? { ...rest, town: t } : rest;
+}
+
+/** A job photo without its before photo (the remove button under a before thumbnail). */
+export function withoutBefore(img: ImageMeta): ImageMeta {
+    const rest: ImageMeta = { ...img };
+    delete rest.before;
+    return rest;
 }
 
 /** Q2: the picked top towns that are still among the client's towns, at most 3, in order. */
@@ -861,7 +870,12 @@ const isKind = (v: unknown): v is ProfileKind => typeof v === "string" && KINDS.
 function readImages(v: unknown, max: number): ImageMeta[] {
     return (Array.isArray(v) ? v : [])
         .filter((x): x is ImageMeta => !!x && typeof x === "object" && typeof (x as ImageMeta).url === "string")
-        .map((x) => ({ url: x.url, filename: str(x.filename), alt: str(x.alt), ...(typeof x.town === "string" ? { town: str(x.town) } : {}) }))
+        .map((x) => ({
+            url: x.url, filename: str(x.filename), alt: str(x.alt),
+            ...(typeof x.town === "string" ? { town: str(x.town) } : {}),
+            // A job's before photo (v1.41.0) survives a saved draft.
+            ...(x.before && typeof x.before.url === "string" && x.before.url ? { before: { url: x.before.url, filename: str(x.before.filename), alt: str(x.before.alt) } } : {}),
+        }))
         .slice(0, max);
 }
 

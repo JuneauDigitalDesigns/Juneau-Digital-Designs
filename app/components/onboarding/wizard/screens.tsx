@@ -52,9 +52,11 @@ import {
     type WizardContext,
     type WizardPrefill,
     type WizardState,
+    withoutBefore,
 } from "./model";
 import { VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
+import { showsBeforeAfter } from "@/app/lib/before-after";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
 import { C, PROFILE_HOWTO, PROFILE_SHORT, WIZARD_PROFILE_KINDS } from "./copy-service-details";
 import { prefillLine } from "./prefill-notes";
@@ -135,6 +137,8 @@ export type ScreenProps = {
         team: (files: File[]) => void;
         /** Photos for one service's details, by service name. Busy/error slot: `svc:<name>`. */
         service: (name: string, files: File[]) => void;
+        /** A job photo's before photo, by service name and photo index. Slot: `svc:<name>:before:<i>`. */
+        before: (name: string, index: number, files: File[]) => void;
     };
     extra: { firstName: string; planLabel: string; maxSites: number };
     /** What was prefilled, so a field can say where its value came from. */
@@ -1027,6 +1031,8 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
             q = C.qPhotos; help = C.hPhotos; earn = C.addsPhotos;
             {
                 const room = SERVICE_CAPS.photos - f.photos.length;
+                // A before photo per job photo, only where the site draws the pair (app/lib/before-after.ts).
+                const pairs = showsBeforeAfter(state.trade);
                 const addPhotos = (files: File[]) => {
                     if (files.length > room) toast(C.photosCap);
                     uploads.service(sv.name, files.slice(0, room));
@@ -1037,10 +1043,26 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                             {f.photos.length ? (
                                 <div className={s.thumbs}>
                                     {f.photos.map((img, i) => (
-                                        <span key={img.url} className={`${s.thumb} ${s.thumbBig}`}>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
-                                            <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
+                                        <span key={img.url} className={s.beforePair}>
+                                            <span className={`${s.thumb} ${s.thumbBig}`}>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
+                                                <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
+                                            </span>
+                                            {pairs ? (
+                                                img.before?.url ? (
+                                                    <span className={`${s.thumb} ${s.beforeThumb}`}>
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={img.before.url} alt={C.beforeAlt(sv.name, i + 1)} />
+                                                        <span className={s.beforeTag}>{C.beforeTag}</span>
+                                                        <button type="button" className={s.thumbX} aria-label={C.beforeRemove} onClick={() => set({ photos: f.photos.map((x, j) => (j === i ? withoutBefore(x) : x)) })}>✕</button>
+                                                    </span>
+                                                ) : (
+                                                    <FilePicker accept={ACCEPT} onFiles={(files) => uploads.before(sv.name, i, files)} className={s.beforeAdd}>
+                                                        {uploads.busy.has(`${slot}:before:${i}`) ? "…" : C.beforeAdd}
+                                                    </FilePicker>
+                                                )
+                                            ) : null}
                                         </span>
                                     ))}
                                     {room > 0 ? (
@@ -1052,6 +1074,8 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                             ) : null}
                         </PhotoBox>
                         {uploads.errors[slot] ? <p className={s.err} role="alert">{uploads.errors[slot]}</p> : null}
+                        {pairs && f.photos.length ? <p className={s.beforeHelp}>{C.beforeHelp}</p> : null}
+                        {pairs ? f.photos.map((_, i) => (uploads.errors[`${slot}:before:${i}`] ? <p key={i} className={s.err} role="alert">{uploads.errors[`${slot}:before:${i}`]}</p> : null)) : null}
                         <PhotoTowns
                             photos={f.photos}
                             towns={state.towns}

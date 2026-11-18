@@ -463,3 +463,11 @@
 .ptThumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .ptBody { display: grid; gap: 6px; min-width: 0; }
 .ptQ { font-weight: 700; font-size: 13.5px; }
+
+/* A job photo with its before photo (2026-11-18): the pair stacks, before under the job photo. */
+.beforePair { display: flex; flex-direction: column; gap: 6px; }
+.beforeThumb { width: 120px; height: 64px; }
+.beforeTag { position: absolute; left: 4px; bottom: 4px; padding: 1px 6px; border-radius: 4px; background: var(--elev-2); color: var(--fg); font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.beforeAdd { width: 120px; min-height: 32px; display: grid; place-items: center; border: 1.5px dashed var(--rule-strong); border-radius: 8px; background: transparent; color: var(--fg-2); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 6px; }
+.beforeAdd:hover { color: var(--fg); border-color: var(--fg-3); }
+.beforeHelp { margin: 10px 0 0; font-size: 13px; color: var(--fg-3); }

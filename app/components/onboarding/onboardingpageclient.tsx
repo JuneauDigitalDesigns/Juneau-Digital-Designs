@@ -398,6 +398,15 @@ export default function OnboardingPageClient({
                     return { ...p, serviceFacts: { ...p.serviceFacts, [name]: { ...f, photos: [...f.photos, ...metas].slice(0, SERVICE_CAPS.photos) } } };
                 }),
             ),
+        /** A job photo's before photo (v1.41.0): the same upload and prep as the job photo itself. */
+        before: (name: string, index: number, files: File[]) =>
+            void runUpload(`svc:${name}:before:${index}`, files.slice(0, 1), ([meta]) =>
+                setState((p) => {
+                    const f = p.serviceFacts[name] ?? emptyFacts();
+                    const photos = f.photos.map((x, j) => (j === index ? { ...x, before: { url: meta.url, filename: meta.filename, alt: "" } } : x));
+                    return { ...p, serviceFacts: { ...p.serviceFacts, [name]: { ...f, photos } } };
+                }),
+            ),
     };
 
     // ── Sending ──
