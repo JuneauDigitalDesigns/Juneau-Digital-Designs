@@ -201,8 +201,17 @@ function townIn(towns: string[], raw: string | undefined): string {
 function sentPhoto(img: ImageMeta, towns: string[]): ImageMeta {
     const rest: ImageMeta = { ...img };
     delete rest.town;
+    // A before photo (v1.41.0) only when it is a real upload: a blank one is never sent.
+    if (!rest.before?.url?.trim()) delete rest.before;
     const t = townIn(towns, img.town);
     return t ? { ...rest, town: t } : rest;
+}
+
+/** A job photo without its before photo (the remove button under a before thumbnail). */
+export function withoutBefore(img: ImageMeta): ImageMeta {
+    const rest: ImageMeta = { ...img };
+    delete rest.before;
+    return rest;
 }
 
 /** Q2: the picked top towns that are still among the client's towns, at most 3, in order. */
@@ -230,6 +239,8 @@ export const CERT_SUGGESTIONS: Record<string, string[]> = {
     roofing: ["GAF Certified Contractor", "Owens Corning Preferred Contractor", "BBB accredited"],
     "lawn-care": ["Licensed pesticide applicator", "BBB accredited"],
     "car-detailing": ["IDA certified", "Ceramic Pro certified installer", "XPEL certified installer"],
+    // W61, approved by Xander on 2026-11-18. Pressure washing has no BRAND_SUGGESTIONS entry: no brands screen.
+    "pressure-washing": ["Licensed", "Insured", "PWNA member", "UAMCC member", "BBB accredited"],
 };
 
 /** Stat keys worked out from other answers rather than asked. */
@@ -455,6 +466,7 @@ export const TAGLINE_EXAMPLES: Record<string, string> = {
     plumbing: "Fast fixes, honest prices",
     "lawn-care": "A lawn you'll love, all season long",
     "car-detailing": "Showroom quality, delivered to you",
+    "pressure-washing": "The right pressure for every surface",
     health: "Care that meets you where you are",
 };
 
@@ -512,6 +524,9 @@ export const STAT_LABELS: Record<string, string> = {
     vehiclesDetailed: "Vehicles detailed",
     coatingDurability: "Coating durability",
     mobileCoverage: "Mobile coverage",
+    // W62, approved by Xander on 2026-11-18.
+    propertiesCleaned: "Properties cleaned",
+    quoteTurnaround: "Quote turnaround",
 };
 
 /** The palette the build starts from. The client never chooses; JDD sets the real one in the console. */
@@ -855,7 +870,12 @@ const isKind = (v: unknown): v is ProfileKind => typeof v === "string" && KINDS.
 function readImages(v: unknown, max: number): ImageMeta[] {
     return (Array.isArray(v) ? v : [])
         .filter((x): x is ImageMeta => !!x && typeof x === "object" && typeof (x as ImageMeta).url === "string")
-        .map((x) => ({ url: x.url, filename: str(x.filename), alt: str(x.alt), ...(typeof x.town === "string" ? { town: str(x.town) } : {}) }))
+        .map((x) => ({
+            url: x.url, filename: str(x.filename), alt: str(x.alt),
+            ...(typeof x.town === "string" ? { town: str(x.town) } : {}),
+            // A job's before photo (v1.41.0) survives a saved draft.
+            ...(x.before && typeof x.before.url === "string" && x.before.url ? { before: { url: x.before.url, filename: str(x.before.filename), alt: str(x.before.alt) } } : {}),
+        }))
         .slice(0, max);
 }
 

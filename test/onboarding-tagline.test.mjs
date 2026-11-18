@@ -50,7 +50,7 @@ test("the approved wording, word for word (T3 to T6)", () => {
 
 test("each trade's example is its template's sample tagline, without the full stop", () => {
     assert.equal(TAGLINE_EXAMPLES.hvac, "Comfort in every season");
-    for (const id of ["hvac", "roofing", "plumbing", "lawn-care", "car-detailing", "health"]) {
+    for (const id of ["hvac", "roofing", "plumbing", "lawn-care", "car-detailing", "pressure-washing", "health"]) {
         assert.ok(TAGLINE_EXAMPLES[id], id);
         assert.doesNotMatch(TAGLINE_EXAMPLES[id], /\.$/, id);
     }
