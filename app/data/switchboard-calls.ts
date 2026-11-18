@@ -67,6 +67,36 @@ export const FILM_CALL_IN: CallScenario = {
 };
 
 /**
+ * The owner's text at the end of each story (2026-11-18), in the replacement (v2) campaign's own
+ * approved shapes, line for line: the post-call text for the Starter call (`callBriefBodyV2`) and
+ * the new-lead text for the Growth web form (`leadAlertBodyV2`). `test/film-owner-text.test.mjs`
+ * builds both with the real functions and holds these to them, so the film can never show a nicer
+ * text than an owner gets. The link is an example in the real format: an opaque
+ * `/portal/l/<8 chars>` link that opens that one lead in the Inbox, behind sign-in.
+ *
+ * Approved by Xander line for line on 2026-11-18, with the note under it (`FILM_OWNER_NOTE`):
+ * under the live v1 campaign neither text goes out as shown (v1 sends the post-call summary without
+ * a link, and pauses new-lead texts), so the film says it is an example and that links come later.
+ */
+export const FILM_OWNER_NOTE = "Example text. Links in alerts turn on soon.";
+export const FILM_OWNER_LINK = "https://www.juneaudigitaldesigns.com/portal/l/7Kq2mXa9";
+export const FILM_OWNER_TEXT: Record<"starter" | "growth", string[]> = {
+  starter: [
+    "New call lead in your portal",
+    "Name: Dave Kowalski",
+    "Priority: Emergency",
+    `View it: ${FILM_OWNER_LINK}`,
+    "Juneau Digital Designs: Reply STOP to opt out, HELP for help",
+  ],
+  growth: [
+    "New lead in your portal",
+    "From: Dave Kowalski",
+    `View it: ${FILM_OWNER_LINK}`,
+    "Juneau Digital Designs: Reply STOP to opt out, HELP for help",
+  ],
+};
+
+/**
  * Every word the film puts on screen besides the transcripts and the alert. Approved by Xander
  * word for word on 12 Nov 2026; no dashes. The arrows after "Skip to…" and "Show me" are icons.
  */

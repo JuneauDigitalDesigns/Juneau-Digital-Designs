@@ -95,3 +95,78 @@ test("the film's script waits on the pausable clock, never on a bare setTimeout"
     assert.match(src, /createDemoClock/);
     assert.doesNotMatch(src, /setTimeout\(/);
 });
+
+/* ── the script, played on a fake clock (2026-11-18) ─────────────────────── */
+
+import { playStory, CARD_IN_MS, SWAP_MS, SITE_START } from "../app/components/home/film-script.ts";
+
+/** Plays a story with a recording actor: every call, stamped with film time. */
+async function record(mode) {
+    let t = 0;
+    let site = { ...SITE_START };
+    const log = [];
+    const act = {
+        screen: (s) => log.push({ t, kind: "screen", v: s }),
+        card: (c) => log.push({ t, kind: "card", v: c ? c.label : null }),
+        side: (s) => log.push({ t, kind: "side", v: s }),
+        busy: (b) => log.push({ t, kind: "busy", v: b }),
+        site: (p) => {
+            site = { ...site, ...(typeof p === "function" ? p(site) : p) };
+            if (site.tap && !log.some((e) => e.kind === "tap" && e.v.n === site.tap.n)) log.push({ t, kind: "tap", v: { ...site.tap } });
+        },
+        startCall: () => log.push({ t, kind: "screen", v: "call" }),
+        line: (i) => log.push({ t, kind: "line", v: i }),
+        endCall: () => log.push({ t, kind: "endCall" }),
+    };
+    await playStory(mode, act, async (ms) => {
+        t += ms;
+    });
+    return { log, end: t };
+}
+
+for (const mode of ["starter", "growth"]) {
+    test(`${mode}: the screens only ever move forward, never back to an earlier scene`, async () => {
+        const { log } = await record(mode);
+        const screens = log.filter((e) => e.kind === "screen").map((e) => e.v);
+        assert.deepEqual(screens, mode === "starter" ? ["site", "dialing", "ownerRing", "call", "text"] : ["site", "ringIn", "call", "text"]);
+        assert.equal(new Set(screens).size, screens.length, "no screen comes back");
+    });
+
+    test(`${mode}: a title card never lifts off a screen still swapping in (the flash back)`, async () => {
+        const { log } = await record(mode);
+        const swaps = log.filter((e) => e.kind === "screen").map((e) => e.t);
+        for (const lift of log.filter((e) => e.kind === "card" && e.v === null)) {
+            for (const s of swaps) {
+                assert.ok(!(s <= lift.t && lift.t - s < SWAP_MS), `card lifted ${lift.t - s}ms after a screen change at ${s}`);
+            }
+        }
+    });
+
+    test(`${mode}: a screen changes behind a card only once the card is fully up`, async () => {
+        const { log } = await record(mode);
+        let upSince = null;
+        for (const e of log) {
+            if (e.kind === "card") upSince = e.v === null ? null : (upSince ?? e.t);
+            if (e.kind === "screen" && upSince !== null) {
+                assert.ok(e.t - upSince >= CARD_IN_MS, `${e.v} changed ${e.t - upSince}ms into a card`);
+            }
+        }
+    });
+}
+
+test("no cursor: the Starter story taps the number, the Growth story taps each field it fills", async () => {
+    const centreOf = (b) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+    const starter = (await record("starter")).log.filter((e) => e.kind === "tap").map((e) => e.v);
+    assert.equal(starter.length, 1);
+    assert.deepEqual({ x: starter[0].x, y: starter[0].y }, centreOf(FILM_SITE.heroCall));
+
+    const growth = (await record("growth")).log.filter((e) => e.kind === "tap").map((e) => e.v);
+    const scroll = FILM_SITE.formScroll;
+    const on = (b) => growth.some((p) => p.x === centreOf(b).x && p.y === centreOf(b).y - scroll);
+    assert.ok(on(FILM_SITE.name), "a tap on the name field");
+    assert.ok(on(FILM_SITE.phone), "a tap on the phone field");
+
+    const src = readFileSync("app/components/home/SiteToCallPanel.tsx", "utf8");
+    assert.doesNotMatch(src, /film-cursor/, "the arrow cursor is gone");
+    assert.match(src, /film-tap/);
+});

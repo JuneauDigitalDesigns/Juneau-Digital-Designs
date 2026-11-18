@@ -67,7 +67,7 @@ function TabBar({ active }: { active: string }) {
         { id: "analytics", label: "Analytics", Icon: TrendUp },
     ];
     return (
-        <nav className="portal-tabbar" style={{ position: "relative", display: "flex", inset: "auto" }}>
+        <nav className="portal-tabbar" style={{ position: "relative", display: "grid", inset: "auto" }}>
             {tabs.map(({ id, label, Icon }) => (
                 <span key={id} className={`portal-tab${id === active ? " is-active" : ""}`}>
                     <Icon size={21} weight={id === active ? "fill" : "regular"} />

@@ -8,7 +8,7 @@ import SiteToCallPanel from "./SiteToCallPanel";
 import DemoSiteFrame from "./DemoSiteFrame";
 import FeaturedSites from "./FeaturedSites";
 import LeadPanel from "./LeadPanel";
-import PortalDemo from "./PortalDemo";
+import PortalDemoSwitch from "./PortalDemoSwitch";
 import ClosingAsk from "./ClosingAsk";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { MISSED_CALLS_ID, PORTAL_SECTION_ID } from "@/app/data/portal-demo";
@@ -248,7 +248,7 @@ function PortalSection() {
         </p>
       </JourneyReveal>
       <JourneyReveal delay={1} className="journey-visual portal-visual">
-        <PortalDemo />
+        <PortalDemoSwitch />
         <p className="portal-plans-line">
           Every plan gets the inbox.{" "}
           <strong style={{ color: "var(--fg)" }}>

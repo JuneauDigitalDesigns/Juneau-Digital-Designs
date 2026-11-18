@@ -236,3 +236,9 @@ test("the driver.js walkthrough is gone, and the first-run tour keeps its theme"
     assert.doesNotMatch(read("app/components/portal/crm/StarterShowcase.tsx"), /runGrowthShowcase|tour\/showcase/);
     assert.match(read("app/components/portal/tour/TourController.tsx"), /import "\.\/tour-theme\.css";/);
 });
+
+test("the cursor and the taps scroll only inside the replica, never the page (2026-11-18)", () => {
+    const src = read(`${DIR}/DemoCursor.tsx`).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    assert.doesNotMatch(src, /scrollIntoView\(/, "scrollIntoView also scrolls the page the demo sits in");
+    assert.match(src, /revealWithin\(target, box\)/);
+});
