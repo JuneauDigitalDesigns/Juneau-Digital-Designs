@@ -53,10 +53,10 @@ import {
     type WizardPrefill,
     type WizardState,
 } from "./model";
-import { PROFILE_KINDS, VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
+import { VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
-import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
+import { C, PROFILE_HOWTO, PROFILE_SHORT, WIZARD_PROFILE_KINDS } from "./copy-service-details";
 import { prefillLine } from "./prefill-notes";
 import { suggestionsFor } from "./service-suggestions";
 import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
@@ -787,8 +787,8 @@ function GoogleScreen({ state, update }: ScreenProps) {
     );
 }
 
-/** Everything but Google, in the footer's order. Tapping one opens its link box. */
-const OTHER_PROFILES = PROFILE_KINDS.filter((k) => k !== "google");
+/** Everything the wizard offers but Google, in the footer's order. Tapping one opens its link box. */
+const OTHER_PROFILES = WIZARD_PROFILE_KINDS.filter((k) => k !== "google");
 
 function ElsewhereScreen({ state, update }: ScreenProps) {
     const on = (k: ProfileKind) => state.profiles.some((x) => x.kind === k);

@@ -22,6 +22,11 @@ const HOSTS: Record<Exclude<ProfileKind, "other">, string[]> = {
     angi: ["angi.com", "angieslist.com", "homeadvisor.com"],
     nextdoor: ["nextdoor.com"],
     instagram: ["instagram.com"],
+    // @jdd/schema v1.39.0 (2026-11-17).
+    linkedin: ["linkedin.com"],
+    youtube: ["youtube.com", "youtu.be"],
+    tiktok: ["tiktok.com"],
+    x: ["x.com", "twitter.com"],
 };
 
 /** Parse what the client pasted, adding https:// when they left it off. Null if it isn't a web link. */

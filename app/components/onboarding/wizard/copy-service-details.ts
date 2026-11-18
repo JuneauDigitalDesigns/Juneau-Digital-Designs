@@ -187,6 +187,10 @@ export const PROFILE_SHORT: Record<ProfileKind, string> = {
     angi: "Angi",
     nextdoor: "Nextdoor",
     instagram: "Instagram",
+    linkedin: "LinkedIn",
+    youtube: "YouTube",
+    tiktok: "TikTok",
+    x: "X",
     other: "Other",
 };
 
@@ -199,5 +203,16 @@ export const PROFILE_HOWTO: Record<ProfileKind, string> = {
     angi: "Open your Angi page and copy the link.",
     nextdoor: "Open your Nextdoor page and copy the link.",
     instagram: "Open your Instagram profile and copy the link.",
+    // @jdd/schema v1.39.0 kinds. The wizard doesn't offer them (WIZARD_PROFILE_KINDS) until their
+    // how-to lines are approved, so they have none, like "other".
+    linkedin: "",
+    youtube: "",
+    tiktok: "",
+    x: "",
     other: "",
 };
+
+/** The profiles the wizard offers, in the schema's order: every kind with an approved how-to line,
+ *  plus "other". It used to be PROFILE_KINDS itself, so @jdd/schema v1.39.0 (LinkedIn, YouTube,
+ *  TikTok, X) would have shown four new chips with no approved copy. A kind joins with its line. */
+export const WIZARD_PROFILE_KINDS = ["google", "facebook", "yelp", "bbb", "angi", "nextdoor", "instagram", "other"] as const satisfies readonly ProfileKind[];
