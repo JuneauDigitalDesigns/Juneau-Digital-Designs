@@ -74,9 +74,11 @@ export const FILM_CALL_IN: CallScenario = {
  * text than an owner gets. The link is an example in the real format: an opaque
  * `/portal/l/<8 chars>` link that opens that one lead in the Inbox, behind sign-in.
  *
- * PENDING Xander's word-for-word approval (sent 2026-11-18). Under the live v1 campaign neither
- * text goes out as shown: v1 sends the post-call summary without a link, and pauses new-lead texts.
+ * Approved by Xander line for line on 2026-11-18, with the note under it (`FILM_OWNER_NOTE`):
+ * under the live v1 campaign neither text goes out as shown (v1 sends the post-call summary without
+ * a link, and pauses new-lead texts), so the film says it is an example and that links come later.
  */
+export const FILM_OWNER_NOTE = "Example text. Links in alerts turn on soon.";
 export const FILM_OWNER_LINK = "https://www.juneaudigitaldesigns.com/portal/l/7Kq2mXa9";
 export const FILM_OWNER_TEXT: Record<"starter" | "growth", string[]> = {
   starter: [

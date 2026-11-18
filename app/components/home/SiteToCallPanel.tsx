@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useReducedMotion, AnimatePresence, motion } from "framer-motion";
 import { ArrowCounterClockwise, ArrowDown, Pause, Play } from "@phosphor-icons/react";
-import { FILM_COPY, FILM_OWNER_LINK, FILM_OWNER_TEXT, FILM_SITE, type CallScenario } from "@/app/data/switchboard-calls";
+import { FILM_COPY, FILM_OWNER_LINK, FILM_OWNER_NOTE, FILM_OWNER_TEXT, FILM_SITE, type CallScenario } from "@/app/data/switchboard-calls";
 import { PORTAL_SECTION_ID } from "@/app/data/portal-demo";
 import { createDemoClock, type DemoClock } from "./demo-clock";
 import { lineMs } from "./film-timing";
@@ -282,7 +282,12 @@ function OwnerTextScreen({ scenario, mode }: { scenario: CallScenario; mode: Mod
         <div style={{ fontSize: 11, color: "#007AFF", marginTop: 1 }}>text message</div>
       </div>
 
-      <div style={{ flex: 1, padding: "18px 16px 24px", display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, padding: "14px 16px 24px", display: "flex", flexDirection: "column" }}>
+        {/* Today's campaign sends neither text as shown (Xander, 2026-11-18: say so). Above the
+            message, so the ending panel never covers it. */}
+        <div style={{ fontSize: 10.5, color: "rgba(0,0,0,0.5)", textAlign: "center", fontStyle: "italic", marginBottom: 10 }}>
+          {FILM_OWNER_NOTE}
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
