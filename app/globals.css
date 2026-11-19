@@ -1843,7 +1843,8 @@ select option {
   max-width: 21ch;
   text-align: center;
 }
-.calc-heading span { color: var(--accent-2); }
+/* "Missed calls" is the emphasis and never breaks across two lines (Xander, 2026-11-19). */
+.calc-heading span { color: var(--accent-2); white-space: nowrap; }
 .calc-section.wash { padding: 0; }
 .calc-body { margin-top: clamp(40px, 5vw, 64px); }
 
@@ -3851,5 +3852,7 @@ select option {
 }
 
 /* The portal demo's space, held while the page works out which version to load (PortalDemoSwitch). */
-.portal-demo-slot { min-height: 640px; }
+/* Below 768px it is the phone window's own height (`.phoneWindow`): the phone demo has no rail or
+   caption box under it since 2026-11-19. */
+.portal-demo-slot { min-height: min(680px, 78vh); }
 @media (min-width: 768px) { .portal-demo-slot { min-height: min(74vh, 720px); } }
