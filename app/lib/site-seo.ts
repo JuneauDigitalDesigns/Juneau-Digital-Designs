@@ -36,6 +36,14 @@ export const HVAC_TITLE = "HVAC Website Design + 24/7 AI Receptionist | JDD";
 export const HVAC_DESCRIPTION = `We write, build and host your HVAC website, and an AI receptionist answers the heating and cooling calls you miss, 24/7. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
 
 /**
+ * /contact. Xander approved the page, with this title and description, from the round-1 mockup
+ * (19 Nov 2026). Its /contact/thank-you child is deliberately NOT a public path: it is the
+ * post-send landing page for Google Ads, is `noindex`, and never belongs in the sitemap.
+ */
+export const CONTACT_TITLE = "Contact Juneau Digital Designs | Website + AI Receptionist";
+export const CONTACT_DESCRIPTION = `Tell us about your business and we'll come back to you with what a website and a 24/7 AI receptionist would look like for it. Or call ${CONTACT.phoneDisplay}.`;
+
+/**
  * The public pages, in the order the sitemap lists them. A page that is not here is not in the
  * sitemap: the portal, sign-in, checkout, payment links, `/start`, `/terms/accept` and every
  * private `/terms/[code]` link stay out on purpose.
@@ -44,6 +52,7 @@ export const PUBLIC_PATHS = [
     "/",
     "/about",
     "/hvac",
+    "/contact",
     "/pricing",
     "/faq",
     "/activation",
@@ -256,6 +265,34 @@ export function hvacJsonLd() {
                 },
             },
         ],
+    };
+}
+
+/**
+ * /contact, as a ContactPage tied to the business.
+ *
+ * It states only what the page shows: the page is how you contact this organization, and the
+ * phone and email are the footer's own (CONTACT). Nothing about an address or hours, because the
+ * page lists none.
+ */
+export function contactJsonLd() {
+    return {
+        "@context": "https://schema.org",
+        "@type": "ContactPage",
+        "@id": `${SITE_URL}/contact#page`,
+        url: `${SITE_URL}/contact`,
+        name: CONTACT_TITLE,
+        description: CONTACT_DESCRIPTION,
+        isPartOf: { "@id": `${SITE_URL}/#website` },
+        about: { "@id": ORG_ID },
+        mainEntity: {
+            "@type": "Organization",
+            "@id": ORG_ID,
+            name: SITE_NAME,
+            url: SITE_URL,
+            email: CONTACT.email,
+            telephone: CONTACT.phoneHref.replace(/^tel:/, ""),
+        },
     };
 }
 

@@ -5258,3 +5258,214 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   border: 1px solid var(--rule-strong);
   padding: 11px 14px;
 }
+
+/* ── /contact and /contact/thank-you ─────────────────────────────────────────
+   Approved by Xander from the round-1 mockup (19 Nov 2026). The contact page is the landing page
+   for Google Ads, so the form sits on the page and a send goes to /contact/thank-you. One device
+   per section, as on /about and /hvac; type, colour and hairlines are the site's. Light only. */
+.contact-page { background: var(--bg); }
+.contact-shell {
+  max-width: calc(1120px + 2 * clamp(18px, 4vw, 56px));
+  margin: 0 auto;
+  padding: clamp(80px, 10vw, 136px) clamp(18px, 4vw, 56px);
+}
+.contact-shell-hero { padding-block: clamp(44px, 6vw, 84px) clamp(80px, 10vw, 128px); }
+.contact-coral { color: var(--accent-2); }
+.contact-h1,
+.contact-h2,
+.contact-track-h,
+.contact-ledger-q,
+.ty-h1,
+.ty-track-h {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--fg);
+}
+.contact-h1 { margin-top: 14px; font-size: clamp(64px, 12vw, 152px); font-weight: 900; line-height: 0.84; letter-spacing: 0.005em; }
+.contact-h2 { font-size: clamp(40px, 6.6vw, 84px); font-weight: 900; line-height: 0.9; }
+.contact-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 46ch; }
+
+/* A voice, drawn: the same bars /hvac uses, for the demo line. */
+.contact-wave { display: inline-flex; align-items: center; gap: 4px; height: 0.7em; color: var(--accent-2); }
+.contact-wave > i { width: 4px; height: 40%; border-radius: 2px; background: currentColor; }
+.contact-wave > i:nth-child(2) { height: 85%; }
+.contact-wave > i:nth-child(3) { height: 55%; }
+.contact-wave > i:nth-child(4) { height: 100%; }
+.contact-wave > i:nth-child(5) { height: 45%; }
+@media (prefers-reduced-motion: no-preference) {
+  .contact-wave > i { animation: contact-speak 1.1s ease-in-out infinite; transform-origin: 50% 50%; }
+  .contact-wave > i:nth-child(2) { animation-delay: -0.2s; }
+  .contact-wave > i:nth-child(3) { animation-delay: -0.5s; }
+  .contact-wave > i:nth-child(4) { animation-delay: -0.8s; }
+  .contact-wave > i:nth-child(5) { animation-delay: -0.35s; }
+}
+@keyframes contact-speak { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+
+/* 1 · Split hero: ways to reach us on the left, the form on the right. */
+.contact-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: clamp(36px, 6vw, 88px);
+  align-items: start;
+}
+.contact-ways { list-style: none; margin: clamp(40px, 5vw, 60px) 0 0; padding: 0; border-top: 2px solid var(--fg); }
+.contact-ways > li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 2px 14px;
+  align-items: center;
+  padding-block: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.contact-way-ic { grid-row: span 2; width: 30px; height: 30px; fill: none; stroke: var(--accent-2); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.contact-way-how { font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
+.contact-way-what {
+  font-family: var(--font-display);
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  color: var(--fg);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.contact-way-what:hover { color: var(--accent-2); }
+.contact-way-small { font-size: clamp(17px, 2vw, 25px); text-transform: lowercase; letter-spacing: 0.02em; }
+.contact-way-sub { grid-column: 2; margin-top: 4px; font-size: 15px; color: var(--fg-2); }
+
+/* The form sheet. `--elev-1` is the resting-card surface, as elsewhere. */
+.contact-sheet {
+  padding: clamp(24px, 3.4vw, 40px);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--elev-1);
+  box-shadow: 0 28px 56px -32px rgba(20, 18, 12, 0.45);
+}
+.contact-sheet-kicker { color: var(--accent-2); margin-bottom: 20px; }
+
+/* 2 · What happens after you send: a five-stop track. */
+.contact-split-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: end;
+}
+.contact-track {
+  position: relative;
+  list-style: none;
+  margin: clamp(48px, 6vw, 72px) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.contact-track::before { content: ""; position: absolute; left: 10%; right: 10%; top: 27px; height: 3px; background: var(--fg); }
+.contact-track > li { position: relative; display: grid; justify-items: center; gap: 12px; padding-inline: 10px; text-align: center; }
+.contact-track-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 3px solid var(--fg);
+  font: 900 26px/1 var(--font-display);
+  color: var(--fg);
+}
+.contact-track > li:last-child .contact-track-dot { background: var(--accent-2); border-color: var(--accent-2); color: var(--on-accent-2); }
+.contact-track-when { font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-2); min-height: 1.4em; }
+.contact-track-h { font-size: clamp(20px, 2vw, 26px); font-weight: 800; line-height: 1; }
+.contact-track p { font-size: 15px; color: var(--fg-2); max-width: 22ch; }
+
+/* 3 · Before you ask: question left, answer right. */
+.contact-ledger { margin-top: clamp(40px, 5vw, 60px); border-top: 2px solid var(--fg); }
+.contact-ledger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px clamp(20px, 4vw, 56px);
+  padding-block: 28px;
+  border-bottom: 1px solid var(--rule);
+}
+.contact-ledger-q { font-size: clamp(24px, 2.8vw, 34px); font-weight: 800; line-height: 1; }
+.contact-ledger-row p { color: var(--fg-2); }
+.contact-more { margin-top: 26px; font: 500 12px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; }
+.contact-more a { color: var(--accent-2); }
+
+/* ── Thank you ── */
+.ty-shell { max-width: 960px; margin: 0 auto; padding: clamp(56px, 8vw, 104px) clamp(18px, 4vw, 56px) clamp(72px, 9vw, 120px); }
+.ty-head { display: grid; justify-items: center; text-align: center; }
+.ty-stamp {
+  display: grid;
+  place-items: center;
+  width: clamp(88px, 10vw, 120px);
+  height: clamp(88px, 10vw, 120px);
+  border-radius: 50%;
+  background: var(--accent-2);
+  color: var(--on-accent-2);
+  box-shadow: 0 0 0 10px var(--accent-glow);
+}
+.ty-stamp-ic { width: 50%; height: 50%; }
+.ty-kicker { margin-top: 34px; color: var(--accent-2); }
+.ty-h1 { margin-top: 14px; font-size: clamp(60px, 11vw, 140px); font-weight: 900; line-height: 0.84; letter-spacing: 0.005em; }
+.ty-lede { margin-top: 24px; max-width: 44ch; font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); }
+.ty-lede b { color: var(--fg); }
+
+.ty-here { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: clamp(36px, 6vw, 88px); align-items: start; }
+.ty-track { list-style: none; margin: 36px 0 0; padding: 0 0 0 30px; border-left: 3px solid var(--fg); display: grid; gap: 28px; }
+.ty-track > li { position: relative; }
+.ty-track > li::before {
+  content: "";
+  position: absolute;
+  left: -42px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 3px solid var(--fg);
+}
+.ty-track-done::before { background: var(--fg); }
+.ty-track-next::before { background: var(--accent-2); border-color: var(--accent-2); box-shadow: 0 0 0 6px var(--accent-glow); }
+.ty-track-when { font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
+.ty-track-done .ty-track-when,
+.ty-track-next .ty-track-when { color: var(--accent-2); }
+.ty-track-h { margin-top: 4px; font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; line-height: 1; }
+.ty-track-done .ty-track-h { color: var(--fg-3); text-decoration: line-through; text-decoration-color: var(--accent-2); text-decoration-thickness: 3px; }
+.ty-track > li p { margin-top: 6px; max-width: 40ch; font-size: 15.5px; color: var(--fg-2); }
+
+.ty-wait { display: grid; gap: 18px; }
+.ty-demo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 6px;
+  font: 900 clamp(40px, 6vw, 76px)/1 var(--font-display);
+  color: var(--fg);
+  text-decoration: none;
+}
+.ty-demo:hover { color: var(--accent-2); }
+.ty-onward { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+@media (max-width: 860px) {
+  .contact-hero,
+  .contact-split-head,
+  .contact-ledger-row,
+  .ty-here { grid-template-columns: minmax(0, 1fr); }
+  .contact-hero > div:first-child,
+  .contact-split-head,
+  .ty-wait { text-align: center; }
+  .contact-hero .contact-lede,
+  .contact-split-head .contact-lede { margin-inline: auto; }
+  .contact-ways { text-align: left; }
+  /* The track turns down the page on a phone, one stop under the next. */
+  .contact-track { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .contact-track::before { left: 27px; right: auto; top: 10px; bottom: 10px; width: 3px; height: auto; }
+  .contact-track > li { grid-template-columns: 56px minmax(0, 1fr); justify-items: start; gap: 2px 16px; padding-inline: 0; text-align: left; }
+  .contact-track-dot { grid-row: span 3; }
+  .contact-track-when:empty,
+  .contact-track > li:nth-child(-n+3) .contact-track-when { display: none; }
+  .contact-ledger-q { text-align: left; }
+  .ty-onward,
+  .ty-demo { justify-content: center; }
+}
