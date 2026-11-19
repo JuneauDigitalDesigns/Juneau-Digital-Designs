@@ -24,7 +24,8 @@ import {
     Plus,
 } from "@phosphor-icons/react";
 import TourController, { launchTour } from "./tour/TourController";
-import { HELP_MENU } from "./tour/tours";
+import type { TourState } from "@/app/lib/portal-tour-seen";
+import { HELP_MENU } from "./tour/steps";
 import PortalUserButton from "./PortalUserButton";
 import PortalBrand from "./PortalBrand";
 import SiteSelector from "./SiteSelector";
@@ -98,20 +99,15 @@ export default function PortalChrome({
     sites,
     accountEmail,
     railCollapsed,
-    tourCompleted,
-    tourInitialStep,
-    tourSeen,
+    tour,
     children,
 }: {
     sites: PortalSiteProps[];
     accountEmail: string;
     /** Server-read cookie. See `(dash)/layout.tsx` — holding this client-side would flash. */
     railCollapsed: boolean;
-    /** First-run tour state, read from Clerk publicMetadata in the layout. */
-    tourCompleted: boolean;
-    tourInitialStep: number;
-    /** Tab tours this person has already had (tours v2). */
-    tourSeen: string[];
+    /** The tour's state on each kind of device, read from Clerk publicMetadata in the layout. */
+    tour: TourState;
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
@@ -179,14 +175,14 @@ export default function PortalChrome({
         <PortalDataProvider>
         <div className="portal-shell" data-rail={collapsed ? "collapsed" : "expanded"}>
             <TourController
-                tourCompleted={tourCompleted}
-                initialStep={tourInitialStep}
-                seen={tourSeen}
-                // The tours teach a different product per tier, so they follow what the site on
+                tour={tour}
+                // The tour teaches a different product per tier, so it follows what the site on
                 // screen actually has. This read `sites[0]` until 2026-11-12, so a client looking
                 // at their Growth site got the Starter tour if their first site was Starter.
                 tier={selected.features.crm.state === "ready" ? "growth" : "starter"}
                 siteStatus={selected.status}
+                siteSlug={selected.slug}
+                trade={selected.sampleTrade ?? "other"}
             />
             {/* ── Mobile: top bar ──────────────────────────────────────────────────
                 The approved app mockup (2026-11-19): business name top left, account top

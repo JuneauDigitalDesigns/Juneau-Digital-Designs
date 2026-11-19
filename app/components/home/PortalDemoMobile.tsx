@@ -8,6 +8,7 @@ import PhoneReplica from "../portal/growth-demo/PhoneReplica";
 import DemoCursor from "../portal/growth-demo/DemoCursor";
 import { sceneView, type SceneNo } from "../portal/growth-demo/script";
 import { demoNow } from "../portal/growth-demo/sample";
+import { tradeSample } from "@/app/data/trade-samples";
 import { createDemoClock, type DemoClock } from "./demo-clock";
 import s from "./PortalDemo.module.css";
 
@@ -17,9 +18,10 @@ import s from "./PortalDemo.module.css";
  *
  * The same five steps, captions and closing as the desktop demo (`DEMO_STEPS`, `DEMO_CLOSING`),
  * played on the portal's real components at a phone's width: the Growth demo's phone replica
- * (`growth-demo/PhoneReplica`), which draws the live Inbox, board, customer file and review window
- * on sample data, so this cannot drift from the product either. Taps, not a cursor. A click on the
- * phone pauses it and the next carries on from exactly there.
+ * (`growth-demo/PhoneReplica`), which draws the new phone app (2026-11-19: the Inbox, the
+ * full-screen lead, Customers and its Stage sheet, the contact-card record, the texting screen and
+ * the one-tap review) on the HVAC sample shop, so this cannot drift from the product either. Taps,
+ * not a cursor. A click on the phone pauses it and the next carries on from exactly there.
  *
  * The phone and nothing else (Xander, 2026-11-19: the step rail and the step info box "can hide,
  * only show on desktop"). The desktop demo keeps both. Each step's caption is still read out to
@@ -28,14 +30,19 @@ import s from "./PortalDemo.module.css";
  * length on the same pausable clock, then shows the closing panel.
  */
 
-/** Which part of which replica scene each of the homepage's steps plays, in ms of that scene. */
+/**
+ * Which part of which replica scene each of the homepage's steps plays, in ms of that scene
+ * (`PHONE_BEATS`, retimed 2026-11-19 for the phone app's scenes).
+ */
 const STEPS: { scene: SceneNo; from: number; to: number }[] = [
-    { scene: 1, from: 0, to: 5600 }, // Inbox: the list, a tap on Dave, his lead opens
-    { scene: 1, from: 4400, to: 9800 }, // Promote
-    { scene: 2, from: 800, to: 9600 }, // Pipeline: Lead → Contacted → Quoted → Scheduled
-    { scene: 4, from: 800, to: 12500 }, // Message: typed, sent, answered
-    { scene: 5, from: 800, to: 12500 }, // Review
+    { scene: 1, from: 0, to: 3900 }, // Inbox: the list, a tap on Dave, his lead opens full screen
+    { scene: 1, from: 3600, to: 8600 }, // Promote: down to Promote, Adding…, promoted
+    { scene: 2, from: 1600, to: 11000 }, // Pipeline: press and hold, Contacted → Quoted → Scheduled
+    { scene: 4, from: 6800, to: 15600 }, // Message: Text, the texting screen, typed, sent, answered
+    { scene: 5, from: 1600, to: 9800 }, // Review: Won, one tap, "Review request sent!"
 ];
+/** The homepage is one business end to end: the HVAC shop (`DEMO_BUSINESS`). */
+const SAMPLE = tradeSample("hvac");
 const TICK_MS = 100;
 
 type Run = "idle" | "playing" | "done";
@@ -95,7 +102,7 @@ export default function PortalDemoMobile() {
     }
 
     const seg = STEPS[step];
-    const view = { ...sceneView(seg.scene, t), caption: false };
+    const view = { ...sceneView(seg.scene, t, { phone: true, sms: SAMPLE.sms }), caption: false };
     const idle = run === "idle";
     const closing = run === "done";
     const pausable = run === "playing";
@@ -106,7 +113,7 @@ export default function PortalDemoMobile() {
             <div className={s.frame} data-pausable={pausable || undefined} style={{ display: "flex", justifyContent: "center" }}>
                 <div className={`${s.window} ${s.phoneWindow}`} aria-hidden="true">
                     <div ref={screenRef} className={`portal-scope ${s.phoneScreen}`} style={{ minHeight: 0 }} inert>
-                        <PhoneReplica scene={seg.scene} view={view} now={now} />
+                        <PhoneReplica key={seg.scene} scene={seg.scene} view={view} now={now} sample={SAMPLE} framed />
                         {!idle && !reduce && <DemoCursor container={screenRef} scene={seg.scene} t={t} tap />}
                     </div>
                 </div>

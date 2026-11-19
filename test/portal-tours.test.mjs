@@ -1,11 +1,12 @@
 /**
- * The portal's tours, v2 (Xander, 2026-11-12): a short welcome tour, then one tour per tab that
- * plays the first time the tab is opened, with no dimming.
+ * The portal tour, v3 (Xander, 19 Nov 2026): one walk through the whole portal, on a computer and
+ * on a phone, moving from screen to screen by itself, with a hand-off card between sections and
+ * nothing said twice.
  *
- * The tours are plain data (`app/components/portal/tour/tours.ts`), so what each tier sees, which
- * tour a page starts, and every word they say are checked here directly. Anchors are checked at
- * source level: a step pointing at a `data-tour` or id that no component renders would show as a
- * centred card forever, and nothing else would notice.
+ * The steps are plain data (`app/components/portal/tour/steps.ts`), so the walk each tier and
+ * device gets, and every word it says, are checked here directly. Anchors are checked at source
+ * level: a step pointing at a `data-tour` or id that no component renders would show as a centred
+ * card forever, and nothing else would notice.
  *
  * Run: `npm test`
  */
@@ -15,10 +16,20 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-import { buildTour, tourForPath, TOUR_IDS, ELEMENT_TOURS, HELP_MENU } from "../app/components/portal/tour/tours.ts";
+import {
+    TOUR_STEPS,
+    HELP_MENU,
+    WIN_JOBS,
+    boldParts,
+    hrefFor,
+    sectionForPath,
+    sectionWalk,
+    walkFor,
+    wordsFor,
+} from "../app/components/portal/tour/steps.ts";
 
 const tiers = ["starter", "growth"];
-const sizes = [false, true];
+const devices = ["desktop", "mobile"];
 
 function allTsx(dir) {
     const out = [];
@@ -37,8 +48,11 @@ function anchorExists(selector) {
     if (tour) {
         const name = tour[1];
         if (name.startsWith("nav-")) return /data-tour=\{`nav-\$\{tab\.id\}`\}/.test(SOURCE);
-        return SOURCE.includes(`data-tour="${name}"`) || SOURCE.includes(`dataTour="${name}"`);
+        if (name.startsWith("tab-") && name !== "tab-more") return /data-tour=\{`tab-\$\{tab\.id\}`\}/.test(SOURCE);
+        if (name.startsWith("more-") && ["more-analytics", "more-settings", "more-support"].includes(name)) return /data-tour=\{`more-\$\{id\}`\}/.test(SOURCE);
+        return SOURCE.includes(`data-tour="${name}"`) || SOURCE.includes(`dataTour="${name}"`) || SOURCE.includes(`"${name}" : undefined`);
     }
+    if (/^\[data-row-id="[^"]+"\]$/.test(selector)) return SOURCE.includes("data-row-id={row.id}");
     const id = selector.match(/^#([\w-]+)$/);
     if (id) {
         const name = id[1];
@@ -48,143 +62,124 @@ function anchorExists(selector) {
     return false;
 }
 
-test("every step of every tour points at something a component renders", () => {
-    for (const tier of tiers) {
-        for (const mobile of sizes) {
-            for (const id of TOUR_IDS) {
-                for (const step of buildTour(id, tier, mobile)) {
-                    if (typeof step.element === "string") {
-                        assert.ok(anchorExists(step.element), `${id} (${tier}${mobile ? ", phone" : ""}): ${step.element}`);
-                    }
-                }
-            }
+test("every step points at something a component renders, on both kinds of device", () => {
+    for (const s of TOUR_STEPS) {
+        for (const d of devices) {
+            const view = s[d];
+            if (view?.anchor) assert.ok(anchorExists(view.anchor), `${s.id} (${d}): ${view.anchor}`);
         }
     }
 });
 
-test("no tour says anything with a dash in it", () => {
-    for (const tier of tiers) {
-        for (const mobile of sizes) {
-            for (const id of TOUR_IDS) {
-                for (const s of buildTour(id, tier, mobile)) {
-                    for (const text of [s.popover?.title ?? "", s.popover?.description ?? ""]) {
-                        assert.doesNotMatch(text, /[–—]| - /, `${id}: ${text}`);
-                    }
-                }
-            }
+test("no step says anything with a dash in it", () => {
+    for (const s of TOUR_STEPS) {
+        for (const text of [s.title, s.body, s.phone?.title ?? "", s.phone?.body ?? ""]) {
+            assert.doesNotMatch(text, /[–—]| - /, `${s.id}: ${text}`);
         }
     }
     for (const label of Object.values(HELP_MENU)) assert.doesNotMatch(label, /[–—]/);
 });
 
-test("each page starts its own tour, and the locked tabs start an honest one on Starter", () => {
-    const cases = [
-        ["/portal", "overview", "overview"],
-        ["/portal/calls", "inbox", "inbox"],
-        ["/portal/customers", "customers-locked", "customers"],
-        ["/portal/calendar", "calendar-locked", "calendar"],
-        ["/portal/analytics", "analytics", "analytics"],
-        ["/portal/settings", "account", "account"],
-        ["/portal/settings/billing", "billing", "billing"],
-        ["/portal/support", "support", "support"],
-    ];
-    for (const [path, starter, growth] of cases) {
-        assert.equal(tourForPath(path, "starter"), starter, path);
-        assert.equal(tourForPath(path, "growth"), growth, path);
+test("nothing is said twice in one walk (Xander: 'Nothing should be said twice')", () => {
+    for (const tier of tiers) {
+        for (const d of devices) {
+            const seen = new Map();
+            for (const s of walkFor(tier, d)) {
+                const { title, body } = wordsFor(s, d, tier);
+                const key = body || title;
+                assert.ok(!seen.has(key), `${tier}/${d}: "${s.id}" repeats "${seen.get(key)}"`);
+                seen.set(key, s.id);
+            }
+        }
     }
-    assert.equal(tourForPath("/portal/onboarding", "growth"), null);
-    assert.equal(tourForPath("/portal/sign-in", "starter"), null);
 });
 
-test("the customer file and its tabs start their own tours when they appear, on Growth only", () => {
+test("the walk goes Home, Inbox, then the plan's own sections, then More, and ends on You're all set", () => {
+    const order = ["Home", "Inbox", "Customers", "Calendar", "More"];
+    for (const tier of tiers) {
+        for (const d of devices) {
+            const walk = walkFor(tier, d);
+            const sections = walk.map((s) => s.section);
+            for (let i = 1; i < sections.length; i++) {
+                assert.ok(order.indexOf(sections[i]) >= order.indexOf(sections[i - 1]), `${tier}/${d}: ${walk[i].id} out of order`);
+            }
+            assert.equal(walk[0].id, "welcome");
+            assert.equal(walk.at(-1).id, "all-set");
+        }
+    }
+    assert.ok(!walkFor("starter", "mobile").some((s) => s.section === "Calendar"), "Starter has no Calendar section");
+});
+
+test("each section ends with a hand-off card pointing at the next tab, as Xander asked", () => {
+    const handoffs = (tier, d) => walkFor(tier, d).filter((s) => s.handoff).map((s) => s.title);
+    assert.deepEqual(handoffs("growth", "mobile"), [
+        "Now let's take a look at your Inbox.",
+        "Now let's look at what happens when your leads become customers.",
+        "Now let's take a look at your Calendar.",
+        "Now let's take a look at everything in More.",
+    ]);
+    // Starter: no "leads become customers" hand-off; "Want to go further?" stays on the Inbox.
+    assert.deepEqual(handoffs("starter", "mobile"), ["Now let's take a look at your Inbox.", "Now let's take a look at everything in More."]);
+    // There is no More on a computer, so no card says so there.
+    assert.ok(!handoffs("growth", "desktop").some((t) => /More/.test(t)));
+    for (const s of TOUR_STEPS.filter((x) => x.handoff)) assert.equal(s.body, "", `${s.id}: a hand-off card is its title alone`);
+});
+
+test("Starter's two 'Want to go further?' cards stay on the Inbox and outline Customers, then Calendar", () => {
+    const further = walkFor("starter", "mobile").filter((s) => s.title === "Want to go further?");
+    assert.equal(further.length, 2);
+    assert.deepEqual(further.map((s) => s.mobile.at.path), ["/portal/calls", "/portal/calls"]);
+    assert.deepEqual(further.map((s) => s.mobile.anchor), ['[data-tour="tab-customers"]', '[data-tour="tab-calendar"]']);
+    assert.match(wordsFor(further[0], "mobile", "starter").body, /one-tap Google review requests\.$/);
+    assert.match(wordsFor(further[0], "desktop", "starter").body, /one-click Google review requests\.$/);
+});
+
+test("Xander's own words are used exactly (19 Nov 2026)", () => {
+    const byId = Object.fromEntries(TOUR_STEPS.map((s) => [s.id, s]));
+    assert.equal(byId.welcome.body, "Thanks for coming on board with us. Here's a quick walkthrough on how your portal works.");
+    assert.equal(wordsFor(byId.handle, "mobile", "growth").title, "Handle it in one swipe");
+    assert.equal(wordsFor(byId.handle, "desktop", "growth").title, "Handle it in one tap");
     assert.deepEqual(
-        ELEMENT_TOURS.map((t) => t.id),
-        ["customer", "contact", "jobs", "notes"],
+        boldParts(byId.find.body).filter((p) => p.bold).map((p) => p.text),
+        ["Needs you", "All", "Calls", "Forms"],
+        "the chip names are bold",
     );
-    for (const t of ELEMENT_TOURS) assert.equal(t.path, "/portal/customers");
+    assert.equal(byId["review-message"].title, "Your Review message");
 });
 
-const titles = (id, tier, mobile = false) => buildTour(id, tier, mobile).map((s) => s.popover.title);
-const body = (id, tier, title, mobile = false) => buildTour(id, tier, mobile).find((s) => s.popover.title === title)?.popover.description;
-
-test("the welcome tour walks down the tabs, per tier", () => {
-    assert.deepEqual(titles("welcome", "starter"), [
-        "👋 Welcome to your portal",
-        "Your day at a glance",
-        "Your inbox",
-        "Want to go further?",
-        "How your site is doing",
-        "Your alerts and your plan",
-        "Need a hand?",
-        "You're all set",
-    ]);
-    assert.deepEqual(titles("welcome", "growth"), [
-        "👋 Welcome to your portal",
-        "Your day at a glance",
-        "Your inbox",
-        "Your customers",
-        "Your calendar",
-        "How your site is doing",
-        "Your alerts and your plan",
-        "Need a hand?",
-        "You're all set",
-    ]);
-});
-
-test("the lines Xander approved in the first draft are kept word for word", () => {
-    assert.equal(
-        body("inbox", "starter", "👋 This is your inbox"),
+test("the lines kept from the v2 tours are word for word", () => {
+    const words = TOUR_STEPS.flatMap((s) => [s.title, s.body, s.phone?.body ?? ""]).join("\n");
+    for (const line of [
         "Every call your receptionist answers and every inquiry from your website lands here. Tap one to see who it was and what they wanted.",
-    );
-    assert.equal(
-        body("inbox", "starter", "Find anything fast"),
-        "Needs you shows what's still waiting on you. Switch to All, Calls or Forms, or search by name, number or what they said.",
-    );
-    assert.equal(body("inbox", "starter", "Handle it in one tap"), "Call them back, set a reminder for later, or mark it done once it's handled.");
-    assert.equal(body("inbox", "starter", "Handle it in one tap", true), "Swipe right on a lead to call them back, or swipe left to mark it done.");
-    assert.equal(body("inbox", "starter", "What they said"), "Your receptionist writes up what they wanted. Play the recording to hear the whole call.");
-    assert.equal(
-        body("inbox", "growth", "Keep the ones that matter"),
-        "When an inquiry is a real job, promote them to a customer. Everything they've said is carried across automatically.",
-    );
-    assert.equal(
-        body("welcome", "starter", "Want to go further?"),
-        "Growth adds a file for every customer, a calendar for your jobs, texting from your business number, and Google review requests. Open Customers to see it in action.",
-    );
-    assert.equal(body("customer", "growth", "⭐ Here's the magic"), "After a happy job, one tap asks them for a Google review. More reviews bring more calls, so come back and do this often.");
-    assert.equal(
-        body("customer", "growth", "Never forget a follow-up"),
+        "Your receptionist writes up what they wanted. Play the recording to hear the whole call.",
+        "After a happy job, one tap asks them for a Google review. More reviews bring more calls, so come back and do this often.",
         "Set a reminder, like “send the quote Friday”, and it flags when it's overdue. Booked visits show here too.",
-    );
-    assert.equal(body("welcome", "growth", "Your calendar"), "Job visits, estimates and call backs in one month view, each tied to its customer.");
+        "Want something changed on your site, or something isn't right? Open a ticket here and we'll get back to you within one business day.",
+        "That's it. Open the More menu anytime to tour the page you're on, or replay every tour.",
+    ]) {
+        assert.ok(words.includes(line), line);
+    }
 });
 
-test("the inbox tour points at the open lead on a computer, and skips the write-up on a phone", () => {
-    assert.deepEqual(titles("inbox", "starter"), ["👋 This is your inbox", "Find anything fast", "Handle it in one tap", "What they said"]);
-    assert.deepEqual(titles("inbox", "starter", true), ["👋 This is your inbox", "Find anything fast", "Handle it in one tap"]);
-    assert.deepEqual(titles("inbox", "growth"), ["👋 This is your inbox", "Find anything fast", "Handle it in one tap", "What they said", "Keep the ones that matter"]);
+test("Growth's last card says Now go win some jobs; Starter's does not", () => {
+    const last = TOUR_STEPS.find((s) => s.id === "all-set");
+    assert.ok(wordsFor(last, "mobile", "growth").body.endsWith(WIN_JOBS));
+    assert.ok(!wordsFor(last, "mobile", "starter").body.endsWith(WIN_JOBS));
 });
 
-test("Help offers this page's tour or every tour again", () => {
-    assert.deepEqual(HELP_MENU, { page: "Tour this page", all: "Replay all tours" });
+test("Tour this page plays that page's section, without the hand-off that leads out of it", () => {
+    assert.equal(sectionForPath("/portal"), "Home");
+    assert.equal(sectionForPath("/portal/calls"), "Inbox");
+    assert.equal(sectionForPath("/portal/settings/billing"), "More");
+    assert.equal(sectionForPath("/portal/more/review"), "More");
+    const inbox = sectionWalk("Inbox", "growth", "mobile");
+    assert.ok(inbox.length > 2 && inbox.every((s) => s.section === "Inbox" && !s.handoff));
 });
 
-import { nextSeen, TAB_TOURS } from "../app/lib/portal-tour-seen.ts";
-
-test("every tab tour can be remembered, and nothing else can", () => {
-    assert.deepEqual([...TAB_TOURS].sort(), TOUR_IDS.filter((id) => id !== "welcome").sort());
-    assert.deepEqual(nextSeen(["inbox"], "welcome", false), ["inbox"]);
-    assert.deepEqual(nextSeen(["inbox", "<script>", 4], undefined, false), ["inbox"]);
-});
-
-test("a tab tour is remembered once, and Replay all tours forgets them all", () => {
-    assert.deepEqual(nextSeen(["inbox"], "overview", false), ["inbox", "overview"]);
-    assert.deepEqual(nextSeen(["inbox", "overview"], "inbox", false), ["inbox", "overview"]);
-    assert.deepEqual(nextSeen(["inbox", "overview"], undefined, true), []);
-});
-
-test("the tour route keeps the welcome tour one way, and stores the seen list through nextSeen", () => {
-    const route = readFileSync("app/api/portal/tour/route.ts", "utf8");
-    assert.match(route, /completed:\s*body\.completed === true \|\| prev\.completed === true/);
-    assert.match(route, /seen:\s*nextSeen\(prev\.seen, body\.seen, body\.resetSeen === true\)/);
+test("every screen the tour goes to carries the tour's sample switch and the site", () => {
+    const href = hrefFor({ path: "/portal/customers", open: "record" }, "my-site");
+    assert.match(href, /^\/portal\/customers\?/);
+    assert.match(href, /site=my-site/);
+    assert.match(href, /tour=1/);
+    assert.match(href, /open=tour-/);
 });

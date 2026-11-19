@@ -9,16 +9,16 @@ import LeadDetail from "../inbox/LeadDetail";
 import { inboxCounts, inboxRows, sectionRows } from "../inbox/model";
 import { Chip, Column } from "../crm/CustomersSection";
 import CustomerPanel from "../crm/CustomerPanel";
-import CustomerRecord, { type DetailResponse } from "../crm/CustomerRecord";
+import CustomerRecord, { ReviewToast } from "../crm/CustomerRecord";
 import { COLLAPSED_BY_DEFAULT, STAGES, type CustomerRow, type StageKey } from "../crm/stages";
 import { Card, SectionHeader } from "../ui/Card";
 import MonthGrid, { KIND_HUE } from "../calendar/MonthGrid";
 import DayList from "../calendar/DayList";
 import type { CalendarJob } from "../calendar/api";
 import { APPT_KIND_LABEL, monthLabel } from "@/app/lib/crm-calendar";
-import { DEMO_BUSINESS } from "@/app/data/portal-demo";
-import { DAVE_ID, captionFor, type SceneNo, type SceneView } from "./script";
-import { BUSINESS_NAME, boardRows, dave, daveJob, daveTimeline, daveVisit, dayKey, inboxItems, names, otherAppointments } from "./sample";
+import type { TradeSample } from "@/app/data/trade-samples";
+import { COPY, DAVE_ID, captionFor, type SceneNo, type SceneView } from "./script";
+import { boardRows, dave, daveJob, daveVisit, dayKey, inboxItems, names, otherAppointments, recordData } from "./sample";
 import s from "./GrowthDemo.module.css";
 
 /**
@@ -28,9 +28,10 @@ import s from "./GrowthDemo.module.css";
  *
  * Rebuilt 2026-11-12 (Xander: "replicate it exactly"). The Inbox list, the open lead, the board's
  * columns and cards, the whole customer file (header, tabs, Coming up, the timeline, the text box,
- * Jobs, the review window) and the calendar's month and day are the portal's own components, fed
- * the sample account in `sample.ts`, so the demo cannot drift from the product. Only the frame
- * around them is copied, from `PortalChrome` (the rail), `InboxSection` (the split view),
+ * Jobs, the one-tap review and its note) and the calendar's month and day are the portal's own
+ * components, fed the client's trade's sample account (`sample.ts`), so the demo cannot drift
+ * from the product. Only the frame around them is copied, from `PortalChrome` (the rail, with
+ * Overview now called Home), `InboxSection` (the split view),
  * `CustomersSection` (the board's header) and `CalendarSection` (its header): those components
  * fetch their own data and cannot be handed sample props.
  *
@@ -40,7 +41,7 @@ import s from "./GrowthDemo.module.css";
 
 const noop = () => {};
 const RAIL_TABS = [
-    { id: "overview", label: "Overview", Icon: ChartPieSlice },
+    { id: "overview", label: "Home", Icon: ChartPieSlice },
     { id: "calls", label: "Inbox", Icon: Tray },
     { id: "customers", label: "Customers", Icon: Users },
     { id: "calendar", label: "Calendar", Icon: CalendarBlank },
@@ -49,18 +50,24 @@ const RAIL_TABS = [
     { id: "support", label: "Support", Icon: Lifebuoy },
 ] as const;
 
-const REVIEW = { businessName: BUSINESS_NAME, reviewLinkConfigured: true };
+const noopToast = () => {};
 
-export default function DesktopReplica({ scene, view, now }: { scene: SceneNo; view: SceneView; now: Date }) {
+export default function DesktopReplica({ scene, view, now, sample }: { scene: SceneNo; view: SceneView; now: Date; sample: TradeSample }) {
     const page = scene === 1 ? "calls" : view.view === "calendar" ? "calendar" : "customers";
     return (
-        <div className={s.desk} data-composing={view.composing || undefined} data-editing={view.editing || undefined}>
-            <Rail active={page} />
+        <div className={s.desk} data-composing={view.composing || undefined}>
+            <Rail active={page} business={sample.business} />
             <main className={s.deskStage}>
-                {scene === 1 && <InboxPage view={view} now={now} />}
-                {scene > 1 && page === "customers" && <BoardPage view={view} now={now} scene={scene} />}
-                {page === "calendar" && <CalendarPage now={now} />}
+                {scene === 1 && <InboxPage view={view} now={now} sample={sample} />}
+                {scene > 1 && page === "customers" && <BoardPage view={view} now={now} scene={scene} sample={sample} />}
+                {page === "calendar" && <CalendarPage now={now} sample={sample} />}
                 {view.caption && <Caption scene={scene} />}
+                {/* The one-tap review's note, bottom centre, as the portal shows it on a desktop. */}
+                {view.toast && (
+                    <div className={s.deskToast}>
+                        <ReviewToast ok text={COPY.reviewSent} onDone={noopToast} inline />
+                    </div>
+                )}
             </main>
         </div>
     );
@@ -68,7 +75,7 @@ export default function DesktopReplica({ scene, view, now }: { scene: SceneNo; v
 
 /* ── the rail, copied from PortalChrome ─────────────────────────────────── */
 
-function Rail({ active }: { active: string }) {
+function Rail({ active, business }: { active: string; business: TradeSample["business"] }) {
     return (
         <aside className={s.rail}>
             <PortalBrand />
@@ -78,10 +85,10 @@ function Rail({ active }: { active: string }) {
                     className="block truncate font-bold"
                     style={{ fontFamily: "var(--font-display)", fontSize: "20px", lineHeight: 1.15, letterSpacing: "var(--tracking-tight)" }}
                 >
-                    {DEMO_BUSINESS.name}
+                    {business.name}
                 </span>
                 <span className="mt-0.5 block text-xs" style={{ color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}>
-                    {DEMO_BUSINESS.host}
+                    {business.host}
                 </span>
                 <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
                     <span
@@ -112,8 +119,8 @@ function Rail({ active }: { active: string }) {
 
 /* ── 1: the Inbox, the lead opened, Promote ────────────────────────────── */
 
-function InboxPage({ view, now }: { view: SceneView; now: Date }) {
-    const items = useMemo(() => inboxItems(now, view.promoted, view.leadOpen), [now, view.promoted, view.leadOpen]);
+function InboxPage({ view, now, sample }: { view: SceneView; now: Date; sample: TradeSample }) {
+    const items = useMemo(() => inboxItems(sample, now, view.promoted, view.leadOpen), [sample, now, view.promoted, view.leadOpen]);
     const rows = inboxRows(items, "all", "", now.getTime());
     const sections = sectionRows(rows, now);
     const counts = inboxCounts(items, now.getTime());
@@ -189,28 +196,13 @@ function InboxPage({ view, now }: { view: SceneView; now: Date }) {
 
 /* ── 2 to 5: the board, with Dave's file over it ───────────────────────── */
 
-/** The detail the record would have fetched, for the moment the scene is at. */
-export function recordData(scene: SceneNo, view: SceneView, now: Date): DetailResponse {
-    const stage: StageKey = view.won ? "won" : "scheduled";
-    const booked = scene >= 4 || view.view === "calendar";
-    return {
-        customer: dave(now, stage, { job: view.job, reviewSent: view.reviewSent }),
-        timeline: daveTimeline(now, { sent: view.sent, reply: view.reply, won: view.won }),
-        tasks: [],
-        jobs: view.job ? [daveJob(now)] : [],
-        notes: [],
-        appointments: booked ? [daveVisit(now)] : [],
-        messagingState: "ready",
-    };
-}
-
 const STAGE_FOR: StageKey[] = ["lead", "contacted", "quoted", "scheduled"];
 
-function BoardPage({ view, now, scene }: { view: SceneView; now: Date; scene: SceneNo }) {
+function BoardPage({ view, now, scene, sample }: { view: SceneView; now: Date; scene: SceneNo; sample: TradeSample }) {
     const rows: CustomerRow[] = useMemo(() => {
-        const me = dave(now, STAGE_FOR[view.daveStage]);
-        return [me, ...boardRows(now)];
-    }, [now, view.daveStage]);
+        const me = dave(sample, now, STAGE_FOR[view.daveStage]);
+        return [me, ...boardRows(sample, now)];
+    }, [sample, now, view.daveStage]);
     const byStage = (k: StageKey) => rows.filter((r) => r.stage === k);
     // While Dave is in hand, the column he is about to land in is lit, as a real drag lights it.
     const target = view.lifted ? STAGE_FOR[Math.min(view.daveStage + 1, 3)] : null;
@@ -308,9 +300,9 @@ function BoardPage({ view, now, scene }: { view: SceneView; now: Date; scene: Sc
                         siteSlug="demo"
                         variant="panel"
                         onChanged={noop}
-                        review={REVIEW}
+                        review={{ businessName: sample.business.name, reviewLinkConfigured: true }}
                         onBack={noop}
-                        demo={{ data: recordData(scene, view, now), tab: view.tab, draft: view.typed, reviewOpen: view.reviewOpen }}
+                        demo={{ data: recordData(sample, view, now), tab: view.tab, draft: view.typed }}
                     />
                 </CustomerPanel>
             )}
@@ -320,11 +312,11 @@ function BoardPage({ view, now, scene }: { view: SceneView; now: Date; scene: Sc
 
 /* ── 3: the visit on the calendar, copied header around the real month and day ── */
 
-function CalendarPage({ now }: { now: Date }) {
+function CalendarPage({ now, sample }: { now: Date; sample: TradeSample }) {
     const today = dayKey(now);
     const ym = today.slice(0, 7);
-    const appointments = [daveVisit(now), ...otherAppointments(now)];
-    const job = daveJob(now);
+    const appointments = [daveVisit(sample, now), ...otherAppointments(now)];
+    const job = daveJob(sample, now);
     const jobs: CalendarJob[] = [{ jobId: job.jobId, customerId: job.customerId, service: job.service, address: job.address, status: job.status }];
     return (
         <div className={`space-y-5 min-w-0 ${s.slideIn}`}>
@@ -374,7 +366,7 @@ function CalendarPage({ now }: { now: Date }) {
                         selected={today}
                         appointments={appointments}
                         followUps={[]}
-                        names={names()}
+                        names={names(sample)}
                         onSelect={noop}
                         onOpen={noop}
                         onMove={noop}
@@ -387,7 +379,7 @@ function CalendarPage({ now }: { now: Date }) {
                     siteSlug="demo"
                     appointments={appointments}
                     followUps={[]}
-                    names={names()}
+                    names={names(sample)}
                     jobs={jobs}
                     highlight="demo-visit"
                     onStatus={noop}
@@ -407,7 +399,7 @@ export function Caption({ scene, side = "left" }: { scene: SceneNo; side?: "left
     const cap = captionFor(scene);
     const mono = { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-3)" } as const;
     return (
-        /* Bottom left, over the rail: on the right it sat on the text box and the review window. */
+        /* Bottom left, over the rail: on the right it sat on the text box and the review button. */
         <div className={s.caption} data-side={side}>
             <span style={mono}>{cap.step}</span>
             <strong className="text-[15px]" style={{ color: "var(--fg)" }}>

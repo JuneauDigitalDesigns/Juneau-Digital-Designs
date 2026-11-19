@@ -4,6 +4,7 @@ import type {
     PortalPlan,
     PortalSiteStatus,
 } from "@jdd/schema";
+import type { SampleTrade } from "@/app/data/trade-samples";
 
 /**
  * One site as the dashboard needs it.
@@ -35,6 +36,11 @@ export interface PortalSiteProps {
     featured: { optedInAt: number; quote?: string; showName: boolean; showLink: boolean } | null;
     cancelRequestedAt: number | null;
     cancelEffectiveAt: number | null;
+    /**
+     * Which trade's sample data the tour and the Growth preview show (`app/data/trade-samples.ts`).
+     * Optional so older fixtures still type-check; absent reads as a guess from the name.
+     */
+    sampleTrade?: SampleTrade;
 }
 
 export interface PortalClientProps {

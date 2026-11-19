@@ -23,7 +23,7 @@ import {
 import { usePortalChrome } from "./PortalChromeContext";
 import PortalUserButton from "./PortalUserButton";
 import { launchTour } from "./tour/TourController";
-import { HELP_MENU } from "./tour/tours";
+import { HELP_MENU } from "./tour/steps";
 
 /**
  * The phone's More screen (approved mockup, 2026-11-19).

@@ -83,7 +83,7 @@ test("the tour's auto-launch goes through the rule, with the live redirect state
     const effect = tour.slice(tour.indexOf("if (startedRef.current) return;"));
     assert.ok(effect.length < tour.length, "TourController has no auto-launch effect");
     const gate = effect.indexOf("shouldAutoLaunchTour(");
-    const launch = effect.indexOf("void start(initialStep)");
+    const launch = effect.indexOf("begin(walkFor(");
     assert.ok(gate >= 0 && launch > gate, "auto-launch must be decided by shouldAutoLaunchTour first");
     assert.match(effect.slice(gate, launch), /redirectPending:\s*streamedRedirectPending\(document\)/);
     assert.match(effect.slice(gate, launch), /siteStatus/);

@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server";
+import { isVerticalId } from "@jdd/schema";
 import {
     mapBrandIntakeToIntake,
     uniqueSlug,
@@ -11,6 +12,7 @@ import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
 import { intakeOriginIds } from "@/app/lib/intake-origin";
 import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
+import { setSiteTrade } from "@/app/lib/portal-kv";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
 import { getAgreement } from "@/app/lib/kv";
@@ -166,6 +168,10 @@ export async function POST(request: Request) {
         // Delete server-side draft now that submission succeeded. Scoped to the site that was
         // just filled in — an unscoped delete would wipe a sibling site's unfinished draft.
         deleteDraft(userId, site.slug).catch(() => {});
+
+        // Which trade's sample data the portal tour and the Growth preview show this site.
+        // Under the slug the site now has: the rename above has already happened.
+        await setSiteTrade(newSlug, isVerticalId(industry) ? industry : "other");
 
         after(async () => {
             // What they paid and what they signed, resolved from the site's checkout session.

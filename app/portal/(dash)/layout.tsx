@@ -5,7 +5,7 @@ import PortalChrome from "@/app/components/portal/PortalChrome";
 import PortalNoAccess from "@/app/components/portal/PortalNoAccess";
 import PortalScope from "@/app/components/portal/PortalScope";
 import { resolveDashboard } from "@/app/lib/portal-dashboard";
-import { readSeen } from "@/app/lib/portal-tour-seen";
+import { readTour } from "@/app/lib/portal-tour-seen";
 
 export const dynamic = "force-dynamic";
 
@@ -25,15 +25,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     // read costs nothing it wasn't already paying.
     const railCollapsed = (await cookies()).get("portal_rail")?.value === "collapsed";
 
-    // First-run tour state travels with the Clerk user (per person, not per account), and is
-    // read here so the shell knows on the server whether to auto-launch — no flash of the tour
-    // for someone who already finished it.
+    // The tour's state travels with the Clerk user (per person, not per account), one flag for
+    // the computer and one for the phone, and is read here so the shell knows on the server
+    // whether to start it: no flash of the tour for someone who already had it on this kind of
+    // device (`app/lib/portal-tour-seen.ts`).
     const user = await currentUser();
-    const tourMeta = (user?.publicMetadata as { tour?: { completed?: boolean; lastStepIndex?: number } } | null)?.tour;
-    const tourCompleted = Boolean(tourMeta?.completed);
-    const tourInitialStep = typeof tourMeta?.lastStepIndex === "number" ? tourMeta.lastStepIndex : 0;
-    // The tab tours this person has had (tours v2), so each plays once.
-    const tourSeen = readSeen(tourMeta);
+    const tour = readTour((user?.publicMetadata as { tour?: unknown } | null)?.tour);
 
     const ctx = await resolveDashboard();
 
@@ -77,9 +74,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 sites={sites}
                 accountEmail={account.email}
                 railCollapsed={railCollapsed}
-                tourCompleted={tourCompleted}
-                tourInitialStep={tourInitialStep}
-                tourSeen={tourSeen}
+                tour={tour}
             >
                 {children}
             </PortalChrome>

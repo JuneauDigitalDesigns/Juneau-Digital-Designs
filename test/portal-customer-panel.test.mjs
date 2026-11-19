@@ -62,7 +62,7 @@ test("the panel honours reduced motion", () => {
 });
 
 test("the panel gives the keyboard to the tour and to dialogs on top of it", () => {
-    assert.match(panel, /driver-active/);
+    assert.match(panel, /portal-touring/);
     assert.match(panel, /\[aria-modal="true"\]/);
 });
 

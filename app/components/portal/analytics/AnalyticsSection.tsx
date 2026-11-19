@@ -120,7 +120,7 @@ export default function AnalyticsSection({
 
             {/* Phone: a scrolling chip row, not sticky. The topbar is already sticky, and a
                 second sticky band would take a sixth of the screen from the numbers. */}
-            <nav aria-label="Jump to section" className="lg:hidden flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
+            <nav aria-label="Jump to section" data-tour="analytics-jump-phone" className="lg:hidden flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
                 {sections.map((s) => (
                     <a
                         key={s.id}
