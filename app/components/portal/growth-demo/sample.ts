@@ -1,23 +1,25 @@
 import type { InboxItem } from "@/app/lib/crm-contacts";
 import type { Job } from "@/app/lib/crm-jobs";
 import type { Appointment } from "@/app/lib/crm-calendar";
-import { DEMO_BOARD, DEMO_BUSINESS, DEMO_INBOX, DEMO_LEAD, type WorkingStage } from "@/app/data/portal-demo";
+import type { TradeSample } from "@/app/data/trade-samples";
+import type { WorkingStage } from "@/app/data/portal-demo";
 import type { CustomerRow, StageKey, TimelineEvent } from "../crm/stages";
-import { COPY, DAVE_ID } from "./script";
+import type { DetailResponse } from "../crm/CustomerRecord";
+import { DAVE_ID, type SceneView } from "./script";
 
 /**
  * The demo's sample account, in the shapes the real portal components take, so the replica can
  * hand them the same props the live pages do (rebuilt 2026-11-12).
  *
- * The business, Dave and his 2:13 AM no-heat call, the rest of the Inbox and the rest of the
- * board are the homepage demo's own (`app/data/portal-demo.ts`), imported rather than copied.
- * Everything is fictional, and every number is in the 555-01XX range reserved for fiction.
+ * Everything comes from the client's own trade (`app/data/trade-samples.ts`, 2026-11-19: "if it
+ * is a HVAC client, then the dummy data … is HVAC customers"): the business, Dave and his 2:13 AM
+ * call, the rest of the Inbox, the board, the job Dave books and the texts either side of it. The
+ * HVAC set is the homepage demo's own. Everything is fictional, and every number is in the
+ * 555-01XX range reserved for fiction.
  *
  * Times are built from the day the demo is watched, so "2:13 AM" is this morning wherever the
  * client is: the demo's clock reads 7:42 AM today.
  */
-
-export const BUSINESS_NAME = DEMO_BUSINESS.name;
 
 /** Today at this local time, as an ISO string. */
 function today(h: number, m: number, base: Date): string {
@@ -47,31 +49,34 @@ export function demoNow(real = new Date()): Date {
     return d;
 }
 
+/** The business's texting number, for the texting screen's note. Fictional, like the rest. */
+export const BUSINESS_NUMBER = "+15125550100";
+
 /* ── the Inbox ────────────────────────────────────────────────────────── */
 
-export function inboxItems(now: Date, promoted: boolean, read: boolean): InboxItem[] {
+export function inboxItems(ts: TradeSample, now: Date, promoted: boolean, read: boolean): InboxItem[] {
     const dave: InboxItem = {
         id: DAVE_ID,
         source: "call",
-        name: DEMO_LEAD.name,
-        phone: e164(DEMO_LEAD.phone),
-        phoneDisplay: DEMO_LEAD.phone,
+        name: ts.lead.name,
+        phone: e164(ts.lead.phone),
+        phoneDisplay: ts.lead.phone,
         callbackPhone: null,
         callbackPhoneDisplay: null,
         email: null,
-        preview: DEMO_LEAD.preview,
+        preview: ts.lead.preview,
         at: today(2, 13, now),
         read,
         promoted,
         archived: false,
         durationSeconds: 118,
         recordingUrl: null,
-        address: DEMO_LEAD.address,
+        address: ts.lead.address,
         outcome: "Qualified",
         callback: null,
     } as InboxItem;
     const ago = [3, 26, 50];
-    const rest = DEMO_INBOX.map((r, i) => {
+    const rest = ts.inbox.map((r, i) => {
         const at = new Date(now.getTime() - ago[i] * 3600_000).toISOString();
         return {
             ...dave,
@@ -122,48 +127,61 @@ function row(id: string, name: string, phone: string, stage: StageKey, extra: Pa
 }
 
 /** Dave as a customer, at the stage the scene has him. */
-export function dave(now: Date, stage: StageKey, opts: { job?: boolean; reviewSent?: boolean } = {}): CustomerRow {
+export function dave(ts: TradeSample, now: Date, stage: StageKey, opts: { job?: boolean; reviewSent?: boolean } = {}): CustomerRow {
     return row(
         DAVE_ID,
-        DEMO_LEAD.name,
-        DEMO_LEAD.phone,
+        ts.lead.name,
+        ts.lead.phone,
         stage,
         {
-            address: DEMO_LEAD.address,
+            address: ts.lead.address,
             tags: ["Qualified"],
             createdAt: today(2, 13, now),
             firstContactAt: today(2, 13, now),
             lastContactAt: today(2, 13, now),
-            value: opts.job ? JOB_AMOUNT : null,
+            value: opts.job ? ts.job.amount : null,
             reviewSent: opts.reviewSent ? { sentAt: now.toISOString(), deliveryStatus: "sent", optedOut: false } : null,
         },
         now,
     );
 }
 
-/** The rest of the board, by working stage. */
-export function boardRows(now: Date): CustomerRow[] {
+/**
+ * The rest of the board, by working stage. The one going stale last heard from them six days
+ * ago, so the phone list's "Going quiet · 6 days" reads as it would live.
+ */
+export function boardRows(ts: TradeSample, now: Date): CustomerRow[] {
     return STAGE_KEYS.flatMap((stage) =>
-        DEMO_BOARD[stage].map((c) =>
-            row(`demo-${c.id}`, c.name, c.phone, stage, { tags: c.tags, note: c.note ?? null, stale: Boolean(c.stale) }, now),
+        ts.board[stage].map((c) =>
+            row(
+                `demo-${c.id}`,
+                c.name,
+                c.phone,
+                stage,
+                {
+                    tags: c.tags,
+                    note: c.note ?? null,
+                    stale: Boolean(c.stale),
+                    ...(c.stale ? { lastContactAt: daysAgo(6, 0, now) } : {}),
+                },
+                now,
+            ),
         ),
     );
 }
 
 /* ── Dave's file ──────────────────────────────────────────────────────── */
 
-export const JOB_SERVICE = "Furnace repair";
-export const JOB_AMOUNT = 450;
-const JOB_ID = "demo-job-furnace";
+const JOB_ID = "demo-job";
 
-export function daveJob(now: Date): Job {
+export function daveJob(ts: TradeSample, now: Date): Job {
     return {
         jobId: JOB_ID,
         customerId: DAVE_ID,
-        service: JOB_SERVICE,
+        service: ts.job.service,
         status: "booked",
-        amount: JOB_AMOUNT,
-        address: DEMO_LEAD.address,
+        amount: ts.job.amount,
+        address: ts.lead.address,
         notes: null,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
@@ -171,7 +189,7 @@ export function daveJob(now: Date): Job {
 }
 
 /** The visit "Add to calendar" books: 8:00 AM today, an hour, at Dave's. */
-export function daveVisit(now: Date): Appointment {
+export function daveVisit(ts: TradeSample, now: Date): Appointment {
     return {
         id: "demo-visit",
         customerId: DAVE_ID,
@@ -181,7 +199,7 @@ export function daveVisit(now: Date): Appointment {
         durationMinutes: 60,
         kind: "visit",
         status: "scheduled",
-        address: DEMO_LEAD.address,
+        address: ts.lead.address,
         notes: null,
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
@@ -212,22 +230,40 @@ export function otherAppointments(now: Date): Appointment[] {
     ];
 }
 
-export function names(): Record<string, string | null> {
-    const out: Record<string, string | null> = { [DAVE_ID]: DEMO_LEAD.name };
-    for (const stage of STAGE_KEYS) for (const c of DEMO_BOARD[stage]) out[`demo-${c.id}`] = c.name;
+export function names(ts: TradeSample): Record<string, string | null> {
+    const out: Record<string, string | null> = { [DAVE_ID]: ts.lead.name };
+    for (const stage of STAGE_KEYS) for (const c of ts.board[stage]) out[`demo-${c.id}`] = c.name;
     return out;
 }
 
-/** Dave's history, as the record's timeline reads it. */
-export function daveTimeline(now: Date, opts: { sent?: boolean; reply?: boolean; won?: boolean }): TimelineEvent[] {
+/**
+ * Dave's history, as the record's timeline reads it: the call he came from (pinned open above
+ * the timeline), his promotion from the Inbox, the three stage moves, then the texts and Won as
+ * the scenes get to them. Only kinds the portal really writes, worded as it words them, so the
+ * history is the one a client would see (the job and its visit show where the record shows them:
+ * the Jobs tab and Coming up).
+ */
+export function daveTimeline(
+    ts: TradeSample,
+    now: Date,
+    opts: { sent?: boolean; delivered?: boolean; reply?: boolean; won?: boolean },
+): TimelineEvent[] {
     const ev: TimelineEvent[] = [
         {
             id: "demo-call",
             kind: "call",
             at: today(2, 13, now),
-            summary: DEMO_LEAD.summary,
+            summary: ts.lead.summary,
             actor: "customer",
-            meta: { origin: true, detail: DEMO_LEAD.summary, durationSeconds: 118 },
+            meta: { origin: true, detail: ts.lead.summary, durationSeconds: 118 },
+        },
+        {
+            // How promotion records itself: the source's kind, against the client.
+            id: "demo-added",
+            kind: "call",
+            at: today(6, 2, now),
+            summary: "Added to your customers from your inbox",
+            actor: "client",
         },
     ];
     const moves: [StageKey, StageKey, number][] = [
@@ -245,9 +281,32 @@ export function daveTimeline(now: Date, opts: { sent?: boolean; reply?: boolean;
             meta: { from, to },
         }),
     );
-    if (opts.sent) ev.push({ id: "demo-sms-out", kind: "sms-out", at: today(7, 40, now), summary: COPY.sms, actor: "client", meta: { body: COPY.sms } });
-    if (opts.reply) ev.push({ id: "demo-sms-in", kind: "sms-in", at: today(7, 41, now), summary: COPY.reply, actor: "customer", meta: { body: COPY.reply } });
+    if (opts.sent)
+        ev.push({
+            id: "demo-sms-out",
+            kind: "sms-out",
+            at: today(7, 40, now),
+            summary: ts.sms,
+            actor: "client",
+            meta: { body: ts.sms, status: opts.delivered ? "delivered" : null },
+        });
+    if (opts.reply) ev.push({ id: "demo-sms-in", kind: "sms-in", at: today(7, 41, now), summary: ts.reply, actor: "customer", meta: { body: ts.reply } });
     if (opts.won)
         ev.push({ id: "demo-move-won", kind: "stage-change", at: today(7, 42, now), summary: "Moved to won", actor: "client", meta: { from: "scheduled", to: "won" } });
     return ev.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+/** The detail the record would have fetched, for the moment the scene is at. */
+export function recordData(ts: TradeSample, view: SceneView, now: Date): DetailResponse {
+    const stage: StageKey = view.won ? "won" : "scheduled";
+    return {
+        customer: dave(ts, now, stage, { job: view.job, reviewSent: view.reviewSent }),
+        timeline: daveTimeline(ts, now, { sent: view.sent, delivered: view.delivered, reply: view.reply, won: view.won }),
+        tasks: [],
+        jobs: view.job ? [daveJob(ts, now)] : [],
+        notes: [],
+        appointments: view.visit ? [daveVisit(ts, now)] : [],
+        messagingState: "ready",
+        businessNumber: BUSINESS_NUMBER,
+    };
 }

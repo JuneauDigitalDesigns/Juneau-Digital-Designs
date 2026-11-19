@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useReducedMotion } from "framer-motion";
-import { ArrowCounterClockwise, Pause, Play, X } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, CaretLeft, CaretRight, Pause, Play, X } from "@phosphor-icons/react";
+import { tradeSample, type SampleTrade } from "@/app/data/trade-samples";
 import {
     COPY,
     DURATION,
@@ -55,6 +56,12 @@ import s from "./GrowthDemo.module.css";
  * (`DesktopReplica`, `PhoneReplica`, `sample.ts`), so what it shows is exactly the product. The
  * desktop replica needs the live components' desktop layouts, which follow the window, so it is
  * used from 1024px wide; below that the phone replica shows their phone layouts.
+ *
+ * Rebuilt for the phone app 2026-11-19 (Xander, on the approved mockup): on a phone there is no
+ * top bar, only a round ✕ top right; the step box sits at the top of the screen (just below the
+ * middle while the texting screen is open, at the bottom for the review); a dark title card hands
+ * straight on to the next one, swapping only its words; and the sample data is the client's own
+ * trade (`trade`, from the site's `sampleTrade`).
  *
  * Rendered into <body> through a portal, so no transformed ancestor in the dashboard can turn
  * `position: fixed` into something else, and wrapped in its own `.portal-scope` so every
@@ -111,11 +118,14 @@ export default function GrowthDemo({
     upgradeUrl,
     onClose,
     returnFocusTo,
+    trade = "hvac",
 }: {
     upgradeUrl: string;
     onClose: () => void;
     /** Where focus goes on exit when it did not come from anywhere (the demo opened from a link). */
     returnFocusTo?: React.RefObject<HTMLElement | null>;
+    /** Whose sample data it plays on: the client's trade (`PortalSiteProps.sampleTrade`). */
+    trade?: SampleTrade;
 }) {
     const [st, dispatch] = useReducer(reducer, { i: 0, t: 0, playing: true, run: 0 });
     const still = !!useReducedMotion();
@@ -130,13 +140,14 @@ export default function GrowthDemo({
     const [k, setK] = useState(1);
     /** The sample account's clock: 7:42 AM today, so Dave's 2:13 AM call was this morning. */
     const now = useMemo(() => demoNow(), []);
+    const sample = useMemo(() => tradeSample(trade), [trade]);
 
     const seg: Segment = SEGMENTS[st.i];
     const atEnd = seg === "end";
     const scene = sceneOf(seg);
     const scrim = isScrim(seg);
     // A title card shows its scene's opening frame behind it; the scene itself plays from there.
-    const view = scene ? sceneView(scene, scrim ? 0 : st.t, still && !scrim) : null;
+    const view = scene ? sceneView(scene, scrim ? 0 : st.t, { still: still && !scrim, phone, sms: sample.sms }) : null;
     const step = stepOf(seg);
 
     /* ── the clock ── */
@@ -248,7 +259,7 @@ export default function GrowthDemo({
         return () => ro.disconnect();
     }, [phone]);
 
-    const announce = announcementFor(seg);
+    const announce = announcementFor(seg, { phone, phase: view?.captionPhase ?? null });
     const scrimCopy: ScrimCopy | null = scrim ? COPY.scrims[seg as keyof typeof COPY.scrims] : null;
     const scrimMs = scrim ? DURATION[seg as keyof typeof DURATION] : 0;
 
@@ -258,11 +269,9 @@ export default function GrowthDemo({
                 <span className={s.slab}>{scrimCopy.label}</span>
                 <span className={s.stitle}>{scrimCopy.title}</span>
                 <span className={s.ssub}>{(phone && scrimCopy.subPhone) || scrimCopy.sub}</span>
-                {!phone && (
-                    <span className={s.sline}>
-                        <span className={s.fill} style={{ animationDuration: `${scrimMs}ms` }} />
-                    </span>
-                )}
+                <span className={s.sline}>
+                    <span className={s.fill} style={{ animationDuration: `${scrimMs}ms` }} />
+                </span>
             </div>
         </div>
     );
@@ -301,6 +310,35 @@ export default function GrowthDemo({
         </div>
     );
 
+    const dots = (
+        <span className={s.dots} role="img" aria-label={`Step ${Math.min(step, SCENE_COUNT)} of ${SCENE_COUNT}`}>
+            {Array.from({ length: SCENE_COUNT }, (_, n) => n + 1).map((n) => (
+                <span key={n} className={s.dt} data-state={n === step ? "on" : n < step ? "past" : undefined} />
+            ))}
+        </span>
+    );
+
+    /* The phone's bar (the approved mockup): the step dots, then Back, Pause and Next. */
+    const phoneControls = !atEnd && (
+        <div className={s.ctlRow}>
+            {dots}
+            <div className={s.ctl} role="group" aria-label="Demo controls">
+                <button type="button" className={s.cb} onClick={() => dispatch({ type: "go", i: st.i - 1 })}>
+                    <CaretLeft size={16} weight="bold" aria-hidden="true" />
+                    {COPY.back}
+                </button>
+                <button ref={playRef} type="button" className={`${s.cb} ${s.pp}`} onClick={() => dispatch({ type: "toggle" })}>
+                    {st.playing ? <Pause size={16} weight="fill" aria-hidden="true" /> : <Play size={16} weight="fill" aria-hidden="true" />}
+                    {st.playing ? COPY.pause : COPY.play}
+                </button>
+                <button type="button" className={s.cb} onClick={() => dispatch({ type: "go", i: st.i + 1 })}>
+                    {COPY.next}
+                    <CaretRight size={16} weight="bold" aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    );
+
     const controls = !atEnd && (
         <div className={s.ctlRow}>
             <div className={s.ctl} role="group" aria-label="Demo controls">
@@ -311,11 +349,7 @@ export default function GrowthDemo({
                     {st.playing ? <Pause size={14} weight="fill" aria-hidden="true" /> : <Play size={14} weight="fill" aria-hidden="true" />}
                     {st.playing ? COPY.pause : COPY.play}
                 </button>
-                <span className={s.dots} role="img" aria-label={`Step ${Math.min(step, SCENE_COUNT)} of ${SCENE_COUNT}`}>
-                    {Array.from({ length: SCENE_COUNT }, (_, n) => n + 1).map((n) => (
-                        <span key={n} className={s.dt} data-state={n === step ? "on" : n < step ? "past" : undefined} />
-                    ))}
-                </span>
+                {dots}
                 <button type="button" className={s.cb} onClick={() => dispatch({ type: "go", i: st.i + 1 })}>
                     {COPY.next} <span aria-hidden="true">›</span>
                 </button>
@@ -336,13 +370,20 @@ export default function GrowthDemo({
             data-layout={phone ? "phone" : "desktop"}
             data-paused={!st.playing}
         >
-            <div className={s.tbar}>
-                <span className={s.tag}>{COPY.tag}</span>
-                <button type="button" className={s.x} onClick={close}>
-                    {COPY.exit}
-                    <X size={14} weight="bold" aria-hidden="true" />
+            {phone ? (
+                /* No top bar on a phone: a small round ✕, floating top right. */
+                <button type="button" className={s.xRound} onClick={close} aria-label={COPY.exit}>
+                    <X size={20} weight="bold" aria-hidden="true" />
                 </button>
-            </div>
+            ) : (
+                <div className={s.tbar}>
+                    <span className={s.tag}>{COPY.tag}</span>
+                    <button type="button" className={s.x} onClick={close}>
+                        {COPY.exit}
+                        <X size={14} weight="bold" aria-hidden="true" />
+                    </button>
+                </div>
+            )}
 
             <p className="sr-only" aria-live="polite" aria-atomic="true">
                 {announce}
@@ -355,7 +396,8 @@ export default function GrowthDemo({
                     ) : (
                         <>
                             <div ref={screenRef} className={s.screen} data-dim={scrim} aria-hidden="true" inert>
-                                {scene && view && <PhoneReplica scene={scene} view={view} now={now} />}
+                                {/* Keyed by scene, so every scene opens at the top of its screen. */}
+                                {scene && view && <PhoneReplica key={scene} scene={scene} view={view} now={now} sample={sample} />}
                                 {scene && !scrim && !still && <DemoCursor container={screenRef} scene={scene} t={st.t} tap />}
                             </div>
                             {titleCard}
@@ -367,7 +409,7 @@ export default function GrowthDemo({
                     <>
                         <div className={s.sizer} style={{ width: FRAME.w * k, height: FRAME.h * k }} aria-hidden="true" inert>
                             <div ref={frameRef} className={s.frame} data-dim={scrim} style={{ transform: `scale(${k})` }}>
-                                {scene && view && <DesktopReplica scene={scene} view={view} now={now} />}
+                                {scene && view && <DesktopReplica scene={scene} view={view} now={now} sample={sample} />}
                                 {scene && !scrim && !still && <DemoCursor container={frameRef} scene={scene} t={st.t} k={k} />}
                             </div>
                         </div>
@@ -376,7 +418,7 @@ export default function GrowthDemo({
                 )}
             </div>
 
-            {controls}
+            {phone ? phoneControls : controls}
         </div>,
         document.body,
     );

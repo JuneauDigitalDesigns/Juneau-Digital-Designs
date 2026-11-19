@@ -10,13 +10,10 @@ import {
     ArrowDown,
     ArrowLeft,
     ArrowSquareOut,
-    CaretDown,
+    CalendarBlank,
     CaretRight,
     ChartPieSlice,
     ChatCircle,
-    CreditCard,
-    Envelope,
-    Gauge,
     Gear,
     Lifebuoy,
     MagnifyingGlass,
@@ -1121,12 +1118,13 @@ export default function PortalDemo() {
 
 function Rail({ tab }: { tab: World["tab"] }) {
     const tabs = [
-        { id: "overview", label: "Overview", Icon: ChartPieSlice },
+        /* The portal's rail as it is now (`PORTAL_TABS`): Overview became Home, and Calendar and
+           Analytics joined it (2026-11-19). */
+        { id: "overview", label: "Home", Icon: ChartPieSlice },
         { id: "calls", label: "Inbox", Icon: Tray },
         { id: "customers", label: "Customers", Icon: Users },
-        { id: "traffic", label: "Traffic", Icon: TrendUp },
-        { id: "performance", label: "Performance", Icon: Gauge },
-        { id: "billing", label: "Billing", Icon: CreditCard },
+        { id: "calendar", label: "Calendar", Icon: CalendarBlank },
+        { id: "analytics", label: "Analytics", Icon: TrendUp },
         { id: "settings", label: "Settings", Icon: Gear },
         { id: "support", label: "Support", Icon: Lifebuoy },
     ];
@@ -1177,29 +1175,6 @@ function Rail({ tab }: { tab: World["tab"] }) {
     );
 }
 
-function Tag({ children, tone }: { children: React.ReactNode; tone?: "pos" }) {
-    return (
-        <span
-            className="text-[10.5px] px-2 py-0.5 rounded-full whitespace-nowrap"
-            style={{
-                fontFamily: "var(--font-mono)",
-                background: tone === "pos" ? "rgba(22,163,74,0.1)" : "var(--surface)",
-                color: tone === "pos" ? "var(--chart-pos)" : "var(--fg-2)",
-            }}
-        >
-            {children}
-        </span>
-    );
-}
-
-function RowButton({ children }: { children: React.ReactNode }) {
-    return (
-        <span className="shrink-0 w-8 h-8 rounded-lg inline-flex items-center justify-center" style={{ color: "var(--fg-3)" }}>
-            {children}
-        </span>
-    );
-}
-
 function SectionTitle({ title, meta }: { title: string; meta: string }) {
     return (
         <div className="min-w-0">
@@ -1233,6 +1208,47 @@ function Segmented({ items, on }: { items: string[]; on: string }) {
     );
 }
 
+/* The Inbox's chips as the portal draws them now (`inbox/chips.tsx`, 2026-11-19): a coloured word
+   on a wash of its own colour mixed into the surface, rounded, never mono. */
+const TONE = {
+    accent: { color: "var(--accent)", mix: 8 },
+    attn: { color: "var(--attn)", mix: 11 },
+    pos: { color: "var(--chart-pos)", mix: 8 },
+} as const;
+
+function StatusChip({ tone, children }: { tone: keyof typeof TONE; children: React.ReactNode }) {
+    const t = TONE[tone];
+    return (
+        <span
+            className="inline-flex items-center shrink-0 rounded-full font-semibold whitespace-nowrap text-[11px] px-[7px] py-px"
+            style={{ color: t.color, background: `color-mix(in srgb, ${t.color} ${t.mix}%, var(--elev-1))` }}
+        >
+            {children}
+        </span>
+    );
+}
+
+/* The live toolbar's filter chips (`InboxToolbar`): All on, Needs you with its count. */
+function FilterChip({ on, count, children }: { on?: boolean; count?: number; children: React.ReactNode }) {
+    return (
+        <span
+            className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-[13px]"
+            style={
+                on
+                    ? { background: "var(--fg)", borderColor: "var(--fg)", color: "var(--elev-1)", fontWeight: 600 }
+                    : { background: "var(--elev-1)", borderColor: "var(--rule-strong)", color: "var(--fg-2)" }
+            }
+        >
+            {children}
+            {count !== undefined && (
+                <span className="text-[11px]" style={{ fontFamily: "var(--font-mono)", color: on ? "inherit" : "var(--fg-3)" }}>
+                    {count}
+                </span>
+            )}
+        </span>
+    );
+}
+
 function InboxView({ w }: { w: World }) {
     const rows = [
         ...(w.leadIn
@@ -1240,19 +1256,32 @@ function InboxView({ w }: { w: World }) {
             : []),
         ...DEMO_INBOX,
     ];
-    const unread = rows.filter((r) => r.unread).length;
-    const toWork = rows.reduce((n, r) => n + (r.count ?? 1), 0);
+    const needs = rows.filter((r) => r.unread || !r.web).length;
     return (
-        <div className="space-y-5">
-            <div className="flex items-end justify-between gap-4 flex-wrap">
-                <SectionTitle title="Inbox" meta={`${unread} new · ${toWork} to work`} />
-                <Segmented items={["all", "unread", "calls", "forms", `archived · ${DEMO_ARCHIVED_COUNT}`]} on="all" />
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border px-3 py-2 max-w-md" style={{ background: "var(--bg)", borderColor: "var(--rule-strong)" }}>
-                <MagnifyingGlass size={14} style={{ color: "var(--fg-3)" }} />
-                <span className="text-sm" style={{ color: "var(--fg-3)" }}>
-                    Search name, number, or message…
-                </span>
+        <div className="space-y-4">
+            {/* The live toolbar: the title, search on the right, then the filters as chips. */}
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-4">
+                    <h1 className="font-bold" style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", letterSpacing: "var(--tracking-tight)" }}>
+                        Inbox
+                    </h1>
+                    <span
+                        className="ml-auto flex items-center gap-2 rounded-lg border px-3 h-[38px] w-full max-w-[340px]"
+                        style={{ background: "var(--elev-1)", borderColor: "var(--rule-strong)" }}
+                    >
+                        <MagnifyingGlass size={15} style={{ color: "var(--fg-3)" }} />
+                        <span className="text-sm" style={{ color: "var(--fg-3)" }}>
+                            Search names, numbers, what they said
+                        </span>
+                    </span>
+                </div>
+                <div className="flex items-center gap-1.5 min-h-9">
+                    <FilterChip count={needs}>Needs you</FilterChip>
+                    <FilterChip on>All</FilterChip>
+                    <FilterChip>Calls</FilterChip>
+                    <FilterChip>Forms</FilterChip>
+                    <FilterChip count={DEMO_ARCHIVED_COUNT}>Done</FilterChip>
+                </div>
             </div>
             <div className="portal-elev overflow-hidden" data-f="inbox-list">
                 {rows.map((r, i) => {
@@ -1264,52 +1293,29 @@ function InboxView({ w }: { w: World }) {
                             className={r.id === "robert" && w.leadIn && !w.leadRead ? s.rowEnter : undefined}
                             style={{ borderTop: i === 0 ? undefined : "1px solid var(--rule)" }}
                         >
+                            {/* The live wide row: the unread dot, then name, why it is waiting, what
+                                they said and when, in columns that line up down the list. */}
                             <div
-                                className={`flex items-center transition-colors ${w.hoverRow === r.id ? s.hover : ""}`}
-                                style={{ background: r.unread ? "rgba(37,99,235,0.025)" : undefined }}
+                                className={`grid items-center gap-3.5 pl-2.5 pr-3.5 py-2.5 text-[13.5px] transition-colors grid-cols-[8px_150px_150px_minmax(0,1fr)_auto_72px] ${w.hoverRow === r.id ? s.hover : ""}`}
                             >
-                                <div className="flex-1 min-w-0 flex flex-nowrap items-center gap-x-3 px-4 py-3.5">
-                                    <span className="shrink-0 rounded-full" style={{ width: 7, height: 7, background: r.unread ? "var(--accent)" : "transparent" }} />
-                                    <span
-                                        className="shrink-0 w-[30px] h-[30px] rounded-lg flex items-center justify-center"
-                                        style={{ background: r.web ? "rgba(37,99,235,0.1)" : "var(--surface)", color: r.web ? "var(--accent)" : "var(--fg-3)" }}
-                                    >
-                                        {r.web ? <Envelope size={15} /> : <PhoneCall size={15} />}
-                                    </span>
-                                    <span className="shrink-0 max-w-[132px] truncate text-sm" style={{ color: "var(--fg)", fontWeight: r.unread ? 700 : 600 }}>
-                                        {r.name}
-                                    </span>
-                                    {grouped && (
-                                        <span
-                                            className="shrink-0 text-[10.5px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                                            style={{ fontFamily: "var(--font-mono)", background: "rgba(22,163,74,0.12)", color: "var(--chart-pos)" }}
-                                        >
-                                            {r.count} calls
-                                        </span>
-                                    )}
-                                    <span className="flex-1 min-w-0 truncate text-[13px]" style={{ color: r.unread ? "var(--fg-2)" : "var(--fg-3)" }}>
-                                        {r.preview}
-                                    </span>
-                                    {!grouped && r.tag && (
-                                        <span className="shrink-0 flex gap-1.5">
-                                            <Tag>{r.tag}</Tag>
-                                            {/* The live inbox's callback tag: a web lead the receptionist rang back. */}
-                                            {"callback" in r && r.callback && <Tag tone="pos">☎ {r.callback}</Tag>}
-                                        </span>
-                                    )}
-                                    <span className="shrink-0 w-[72px] text-right text-xs" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}>
-                                        {r.time}
-                                    </span>
-                                </div>
-                                <span className="shrink-0 flex items-center gap-1 pr-3 pl-1">
-                                    <RowButton>
-                                        <Archive size={14} />
-                                    </RowButton>
-                                    {grouped && (
-                                        <RowButton>
-                                            <CaretDown size={14} />
-                                        </RowButton>
-                                    )}
+                                <span className="w-2 h-2 rounded-full" style={{ background: r.unread ? "var(--accent)" : "transparent" }} />
+                                <strong className="truncate" style={{ color: "var(--fg)", fontWeight: r.unread ? 700 : 600 }}>
+                                    {r.name}
+                                </strong>
+                                <span className="min-w-0 flex gap-1.5">
+                                    {r.web ? <StatusChip tone="accent">Web inquiry</StatusChip> : <StatusChip tone="attn">Wants a callback</StatusChip>}
+                                </span>
+                                <span className="truncate text-[13px]" style={{ color: r.unread ? "var(--fg)" : "var(--fg-2)" }}>
+                                    {r.preview}
+                                </span>
+                                <span className="flex gap-1.5">
+                                    {grouped && <StatusChip tone="pos">{r.count} calls</StatusChip>}
+                                    {/* The live list's minis: the kind of lead and the recording's length. */}
+                                    {!grouped && r.tag && <Mini>{r.tag}</Mini>}
+                                    {"callback" in r && r.callback && <Mini>▶ {r.callback}</Mini>}
+                                </span>
+                                <span className="text-right text-[11.5px] whitespace-nowrap" style={{ color: r.unread ? "var(--fg)" : "var(--fg-3)", fontWeight: r.unread ? 500 : 400 }}>
+                                    {r.time}
                                 </span>
                             </div>
                         </div>
@@ -1317,6 +1323,18 @@ function InboxView({ w }: { w: World }) {
                 })}
             </div>
         </div>
+    );
+}
+
+/* The live `Mini`: mono, outlined. */
+function Mini({ children }: { children: React.ReactNode }) {
+    return (
+        <span
+            className="inline-flex items-center gap-1 rounded-full border px-[7px] py-px text-[10.5px] whitespace-nowrap"
+            style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)", borderColor: "var(--rule-strong)" }}
+        >
+            {children}
+        </span>
     );
 }
 
@@ -1638,10 +1656,11 @@ function RecordView({ w }: { w: World }) {
                         <span className="inline-flex items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-medium" style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}>
                             <ChatCircle size={14} /> Text
                         </span>
+                        {/* The review button's own orange-yellow, as the portal draws it (2026-11-19). */}
                         <span
                             data-f="reviewbtn"
                             className="inline-flex items-center gap-1.5 rounded-lg px-3.5 text-[13px] font-semibold"
-                            style={{ minHeight: 44, background: "var(--accent)", color: "var(--on-accent)" }}
+                            style={{ minHeight: 44, background: "#f5a623", color: "#1c1405" }}
                         >
                             <Star size={14} weight="fill" />
                             {w.reviewSent ? "Review requested" : "Request a review"}

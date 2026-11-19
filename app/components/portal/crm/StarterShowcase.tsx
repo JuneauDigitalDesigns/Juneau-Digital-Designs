@@ -182,7 +182,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                 </div>
             </div>
 
-            {running && <GrowthDemo upgradeUrl={upgradeHref(site.slug)} onClose={stop} returnFocusTo={launcher} />}
+            {running && <GrowthDemo upgradeUrl={upgradeHref(site.slug)} onClose={stop} returnFocusTo={launcher} trade={site.sampleTrade} />}
         </div>
     );
 }

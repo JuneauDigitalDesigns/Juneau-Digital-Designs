@@ -380,15 +380,15 @@
 .caption[data-side="left"] { left: 14px; bottom: 16px; width: 320px; }
 .caption[data-side="right"] { right: 24px; }
 
-/* ── phone ───────────────────────────────────────────────────────── */
-.root[data-layout="phone"] .tbar { height: 52px; padding: 0 6px 0 14px; }
-.root[data-layout="phone"] .tag { font-size: 10px; border: 0; padding: 0; }
-.root[data-layout="phone"] .stage { display: flex; flex-direction: column; padding: 0 10px; }
+/* ── phone ───────────────────────────────────────────────────────────
+   The approved mockup (2026-11-19): the replica fills the screen edge to edge, with no top bar;
+   a round ✕ floats top right; the controls are a dark bar along the foot; the title cards are a
+   dark sheet over the whole screen with their words to the left. */
+.root[data-layout="phone"] .stage { display: flex; flex-direction: column; padding: 0; }
 .screen {
   position: relative;
   flex: 1;
   min-height: 0;
-  border-radius: 14px;
   background: var(--bg);
   color: var(--fg);
   overflow: clip; /* not hidden: scrollIntoView must not shift the screen */
@@ -397,26 +397,61 @@
   transition: filter 0.35s ease;
 }
 .screen[data-dim="true"] { filter: blur(3px) brightness(0.5); }
-.root[data-layout="phone"] .shade { border-radius: 14px; inset: 0 10px; padding: 0 22px; }
-.root[data-layout="phone"] .scard { gap: 10px; }
-.root[data-layout="phone"] .slab { font-size: 11px; }
-.root[data-layout="phone"] .stitle { font-size: 34px; line-height: 1.08; }
-.root[data-layout="phone"] .ssub { font-size: 15px; }
-.root[data-layout="phone"] .ctlRow { height: 72px; padding: 0 4px env(safe-area-inset-bottom, 0px); align-items: center; }
-.root[data-layout="phone"] .ctl {
-  width: 100%;
-  justify-content: space-between;
-  background: transparent;
+.xRound {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  right: 10px;
+  z-index: 6;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   border: 0;
-  padding: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(13, 17, 23, 0.8);
+  color: #ffffff;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
-.root[data-layout="phone"] .cb { font-size: 14px; min-height: 44px; padding: 12px 14px; }
-.root[data-layout="phone"] .dots { gap: 5px; padding: 0; }
-.root[data-layout="phone"] .dt { width: 22px; }
+.xRound:focus-visible { outline: 2px solid var(--gd-label); outline-offset: 2px; }
+.root[data-layout="phone"] .shade {
+  inset: 0;
+  align-items: stretch;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 28px;
+  background: rgba(8, 11, 18, 0.82);
+}
+/* Consecutive title cards keep the dark sheet and swap only their words. */
+.root[data-layout="phone"] .scard { align-items: flex-start; text-align: left; gap: 10px; animation: gdSwap 0.25s ease both; }
+@keyframes gdSwap {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.root[data-layout="phone"] .slab { font-size: 12px; letter-spacing: 0.1em; font-weight: 600; }
+.root[data-layout="phone"] .stitle { font-size: 31px; line-height: 1.08; letter-spacing: -0.015em; }
+.root[data-layout="phone"] .ssub { font-size: 17px; }
+.root[data-layout="phone"] .sline { width: 100%; margin-top: 14px; }
+.root[data-layout="phone"] .ctlRow {
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding: 0 10px env(safe-area-inset-bottom, 0px) 14px;
+  align-items: center;
+  justify-content: space-between;
+  background: #0d1117;
+}
+.root[data-layout="phone"] .ctl { gap: 4px; background: transparent; border: 0; padding: 0; }
+.root[data-layout="phone"] .cb { font-size: 14px; font-weight: 600; min-height: 44px; padding: 0 10px; border-radius: 10px; gap: 4px; }
+.root[data-layout="phone"] .pp { background: rgba(255, 255, 255, 0.14); }
+.root[data-layout="phone"] .dots { gap: 6px; padding: 0; align-items: center; }
+.root[data-layout="phone"] .dt { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.28); }
+.root[data-layout="phone"] .dt[data-state="on"] { width: 18px; border-radius: 4px; background: #ffffff; }
+.root[data-layout="phone"] .dt[data-state="past"] { background: rgba(255, 255, 255, 0.7); }
 .root[data-layout="phone"] .endc {
   width: auto;
   flex: 1;
-  margin-bottom: 10px;
+  margin: calc(env(safe-area-inset-top, 0px) + 56px) 10px 10px;
   padding: 26px 22px;
   gap: 12px;
   overflow-y: auto;
@@ -425,15 +460,6 @@
 .root[data-layout="phone"] .endActions { flex-direction: column; margin-top: auto; }
 .root[data-layout="phone"] .cta,
 .root[data-layout="phone"] .ghost { min-height: 48px; font-size: 15px; flex: none; }
-.root[data-layout="phone"] .caption {
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
-  width: auto;
-  padding: 12px 14px;
-  gap: 4px;
-  box-shadow: 0 14px 30px -10px rgba(0, 0, 0, 0.45);
-}
 
 /* ── the rebuilt replica (2026-11-12): the real portal at a real desktop size ── */
 .desk {
@@ -460,36 +486,215 @@
   overflow: hidden;
 }
 /* Over the customer panel (z 35), so the caption is never behind the file it is about. */
-.desk .caption,
-.phoneShell .caption { z-index: 60; }
+.desk .caption { z-index: 60; }
 
-/* The text box and the review message, shown as clicked into. */
-.desk[data-composing="true"] :global(#crm-sms),
-.phoneShell[data-composing="true"] :global(#crm-sms),
-.desk[data-editing="true"] [data-demo="review-message"],
-.phoneShell[data-editing="true"] [data-demo="review-message"] {
+/* The text box, shown as clicked into. */
+.desk[data-composing="true"] :global(#crm-sms) {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-/* The phone: the components at the phone's own width, the tab bar at the foot. */
+/* The one-tap review's note on the desktop, bottom centre over the record. */
+.deskToast {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  z-index: 60;
+  transform: translateX(-50%);
+  animation: gdPop 0.35s ease both;
+}
+
+/* ── the phone app (2026-11-19) ──────────────────────────────────────
+   `contain: paint` makes the shell the containing block for every layer the live app pins to
+   the window (`position: fixed`): the texting screen, the sheets. They cover this phone, never
+   the page around it. `--demo-safe-top` is the status bar's room: the device's own when the
+   replica fills a real phone's screen, none inside the homepage's drawn frame. */
 .phoneShell {
+  --demo-safe-top: env(safe-area-inset-top, 0px);
   position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  contain: paint;
+  background: var(--bg);
+}
+.phoneShell[data-framed] { --demo-safe-top: 0px; }
+/* The replica's foot is never the device's foot (the demo's controls, or the frame, are below
+   it), so the components' home-indicator padding is dropped. */
+.phoneShell [style*="safe-area-inset-bottom"] { padding-bottom: 12px !important; }
+/* In a drawn frame, the screens' status-bar padding is dropped too. */
+.phoneShell[data-framed] [style*="safe-area-inset-top"] { padding-top: 0 !important; min-height: 56px !important; }
+.phoneShell[data-framed] header[style*="safe-area-inset-top"] { min-height: 66px !important; }
+
+.phoneTab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+/* The live bars are fixed and sticky to the window; here they are the screen's own top and foot. */
+.topBar {
+  position: relative !important;
+  display: flex !important;
+  flex: none;
+  padding-top: var(--demo-safe-top) !important;
+  height: calc(52px + var(--demo-safe-top)) !important;
+}
+.tabBar {
+  position: relative !important;
+  inset: auto !important;
+  display: grid !important;
+  flex: none;
+  padding-bottom: 0 !important;
 }
 .phoneBody {
   position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Clip, not hidden: the cursor scrolls targets into view, and a hidden overflow can still be
-     scrolled sideways by that, which slid the record half off the screen. */
+  /* Clip, not hidden: the taps scroll their targets into view, and a hidden overflow can still
+     be scrolled sideways by that, which slid the record half off the screen. */
   overflow-x: clip;
+  scrollbar-width: none;
 }
-.root[data-layout="phone"] .phoneShell .caption[data-side="top"] { top: 10px; bottom: auto; }
+/* A pushed screen (the lead, the record) covers the tab and its bars, as the live app's do. */
+.pushed {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.pushedBar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: var(--demo-safe-top) 6px 0;
+  min-height: calc(56px + var(--demo-safe-top));
+  background: var(--elev-1);
+  border-bottom: 1px solid var(--rule);
+}
+.pushedBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+  background: var(--elev-1);
+  scrollbar-width: none;
+}
+.fadeIn { animation: gdFade 0.3s ease both; }
+
+/* The customer going quiet, pointed out. */
+.custRow[data-lit] { position: relative; }
+.custRow[data-lit]::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 14px;
+  outline: 2px solid var(--attn);
+  outline-offset: -2px;
+  pointer-events: none;
+  animation: gdFade 0.3s ease both;
+}
+
+/* The Stage sheet: `inbox/Sheet`'s scrim and panel, inside the shell. */
+.sheetScrim {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgba(13, 17, 23, 0.4);
+  animation: gdFade 0.2s ease both;
+}
+.sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 16px 16px;
+  border-radius: 16px 16px 0 0;
+  background: var(--elev-1);
+  color: var(--fg);
+  animation: gdSheet 0.28s cubic-bezier(0.22, 0.8, 0.24, 1) both;
+}
+@keyframes gdSheet {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+/* What the step is about to tap, lit: the "Text Dave…" bar, the Review button. */
+.phoneShell[data-bar-lit] :global(#crm-composer) button {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.phoneShell[data-review-lit] [data-tour="crm-drawer-review"] :global(.portal-round-dot) {
+  box-shadow: 0 0 0 3px var(--elev-1), 0 0 0 5px #f59e0b;
+}
+
+/* The step box (the approved mockup's): dark, at the top clear of the ✕, just below the middle
+   while the texting screen is open, or at the bottom with the review's note above it. */
+.pcap {
+  position: absolute;
+  z-index: 80;
+  left: 10px;
+  right: 56px;
+  top: calc(var(--demo-safe-top) + 8px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(13, 17, 23, 0.94);
+  color: #ffffff;
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.45);
+  animation: gdCapIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.pcap[data-at="mid"] { top: 54%; right: 10px; }
+.pcap[data-at="bottom"] { position: static; }
+@keyframes gdCapIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.pcapStep {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #9fb6d9;
+}
+.pcapTitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 17px;
+  margin: 2px 0 4px;
+}
+.pcapText { margin: 0; font-size: 14.5px; line-height: 1.45; color: #e3e9f2; }
+.pcapGate { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; font-style: italic; color: #aab6c8; }
+.phoneFoot {
+  position: absolute;
+  z-index: 80;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.phoneFoot > :first-child:not(.pcap) { animation: gdPop 0.35s ease both; }
+
+/* The homepage plays this outside the takeover's reduced-motion rule. */
+@media (prefers-reduced-motion: reduce) {
+  .phoneShell,
+  .phoneShell * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
 
 /* The cursor and the phone's tap. */
 .cursor,
