@@ -179,8 +179,9 @@ test("the account menu: Manage account, Help & support, Replay the tour, Sign ou
     // Every UserButton in the portal chrome is ours, so none renders without the two items.
     const chrome = read("app/components/portal/PortalChrome.tsx");
     assert.doesNotMatch(chrome, /<UserButton\b/);
-    // Top bar and rail; the third, in the old More sheet, moved to the More screen (2026-11-19).
-    assert.equal((chrome.match(/<PortalUserButton\b/g) ?? []).length, 2);
+    // The top bar's (twice: on the Calendar it moves to the left, 2026-11-19) and the rail's; the
+    // old More sheet's moved to the More screen.
+    assert.equal((chrome.match(/<PortalUserButton\b/g) ?? []).length, 3);
     const more = read("app/components/portal/MoreScreen.tsx");
     assert.doesNotMatch(more, /<UserButton\b/);
     assert.equal((more.match(/<PortalUserButton\b/g) ?? []).length, 1);

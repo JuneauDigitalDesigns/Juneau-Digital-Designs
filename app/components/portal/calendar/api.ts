@@ -71,3 +71,9 @@ export function customerHref(slug: string, customerId: string): string {
 export function calendarHref(slug: string, day?: string): string {
     return `/portal/calendar?site=${encodeURIComponent(slug)}${day ? `&day=${day}` : ""}`;
 }
+
+/**
+ * The phone top bar's "+" on Calendar (2026-11-19) asks the page to open New appointment. A window
+ * event, because the bar lives in the chrome and the form's state lives in `CalendarSection`.
+ */
+export const CALENDAR_NEW_EVENT = "portal:calendar-new";

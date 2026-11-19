@@ -10,6 +10,7 @@ import {
     Lifebuoy,
     Lock,
     PlayCircle,
+    Star,
     TrendUp,
 } from "@phosphor-icons/react";
 import {
@@ -55,7 +56,7 @@ export default function MoreScreen() {
                     const locked = tabAvailability(tab.feature, selected.features)?.state === "not-on-plan";
                     const { Icon, tint } = ICON[id]!;
                     return (
-                        <Link key={id} href={tabHref(tab.href, selected.slug)} className="portal-cell">
+                        <Link key={id} href={tabHref(tab.href, selected.slug)} className="portal-cell" data-tour={`more-${id}`}>
                             <span className="portal-tile" style={{ background: tint }}>
                                 <Icon size={19} weight="bold" />
                             </span>
@@ -72,7 +73,23 @@ export default function MoreScreen() {
                 })}
             </nav>
 
-            <div className="portal-group">
+            {/* Growth and Enterprise: the text the one-tap Review button sends (2026-11-19).
+                "Review message" is DRAFT wording, awaiting Xander's approval. */}
+            {selected.features.crm.state === "ready" && (
+                <div className="portal-group">
+                    <Link href={tabHref("more/review", selected.slug)} className="portal-cell" data-tour="more-review">
+                        <span className="portal-tile" style={{ background: "#f5a623", color: "#1c1405" }}>
+                            <Star size={19} weight="fill" />
+                        </span>
+                        <span className="portal-cell-main">Review message</span>
+                        <CaretRight size={16} className="portal-cell-chev" />
+                    </Link>
+                </div>
+            )}
+
+            {/* `more-help`, not `portal-help`: the rail's Help & tour button holds that hook and sits
+                earlier in the DOM, hidden on a phone. */}
+            <div className="portal-group" data-tour="more-help">
                 {host && (
                     <a
                         href={selected.canonical ?? undefined}

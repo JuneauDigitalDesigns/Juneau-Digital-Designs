@@ -93,7 +93,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                     </ul>
                 </div>
 
-                <div className="flex flex-col gap-2.5 min-w-[260px]">
+                <div className="flex flex-col gap-2.5 w-full sm:w-auto sm:min-w-[260px]">
                     <button
                         ref={launcher}
                         type="button"
@@ -104,7 +104,11 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                     >
                         <PlayCircle size={16} weight="fill" />
-                        Show me what Growth does for me
+                        {/* Centred and balanced when it wraps on a phone (Xander, 2026-11-19: "just me is on the
+
+                            bottom line and all the way left aligned"). */}
+
+                        <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
                     </button>
                     <Link
                         href="/pricing"

@@ -18,6 +18,7 @@ import {
 import { ActivityFeed } from "@/app/components/portal/overview/ActivityFeed";
 import { LeadsWeekCard } from "@/app/components/portal/overview/LeadsWeekCard";
 import { NeedsYouCard } from "@/app/components/portal/overview/NeedsYouCard";
+import InstallCard from "@/app/components/portal/overview/InstallCard";
 import {
     OverviewHeader,
     StatusLine,
@@ -149,6 +150,9 @@ export default async function OverviewPage({
               * nothing outstanding.
               */}
             <PendingSiteBanner sites={account.sites} currentSlug={site.slug} />
+
+            {/* Phones only, once, until installed or dismissed (2026-11-19). */}
+            <InstallCard />
 
             {/* Page additions from Search Console (2026-11-14): renders nothing when there are none. */}
             {!building && (

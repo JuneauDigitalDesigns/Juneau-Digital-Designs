@@ -15,7 +15,9 @@ import { useRef } from "react";
 
 export const RECORD_TABS = [
     { id: "timeline", label: "Timeline" },
-    { id: "contact", label: "Contact info" },
+    // "Contact", not "Contact info" (Xander, 2026-11-19: "drop info off of contact, and that way
+    // everything is one word"); it read as running into Jobs.
+    { id: "contact", label: "Contact" },
     { id: "jobs", label: "Jobs" },
     { id: "notes", label: "Notes" },
 ] as const;
