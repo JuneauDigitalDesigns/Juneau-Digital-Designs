@@ -26,6 +26,9 @@ const HOMEPAGE_EXTRAS = [
   "Will I show up on Google?",
 ];
 
+/** Answers that exist only on /faq, added after it launched (19 Nov 2026: the search check's C2). */
+const FAQ_ONLY = ["Is this an answering service?"];
+
 test("/faq carries every /pricing answer and the four homepage questions, once each", () => {
   const onFaq = FAQ_GROUPS.flatMap((g) => g.entries);
   const questions = onFaq.map((e) => e.q);
@@ -35,10 +38,10 @@ test("/faq carries every /pricing answer and the four homepage questions, once e
     // The same object, not a copy: an edit to the answer reaches both pages.
     assert.ok(onFaq.includes(entry), `/faq is missing the pricing answer "${entry.q}"`);
   }
-  for (const q of HOMEPAGE_EXTRAS) {
+  for (const q of [...HOMEPAGE_EXTRAS, ...FAQ_ONLY]) {
     assert.ok(questions.includes(q), `/faq is missing "${q}"`);
   }
-  assert.equal(onFaq.length, PRICING_FAQS.length + HOMEPAGE_EXTRAS.length);
+  assert.equal(onFaq.length, PRICING_FAQS.length + HOMEPAGE_EXTRAS.length + FAQ_ONLY.length);
 });
 
 test("the robot answer gives the demo number instead of pointing at the page", () => {

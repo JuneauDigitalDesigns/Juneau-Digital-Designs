@@ -116,6 +116,14 @@ const REPLACING_RECEPTIONIST: FaqEntry = {
     a: "No, most of our clients never had one. When it's you and a truck, the phone rings while your hands are full. This picks it up. And if you do have someone answering, this is what catches the calls after they go home.",
 };
 
+/* Added 19 Nov 2026 (draft C2 of the agency search check, approved by Xander). Until then the
+   site never said "answering service", which is what many owners search for. /faq only:
+   /pricing's answers are their own approved set. */
+const ANSWERING_SERVICE: FaqEntry = {
+    q: "Is this an answering service?",
+    a: `Yes, an AI one that only picks up when you don't. It answers 24/7 in English or Spanish, takes the caller's name, number and what the job is, puts the lead in your portal and texts you that it's there. Minutes come with your plan: ${minutes("starter")} on Starter, ${minutes("growth")} on Growth. Extra minutes are ${overageRate("growth")} each.`,
+};
+
 /* ── From the homepage's old "Before you call." section ──────────────────────────────────────
    The four answers /pricing never had. They moved here when that section left the homepage. */
 
@@ -158,7 +166,7 @@ export const PRICING_FAQS: FaqEntry[] = [
 
 /** /faq: every pricing answer plus the four from the homepage, grouped by what they're about. */
 export const FAQ_GROUPS: { label: string; entries: FaqEntry[] }[] = [
-    { label: "The receptionist", entries: [AI_INSTEAD_OF_ME, REPLACING_RECEPTIONIST, ROBOT, CANT_ANSWER, WEBSITE_ONLY] },
+    { label: "The receptionist", entries: [AI_INSTEAD_OF_ME, REPLACING_RECEPTIONIST, ANSWERING_SERVICE, ROBOT, CANT_ANSWER, WEBSITE_ONLY] },
     { label: "Your website", entries: [HAVE_A_SITE, WRITE_CONTENT, GOOGLE, OWN_SITE, NOT_HAPPY] },
     { label: "Your plan", entries: [CONTRACT, MINUTES, KEEP_NUMBER] },
     { label: "Getting set up", entries: [HOW_FAST, FORWARDING] },
