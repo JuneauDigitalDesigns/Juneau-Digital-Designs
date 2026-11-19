@@ -1300,7 +1300,7 @@ function Marker({ entry }: { entry: TimelineEntry }) {
                 borderWidth: 1.5,
                 borderStyle: "solid",
                 borderColor: filled ? hue : hue === "var(--fg-3)" ? "var(--rule-strong)" : hue,
-                color: filled ? "#ffffff" : hue,
+                color: filled ? "var(--elev-1)" : hue,
             }}
         >
             <Icon size={13} weight={filled ? "fill" : "regular"} />

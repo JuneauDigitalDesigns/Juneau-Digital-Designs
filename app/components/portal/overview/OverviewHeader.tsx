@@ -6,7 +6,7 @@ import type { OverviewStatus } from "@/app/lib/portal-overview-status";
  * "Good morning, Mike" / "This week, Mon Nov 3 – today", with the status line on the right.
  *
  * The greeting uses the first word of the account profile's contact name — the one field a
- * client sets for themselves in Settings — and falls back to the plain "Overview" title when
+ * client sets for themselves in Settings — and falls back to the plain "Home" title when
  * there is none, as the approved copy says. The status line is a slot because it streams in
  * its own Suspense boundary: it waits on a live HTTP probe, and the greeting must not.
  */
@@ -43,10 +43,10 @@ export function OverviewHeader({
     );
 }
 
-/** The greeting, or "Overview" with no contact name on file. */
+/** The greeting, or "Home" with no contact name on file (was "Overview" until 2026-11-19). */
 export function greetingLine(contactName: string | undefined, part: "morning" | "afternoon" | "evening"): string {
     const first = contactName?.trim().split(/\s+/)[0];
-    return first ? `Good ${part}, ${first}` : "Overview";
+    return first ? `Good ${part}, ${first}` : "Home";
 }
 
 /**

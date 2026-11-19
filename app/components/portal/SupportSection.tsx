@@ -47,7 +47,7 @@ const CATEGORY_LABEL: Record<TicketCategory, string> = {
 
 const primaryButton: CSSProperties = {
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--on-accent)",
     border: "none",
     borderRadius: 6,
     padding: "9px 16px",

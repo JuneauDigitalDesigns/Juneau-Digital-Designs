@@ -60,7 +60,9 @@ export interface PortalClientProps {
  * in code that has not caught up keep working. See `legacyTabDestination`.
  */
 export const PORTAL_TABS = [
-    { id: "overview", label: "Overview", shortLabel: "Overview", href: "", feature: null },
+    // Shown as "Home" since 2026-11-19 (Xander, mobile app rework), on phones and desktop. The id
+    // stays `overview` so tour ids, data-tour hooks and stored seen-lists keep matching.
+    { id: "overview", label: "Home", shortLabel: "Home", href: "", feature: null },
     // Renamed from "Call Log": this is now the triage surface for calls *and* web-form
     // inquiries. The href stays `calls` so existing links and bookmarks keep working, and its
     // gate moved to `leads` — web-only sites have no call log but do receive form inquiries.
@@ -144,14 +146,18 @@ export function tabAvailability(
  * Calendar (2026-11-12) went behind More, first in it: the bar was full, and the customer record's
  * own "Coming up" and "Add to calendar" cover the day-to-day on a phone.
  *
- * Analytics took the slot Billing held. Folding Traffic and Performance together made it the
+ * 2026-11-19 (Xander, mobile app rework): the bar became Home · Inbox · Customers · Calendar ·
+ * More, the day-to-day work up front. Analytics moved behind More with Settings and Support, and
+ * More is now its own screen (`/portal/more`) rather than a sheet.
+ *
+ * Earlier: Analytics took the slot Billing held. Folding Traffic and Performance together made it the
  * one place a client checks their website, which is something they monitor. Settings (which
  * now holds Plan & billing) and Support are deliberate visits, so they sit behind More.
  */
-export const MOBILE_BAR_TABS = ["overview", "calls", "customers", "analytics"] as const satisfies
+export const MOBILE_BAR_TABS = ["overview", "calls", "customers", "calendar"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
-export const MOBILE_MORE_TABS = ["calendar", "settings", "support"] as const satisfies
+export const MOBILE_MORE_TABS = ["analytics", "settings", "support"] as const satisfies
     ReadonlyArray<PortalTabId>;
 
 /**

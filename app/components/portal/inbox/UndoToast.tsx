@@ -50,8 +50,8 @@ function Toast({ toast, onDismiss }: { toast: UndoState; onDismiss: () => void }
             role="status"
             className="fixed z-[70] left-3 right-3 bottom-[calc(76px+env(safe-area-inset-bottom,0px))] lg:left-1/2 lg:right-auto lg:bottom-6 lg:-translate-x-1/2 flex items-center justify-between gap-3.5 rounded-[10px] py-2.5 pl-4 pr-2.5 text-sm overflow-hidden"
             style={{
-                background: "var(--fg)",
-                color: "var(--elev-1)",
+                background: "var(--toast-bg)",
+                color: "var(--toast-fg)",
                 boxShadow: "0 14px 30px -10px rgba(0,0,0,0.5)",
             }}
         >
@@ -60,7 +60,7 @@ function Toast({ toast, onDismiss }: { toast: UndoState; onDismiss: () => void }
                 type="button"
                 onClick={toast.undo}
                 className="shrink-0 font-semibold px-2 min-h-11 lg:min-h-0 lg:py-1 rounded-md cursor-pointer"
-                style={{ color: "#9dc0ff" }}
+                style={{ color: "var(--toast-action)" }}
             >
                 Undo
             </button>
@@ -68,7 +68,7 @@ function Toast({ toast, onDismiss }: { toast: UndoState; onDismiss: () => void }
                 aria-hidden="true"
                 className="absolute left-0 bottom-0 h-0.5"
                 style={{
-                    background: "#9dc0ff",
+                    background: "var(--toast-action)",
                     width: running ? "0%" : "100%",
                     transition: running ? `width ${UNDO_MS}ms linear` : "none",
                 }}

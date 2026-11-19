@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import s from "./AuthShell.module.css";
 
@@ -21,18 +20,33 @@ import s from "./AuthShell.module.css";
  *
  * Lives under sign-in/ in a private `_auth` folder (not a route) and is shared by sign-up.
  */
-export default function AuthShell({ children }: { children: React.ReactNode }) {
+export default function AuthShell({
+    children,
+    launch = false,
+}: {
+    children: React.ReactNode;
+    /**
+     * Sign-in's phone launch screen: "Client Portal" and the approved subtitle under the lockup
+     * (2026-11-19 mockup). Sign-up leaves it off and keeps Clerk's own step titles.
+     */
+    launch?: boolean;
+}) {
     return (
         <div className={s.shell}>
             <aside className={s.brand}>
-                <Image
-                    className={s.lockup}
-                    src="/jdd-lockup-portal.png"
-                    alt="Juneau Digital Designs"
-                    width={640}
-                    height={192}
-                    priority
-                />
+                {/* Two cuts of the lockup: the near-black original for light, and a cream-and-coral
+                    cut for dark (public/jdd-lockup-portal-dark.png, made 2026-11-19 by recolouring
+                    the same cutout). <picture> because next/image has no art direction. */}
+                <picture className={s.lockup}>
+                    <source srcSet="/jdd-lockup-portal-dark.png" media="(prefers-color-scheme: dark)" />
+                    <img src="/jdd-lockup-portal.png" alt="Juneau Digital Designs" width={640} height={192} />
+                </picture>
+                {launch && (
+                    <>
+                        <p className={s.launchTitle}>Client Portal</p>
+                        <p className={s.launchSub}>Your leads, customers and site, all in one place</p>
+                    </>
+                )}
                 <p className={s.headline}>
                     Every lead,
                     <br />
