@@ -73,7 +73,7 @@ export default function ReviewMessageScreen() {
     const dirty = data !== null && draft.trim() !== data.template.trim();
 
     return (
-        <div className="flex flex-col gap-4 max-w-xl">
+        <div className="flex flex-col gap-4 max-w-xl" data-tour="review-text">
             <Link
                 href={tabHref("more", selected.slug)}
                 className="lg:hidden inline-flex items-center gap-1 -ml-1 text-[17px] font-semibold self-start min-h-11"
