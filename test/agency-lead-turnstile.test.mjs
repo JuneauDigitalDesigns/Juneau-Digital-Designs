@@ -224,16 +224,21 @@ test("Cloudflare's always-pass test secret passes its dummy token (local develop
 
 /* ── the form ───────────────────────────────────────────────────────── */
 
-test("LeadPanel renders the widget, posts its token, and shows the approved words", () => {
-    const panel = readFileSync("app/components/home/LeadPanel.tsx", "utf8");
-    assert.match(panel, /from "@jdd\/ui\/turnstile"/, "the client sites' hook, not a second copy");
-    assert.match(panel, /useTurnstile\(turnstileSiteKey\(\)\)/);
-    assert.match(panel, /ref=\{turnstile\.containerRef\}/);
-    assert.match(panel, /turnstileToken/);
-    assert.match(panel, /turnstileStatus: "error"/);
-    assert.match(panel, /LEAD_FORM_NOT_VERIFIED/);
-    assert.match(panel, /LEAD_FORM_TOO_MANY/);
-    assert.match(panel, /turnstile\.reset\(\)/, "a token is good once");
+test("the lead form renders the widget, posts its token, and shows the approved words", () => {
+    // The form body is `LeadForm` since 19 Nov 2026, shared by the Get Started slide-over
+    // (LeadPanel) and the /contact page, so the human check lives in one place rather than being
+    // copied. The slide-over and the contact page both render it.
+    const form = readFileSync("app/components/lead/LeadForm.tsx", "utf8");
+    assert.match(form, /from "@jdd\/ui\/turnstile"/, "the client sites' hook, not a second copy");
+    assert.match(form, /useTurnstile\(turnstileSiteKey\(\)\)/);
+    assert.match(form, /ref=\{turnstile\.containerRef\}/);
+    assert.match(form, /turnstileToken/);
+    assert.match(form, /turnstileStatus: "error"/);
+    assert.match(form, /LEAD_FORM_NOT_VERIFIED/);
+    assert.match(form, /LEAD_FORM_TOO_MANY/);
+    assert.match(form, /turnstile\.reset\(\)/, "a token is good once");
+    assert.match(readFileSync("app/components/home/LeadPanel.tsx", "utf8"), /<LeadForm\b/, "the slide-over renders the shared form");
+    assert.match(readFileSync("app/contact/ContactForm.tsx", "utf8"), /<LeadForm\b/, "the contact page renders the shared form");
 });
 
 test("the route reuses the client forms' Cloudflare check rather than a copy of it", () => {

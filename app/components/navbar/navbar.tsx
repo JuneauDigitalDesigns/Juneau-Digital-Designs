@@ -49,14 +49,17 @@ export default function Navbar() {
                     <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-16" />
                 </Link>
 
-                {/* Desktop nav, pinned far right. Two outlined pills (About, Trades) then the
-                    two coral asks: the outline says "another page", the fill says "do this", so
-                    the row still has one primary pair rather than four equal buttons. */}
+                {/* Desktop nav, pinned far right. Three outlined pills (About, Trades, Contact)
+                    then the two coral asks: the outline says "another page", the fill says "do
+                    this", so the row still has one primary pair rather than five equal buttons. */}
                 <div className="ml-auto hidden items-center gap-4 md:flex">
                     <Link href="/about" className="nav-pill">
                         About
                     </Link>
                     <TradesMenu />
+                    <Link href="/contact" className="nav-pill">
+                        Contact
+                    </Link>
                     <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
                         View Pricing
                     </Link>
@@ -147,6 +150,13 @@ export default function Navbar() {
                                     </motion.ul>
                                 )}
                             </AnimatePresence>
+                            <Link
+                                className="nav-pill w-full justify-center"
+                                href="/contact"
+                                onClick={closeNav}
+                            >
+                                Contact
+                            </Link>
                             <Link
                                 className="btn primary w-full justify-center"
                                 href="/pricing"
