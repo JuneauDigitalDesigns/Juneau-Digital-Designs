@@ -37,7 +37,18 @@ export const metadata: Metadata = pageMetadata(
  * placeholder on a live page reads as a broken image. Set this to the file and its real pixel
  * size, and the two-column hero and the name caption appear with no other change.
  */
-const PORTRAIT: { src: string; width: number; height: number; alt: string } | null = null;
+/**
+ * Xander's photo, and what a screen reader reads in its place.
+ *
+ * Approved word for word by Xander on 19 Nov 2026. It describes a real person, so it is not to
+ * be reworded, embellished or "improved" without a fresh approval. It deliberately does not say
+ * where the photo was taken, because nobody here knows and a guess about a real person's
+ * whereabouts is not something to invent.
+ */
+const PORTRAIT_ALT = "Xander Juneau, the owner of Juneau Digital Designs";
+
+/** Where the eight files live. Built by the script recorded in the PR, from his original JPEG. */
+const PHOTO = "/about/about-xander";
 
 /** What I've learned, and the matching line on what a client's site actually gets. */
 const LESSONS: { heading: string; learned: string; site: string }[] = [
@@ -121,20 +132,58 @@ export default function AboutPage() {
                         Florida: HVAC, plumbing, roofing, lawn care, pressure washing and detailing businesses.
                     </p>
                 </div>
-                {PORTRAIT && (
-                    <div className="about-hero-portrait">
-                        <div className="about-portrait">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={PORTRAIT.src} alt={PORTRAIT.alt} width={PORTRAIT.width} height={PORTRAIT.height} />
-                        </div>
-                        <p className="about-portrait-cap">
-                            <b>Xander Juneau</b>
-                            Owner, Juneau Digital Designs
-                            <br />
-                            Winter Garden, Florida
-                        </p>
+                {/* Two crops of one photo, not one crop squeezed two ways: a tall 4:5 from
+                    801px up, the frame as shot below it (Xander, 19 Nov 2026 — "the portrait
+                    looks better on larger screens, but the frame as a shot looks better on
+                    mobile"). 801px is where `.about-hero` stops being two columns, so the
+                    picture changes with the layout instead of on a breakpoint of its own.
+
+                    A <picture> rather than next/image, which can change a picture's size at a
+                    breakpoint but not the picture itself. Each source offers AVIF then WebP at
+                    1x and 2x, so a browser downloads exactly one file: 27KB at the very
+                    largest, against the 163KB JPEG it came from. Crop and scale only — no
+                    filter, no retouching, no AI alteration.
+
+                    Not lazy-loaded: it is in the hero, on screen the moment the page opens. */}
+                <div className="about-hero-portrait">
+                    <div className="about-portrait">
+                        <picture>
+                            <source
+                                media="(min-width: 801px)"
+                                type="image/avif"
+                                srcSet={`${PHOTO}-portrait-340.avif 340w, ${PHOTO}-portrait-680.avif 680w`}
+                                sizes="336px"
+                            />
+                            <source
+                                media="(min-width: 801px)"
+                                type="image/webp"
+                                srcSet={`${PHOTO}-portrait-340.webp 340w, ${PHOTO}-portrait-680.webp 680w`}
+                                sizes="336px"
+                            />
+                            <source
+                                type="image/avif"
+                                srcSet={`${PHOTO}-square-300.avif 300w, ${PHOTO}-square-600.avif 600w`}
+                                sizes="300px"
+                            />
+                            <img
+                                src={`${PHOTO}-square-600.webp`}
+                                srcSet={`${PHOTO}-square-300.webp 300w, ${PHOTO}-square-600.webp 600w`}
+                                sizes="300px"
+                                alt={PORTRAIT_ALT}
+                                width={600}
+                                height={609}
+                                fetchPriority="high"
+                                decoding="async"
+                            />
+                        </picture>
                     </div>
-                )}
+                    <p className="about-portrait-cap">
+                        <b>Xander Juneau</b>
+                        Owner, Juneau Digital Designs
+                        <br />
+                        Winter Garden, Florida
+                    </p>
+                </div>
             </section>
 
             {/* 2 · Why. The two lines Xander wrote are quotes from him, staggered rather than

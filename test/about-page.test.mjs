@@ -10,13 +10,14 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import sitemap from "../app/sitemap.ts";
 import { PUBLIC_PATHS, SITE_URL, aboutJsonLd, organizationJsonLd } from "../app/lib/site-seo.ts";
 
-const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
+const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
+const read = (p) => readFileSync(root(p), "utf8");
 const page = read("app/about/page.tsx");
 
 /** The page's text with JSX escapes resolved, so a sentence can be matched as written. */
@@ -105,6 +106,53 @@ test("the structured data says only what the page says", () => {
   const org = organizationJsonLd()["@graph"].find((n) => n["@type"] === "Organization");
   assert.equal(org.founder["@id"], person["@id"]);
   assert.equal(person.worksFor["@id"], org["@id"]);
+});
+
+test("the photo's alt text is the approved string, and says who he is", () => {
+  // Approved by Xander on 19 Nov 2026. It describes a real person; a reworded version is a
+  // different claim about him, so it is pinned here rather than left to a later tidy-up.
+  assert.match(page, /const PORTRAIT_ALT = "Xander Juneau, the owner of Juneau Digital Designs";/);
+  assert.match(page, /alt=\{PORTRAIT_ALT\}/, "the photo does not use the approved alt text");
+  // No invented location: nobody here knows where the photo was taken.
+  assert.doesNotMatch(
+    page.slice(page.indexOf("PORTRAIT_ALT"), page.indexOf("PORTRAIT_ALT") + 400),
+    /Winter Garden|Florida/,
+    "the alt text names a place the photo was not confirmed to show",
+  );
+});
+
+test("the hero serves the right crop at each width, and every file it names exists", () => {
+  // Xander's call: the 4:5 crop from 801px up, the frame as shot below it. 801px is also where
+  // the hero stops being two columns, so the two must stay in step.
+  assert.match(page, /media="\(min-width: 801px\)"/, "the portrait crop has no breakpoint");
+  const css = read("app/globals.css");
+  assert.match(css, /@media \(min-width: 801px\) \{\s*\.about-portrait img \{ aspect-ratio: 4 \/ 5; \}/);
+  assert.match(css, /aspect-ratio: 300 \/ 305;/, "the phone crop's shape is not reserved");
+
+  const files = page.match(/\$\{PHOTO\}-[a-z0-9-]+\.(avif|webp)/g) ?? [];
+  assert.ok(files.length >= 8, `expected both crops in both formats at two sizes, found ${files.length}`);
+  for (const ref of new Set(files)) {
+    const file = ref.replace("${PHOTO}", "about-xander");
+    assert.ok(existsSync(root(`public/about/${file}`)), `public/about/${file} is missing`);
+  }
+  // AVIF first, then WebP: a browser takes the smaller one it understands.
+  assert.ok(
+    page.indexOf('type="image/avif"') < page.indexOf('type="image/webp"'),
+    "WebP is offered before AVIF, so no browser would take the smaller file",
+  );
+});
+
+test("the photo is small enough to serve, and is never lazy-loaded in the hero", () => {
+  let largest = 0;
+  for (const f of readdirSync(root("public/about"))) {
+    const kb = statSync(root(`public/about/${f}`)).size / 1024;
+    largest = Math.max(largest, kb);
+  }
+  // The original JPEG was 163KB. Anything approaching that means a variant was regenerated
+  // at the wrong size or quality.
+  assert.ok(largest < 45, `the largest variant is ${largest.toFixed(1)}KB, which is too big for a hero photo`);
+  assert.doesNotMatch(page, /loading="lazy"/, "the hero photo must not be lazy-loaded");
+  assert.match(page, /fetchPriority="high"/, "the hero photo should be fetched at high priority");
 });
 
 test("/about keeps its own title, description and canonical address", () => {
