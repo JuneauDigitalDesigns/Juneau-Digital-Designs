@@ -28,11 +28,29 @@ export const PRICING_DESCRIPTION =
     "Monthly pricing for a small business website, a 24/7 AI receptionist that works as your answering service, and a portal where every lead lands. Month to month, no contract.";
 
 /**
+ * /hvac, the first trade page. Xander approved the title and description with the page itself,
+ * from the fourth round of its mockup (19 Nov 2026). The price is Schedule A's, never typed: a
+ * number written into a description is a number that can contradict the signed agreement.
+ */
+export const HVAC_TITLE = "HVAC Website Design + 24/7 AI Receptionist | JDD";
+export const HVAC_DESCRIPTION = `We write, build and host your HVAC website, and an AI receptionist answers the heating and cooling calls you miss, 24/7. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
+
+/**
  * The public pages, in the order the sitemap lists them. A page that is not here is not in the
  * sitemap: the portal, sign-in, checkout, payment links, `/start`, `/terms/accept` and every
  * private `/terms/[code]` link stay out on purpose.
  */
-export const PUBLIC_PATHS = ["/", "/about", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"] as const;
+export const PUBLIC_PATHS = [
+    "/",
+    "/about",
+    "/hvac",
+    "/pricing",
+    "/faq",
+    "/activation",
+    "/terms",
+    "/privacy-policy",
+    "/sms-terms",
+] as const;
 export type PublicPath = (typeof PUBLIC_PATHS)[number];
 
 /** The square logo, used as the link-preview picture until the site has a purpose-made one. */
@@ -186,6 +204,56 @@ export function aboutJsonLd() {
                         recognizedBy: { "@type": "EducationalOrganization", name: "Thinkful" },
                     },
                 ],
+            },
+        ],
+    };
+}
+
+/**
+ * /hvac, as a page about one service for one trade.
+ *
+ * The Service says only what the page prints: a website and a 24/7 AI receptionist, for HVAC
+ * companies, from this business, starting at Starter's price. No `areaServed`: whether trade
+ * pages name a region is undecided (item C7 of the 19 Nov 2026 search check), and the page
+ * names none.
+ */
+export function hvacJsonLd() {
+    const starter = SCHEDULES.starter;
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": `${SITE_URL}/hvac#page`,
+                url: `${SITE_URL}/hvac`,
+                name: HVAC_TITLE,
+                description: HVAC_DESCRIPTION,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${SITE_URL}/hvac#service` },
+            },
+            {
+                "@type": "Service",
+                "@id": `${SITE_URL}/hvac#service`,
+                name: "Websites and a 24/7 AI receptionist for HVAC companies",
+                serviceType: "Website design and AI answering service",
+                description: HVAC_DESCRIPTION,
+                url: `${SITE_URL}/hvac`,
+                provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
+                audience: { "@type": "BusinessAudience", name: "HVAC companies" },
+                offers: {
+                    "@type": "Offer",
+                    name: starter.name,
+                    url: `${SITE_URL}/pricing`,
+                    priceCurrency: "USD",
+                    price: starter.monthlyPrice,
+                    priceSpecification: {
+                        "@type": "UnitPriceSpecification",
+                        price: starter.monthlyPrice,
+                        priceCurrency: "USD",
+                        unitCode: "MON",
+                        referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+                    },
+                },
             },
         ],
     };

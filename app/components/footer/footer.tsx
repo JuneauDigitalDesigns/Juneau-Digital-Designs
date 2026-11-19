@@ -18,9 +18,10 @@ export default function Footer() {
                 className="relative mx-auto w-full max-w-7xl px-4 sm:px-6"
                 style={{ padding: "64px max(24px, 4vw) 36px" }}
             >
-                {/* 4-column grid: brand, Pages, Legal, Contact. One column on a phone, two on a
-                    tablet, four from 1024px. */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-9">
+                {/* 5-column grid: brand, Pages, Trades, Legal, Contact. One column on a phone, two
+                    on a tablet, five from 1024px. The short lists are narrower and Contact wider,
+                    so the email address fits on one line instead of breaking mid-word. */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.3fr_0.75fr_0.75fr_1fr_1.6fr] gap-9">
                     {/* Col 1 — brand */}
                     <div>
                         <Link href="/" aria-label="Go to home page" className="inline-flex items-center mb-5">
@@ -42,7 +43,16 @@ export default function Footer() {
                         </ul>
                     </div>
 
-                    {/* Col 3 — Legal */}
+                    {/* Col 3 — Trades. One page per trade, each added once Xander has approved its
+                        wording (HVAC first, 19 Nov 2026). Footer only, not the nav. */}
+                    <div>
+                        <div className="kicker" style={{ marginBottom: 14 }}>Trades</div>
+                        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
+                            <li><Link href="/hvac" className="footer-link">HVAC</Link></li>
+                        </ul>
+                    </div>
+
+                    {/* Col 4 — Legal */}
                     <div>
                         <div className="kicker" style={{ marginBottom: 14 }}>Legal</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
@@ -55,7 +65,7 @@ export default function Footer() {
                         </ul>
                     </div>
 
-                    {/* Col 4: Contact (Xander, 2026-11-12). Footer only, not the nav. Plain <a>,
+                    {/* Col 5: Contact (Xander, 2026-11-12). Footer only, not the nav. Plain <a>,
                         not <Link>: tel: and mailto: leave the site. */}
                     <div>
                         <div className="kicker" style={{ marginBottom: 14 }}>Contact</div>

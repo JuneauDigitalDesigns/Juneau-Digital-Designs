@@ -12,6 +12,8 @@ import PortalDemoSwitch from "./PortalDemoSwitch";
 import ClosingAsk from "./ClosingAsk";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { MISSED_CALLS_ID, PORTAL_SECTION_ID } from "@/app/data/portal-demo";
+import { DEMO_SITE_URL } from "@/app/data/demo-site";
+import Link from "next/link";
 
 /* Prices come from Schedule A, never typed in by hand — the same rule the pricing page
    follows. A number written into marketing copy is a number that can eventually contradict
@@ -119,7 +121,8 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
           them find words they recognise (draft C3 of the agency search check, approved by
           Xander 19 Nov 2026). Quieter than the paragraph above: it says who, not what. */}
       <p style={{ fontSize: "clamp(14px,1.2vw,16px)", lineHeight: 1.5, color: "var(--fg-3)", margin: "14px auto 32px", maxWidth: "46ch" }}>
-        Built for HVAC, plumbing, roofing, lawn care, pressure washing and detailing businesses.
+        {/* Each trade becomes a link once its own page is live (HVAC, 19 Nov 2026). Words unchanged. */}
+        Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, plumbing, roofing, lawn care, pressure washing and detailing businesses.
       </p>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
         {/* The ring-pulse animation stays with the phone CTA in <RailCTA> at the bottom
@@ -150,10 +153,8 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    9 Nov 2026. The caption that sat under the laptop ("What yours could look like.") went in
    the same pass. */
 
-/* The growth template the laptop's screenshot was captured from. Approved as the "Visit site"
-   target by Xander on 12 Nov 2026. If the screenshot is recaptured from another site, change
-   this with it. */
-const DEMO_SITE_URL = "https://e2etestgrowth.vercel.app";
+/* The growth template the laptop's screenshot was captured from is `DEMO_SITE_URL`
+   (app/data/demo-site.ts), shared with /hvac's framed demo since 19 Nov 2026. */
 
 function WebsiteSection() {
   return (
