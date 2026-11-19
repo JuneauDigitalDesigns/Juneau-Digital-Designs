@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
-import { AgreementLinkError, acceptAgreementLink, resolveAgreementLink } from "@/app/lib/agreement-link";
-import { AGREE_CODE, agreementConsentError, agreementSubmissionError } from "@/app/lib/agreement-link.mjs";
+import { AgreementLinkError, acceptAgreementLink } from "@/app/lib/agreement-link";
+import { agreementConsentError, agreementSubmissionError } from "@/app/lib/agreement-link.mjs";
+import { lookupAgreementLink } from "@/app/lib/agree-link-limit";
 import { normalizeUsPhone } from "@/app/lib/phone";
 import { smsConsentCopyForVersion } from "@/app/lib/sms-consent-text";
 import { sendClientAgreementEmail } from "@/app/lib/agreement-email";
@@ -17,9 +18,8 @@ export const runtime = "nodejs";
 export async function POST(request: Request, ctx: { params: Promise<{ code: string }> }) {
     const { code } = await ctx.params;
     const normalized = code.trim().toUpperCase();
-    if (!AGREE_CODE.test(normalized)) return inactive();
-
-    const view = await resolveAgreementLink(normalized);
+    // Through the per-IP limit on codes that don't exist (agree-link-limit.ts).
+    const view = await lookupAgreementLink(normalized, clientIp(request));
     if (view.state === "accepted") return NextResponse.json({ ok: true, email: view.order.client.email });
     if (view.state === "inactive") return inactive();
 
