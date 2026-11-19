@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { Redis } from "@upstash/redis";
 import { claimCallback } from "./lead-gate";
 import { sendOpsNotice } from "./ops-notice";
+import { siteverify, type Verification } from "./turnstile-verify";
 
 /**
  * The human check for every client site's lead form, and the single-use admission it issues.
@@ -83,14 +84,7 @@ async function markSiteMoved(acctScope: string, slug: string): Promise<void> {
 
 /* ── Turnstile ──────────────────────────────────────────────────────────── */
 
-const SITEVERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-/** Cloudflare's published dummy secrets (always pass / always fail / token already spent). */
-const TEST_SECRET = /^[123]x0{33}AA$/;
-
-export type Verification =
-    | { kind: "passed"; hostname: string }
-    | { kind: "failed"; codes: string[] }
-    | { kind: "unavailable" };
+export type { Verification };
 
 /**
  * Client sites share a POOL of Turnstile widgets (jdd-ops `lib/turnstile-pool.js`), because a free
@@ -131,40 +125,8 @@ export async function verifyTurnstile(
         console.error("[lead-admit] no secret for this site key and LEAD_FORM_TURNSTILE_SECRET_KEY not set: no human check, so no AI calls");
         return { kind: "unavailable" };
     }
-    if (!token) return { kind: "failed", codes: ["missing-input-response"] };
-
-    let out: { success?: boolean; hostname?: string; action?: string; "error-codes"?: string[] };
-    try {
-        const body = new URLSearchParams({ secret, response: token.slice(0, 2048) });
-        if (ip) body.set("remoteip", ip);
-        const res = await fetch(SITEVERIFY, { method: "POST", body, signal: AbortSignal.timeout(4000) });
-        if (!res.ok) {
-            console.error("[lead-admit] siteverify answered", res.status);
-            return { kind: "unavailable" };
-        }
-        out = await res.json();
-    } catch (e) {
-        console.error("[lead-admit] siteverify unreachable", e);
-        return { kind: "unavailable" };
-    }
-    const codes = out["error-codes"] ?? [];
-    if (codes.includes("internal-error")) return { kind: "unavailable" };
-    // Our secret is wrong or missing for this widget: our mistake, never the visitor's. Refusing
-    // would turn away every lead the site gets; this keeps them and places no call.
-    if (codes.includes("invalid-input-secret") || codes.includes("missing-input-secret")) {
-        console.error("[lead-admit] Cloudflare doesn't accept our secret for this widget: no human check, no AI calls");
-        return { kind: "unavailable" };
-    }
-    if (out.success !== true) return { kind: "failed", codes };
-
-    // A dummy secret answers for any page (its hostname is a placeholder), so the hostname rule
-    // can't apply. It only ever runs in tests and on the `_e2e_test_*` fixtures.
-    if (TEST_SECRET.test(secret)) return { kind: "passed", hostname: out.hostname ?? "" };
-
-    if (out.action !== "lead") return { kind: "failed", codes: ["wrong-action"] };
-    const hostname = (out.hostname ?? "").toLowerCase();
-    if (host && hostname !== host) return { kind: "failed", codes: ["wrong-hostname"] };
-    return { kind: "passed", hostname };
+    // The check itself is shared with the agency's own form (`turnstile-verify.ts`).
+    return siteverify({ secret, token, ip, host, action: "lead", tag: "lead-admit" });
 }
 
 /* ── admission ──────────────────────────────────────────────────────────── */
@@ -190,7 +152,7 @@ const K = {
 
 /** Count one; true while at or under the cap. Over-cap counts are not taken back: a flood
  * should keep hitting the wall, not find room each time one falls off. */
-async function within(key: string, cap: number, ttl: number): Promise<boolean> {
+export async function within(key: string, cap: number, ttl: number): Promise<boolean> {
     const n = await getRedis().incr(key);
     if (n === 1) await getRedis().expire(key, ttl);
     return n <= cap;
