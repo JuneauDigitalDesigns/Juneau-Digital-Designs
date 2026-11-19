@@ -4476,22 +4476,6 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .about-row-lbl { display: block; }
 }
 
-/* The nav's one plain link (About), beside the two button asks. Display type at the buttons'
-   size and weight so the row reads as one set, but with no fill: a third coral button would
-   leave the bar with three equal asks and no primary one. */
-.nav-link {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 16px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--fg);
-  text-decoration: none;
-  padding: 4px 2px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.18s ease, border-color 0.18s ease;
-}
-.nav-link:hover { color: var(--accent-2); border-bottom-color: var(--accent-2); }
 
 /* ── /hvac — "A website and AI receptionist for HVAC companies." ──────────
    The first trade page, approved by Xander from the fourth round of its mockup (19 Nov 2026).
@@ -5187,3 +5171,90 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   text-underline-offset: 3px;
 }
 .home-trade-link:hover { color: var(--accent-2); }
+
+/* ── Nav pills: About and Trades ─────────────────────────────
+   Outlined boxes at the same size and weight as the two coral buttons beside them, so the bar
+   reads as one row (Xander, 19 Nov 2026). The outline is the hierarchy: filled means "do this"
+   (Pricing, Portal), outlined means "another page". Hovering fills the box in ink, which is the
+   same move `.btn.primary:hover` makes in reverse. */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 24px;
+  border-radius: 3px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+.nav-pill:hover { background: var(--fg); color: var(--bg); transform: translateY(-1px); }
+.nav-pill:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* The trigger keeps the filled state while its menu is open, so the two read as one object. */
+.nav-pill-trigger[aria-expanded="true"] { background: var(--fg); color: var(--bg); }
+
+.nav-chevron { transition: transform 0.18s ease; }
+.nav-chevron-open { transform: rotate(180deg); }
+
+/* The dropdown. `--elev-2` rather than the nav's translucent glass: a menu over page content
+   has to be readable, and the bar's backdrop blur does not reach inside it. */
+.nav-trades { position: relative; }
+.nav-trades-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  min-width: 190px;
+  padding: 6px;
+  background: var(--elev-2);
+  border: 1px solid var(--fg);
+  border-radius: 3px;
+  box-shadow: 0 18px 32px -20px rgba(20, 18, 12, 0.55);
+  transform-origin: top left;
+}
+/* Bridges the 8px gap under the button, so a pointer on its way to a link never leaves the
+   hover area. The close delay in TradesMenu covers the rest. */
+.nav-trades-menu::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -10px;
+  height: 10px;
+}
+.nav-trades-menu ul { list-style: none; margin: 0; padding: 0; }
+.nav-trades-link {
+  display: block;
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--fg);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-trades-link:hover { background: var(--surface); color: var(--accent-2); }
+.nav-trades-link:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+
+/* In the mobile menu Trades expands in place instead of dropping over the page. The height
+   animation needs the overflow clip; the gap lives on the items so it collapses with them. */
+.nav-trades-mobile { overflow: hidden; list-style: none; margin: 0; padding: 0; }
+.nav-trades-mobile li { padding-top: 10px; }
+.nav-trades-mobile .nav-trades-link {
+  text-align: center;
+  border: 1px solid var(--rule-strong);
+  padding: 11px 14px;
+}
