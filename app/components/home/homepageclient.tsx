@@ -139,8 +139,8 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
    section fills the same 1320px content width (`.home-section`). */
 
 /* ── 01 · The website ─────────────────────────────────────────
-   The heading and its line split across the width, then the laptop, taking the whole
-   column, scrolling the growth template (`DemoSiteFrame`). Copy approved word for word,
+   The heading centred with its line under it (`.home-head`, 19 Nov 2026), then the laptop,
+   taking the whole column, scrolling the growth template (`DemoSiteFrame`). Copy approved word for word,
    9 Nov 2026. The caption that sat under the laptop ("What yours could look like.") went in
    the same pass. */
 
@@ -153,11 +153,11 @@ function WebsiteSection() {
   return (
     <section>
       <div className="home-section">
-        <JourneyReveal className="home-split">
+        <JourneyReveal className="home-head">
           {/* Leads with the outcome and hands straight off to section 02, which answers it
               with "Then someone picks up." */}
-          <h2 className="home-display">A website that makes the phone ring.</h2>
-          <div>
+          <h2 className="home-display">A website that makes the <span className="home-em">phone ring.</span></h2>
+          <div className="home-head-copy">
             <p className="home-lede">
               You answer a few questions. We write it, build it and host it. After that, there&apos;s nothing for you to do.
             </p>
@@ -182,8 +182,8 @@ function WebsiteSection() {
 }
 
 /* ── 02 · The receptionist ──────────────────────────────────────
-   On the wash: the heading and one paragraph on the left, the film on the right (stacked,
-   centred, on a phone). The paragraph is the three lines that used to be a numbered, ruled
+   On the wash: the heading and one paragraph centred, the film centred under them, at every
+   width (19 Nov 2026; until then words left and film right on a wide screen). The paragraph is the three lines that used to be a numbered, ruled
    list, now run together as copy; the line above them ("You're with a customer, or it's two
    in the morning. Either way, it picks up.") was removed in the same pass. "24/7" still
    appears in the hero and under "Every plan starts here.", so the page keeps its
@@ -192,15 +192,17 @@ function ReceptionistSection() {
   return (
     <section className="wash">
       <div className="home-section home-duo">
-        <JourneyReveal>
+        <JourneyReveal className="home-head">
           {/* The sequel to section 01's heading, and the middle of the sentence the three
               journey headings make. */}
-          <h2 className="home-display">Then someone picks up.</h2>
+          <h2 className="home-display">Then someone <span className="home-em">picks up.</span></h2>
           {/* The last sentence is where the lead goes: into the portal on every plan, with a
               text telling the owner it is there. */}
-          <p className="home-lede">
-            It asks the questions you&apos;d ask, in English or in Spanish. It captures the lead&apos;s name, number and what the job is. Then the lead goes straight into your portal, and you get a text saying it&apos;s there.
-          </p>
+          <div className="home-head-copy">
+            <p className="home-lede">
+              It asks the questions you&apos;d ask, in English or in Spanish. It captures the lead&apos;s name, number and what the job is. Then the lead goes straight into your portal, and you get a text saying it&apos;s there.
+            </p>
+          </div>
         </JourneyReveal>
         {/* No CTA beside the film by design. The calculator and the closing section carry the
             asks. */}
@@ -233,7 +235,7 @@ function PortalSection() {
     <section id={PORTAL_SECTION_ID} className="journey-section portal-section">
       <JourneyReveal delay={0}>
         {/* Ends the sentence the journey headings make, without a second "Then". */}
-        <h2 className="portal-heading">And nothing slips.</h2>
+        <h2 className="portal-heading">And <span className="home-em">nothing slips.</span></h2>
         {/* Not a button: the play button on the window is the one start, and a second one
             here said the same thing twice. The chevrons point at it. "See how the whole system
             works" until 12 Nov 2026: this is the end piece that ties it together, not the whole
@@ -381,7 +383,7 @@ function MissedCallsCalculator({ onOpenForm }: { onOpenForm: () => void }) {
             before they touch a slider. */}
         <JourneyReveal>
           <h2 className="home-display calc-heading">
-            How much are your <span>missed calls</span> worth?
+            How much are your <span className="home-em">missed calls</span> worth?
           </h2>
           <div className="calc-body">
           {/* All three views stay mounted, stacked in one grid cell. That is what fixes the
@@ -664,9 +666,12 @@ function ClosingSection({ onOpenForm }: { onOpenForm: () => void }) {
     <section className="wash">
       <div className="home-section">
         <JourneyReveal>
+          {/* Centred over the base and the plans (19 Nov 2026), as every section head is. */}
+          <div className="home-head">
+            <h2 className="home-display closing-heading">Every plan <span className="home-em">starts here.</span></h2>
+          </div>
           <div className="closing">
             <div>
-              <h2 className="home-display closing-heading">Every plan starts here.</h2>
               <div className="closing-base">
                 {EVERY_PLAN.map(({ Icon, label, title, detail }) => (
                   <div key={label} className="closing-base-item">
