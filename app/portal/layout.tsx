@@ -5,6 +5,9 @@ import { clerkAppearance, clerkLocalization } from "./clerkAppearance";
 export const metadata: Metadata = {
     title: "Client Portal | Juneau Digital Designs",
     description: "View your site analytics, call logs, and performance metrics.",
+    // Every portal page, sign-in and sign-up included, stays out of search results. The pages
+    // behind the login redirect crawlers to sign-in, so sign-in is the one they would list.
+    robots: { index: false, follow: false },
 };
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {

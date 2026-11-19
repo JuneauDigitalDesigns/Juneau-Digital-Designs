@@ -1,13 +1,15 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "@/app/lib/site-seo";
 import type { ReactNode } from "react";
 import { smsConsentCopy, splitConsentText } from "@/app/lib/sms-consent-text";
 import { ownerTextCampaign } from "@/app/lib/owner-text-campaign";
 import { PROGRAM_ONE_COPY } from "./samples";
 
-export const metadata = {
-    title: "SMS Terms | Juneau Digital Designs",
-    description:
-        "Terms for the two text messaging programs involved in Juneau Digital Designs service: the Call Alerts program we send to account holders, and the customer messages a client's own business sends from its own number.",
-};
+export const metadata: Metadata = pageMetadata(
+    "/sms-terms",
+    "SMS Terms | Juneau Digital Designs",
+    "Terms for the two text messaging programs involved in Juneau Digital Designs service: the Call Alerts program we send to account holders, and the customer messages a client's own business sends from its own number.",
+);
 
 /**
  * Public messaging program disclosure.

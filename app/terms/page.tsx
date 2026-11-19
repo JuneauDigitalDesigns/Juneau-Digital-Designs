@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/app/lib/site-seo";
 import Link from "next/link";
 import { getTermsForPlan } from "@/app/lib/legal";
 import { hashTermsForPlan } from "@/app/lib/legal/hash";
 import type { Block, Section } from "@/app/lib/legal/types";
 import type { PlanSlug } from "@/app/lib/agreement-types";
 
-export const metadata: Metadata = {
-    title: "Terms of Service | Juneau Digital Designs",
-    description:
-        "The Juneau Digital Designs Terms of Service, with the plan summary for each plan, as clients accept them at checkout.",
-};
+export const metadata: Metadata = pageMetadata(
+    "/terms",
+    "Terms of Service | Juneau Digital Designs",
+    "The Juneau Digital Designs Terms of Service, with the plan summary for each plan, as clients accept them at checkout.",
+);
 
 /**
  * The public Terms of Service.
