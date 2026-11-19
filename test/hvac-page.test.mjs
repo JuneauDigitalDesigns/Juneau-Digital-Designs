@@ -58,6 +58,8 @@ test("the hero and the 'when it picks up' beats are the approved words", () => {
         "/hvac",
     );
     says(prose(start), ["Get started", "View plans + pricing", 'href="/pricing"'], "the hero asks");
+    // Every Get Started goes to /contact since the homepage redesign (Xander, 19 Nov 2026).
+    assert.match(start, /<Link href="\/contact" className="btn primary lg">\s*Get started\s*<\/Link>/);
 });
 
 test("the receptionist is named before the page calls it 'it'", () => {
@@ -193,8 +195,8 @@ test("the searches are the real ones, with their published monthly counts and so
 });
 
 test("the calculator is the homepage's sum, with the homepage's rates", () => {
-    // The homepage keeps its own copy inside its component. If one moves, both must.
-    const home = read("app/components/home/homepageclient.tsx");
+    // The homepage keeps its own copy inside its calculator. If one moves, both must.
+    const home = read("app/components/home/YearCalculator.tsx");
     assert.equal(Number(home.match(/const LEAD_RATE = ([\d.]+)/)[1]), LEAD_RATE);
     assert.equal(Number(home.match(/const CLOSE_RATE = ([\d.]+)/)[1]), CLOSE_RATE);
     assert.equal(Number(home.match(/const AI_RECOVERY_RATE = ([\d.]+)/)[1]), AI_RECOVERY_RATE);

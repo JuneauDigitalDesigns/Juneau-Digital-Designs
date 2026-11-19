@@ -56,9 +56,9 @@ test("the contact hero and the ways to reach us are the approved words", () => {
 });
 
 test("the form is the shared LeadForm, not a copy, and sends to the thank-you page", () => {
-    // The contact page renders the same component the slide-over does.
+    // The contact page renders the same component the homepage hero does.
     assert.match(read("app/contact/ContactForm.tsx"), /from "@\/app\/components\/lead\/LeadForm"/);
-    assert.match(read("app/components/home/LeadPanel.tsx"), /from "..\/lead\/LeadForm"/);
+    assert.match(read("app/components/home/HeroForm.tsx"), /from "@\/app\/components\/lead\/LeadForm"/);
     // The approved fields and the human check live in LeadForm, once.
     says(
         leadForm,

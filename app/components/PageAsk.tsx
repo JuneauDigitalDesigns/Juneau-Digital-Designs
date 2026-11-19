@@ -1,21 +1,10 @@
-"use client";
-
-import { useState } from "react";
 import ClosingAsk from "./home/ClosingAsk";
-import LeadPanel from "./home/LeadPanel";
 
 /**
- * A page's closing ask: the homepage's two asks, with the same lead form behind Get Started.
- *
- * Was `components/faq/FaqAsk.tsx`, which only /faq used. /about closes on the same two asks, so
- * the one component now takes the class its page styles it with rather than being copied.
+ * A page's closing ask: the same two asks on /faq, /about and /hvac, styled by the class each page
+ * passes. Get Started goes to /contact (Xander, 19 Nov 2026); until then this component also held
+ * the slide-over form it opened.
  */
 export default function PageAsk({ className }: { className: string }) {
-  const [formOpen, setFormOpen] = useState(false);
-  return (
-    <>
-      <ClosingAsk onOpenForm={() => setFormOpen(true)} className={className} />
-      {formOpen && <LeadPanel onClose={() => setFormOpen(false)} />}
-    </>
-  );
+  return <ClosingAsk className={className} />;
 }

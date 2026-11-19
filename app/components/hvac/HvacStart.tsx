@@ -1,26 +1,19 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
-import LeadPanel from "../home/LeadPanel";
 
 /**
- * /hvac's first two asks, under the heading: the same Get started form every page opens, and the
- * pricing page. The page's last asks are `PageAsk`, as on /about and /faq.
+ * /hvac's first two asks, under the heading: Get started, which goes to /contact as every Get
+ * Started on the site does since the homepage redesign (Xander, 19 Nov 2026), and the pricing
+ * page. The page's last asks are `PageAsk`, as on /about and /faq. Words unchanged.
  */
 export default function HvacStart() {
-    const [formOpen, setFormOpen] = useState(false);
     return (
-        <>
-            <div className="hvac-acts">
-                <button type="button" onClick={() => setFormOpen(true)} className="btn primary lg">
-                    Get started
-                </button>
-                <Link href="/pricing" className="btn ghost lg">
-                    View plans + pricing
-                </Link>
-            </div>
-            {formOpen && <LeadPanel onClose={() => setFormOpen(false)} />}
-        </>
+        <div className="hvac-acts">
+            <Link href="/contact" className="btn primary lg">
+                Get started
+            </Link>
+            <Link href="/pricing" className="btn ghost lg">
+                View plans + pricing
+            </Link>
+        </div>
     );
 }

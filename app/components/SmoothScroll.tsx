@@ -21,7 +21,6 @@ import "lenis/dist/lenis.css";
  *
  * Anything that scrolls on its own inside a marketing page (a modal, a long dropdown) needs
  * `data-lenis-prevent` on its scroll container, or the wheel scrolls the page behind it.
- * LeadPanel's sheet carries it.
  */
 export default function SmoothScroll() {
     useEffect(() => {
@@ -35,7 +34,7 @@ export default function SmoothScroll() {
             // Same-page links (#cta, #pricing) glide through Lenis rather than jumping.
             anchors: true,
             // Pause whenever something locks the page by setting `overflow: hidden` on
-            // <html> (LeadPanel does), and resume when it lets go, so a modal's scroll lock
+            // <html>, and resume when it lets go, so a modal's scroll lock
             // holds without that modal needing a handle on this instance.
             autoToggle: true,
         });

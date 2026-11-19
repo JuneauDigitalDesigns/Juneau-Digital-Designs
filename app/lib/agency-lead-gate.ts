@@ -3,7 +3,7 @@ import { siteverify, type Verification } from "./turnstile-verify";
 import { within } from "./lead-admit";
 
 /**
- * The human check for the agency's own "Get started" form (`LeadPanel` → `/api/lead`), Xander,
+ * The human check for the agency's own "Get started" form (`LeadForm` → `/api/lead`), Xander,
  * 2026-11-19: "I want to be sure that it's checking to see that the people submitting those are
  * actually people and not bots".
  *

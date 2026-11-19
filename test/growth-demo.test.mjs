@@ -43,7 +43,7 @@ import {
 } from "../app/components/portal/growth-demo/script.ts";
 import { boardRows, daveTimeline, demoNow, inboxItems, recordData } from "../app/components/portal/growth-demo/sample.ts";
 import { TRADE_SAMPLES, tradeSample } from "../app/data/trade-samples.ts";
-import { CARRIER_LINE, DEMO_STEPS } from "../app/data/portal-demo.ts";
+import { CARRIER_LINE } from "../app/data/portal-demo.ts";
 
 const DIR = "app/components/portal/growth-demo";
 const read = (p) => readFileSync(p, "utf8");
@@ -492,22 +492,5 @@ test("the cursor and the taps scroll only inside the replica, never the page (20
     assert.match(read(`${DIR}/PhoneReplica.tsx`), /end\.scrollIntoView = \(\) => \{\s*list\.scrollTop = list\.scrollHeight;/);
 });
 
-/* ── the homepage's phone demo, on the same scenes ────────────────────── */
-
-test("the homepage phone demo's windows fit the phone scenes and show each step's part", () => {
-    const src = read("app/components/home/PortalDemoMobile.tsx");
-    const block = src.slice(src.indexOf("const STEPS"), src.indexOf("];", src.indexOf("const STEPS")));
-    const steps = [...block.matchAll(/\{ scene: (\d), from: (\d+), to: (\d+) \}/g)].map((m) => ({ scene: +m[1], from: +m[2], to: +m[3] }));
-    assert.equal(steps.length, DEMO_STEPS.length);
-    for (const s of steps) assert.ok(s.from < s.to && s.to <= DURATION[`s${s.scene}`], JSON.stringify(s));
-    const [inbox, promote, pipeline, message, review] = steps;
-    const at = (s, ms) => phone(s.scene, ms);
-    assert.ok(at(inbox, inbox.to).leadOpen && !at(inbox, inbox.to).promoting, "Inbox: Dave's lead is open");
-    assert.ok(!at(promote, promote.from).promoted && at(promote, promote.to).promoted, "Promote: he is promoted");
-    assert.deepEqual([at(pipeline, pipeline.from).daveStage, at(pipeline, pipeline.to).daveStage], [0, 3], "Pipeline: Lead to Scheduled");
-    assert.ok(!at(message, message.from).thread && at(message, message.to).thread && at(message, message.to).reply, "Message: texted and answered");
-    assert.ok(!at(review, review.from).toast && at(review, review.to).toast, "Review: one tap and its note");
-    assert.match(src, /sceneView\(seg\.scene, t, \{ phone: true, sms: SAMPLE\.sms \}\)/);
-    assert.match(src, /tradeSample\("hvac"\)/, "the homepage stays the HVAC shop");
-    assert.match(src, /framed \/>/);
-});
+/* The homepage's own phone demo, which played these scenes, went with the homepage redesign
+   (19 Nov 2026); its test went with it. */
