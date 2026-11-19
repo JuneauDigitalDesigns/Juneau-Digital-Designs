@@ -368,8 +368,9 @@ export default function OnboardingPageClient({
         }
         setUploadError(slot, null);
         markBusy(slot, true);
-        const kind: PrepKind = slot === "logo" ? "logo" : "photo";
-        // Job photos only (general and per-service), never the logo or the team photo.
+        // Both logos keep their transparency (WebP or PNG, never JPEG).
+        const kind: PrepKind = slot === "logo" || slot === "monogram" ? "logo" : "photo";
+        // Job photos only (general and per-service), never a logo or the team photo.
         const isJobPhoto = slot === "hero" || slot.startsWith("svc:");
         const guess = isJobPhoto ? (f: File) => guessPhotoTown(f, state.towns, state.address) : undefined;
         try {
@@ -385,6 +386,8 @@ export default function OnboardingPageClient({
         errors: uploadErrors,
         logo: (files: File[]) =>
             void runUpload("logo", files.slice(0, 1), ([meta]) => setState((p) => ({ ...p, logoChoice: "", images: { ...p.images, logo: meta } }))),
+        monogram: (files: File[]) =>
+            void runUpload("monogram", files.slice(0, 1), ([meta]) => setState((p) => ({ ...p, logoChoice: "", images: { ...p.images, monogram: meta } }))),
         work: (files: File[]) =>
             void runUpload("hero", files.slice(0, MAX_WORK_PHOTOS - state.images.heroSlides.length), (metas) =>
                 setState((p) => ({ ...p, images: { ...p.images, heroSlides: [...p.images.heroSlides, ...metas].slice(0, MAX_WORK_PHOTOS) } })),

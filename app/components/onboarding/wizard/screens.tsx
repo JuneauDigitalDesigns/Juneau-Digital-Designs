@@ -34,7 +34,11 @@ import {
     customerOptions,
     diffOptions,
     emptyFacts,
+    exampleInitials,
+    logoShapeNudge,
+    logoSummary,
     modesFor,
+    moveLogo,
     openService,
     profilesForPayload,
     screenErrors,
@@ -49,6 +53,7 @@ import {
     type ServiceFacts,
     type ServiceStatus,
     type ServiceStepId,
+    type LogoSlot,
     type WizardContext,
     type WizardPrefill,
     type WizardState,
@@ -110,7 +115,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
         case "radius": return { q: "How far do you travel for mobile service?", help: "In miles. Leave blank if you don't offer mobile service." };
         case "offer": return { q: "Any current promotional offer?", help: "Shown as a small ribbon on the site. Leave blank if none." };
         case "tagline": return { q: C.taglineQ, help: C.taglineHelp }; // T3, T4 (2026-11-11)
-        case "logo": return { q: "Do you have a logo?", help: "PNG, JPG or WebP, up to 10 MB. A clear, high-quality version is best." };
+        case "logo": return { q: "Do you have a logo?", help: C.logoHelp }; // W1 (unchanged), W2 (2026-11-19)
         case "photos": return { q: C.photosQ, help: C.photosHelp }; // P1, P2 (2026-11-11)
         case "voice": return { q: "How should your site sound?", help: "Pick up to three. It steers how we write." };
         case "setup": return { q: "How will calls reach your receptionist?", help: "Your receptionist never answers before you do. It only picks up when nobody else does." };
@@ -132,7 +137,10 @@ export type ScreenProps = {
     uploads: {
         busy: Set<string>;
         errors: Record<string, string>;
+        /** The wide logo, the footer's wordmark (`images.logo`). */
         logo: (files: File[]) => void;
+        /** The square logo, the nav's monogram (`images.monogram`). */
+        monogram: (files: File[]) => void;
         work: (files: File[]) => void;
         team: (files: File[]) => void;
         /** Photos for one service's details, by service name. Busy/error slot: `svc:<name>`. */
@@ -1162,37 +1170,106 @@ function SitesScreen({ state, update, extra }: ScreenProps) {
     );
 }
 
+/**
+ * Two logos (Xander, 2026-11-19, mockup https://claude.ai/artifact/Lmg7cMwAiivdPsPsNKaiB9): the
+ * square logo is the nav's monogram (`images.monogram`), the wide logo the footer's wordmark
+ * (`images.logo`). Both optional. Words W2 to W14 are in copy-service-details.ts.
+ */
 function LogoScreen({ state, update, uploads }: ScreenProps) {
-    const logo = state.images.logo;
-    if (logo) {
-        return (
-            <div className={`${s.drop} ${s.narrow}`} style={{ borderStyle: "solid", cursor: "default" }}>
-                <span className={s.thumb} style={{ width: 64, height: 48 }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logo.url} alt="Logo preview" style={{ objectFit: "contain" }} />
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                    <b style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{logo.filename}</b>
-                </span>
-                <button type="button" className={s.lnk} onClick={() => update({ images: { ...state.images, logo: undefined } })}>Replace</button>
-            </div>
-        );
-    }
+    const { monogram, logo } = state.images;
+    // Width over height of each uploaded file, by URL, measured as its preview loads (W14).
+    const [ratios, setRatios] = useState<Record<string, number>>({});
+    const boxes: { slot: LogoSlot; title: string; what: string; upload: string; shown: string; onFiles: (f: File[]) => void }[] = [
+        { slot: "monogram", title: C.logoSquare, what: C.logoSquareWhat, upload: C.logoUploadSquare, shown: C.logoShownTop, onFiles: uploads.monogram },
+        { slot: "logo", title: C.logoWide, what: C.logoWideWhat, upload: C.logoUploadWide, shown: C.logoShownBottom, onFiles: uploads.logo },
+    ];
+    const one = !!monogram !== !!logo;
     return (
-        <div className={s.narrow} style={{ display: "grid", gap: 10 }}>
-            <FilePicker accept={ACCEPT} onFiles={uploads.logo} className={s.drop}>
-                <span style={{ fontSize: 26 }} aria-hidden="true">⤒</span>
-                <span>
-                    <b>{uploads.busy.has("logo") ? "Uploading…" : "Upload your logo"}</b>
-                    <small>Drag it here or tap to choose a file</small>
-                </span>
-            </FilePicker>
-            {uploads.errors.logo ? <p className={s.err} role="alert">{uploads.errors.logo}</p> : null}
-            <button type="button" className={s.opt} aria-pressed={state.logoChoice === "design"} onClick={() => update({ logoChoice: state.logoChoice === "design" ? "" : "design" })}>
-                <span className={s.optLabel}>Not yet. Design one for me.</span>
-                <span className={s.optDetail}>We&apos;ll design a simple logo for you.</span>
-            </button>
+        <div className={s.logoGrid}>
+            {boxes.map((b) => {
+                const file = state.images[b.slot];
+                if (!file) {
+                    return (
+                        <div key={b.slot} className={s.logoCell}>
+                            <FilePicker accept={ACCEPT} onFiles={b.onFiles} className={`${s.drop} ${s.logoBox}`} ariaLabel={b.upload}>
+                                <LogoExample slot={b.slot} name={state.name} />
+                                <span className={s.logoText}>
+                                    <b>{b.title}</b>
+                                    <span className={s.logoWhat}>{b.what}</span>
+                                    <span className={s.logoUp}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V4" /><path d="M7 9l5-5 5 5" /><path d="M5 20h14" /></svg>
+                                        {uploads.busy.has(b.slot) ? "Uploading…" : b.upload}
+                                    </span>
+                                </span>
+                            </FilePicker>
+                            {uploads.errors[b.slot] ? <p className={s.err} role="alert">{uploads.errors[b.slot]}</p> : null}
+                        </div>
+                    );
+                }
+                const nudge = logoShapeNudge(b.slot, ratios[file.url] ?? NaN);
+                return (
+                    <div key={b.slot} className={s.logoCard}>
+                        <b className={s.logoCardT}>{b.title}</b>
+                        <div className={s.logoCardRow}>
+                            <span className={`${s.logoThumb} ${b.slot === "logo" ? s.logoThumbWide : ""}`}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={file.url}
+                                    alt=""
+                                    onLoad={(e) => {
+                                        const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                                        if (w && h) setRatios((r) => ({ ...r, [file.url]: w / h }));
+                                    }}
+                                />
+                            </span>
+                            <span className={s.logoFile}>
+                                <b>{file.filename}</b>
+                                <small>{b.shown}</small>
+                            </span>
+                            <button type="button" className={s.lnk} onClick={() => update({ images: { ...state.images, [b.slot]: undefined } })}>Replace</button>
+                        </div>
+                        {nudge ? (
+                            <p className={s.logoNudge} role="status">
+                                <span>{nudge}</span>
+                                <button type="button" className={s.addBtn} onClick={() => update({ images: moveLogo(state.images, b.slot) })}>{C.logoMove}</button>
+                            </p>
+                        ) : null}
+                    </div>
+                );
+            })}
+            {one ? <p className={s.logoNote}>{monogram ? C.logoNoWide : C.logoNoSquare}</p> : null}
+            {!monogram && !logo ? (
+                <button type="button" className={`${s.opt} ${s.logoSpan}`} aria-pressed={state.logoChoice === "design"} onClick={() => update({ logoChoice: state.logoChoice === "design" ? "" : "design" })}>
+                    <span className={s.optLabel}>Not yet. Design one for me.</span>
+                    <span className={s.optDetail}>We&apos;ll design a simple logo for you.</span>
+                </button>
+            ) : null}
         </div>
+    );
+}
+
+/**
+ * The drawn example beside each empty box (W8), made from the client's own business name, as the
+ * mockup drew it for its test business: initials in a square, or the name set out wide.
+ */
+function LogoExample({ slot, name }: { slot: LogoSlot; name: string }) {
+    const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
+    return (
+        <span className={s.logoEx} aria-hidden="true">
+            {slot === "monogram" ? (
+                <span className={`${s.logoExTile} ${s.logoExSq}`}>
+                    <span className={s.logoExMark}>{exampleInitials(name)}</span>
+                </span>
+            ) : (
+                <span className={`${s.logoExTile} ${s.logoExWide}`}>
+                    <span className={s.logoExWord}>
+                        <span>{words[0] ?? ""}</span>
+                        {words.length > 1 ? <small>{words.slice(1).join(" ")}</small> : null}
+                    </span>
+                </span>
+            )}
+            <small className={s.logoExCap}>{C.logoLikeThis}</small>
+        </span>
     );
 }
 
@@ -1323,7 +1400,7 @@ export function summaryLines(id: string, st: WizardState): string[] {
         case "certs": return [st.certs.join(", ")];
         case "reviews": return [t(st.rating) && t(st.reviewCount) ? `${t(st.rating)} stars from ${t(st.reviewCount)} reviews` : "", t(st.reviewUrl) ? "Review link added" : ""];
         case "tagline": return [st.tagline.trim()];
-        case "logo": return [st.images.logo ? "Uploaded" : st.logoChoice === "design" ? "We'll design one" : ""];
+        case "logo": return [logoSummary(st)];
         case "photos": return [st.images.heroSlides.length ? `${st.images.heroSlides.length} work photos` : "", st.images.aboutFeature ? "Team photo" : ""];
         case "voice": return [st.voice.join(", ")];
         case "setup": return [RECEPTIONIST_OPTIONS.find((o) => o.id === st.receptionistMode)?.label ?? ""];

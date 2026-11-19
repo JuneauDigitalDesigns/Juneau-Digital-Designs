@@ -327,6 +327,9 @@
 .sTowns { display: flex; gap: 4px; flex-wrap: wrap; }
 .sTowns span { font-size: 9px; background: var(--s-soft-bg); border-radius: 4px; padding: 2px 6px; }
 .sFoot { margin-top: auto; background: var(--s-ink); color: var(--s-bg); padding: 9px 14px; display: flex; gap: 12px; font-size: 9px; align-items: center; flex-wrap: wrap; flex: none; }
+/* The footer's logo: on a white tile, as the templates' brand box draws it. */
+.sFootLogo { display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #222; border-radius: 5px; padding: 3px 6px; }
+.sFootLogo img { height: 16px; width: auto; max-width: 90px; object-fit: contain; filter: grayscale(1); }
 .hl { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; animation: pulse 1.6s ease 2; }
 @keyframes pulse { 50% { outline-color: transparent; } }
 @media (prefers-reduced-motion: reduce) { .hl { animation: none; } }
@@ -471,3 +474,40 @@
 .beforeAdd { width: 120px; min-height: 32px; display: grid; place-items: center; border: 1.5px dashed var(--rule-strong); border-radius: 8px; background: transparent; color: var(--fg-2); font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 6px; }
 .beforeAdd:hover { color: var(--fg); border-color: var(--fg-3); }
 .beforeHelp { margin: 10px 0 0; font-size: 13px; color: var(--fg-3); }
+
+/* ── Logo step: a square and a wide logo (2026-11-19) ──
+   One column at every width, as the approved phone boards: each box is the drawn example, then the
+   words and the upload line. An uploaded file shows as a card with its preview and Replace. */
+/* minmax(0, 1fr): a long file name ellipsizes instead of widening the card past the screen. */
+.logoGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; max-width: 600px; }
+.logoCell { display: grid; gap: 6px; }
+.logoBox { align-items: flex-start; padding: 14px; }
+.logoText { min-width: 0; }
+.logoText b { font-size: 15px; }
+.logoWhat { display: block; font-size: 13px; color: var(--fg-2); margin-top: 2px; }
+.logoUp { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-weight: 700; font-size: 13.5px; color: var(--accent); }
+.logoEx { flex: none; width: 96px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.logoExTile { height: 56px; border-radius: 12px; background: var(--elev-1); border: 1px solid var(--rule); display: grid; place-items: center; overflow: hidden; }
+.logoExSq { width: 56px; }
+.logoExWide { width: 96px; }
+.logoExMark { width: 40px; height: 40px; border-radius: 10px; background: var(--fg); color: var(--bg); display: grid; place-items: center; font-weight: 800; font-size: 15px; letter-spacing: 0.02em; }
+.logoExWord { display: flex; flex-direction: column; align-items: center; line-height: 1; max-width: 88px; text-align: center; }
+.logoExWord span { font-weight: 800; font-size: 12px; letter-spacing: 0.06em; color: var(--fg); max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logoExWord small { font-weight: 600; font-size: 6.5px; letter-spacing: 0.18em; color: var(--fg-2); margin-top: 3px; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop small.logoExCap { font-size: 11px; color: var(--fg-3); }
+.logoCard { border: 1.5px solid var(--rule-strong); border-radius: 16px; padding: 14px; background: var(--elev-1); }
+.logoCardT { display: block; font-size: 15px; margin-bottom: 8px; }
+.logoCardRow { display: flex; align-items: center; gap: 14px; }
+.logoThumb { width: 64px; height: 64px; border-radius: 10px; border: 1px solid var(--rule); background: var(--surface); display: grid; place-items: center; flex: none; overflow: hidden; padding: 6px; box-sizing: border-box; }
+.logoThumbWide { width: 120px; }
+.logoThumb img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.logoFile { flex: 1; min-width: 0; }
+.logoFile b { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logoFile small { color: var(--fg-3); font-size: 12.5px; }
+.logoNudge { margin: 10px 0 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--fg-2); }
+.logoNote { margin: 2px 2px 0; font-size: 13px; color: var(--fg-3); }
+.logoSpan { margin-bottom: 0; }
+@media (min-width: 900px) {
+  .logoThumb { width: 80px; height: 80px; }
+  .logoThumbWide { width: 160px; }
+}

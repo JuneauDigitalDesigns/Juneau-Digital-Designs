@@ -238,7 +238,9 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
     const heroSlides = Array.isArray(rawImages.heroSlides)
         ? rawImages.heroSlides.slice(0, 10).map(sanitizeImageMeta).filter((x): x is { url: string; filename: string; alt: string } => x !== null)
         : [];
+    // v1.42.0: `logo` is the wide logo (the footer's wordmark), `monogram` the square one (the nav's).
     const logo = rawImages.logo ? sanitizeImageMeta(rawImages.logo) ?? undefined : undefined;
+    const monogram = rawImages.monogram ? sanitizeImageMeta(rawImages.monogram) ?? undefined : undefined;
     const aboutFeature = rawImages.aboutFeature ? sanitizeImageMeta(rawImages.aboutFeature) ?? undefined : undefined;
 
     const additionalSites = Array.isArray(body.additionalSites)
@@ -312,7 +314,7 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
         },
         palette: sanitizePalette(body.palette),
         hasLogo: Boolean(body.hasLogo),
-        images: { logo, heroSlides, aboutFeature },
+        images: { logo, ...(monogram ? { monogram } : {}), heroSlides, aboutFeature },
         existingWebsiteUrl: sanitize(body.existingWebsiteUrl, 500),
         announcement: sanitize(body.announcement, 300),
         stats: sanitizeStats(body.stats),
