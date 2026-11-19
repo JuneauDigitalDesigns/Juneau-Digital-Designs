@@ -50,7 +50,19 @@ test("the footer keeps its pages, legal links and credit line", () => {
     assert.match(footer, /WEBSITES \/ HOSTING \/ AI RECEPTIONIST/);
 });
 
-test("the nav does not carry the number", () => {
+/*
+ * Reversed on 19 Nov 2026. The nav deliberately carried no number from 12 Nov, so that the
+ * footer was the one place it appeared; Xander then asked for it in the bar as a button that
+ * dials: "I also want to put the phone number from the contact at the top and a call to action
+ * button. When clicked, you can call the phone number."
+ *
+ * The test is kept rather than deleted, inverted to the new rule, so the number still cannot
+ * drift into a third place or be typed in by hand anywhere.
+ */
+test("the nav dials the contact number, and never a hand-typed copy of it", () => {
     const nav = readFileSync("app/components/navbar/navbar.tsx", "utf8");
-    assert.doesNotMatch(nav, /CONTACT\.phone|407\) 984/);
+    assert.match(nav, /href=\{CONTACT\.phoneHref\}/, "the nav's call button does not dial the contact number");
+    assert.match(nav, /\{CONTACT\.phoneDisplay\}/, "the nav does not show the number from app/data/contact.ts");
+    // A typed-out number is the bug this file exists to catch: it survives a change to CONTACT.
+    assert.doesNotMatch(nav, /407\)\s*984/, "the number is hard-coded in the nav");
 });

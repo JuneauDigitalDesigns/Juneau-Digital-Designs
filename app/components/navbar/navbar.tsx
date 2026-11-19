@@ -1,10 +1,21 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { CONTACT } from "@/app/data/contact";
 import { TRADE_PAGES } from "@/app/data/trade-pages";
 import TradesMenu, { Chevron } from "./TradesMenu";
+import { DoorGlyph, PhoneGlyph } from "./NavIcons";
+
+/** The pages in the middle of the bar, left to right. Trades sits between About and Contact. */
+const LINKS: { href: string; label: string }[] = [
+    { href: "/", label: "Home" },
+    { href: "/about", label: "About" },
+    { href: "/contact", label: "Contact" },
+    { href: "/pricing", label: "Pricing" },
+];
 
 export default function Navbar() {
     const [showNav, setShowNav] = useState(false);
@@ -12,6 +23,7 @@ export default function Navbar() {
     const [showTrades, setShowTrades] = useState(false);
     const navRef = useRef<HTMLDivElement>(null);
     const reduceMotion = useReducedMotion();
+    const pathname = usePathname();
 
     /* Closing the menu also collapses Trades, so reopening it never starts expanded. Done here
        rather than in an effect on `showNav`: the two belong to the same action. */
@@ -30,6 +42,9 @@ export default function Navbar() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    /* Home only counts as current on "/" itself; every other link also covers the pages beneath
+       it, so /contact/thank-you still shows Contact as where you are. */
+    const isCurrent = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
 
     return (
         <div
@@ -44,55 +59,89 @@ export default function Navbar() {
                 borderBottom: "1px solid var(--rule)",
             }}
         >
-            <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-3 px-4 sm:px-6">
-                <Link href="/" aria-label="Go to home page" className="flex items-center gap-3 hover:cursor-pointer">
-                    <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-16" />
+            {/* Three zones, not one row pushed right (Xander, 19 Nov 2026): the logo, the pages
+                centred in the bar, and the two actions hard against the right edge. The middle
+                column is what centres the links, and it stays centred in the bar rather than
+                between its neighbours, so the row does not drift as pages are added.
+
+                One filled button only. Two coral buttons meant neither was the ask; now the
+                phone is the ask and Portal is the way back in for people who already bought. */}
+            <div className="nav-bar mx-auto w-full max-w-7xl px-4 sm:px-6">
+                <Link href="/" aria-label="Go to home page" className="flex items-center hover:cursor-pointer">
+                    <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-14" />
                 </Link>
 
-                {/* Desktop nav, pinned far right. Three outlined pills (About, Trades, Contact)
-                    then the two coral asks: the outline says "another page", the fill says "do
-                    this", so the row still has one primary pair rather than five equal buttons. */}
-                <div className="ml-auto hidden items-center gap-4 md:flex">
-                    <Link href="/about" className="nav-pill">
-                        About
-                    </Link>
-                    <TradesMenu />
-                    <Link href="/contact" className="nav-pill">
-                        Contact
-                    </Link>
-                    <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
-                        View Pricing
-                    </Link>
-                    <Link href="/portal" className="btn primary" style={{ fontSize: 14 }}>
+                <nav className="nav-links" aria-label="Pages">
+                    {LINKS.map((link) =>
+                        link.href === "/contact" ? (
+                            /* Trades belongs between About and Contact, and it is a menu rather
+                               than a link, so it is placed here instead of sitting in LINKS. */
+                            <span key="trades-and-contact" className="contents">
+                                <TradesMenu />
+                                <Link
+                                    href={link.href}
+                                    className={`nav-link${isCurrent(link.href) ? " nav-link-current" : ""}`}
+                                    aria-current={isCurrent(link.href) ? "page" : undefined}
+                                >
+                                    {link.label}
+                                </Link>
+                            </span>
+                        ) : (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                className={`nav-link${isCurrent(link.href) ? " nav-link-current" : ""}`}
+                                aria-current={isCurrent(link.href) ? "page" : undefined}
+                            >
+                                {link.label}
+                            </Link>
+                        ),
+                    )}
+                </nav>
+
+                <div className="nav-actions">
+                    {/* The number itself, not "Call": it is more use to someone deciding whether
+                        to ring, and a bare number is harder to mistake for a form. */}
+                    <a href={CONTACT.phoneHref} className="btn primary nav-tel">
+                        <PhoneGlyph />
+                        {CONTACT.phoneDisplay}
+                    </a>
+                    <Link href="/portal" className="nav-portal">
+                        <DoorGlyph />
                         Portal
                     </Link>
-                </div>
 
-                {/* Mobile hamburger */}
-                <button
-                    type="button"
-                    aria-label={showNav ? "Close navigation menu" : "Open navigation menu"}
-                    className="ml-auto select-none md:hidden"
-                    style={{ color: "var(--fg)" }}
-                    onClick={() => (showNav ? closeNav() : setShowNav(true))}
-                >
-                    <motion.div
-                        key={showNav ? "close" : "open"}
-                        initial={{ opacity: 0, rotate: showNav ? -90 : 90 }}
-                        animate={{ opacity: 1, rotate: 0 }}
-                        exit={{ opacity: 0, rotate: showNav ? 90 : -90 }}
-                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="text-3xl leading-none"
+                    {/* Mobile: the call button stays in the bar rather than going in the menu,
+                        since dialling is the likeliest thing a visitor on a phone wants. */}
+                    <a href={CONTACT.phoneHref} className="btn primary nav-tel-sm" aria-label={`Call ${CONTACT.phoneDisplay}`}>
+                        <PhoneGlyph size={16} />
+                    </a>
+                    <button
+                        type="button"
+                        aria-label={showNav ? "Close navigation menu" : "Open navigation menu"}
+                        aria-expanded={showNav}
+                        className="nav-burger select-none"
+                        onClick={() => (showNav ? closeNav() : setShowNav(true))}
                     >
-                        {showNav ? "✕" : "☰"}
-                    </motion.div>
-                </button>
+                        <motion.span
+                            key={showNav ? "close" : "open"}
+                            initial={{ opacity: 0, rotate: showNav ? -90 : 90 }}
+                            animate={{ opacity: 1, rotate: 0 }}
+                            exit={{ opacity: 0, rotate: showNav ? 90 : -90 }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className="block text-3xl leading-none"
+                        >
+                            {showNav ? "✕" : "☰"}
+                        </motion.span>
+                    </button>
+                </div>
             </div>
 
-            {/* Mobile menu */}
+            {/* Mobile menu: the same items in the same order as the bar above. */}
             <AnimatePresence>
                 {showNav && (
                     <motion.div
+                        key="mobile-menu"
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
@@ -106,22 +155,18 @@ export default function Navbar() {
                             color: "var(--fg)",
                         }}
                     >
-                        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
-                            {/* Same pair as the desktop bar, in the same order. Trades expands in
-                                place rather than dropping over the page: there is nothing beside
-                                it on a phone for a floating panel to sit against. */}
-                            <Link
-                                className="nav-pill w-full justify-center"
-                                href="/about"
-                                onClick={closeNav}
-                            >
+                        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4">
+                            <Link href="/" className="nav-link-sm" onClick={closeNav}>
+                                Home
+                            </Link>
+                            <Link href="/about" className="nav-link-sm" onClick={closeNav}>
                                 About
                             </Link>
                             <button
                                 type="button"
-                                className="nav-pill w-full justify-center"
+                                className="nav-link-sm"
                                 aria-expanded={showTrades}
-                                onClick={() => setShowTrades(prev => !prev)}
+                                onClick={() => setShowTrades((prev) => !prev)}
                             >
                                 Trades
                                 <Chevron open={showTrades} />
@@ -136,13 +181,9 @@ export default function Navbar() {
                                         exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
                                         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                                     >
-                                        {TRADE_PAGES.map(trade => (
+                                        {TRADE_PAGES.map((trade) => (
                                             <li key={trade.href}>
-                                                <Link
-                                                    href={trade.href}
-                                                    className="nav-trades-link"
-                                                    onClick={closeNav}
-                                                >
+                                                <Link href={trade.href} className="nav-trades-link" onClick={closeNav}>
                                                     {trade.label}
                                                 </Link>
                                             </li>
@@ -150,25 +191,14 @@ export default function Navbar() {
                                     </motion.ul>
                                 )}
                             </AnimatePresence>
-                            <Link
-                                className="nav-pill w-full justify-center"
-                                href="/contact"
-                                onClick={closeNav}
-                            >
+                            <Link href="/contact" className="nav-link-sm" onClick={closeNav}>
                                 Contact
                             </Link>
-                            <Link
-                                className="btn primary w-full justify-center"
-                                href="/pricing"
-                                onClick={closeNav}
-                            >
-                                See Plans
+                            <Link href="/pricing" className="nav-link-sm" onClick={closeNav}>
+                                Pricing
                             </Link>
-                            <Link
-                                className="btn primary w-full justify-center"
-                                href="/portal"
-                                onClick={closeNav}
-                            >
+                            <Link href="/portal" className="nav-portal nav-portal-sm" onClick={closeNav}>
+                                <DoorGlyph size={16} />
                                 Portal
                             </Link>
                         </div>
