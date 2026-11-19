@@ -40,10 +40,10 @@ export const metadata: Metadata = pageMetadata(
 /**
  * Xander's photo, and what a screen reader reads in its place.
  *
- * His own words approve this string; it describes a real person, so it is not to be reworded,
- * embellished or "improved" without a fresh approval. It deliberately does not say where the
- * photo was taken, because nobody here knows and a guess about a real person's whereabouts is
- * not something to invent.
+ * Approved word for word by Xander on 19 Nov 2026. It describes a real person, so it is not to
+ * be reworded, embellished or "improved" without a fresh approval. It deliberately does not say
+ * where the photo was taken, because nobody here knows and a guess about a real person's
+ * whereabouts is not something to invent.
  */
 const PORTRAIT_ALT = "Xander Juneau, the owner of Juneau Digital Designs";
 
