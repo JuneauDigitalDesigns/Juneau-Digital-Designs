@@ -21,6 +21,8 @@ import {
     markPaletteNotClientChosen,
     signedLegalName,
 } from "@/app/lib/onboarding-submission";
+import { verifyAgencyHuman } from "@/app/lib/agency-lead-gate";
+import { requestHost } from "@/app/lib/turnstile-verify";
 
 /** Deep-clone replacing every empty string with null. */
 function normalizeEmpties(value: unknown): unknown {
@@ -46,6 +48,26 @@ export async function POST(request: Request) {
         }
 
         const body = (await request.json()) as Partial<Record<string, unknown>>;
+
+        // A person sent it (2026-11-19; the privacy policy has always said the onboarding form
+        // uses Turnstile): the Get started form's widget and check. A token Cloudflare rejects is
+        // refused, and the wizard lets the client send again with a fresh one. A check that can't
+        // run (Cloudflare down, the widget blocked in their browser) never locks a paying client
+        // out: the intake goes through, marked unverified.
+        const human = await verifyAgencyHuman(
+            {
+                token: typeof body.turnstileToken === "string" ? body.turnstileToken.slice(0, 2048) : null,
+                status: typeof body.turnstileStatus === "string" ? body.turnstileStatus : null,
+                ip: clientIp(request),
+                host: requestHost(request),
+            },
+            "portal/onboarding",
+        );
+        if (human.kind === "failed") {
+            return NextResponse.json({ error: "not-verified" }, { status: 403 });
+        }
+        const humanCheck = human.kind === "passed" ? "passed" : "unverified";
+        if (humanCheck === "unverified") console.warn("[portal/onboarding] human check couldn't run; let through, unverified", account.email);
 
         // Field by field in app/lib/onboarding-submission.ts, which is tested. It used to be inline
         // here and dropped nine answers the wizard collected.
@@ -125,6 +147,7 @@ export async function POST(request: Request) {
                     slugGuess: newSlug,
                     sessionId,
                     intake: normalizeEmpties(intake) as Intake,
+                    humanCheck,
                     // The order (sales-call close) or purchase (self-serve) this site came from.
                     ...intakeOriginIds(site),
                 });
@@ -198,4 +221,10 @@ export async function POST(request: Request) {
     } catch {
         return NextResponse.json({ message: "Unexpected server error." }, { status: 500 });
     }
+}
+
+/** The client's IP, as Vercel reports it: the first hop of x-forwarded-for. */
+function clientIp(req: Request): string | null {
+    const fwd = req.headers.get("x-forwarded-for");
+    return (fwd ? fwd.split(",")[0].trim() : req.headers.get("x-real-ip")) || null;
 }
