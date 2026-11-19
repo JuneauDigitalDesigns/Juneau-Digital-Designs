@@ -203,7 +203,8 @@ test("the searches are real and sourced, and are not the homepage's list", () =>
 });
 
 test("the work order is the same sum as the homepage and /hvac", () => {
-    const home = read("app/components/home/homepageclient.tsx");
+    // The homepage keeps its own copy inside its calculator. If one moves, both must.
+    const home = read("app/components/home/YearCalculator.tsx");
     assert.equal(Number(home.match(/const LEAD_RATE = ([\d.]+)/)[1]), LEAD_RATE);
     assert.equal(Number(home.match(/const CLOSE_RATE = ([\d.]+)/)[1]), CLOSE_RATE);
     assert.equal(Number(home.match(/const AI_RECOVERY_RATE = ([\d.]+)/)[1]), AI_RECOVERY_RATE);

@@ -4638,6 +4638,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .hp-base-item { grid-template-columns: 44px minmax(0, 1fr); }
   .hp-base-ic { font-size: 34px; }
   .hp-m-cut { display: none; }
+}
+
 /* ── /plumbing — "Websites and an AI receptionist for plumbers." ──────────────
    The second trade page, approved by Xander from the third round of its mockup (19 Nov 2026,
    https://claude.ai/artifact/X1xhXjsibSdGYPjqubWoUV) with the instruction that the build match
