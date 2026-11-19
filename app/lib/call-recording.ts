@@ -72,11 +72,24 @@ export function pickRetellCall(
     return matches.length === 1 ? (matches[0].call_id ?? null) : null;
 }
 
-/** Retell's current link for this call, or null if it can't be found. Never throws. */
-async function currentLinkFromRetell(
+/** The parts of Retell's get-call answer the portal reads. */
+export interface RetellCallDetail {
+    recording_url?: string;
+    /** Turn by turn: `agent` is the receptionist, `user` the caller. */
+    transcript_object?: Array<{ role?: string; content?: string }>;
+}
+
+/**
+ * The one Retell call a logged row was written from, read in full, or null. Never throws.
+ *
+ * Shared by the recording (a fresh link each play) and, since 2026-11-19, the transcript: the
+ * same answer carries both, so a transcript needs no column in the call log and no change to the
+ * Make scenario that writes it.
+ */
+async function findRetellCall(
     apiKey: string,
     match: { startMs: number; callerNumber: string | null; agentId: string | null },
-): Promise<string | null> {
+): Promise<RetellCallDetail | null> {
     const headers = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
     try {
         const list = await fetch("https://api.retellai.com/v3/list-calls", {
@@ -104,12 +117,20 @@ async function currentLinkFromRetell(
             console.error(`[call-recording] get-call ${call.status}`);
             return null;
         }
-        const { recording_url: url } = (await call.json()) as { recording_url?: string };
-        return typeof url === "string" && url.startsWith("https://") ? url : null;
+        return (await call.json()) as RetellCallDetail;
     } catch (e) {
         console.error("[call-recording] Retell lookup failed", e);
         return null;
     }
+}
+
+/** Retell's current link for this call, or null if it can't be found. Never throws. */
+async function currentLinkFromRetell(
+    apiKey: string,
+    match: { startMs: number; callerNumber: string | null; agentId: string | null },
+): Promise<string | null> {
+    const url = (await findRetellCall(apiKey, match))?.recording_url;
+    return typeof url === "string" && url.startsWith("https://") ? url : null;
 }
 
 /**
@@ -183,4 +204,77 @@ export function audioContentType(link: string): string {
     if (path.endsWith(".wav")) return "audio/wav";
     if (path.endsWith(".mp3")) return "audio/mpeg";
     return "application/octet-stream";
+}
+
+// ── Transcripts (2026-11-19) ─────────────────────────────────────────────────────────────────
+
+/** One turn of a call: the receptionist (`agent`) or the caller. */
+export interface TranscriptTurn {
+    speaker: "agent" | "caller";
+    text: string;
+}
+
+/**
+ * Retell's turn-by-turn transcript, reduced to who spoke and what they said.
+ *
+ * Retell's `transcript_object` also carries word timings, which the portal does not show and
+ * should not hold. Anything that is not an agent or caller turn with words in it is dropped.
+ */
+export function transcriptTurns(detail: RetellCallDetail | null): TranscriptTurn[] {
+    const raw = Array.isArray(detail?.transcript_object) ? detail.transcript_object : [];
+    const turns: TranscriptTurn[] = [];
+    for (const t of raw) {
+        const text = typeof t?.content === "string" ? t.content.trim() : "";
+        if (!text) continue;
+        if (t.role === "agent") turns.push({ speaker: "agent", text });
+        else if (t.role === "user") turns.push({ speaker: "caller", text });
+    }
+    return turns;
+}
+
+/**
+ * Transcripts do not change once a call ends, so a found one is kept for a day and a miss for an
+ * hour (a call still being processed, or one Retell cannot match). Either way an owner paging
+ * through calls costs Retell at most one lookup per call per window.
+ */
+const TRANSCRIPT_TTL_SECONDS = 24 * 60 * 60;
+const TRANSCRIPT_MISS_TTL_SECONDS = 60 * 60;
+const transcriptKey = (acctScope: string, siteSlug: string, recordId: string) =>
+    `portal:transcript:v1:${acctScope}:${siteSlug}:${recordId}`;
+
+export type TranscriptScope = RecordingScope;
+
+/**
+ * This call's transcript, or null when there is none to show.
+ *
+ * Same access rule as the recording: the row is read from the signed-in account's own base, and
+ * where sites share a base its `Site` must match. Unlike the recording there is no stored
+ * fallback: a call Retell cannot match (an agent that has since been replaced, say) has no
+ * transcript, and the portal says so.
+ */
+export async function resolveTranscript(scope: TranscriptScope): Promise<TranscriptTurn[] | null> {
+    const key = transcriptKey(scope.acctScope, scope.siteSlug, scope.recordId);
+    const hit = await getCached<TranscriptTurn[] | "none">(key);
+    if (hit === "none") return null;
+    if (hit) return hit;
+
+    if (!scope.retellKey) return null;
+    const row = await fetchCallRow({ baseId: scope.baseId, apiKey: scope.airtableKey, recordId: scope.recordId });
+    if (!row) return null;
+    if (scope.scopeToSite && row.site && row.site !== scope.siteSlug) return null;
+    const startMs = row.date ? Date.parse(row.date) : NaN;
+    if (!Number.isFinite(startMs)) return null;
+
+    const detail = await findRetellCall(scope.retellKey, {
+        startMs,
+        callerNumber: row.callerNumber,
+        agentId: scope.agentId,
+    });
+    const turns = transcriptTurns(detail);
+    if (turns.length === 0) {
+        await setCached(key, TRANSCRIPT_MISS_TTL_SECONDS, "none");
+        return null;
+    }
+    await setCached(key, TRANSCRIPT_TTL_SECONDS, turns);
+    return turns;
 }

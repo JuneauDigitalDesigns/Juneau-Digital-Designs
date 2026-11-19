@@ -14,10 +14,17 @@ import { REASON_LABEL, reasonFor, remindChip, type InboxRow } from "./model";
  *   --chart-neg  on an 8% neg mix    5.37:1
  *   --chart-pos  on an 8% pos mix    5.57:1
  *   --chart-series-2 on an 8% mix    5.06:1
+ *   --attn       on an 11% attn mix  4.62:1  (dark: #fb9a55 on its mix over #161a21, 7.1:1)
+ *   --chart-neutral on a 12% mix     4.71:1
+ *
+ * 2026-11-19 (Xander Q13, "punchier"): waiting-for-a-callback is the orange attention colour,
+ * Done is slate, and on phones the chips are a size up (13px) so they read in sunlight.
  */
-type Tone = "warn" | "accent" | "neg" | "pos" | "violet";
+type Tone = "warn" | "accent" | "neg" | "pos" | "violet" | "attn" | "muted";
 
 const TONE: Record<Tone, { color: string; mix: number }> = {
+    attn: { color: "var(--attn)", mix: 11 },
+    muted: { color: "var(--chart-neutral)", mix: 12 },
     warn: { color: "var(--chart-warn)", mix: 10 },
     accent: { color: "var(--accent)", mix: 8 },
     neg: { color: "var(--chart-neg)", mix: 8 },
@@ -38,7 +45,7 @@ export function Chip({
     return (
         <span
             className={`inline-flex items-center shrink-0 rounded-full font-semibold whitespace-nowrap ${
-                size === "md" ? "text-xs px-2.5 py-0.5" : "text-[11px] px-[7px] py-px"
+                size === "md" ? "text-[13px] lg:text-xs px-2.5 py-0.5" : "text-[13px] lg:text-[11px] px-[9px] lg:px-[7px] py-[2px] lg:py-px"
             }`}
             style={{
                 color: t.color,
@@ -62,7 +69,7 @@ export function StatusChip({
     now: Date;
     size?: "sm" | "md";
 }) {
-    if (row.status === "done") return <Chip tone="pos" size={size}>Done</Chip>;
+    if (row.status === "done") return <Chip tone="muted" size={size}>Done</Chip>;
     if (row.status === "promoted") return <Chip tone="pos" size={size}>✓ Promoted</Chip>;
     if (row.status === "reminded" && item.remindAt) {
         return (
@@ -73,7 +80,7 @@ export function StatusChip({
     }
     const reason = reasonFor(item);
     return (
-        <Chip tone={reason === "callback" ? "warn" : reason === "web" ? "accent" : "neg"} size={size}>
+        <Chip tone={reason === "callback" ? "attn" : reason === "web" ? "accent" : "muted"} size={size}>
             {REASON_LABEL[reason]}
         </Chip>
     );

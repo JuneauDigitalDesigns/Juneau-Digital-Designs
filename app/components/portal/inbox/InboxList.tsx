@@ -93,15 +93,23 @@ export default function InboxList({
                                         remindSupported={remindSupported}
                                         now={now}
                                     />
-                                    <PhoneRow row={row} onOpen={() => onOpen(row)} onDone={() => onDone(row)} now={now} />
+                                    <PhoneRow
+                                        row={row}
+                                        onOpen={() => onOpen(row)}
+                                        onDone={() => onDone(row)}
+                                        onRemind={() => onRemind(row)}
+                                        remindSupported={remindSupported}
+                                        now={now}
+                                    />
                                 </li>
                             ))}
                         </ul>
                     </section>
                 ))}
                 {anyRows && (
-                    <p className="lg:hidden text-center text-[11.5px] px-4 py-2.5" style={{ color: "var(--fg-3)" }}>
-                        Swipe right to call · swipe left to mark done
+                    <p className="lg:hidden text-center text-[13px] px-4 py-3" style={{ color: "var(--fg-3)" }}>
+                        {/* Approved 2026-11-19 (mockup string 2). */}
+                        Swipe right to call · swipe left for done, keep going to remind
                     </p>
                 )}
             </div>
@@ -333,11 +341,15 @@ function PhoneRow({
     row,
     onOpen,
     onDone,
+    onRemind,
+    remindSupported,
     now,
 }: {
     row: InboxRow;
     onOpen: () => void;
     onDone: () => void;
+    onRemind: () => void;
+    remindSupported: boolean;
     now: Date;
 }) {
     const item = row.lead;
@@ -349,31 +361,35 @@ function PhoneRow({
             <SwipeRow
                 canCall={Boolean(dial)}
                 canDone={row.status !== "done" && row.status !== "promoted"}
+                canRemind={remindSupported && row.status === "needs"}
                 onCall={() => {
                     if (dial) window.location.href = `tel:${dial}`;
                 }}
                 onDone={onDone}
+                onRemind={onRemind}
             >
+                {/* Roomy two-line rows (2026-11-19, Q5): name and time, the status chip, then one
+                    line of what they said. About 84px, so a gloved thumb hits the right one. */}
                 <button
                     type="button"
                     onClick={onOpen}
-                    className="w-full min-h-[72px] flex gap-2.5 px-4 py-3 text-left cursor-pointer"
+                    className="w-full min-h-[84px] flex gap-2.5 px-4 py-3 text-left cursor-pointer"
                 >
                     <Dot on={unread} />
-                    <span className="flex-1 min-w-0 flex flex-col gap-[3px]">
-                        <span className="flex items-center gap-2 min-w-0">
-                            <strong className="truncate text-sm" style={t.name}>
+                    <span className="flex-1 min-w-0 flex flex-col gap-[5px]">
+                        <span className="flex items-baseline gap-2 min-w-0">
+                            <strong className="truncate text-[17px]" style={t.name}>
                                 {displayName(item)}
                             </strong>
                             {row.count > 1 && <Chip tone="pos">{row.count} calls</Chip>}
-                            <span className="ml-auto shrink-0 text-[11px]" style={t.time}>
+                            <span className="ml-auto shrink-0 text-[13.5px]" style={t.time}>
                                 {rowWhen(row.at, now)}
                             </span>
                         </span>
                         <span>
                             <StatusChip row={row} item={item} now={now} />
                         </span>
-                        <span className="text-[12.5px] leading-snug line-clamp-2" style={t.preview}>
+                        <span className="text-[15px] leading-snug truncate" style={t.preview}>
                             {item.preview ?? "No message"}
                         </span>
                     </span>
@@ -387,7 +403,14 @@ function PhoneRow({
 export function CaughtUp({ handled, onShowAll }: { handled: number; onShowAll: () => void }) {
     return (
         <div className="flex flex-col items-center justify-center gap-2.5 text-center px-6 py-14 lg:h-full">
-            <CheckCircle size={44} weight="light" aria-hidden="true" style={{ color: "var(--chart-pos)" }} />
+            {/* A large soft icon (2026-11-19, Q19), same words as before. */}
+            <span
+                aria-hidden="true"
+                className="grid place-items-center rounded-full mb-1.5 w-24 h-24 lg:w-16 lg:h-16"
+                style={{ background: "var(--call-wash)", color: "var(--call-fg)" }}
+            >
+                <CheckCircle size={46} weight="regular" />
+            </span>
             <span
                 className="font-bold"
                 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-3xl)", color: "var(--fg)" }}
@@ -401,7 +424,7 @@ export function CaughtUp({ handled, onShowAll }: { handled: number; onShowAll: (
             <button
                 type="button"
                 onClick={onShowAll}
-                className="mt-1 h-11 lg:h-[38px] px-3.5 rounded-[7px] border text-[13px] font-semibold cursor-pointer"
+                className="mt-1 h-12 lg:h-[38px] px-5 lg:px-3.5 rounded-[12px] lg:rounded-[7px] border text-[15px] lg:text-[13px] font-semibold cursor-pointer"
                 style={{ background: "var(--elev-1)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
             >
                 See everything
