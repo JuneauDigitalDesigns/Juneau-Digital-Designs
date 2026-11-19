@@ -441,6 +441,9 @@ export default function PortalChrome({
                             key={tab.id}
                             href={tabHref(tab.href, selected.slug)}
                             aria-current={isActive ? "page" : undefined}
+                            // `tab-*`, not `nav-*`: the rail's `nav-*` items come first in the DOM and are
+                            // display:none on a phone, and the tour resolves with querySelector.
+                            data-tour={`tab-${tab.id}`}
                             className={`portal-tab${isActive ? " is-active" : ""}`}
                         >
                             <Icon size={25} weight={isActive ? "fill" : "regular"} />
@@ -471,6 +474,7 @@ export default function PortalChrome({
                 <Link
                     href={tabHref("more", selected.slug)}
                     aria-current={isMore ? "page" : undefined}
+                    data-tour="tab-more"
                     className={`portal-tab${isMore || isInMore ? " is-active" : ""}`}
                 >
                     <DotsThree size={25} weight="bold" />

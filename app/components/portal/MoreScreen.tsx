@@ -55,7 +55,7 @@ export default function MoreScreen() {
                     const locked = tabAvailability(tab.feature, selected.features)?.state === "not-on-plan";
                     const { Icon, tint } = ICON[id]!;
                     return (
-                        <Link key={id} href={tabHref(tab.href, selected.slug)} className="portal-cell">
+                        <Link key={id} href={tabHref(tab.href, selected.slug)} className="portal-cell" data-tour={`more-${id}`}>
                             <span className="portal-tile" style={{ background: tint }}>
                                 <Icon size={19} weight="bold" />
                             </span>
@@ -72,7 +72,9 @@ export default function MoreScreen() {
                 })}
             </nav>
 
-            <div className="portal-group">
+            {/* `more-help`, not `portal-help`: the rail's Help & tour button holds that hook and sits
+                earlier in the DOM, hidden on a phone. */}
+            <div className="portal-group" data-tour="more-help">
                 {host && (
                     <a
                         href={selected.canonical ?? undefined}
