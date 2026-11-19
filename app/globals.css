@@ -1654,16 +1654,35 @@ select option {
   max-width: 42ch;
 }
 
-/* 01 · The website: the heading and its line split across the width, the laptop below
-   taking the whole column. */
-.home-split {
+/* Section heads (Xander, 19 Nov 2026: mockups A and C combined). Every homepage section head
+   is centred, and its heading's last words are coral, as "missed calls" was first. Where a
+   paragraph follows the heading it is centred too, a size up, under a short coral rule. The
+   coral words never break across two lines. Copy unchanged. */
+.home-head {
   display: grid;
-  gap: 22px;
-  align-items: end;
+  justify-items: center;
+  text-align: center;
 }
-.home-split > * { min-width: 0; }
-@media (min-width: 900px) {
-  .home-split { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 56px; }
+.home-head > * { min-width: 0; }
+.home-head .home-display { max-width: 16ch; margin-inline: auto; }
+.home-em { color: var(--accent-2); white-space: nowrap; }
+.home-head-copy {
+  display: grid;
+  justify-items: center;
+  margin-top: clamp(22px, 2.4vw, 32px);
+}
+.home-head-copy::before {
+  content: "";
+  width: 44px;
+  height: 4px;
+  margin-bottom: clamp(20px, 2.2vw, 28px);
+  background: var(--accent-2);
+}
+.home-head .home-lede { font-size: clamp(18px, 1.55vw, 22px); line-height: 1.55; max-width: 46ch; }
+/* Centred on a phone, the promise wraps: its rule moves above it, so the rule stays beside the
+   words, and the two lines split evenly rather than leaving one word alone. */
+@media (max-width: 599px) {
+  .home-head .home-promise { flex-direction: column; gap: 10px; text-wrap: balance; }
 }
 /* The promise: one short label with a coral lead-in rule, not a chip. */
 .home-promise {
@@ -1686,17 +1705,13 @@ select option {
 .home-stage { margin-top: clamp(40px, 5vw, 72px); }
 .home-stage .laptop { box-shadow: 0 40px 90px -40px rgba(20, 18, 12, 0.45), 0 0 0 1px var(--rule-weak); }
 
-/* 02 · The receptionist: copy left, the film right; stacked, centred, on a phone. */
+/* 02 · The receptionist: the words centred, the film centred under them, at every width. */
 .home-duo {
   display: grid;
   gap: clamp(40px, 5vw, 72px);
   align-items: center;
 }
 .home-duo > * { min-width: 0; }
-@media (min-width: 1000px) {
-  .home-duo { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
-}
-.home-duo .home-lede { margin-top: 22px; max-width: 46ch; }
 
 /* The film's "Their phone / Your phone" switch: both phones named, the one on screen lit.
    A control, so it keeps its pill; it is the only rounded thing beside the phone. */
@@ -1843,8 +1858,7 @@ select option {
   max-width: 21ch;
   text-align: center;
 }
-/* "Missed calls" is the emphasis and never breaks across two lines (Xander, 2026-11-19). */
-.calc-heading span { color: var(--accent-2); white-space: nowrap; }
+/* "Missed calls" is its coral close (`.home-em`), and never breaks across two lines. */
 .calc-section.wash { padding: 0; }
 .calc-body { margin-top: clamp(40px, 5vw, 64px); }
 
@@ -1916,7 +1930,7 @@ select option {
     align-items: center;
   }
 }
-.closing-heading { max-width: 10ch; font-size: clamp(40px, 5.4vw, 80px); }
+.closing-heading { max-width: 10ch; font-size: clamp(40px, 5.4vw, 80px); margin-bottom: clamp(36px, 4vw, 56px); }
 .closing-base { display: grid; gap: 24px; margin-top: clamp(28px, 3vw, 40px); }
 .closing-base-item { padding-left: 16px; border-left: 2px solid var(--accent); }
 .closing-base-label {

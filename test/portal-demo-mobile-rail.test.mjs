@@ -46,5 +46,8 @@ test("the slot held for the phone demo is the phone's own height", () => {
 });
 
 test('the calculator heading keeps "missed calls" on one line', () => {
-    assert.match(css, /\.calc-heading span \{[^}]*white-space: nowrap;/);
+    // Since 2026-11-19 every heading's coral words share `.home-em`, which holds them together.
+    const home = readFileSync("app/components/home/homepageclient.tsx", "utf8");
+    assert.match(home, /How much are your <span className="home-em">missed calls<\/span> worth\?/);
+    assert.match(css, /\.home-em \{[^}]*white-space: nowrap;/);
 });

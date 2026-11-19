@@ -34,15 +34,19 @@ export default function FeaturedSites({ sites }: { sites: PublishedFeaturedSite[
 
   return (
     <section style={{ maxWidth: 1320, margin: "0 auto", padding: "clamp(48px,6vw,96px) clamp(18px,4vw,56px)" }}>
-      <div className="kicker" style={{ marginBottom: 14 }}>Live client sites</div>
-      {/* "Real sites, real clients": in its new slot this section is evidence for the
-          argument above it, and what makes it evidence is that these are live and someone
-          else's, not that we operate them. */}
-      <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-        Real sites, real clients.
-      </h2>
+      {/* Centred, with a coral close, as every homepage section head is (19 Nov 2026). */}
+      <div className="home-head">
+        <div className="kicker" style={{ marginBottom: 14 }}>Live client sites</div>
+        {/* "Real sites, real clients": in its new slot this section is evidence for the
+            argument above it, and what makes it evidence is that these are live and someone
+            else's, not that we operate them. */}
+        <h2 style={{ fontWeight: 800, fontSize: "clamp(28px,4vw,52px)", letterSpacing: ".01em", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
+          Real sites, <span className="home-em">real clients.</span>
+        </h2>
+      </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 380px))", gap: 20 }}>
+      {/* Centred under the centred head: the cards' tracks sit in the middle of the row. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 380px))", justifyContent: "center", gap: 20 }}>
         {sites.map((site, i) => {
           const accent = ACCENTS[i % ACCENTS.length];
           const credited = Boolean(site.url);
