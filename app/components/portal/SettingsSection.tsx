@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import type { PortalSiteProps } from "@/app/portal/types";
+import { tabHref, type PortalSiteProps } from "@/app/portal/types";
+import { CaretRight, Star } from "@phosphor-icons/react";
 import { splitConsentText, type SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import type { OwnerTextCampaign } from "@/app/lib/owner-text-campaign";
 import type { AccountAgreement } from "@/app/lib/portal-agreements";
@@ -803,6 +804,34 @@ function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
 
 const SIGNED_DATE = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
+/**
+ * The way to More › Review message from Settings (Xander, 2026-11-19: "Settings › Account"),
+ * for desktop, which has no More tab. Growth and Enterprise only, like the Review button it sets
+ * the text for. The approved label is the only text.
+ */
+function ReviewMessageLink({ site }: { site: PortalSiteProps }) {
+    if (site.features?.crm?.state !== "ready") return null;
+    return (
+        <Link
+            href={tabHref("more/review", site.slug)}
+            data-tour="settings-review"
+            // Same box as the SectionCards around it.
+            className="rounded-lg border mb-6 flex items-center gap-3 px-5 py-4 min-h-[56px] hover:bg-[var(--surface)]"
+            style={{ borderColor: "var(--rule)", color: "var(--fg)", textDecoration: "none" }}
+        >
+            <span
+                aria-hidden="true"
+                className="grid place-items-center w-8 h-8 rounded-lg shrink-0"
+                style={{ background: "#f5a623", color: "#1c1405" }}
+            >
+                <Star size={17} weight="fill" />
+            </span>
+            <span className="flex-1 font-semibold">Review message</span>
+            <CaretRight size={16} style={{ color: "var(--fg-3)" }} />
+        </Link>
+    );
+}
+
 export default function SettingsSection({
     site,
     accountEmail,
@@ -819,6 +848,7 @@ export default function SettingsSection({
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
             <SmsAlertsSection consent={smsConsent} campaign={smsCampaign} consentCopy={smsConsentCopy} />
+            <ReviewMessageLink site={site} />
             <FeaturedSection site={site} />
             <AgreementsSection agreements={agreements} />
         </div>
