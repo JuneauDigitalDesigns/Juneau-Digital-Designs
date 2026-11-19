@@ -4144,7 +4144,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
    `.home-head-copy` / `.home-lede` / `.home-promise` above, which the mockup draws the same way.
    Everything that moves rests in a state that reads correctly without motion.
    `.hp-m-cut` is what a phone leaves out (Xander, on /hvac: less copy on a phone). */
-.hp-page { width: 100%; background: var(--bg); }
+/* `overflow-x: clip` keeps anything that hangs past the edge (the phone's buzz arcs) from widening
+   the page. <html>'s `overflow-x: hidden` already clips it on a desktop, but iPhone Safari still
+   lets a finger pan to it, showing the body's dotted ground (Xander, 19 Nov 2026). `clip`, unlike
+   `hidden`, makes no scroll container, so nothing inside stops sticking. */
+.hp-page { width: 100%; background: var(--bg); overflow-x: clip; }
 .hp-wrap {
   max-width: calc(1320px + 2 * clamp(18px, 4vw, 56px));
   margin: 0 auto;
@@ -4592,6 +4596,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .hp-slip { width: 100%; max-width: 520px; text-align: left; }
   .hp-land { padding-right: 0; padding-bottom: 0; }
   .hp-fone { position: relative; right: auto; margin: -14px 6px 0 auto; }
+  /* The glow behind the inbox stays inside the screen when the inbox fills its width. */
+  .hp-land::before { inset: 6% 0 0; }
   .hp-closing { grid-template-columns: minmax(0, 1fr); }
   .hp-oc { grid-template-columns: minmax(0, 1fr); }
   .hp-oc-figs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); order: -1; padding-bottom: 0; }
