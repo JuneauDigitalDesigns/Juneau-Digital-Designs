@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Export } from "@phosphor-icons/react";
 import Sheet from "../inbox/Sheet";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { collapseProps } from "../ui/collapse";
 
 /**
  * "Put the portal on your home screen" (2026-11-19, Xander Q18), a one-time card on Home.
@@ -27,6 +29,7 @@ export default function InstallCard() {
     const [mode, setMode] = useState<"hidden" | "ios" | "prompt">("hidden");
     const [deferred, setDeferred] = useState<InstallPromptEvent | null>(null);
     const [steps, setSteps] = useState(false);
+    const reduce = useReducedMotion();
 
     useEffect(() => {
         let dismissed = false;
@@ -65,11 +68,13 @@ export default function InstallCard() {
         setMode("hidden");
     };
 
-    if (mode === "hidden") return null;
-
     return (
         <>
-            <div className="portal-elev lg:hidden flex gap-3 items-start p-3.5" style={{ borderRadius: 16 }}>
+            {/* Folds away on Not now rather than popping (2026-11-19). */}
+            <AnimatePresence initial={false}>
+            {mode !== "hidden" && (
+            <motion.div key="install" {...collapseProps(reduce)} className="lg:hidden">
+            <div className="portal-elev flex gap-3 items-start p-3.5" style={{ borderRadius: 16 }}>
                 <span
                     aria-hidden="true"
                     className="shrink-0 w-[46px] h-[46px] rounded-[11px] overflow-hidden grid place-items-center"
@@ -110,6 +115,9 @@ export default function InstallCard() {
                     </div>
                 </div>
             </div>
+            </motion.div>
+            )}
+            </AnimatePresence>
 
             {steps && (
                 <Sheet label="Add to your home screen" onClose={() => setSteps(false)}>

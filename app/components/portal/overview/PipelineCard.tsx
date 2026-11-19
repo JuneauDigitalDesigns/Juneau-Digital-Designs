@@ -201,7 +201,7 @@ export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
                 <div className="flex gap-2.5 mt-1.5">
                     <Link
                         href={demoHref}
-                        className="inline-flex items-center gap-2 h-[42px] px-4 rounded-lg hover:opacity-90"
+                        className="inline-flex items-center justify-center gap-2 min-h-[42px] py-2 px-4 rounded-lg hover:opacity-90"
                         style={{
                             background: "var(--accent)",
                             color: "var(--on-accent)",
@@ -210,7 +210,11 @@ export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
                         }}
                     >
                         <PlayIcon />
-                        Show me what Growth does for me
+                        {/* Centred and balanced when it wraps on a phone (Xander, 2026-11-19: "just me is on the
+
+                            bottom line and all the way left aligned"). */}
+
+                        <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
                     </Link>
                 </div>
             </section>

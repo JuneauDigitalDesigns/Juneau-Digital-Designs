@@ -6,6 +6,8 @@ import { normalizeE164 } from "@/app/lib/phone";
 import { sendSms } from "@/app/lib/twilio";
 import { appendActivity, findCustomerByPhone, recordReviewSend } from "@/app/lib/portal-crm";
 import { reviewRequestActivity } from "@/app/lib/review-message";
+import { defaultReviewTemplate, renderReviewTemplate } from "@/app/lib/review-template";
+import { getReviewTemplate } from "@/app/lib/review-template-store";
 import { checkCustomerTextConsent } from "@/app/lib/customer-text-consent";
 import { NOT_AGREED_MESSAGE } from "@/app/lib/spoken-consent";
 import {
@@ -101,7 +103,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: REASON_MESSAGE["no-review-link"] }, { status: 422 });
     }
 
-    const message = composeReviewMessage(clientBody, reviewUrl);
+    // One tap (2026-11-19): the Review button sends no text of its own, so the words are the
+    // site's saved review message (More › Review message), or the default, made out to this
+    // customer. A body sent by a caller that still passes one (the Growth demo's dialog) wins.
+    let text = clientBody.trim();
+    if (!text) {
+        const saved = await getReviewTemplate(acct, ctx.site.slug);
+        const who = await findCustomerByPhone(acct, ctx.site.slug, phone).catch(() => null);
+        text = renderReviewTemplate(saved ?? defaultReviewTemplate(ctx.site.name ?? "us"), who?.name ?? null);
+    }
+    const message = composeReviewMessage(text, reviewUrl);
     const statusCallback = process.env.TWILIO_STATUS_CALLBACK_URL || undefined;
 
     let sid: string | null = null;

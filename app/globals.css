@@ -4154,3 +4154,29 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 @media (prefers-reduced-motion: reduce) {
   .portal-round:active .portal-round-dot { transform: none; }
 }
+
+/* The Calendar's "+" in the phone top bar (2026-11-19): New appointment, on its own, top right. */
+.portal-topbar-plus {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.portal-topbar-plus:active { transform: scale(0.94); }
+
+/* Rows wrapped for the collapse animation keep their dividers. */
+.portal-group > * + * > .portal-cell::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 72px;
+  right: 0;
+  border-top: 0.5px solid var(--rule-strong);
+}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
     ArrowLeft,
     CalendarPlus,
@@ -1253,6 +1254,45 @@ function ReviewAnchor({
     const [openState, setOpen] = useState(false);
     const open = forceOpen ?? openState;
     const buttonRef = useRef<HTMLButtonElement>(null);
+    const [sending, setSending] = useState(false);
+    const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+
+    // The Growth demo still drives the old window (`forceOpen`); the real record is one tap.
+    const demo = forceOpen !== undefined;
+
+    /**
+     * One tap (Xander, 2026-11-19): "it'll just send their review text to that customer".
+     *
+     * The text is the site's review message from More › Review message, or the default, which
+     * the server composes and makes out to this customer; nothing is typed here. The answer is a
+     * toast at the bottom: "Review request sent!" (his words) in the review button's colour, or
+     * the server's own reason when it can't send (not on the plan, waiting on carrier approval,
+     * already asked, no consent, no review link).
+     */
+    async function sendNow() {
+        if (sending || !customer.phone) return;
+        setSending(true);
+        try {
+            const res = await fetch(`/api/portal/review-request?site=${encodeURIComponent(siteSlug)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone: customer.phone }),
+            });
+            if (res.ok) {
+                setToast({ ok: true, text: "Review request sent!" });
+                onSent();
+            } else {
+                const j = (await res.json().catch(() => null)) as { error?: string } | null;
+                setToast({ ok: false, text: j?.error ?? "We couldn't send that just now. Please try again in a moment." });
+            }
+        } catch {
+            setToast({ ok: false, text: "We couldn't send that just now. Please try again in a moment." });
+        } finally {
+            setSending(false);
+        }
+    }
+
+    const onClick = demo ? () => setOpen((o) => !o) : () => void sendNow();
 
     return (
         <>
@@ -1260,54 +1300,95 @@ function ReviewAnchor({
                 <button
                     ref={buttonRef}
                     type="button"
-                    onClick={() => setOpen((o) => !o)}
-                    disabled={!customer.phone}
-                    aria-expanded={open}
-                    aria-haspopup="dialog"
+                    onClick={onClick}
+                    disabled={!customer.phone || sending}
                     aria-label={customer.reviewSent ? "Review requested" : "Request a review"}
                     data-tour="crm-drawer-review"
                     className="portal-round disabled:opacity-50"
                 >
-                    <span className="portal-round-dot" style={{ background: "color-mix(in srgb, var(--chart-warn) 16%, var(--elev-1))", color: "var(--chart-warn)" }}>
+                    <span className="portal-round-dot" style={{ background: REVIEW_FILL, color: REVIEW_INK }}>
                         <Star size={24} weight={customer.reviewSent ? "fill" : "regular"} />
                     </span>
                     Review
                 </button>
             ) : (
-            <button
-                ref={buttonRef}
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                disabled={!customer.phone}
-                aria-expanded={open}
-                aria-haspopup="dialog"
-                data-tour="crm-drawer-review"
-                className={`${wide ? "w-full justify-center px-2" : "px-3.5"} rounded-lg inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
-                style={{ minHeight: 44, background: "var(--accent)", color: "var(--on-accent)" }}
-            >
-                <Star size={14} weight="fill" />
-                {customer.reviewSent ? "Review requested" : "Request a review"}
-            </button>
+                <button
+                    ref={buttonRef}
+                    type="button"
+                    onClick={onClick}
+                    disabled={!customer.phone || sending}
+                    aria-expanded={demo ? open : undefined}
+                    aria-haspopup={demo ? "dialog" : undefined}
+                    data-tour="crm-drawer-review"
+                    className={`${wide ? "w-full justify-center px-2" : "px-3.5"} rounded-lg inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
+                    style={{ minHeight: 44, background: REVIEW_FILL, color: REVIEW_INK }}
+                >
+                    <Star size={14} weight="fill" />
+                    {customer.reviewSent ? "Review requested" : "Request a review"}
+                </button>
             )}
-            <ReviewRequestDialog
-                open={open}
-                onClose={() => setOpen(false)}
-                triggerRef={buttonRef}
-                align={align}
-                contact={{
-                    contactId: customer.customerId,
-                    displayName: customer.name,
-                    phone: customer.phone,
-                    phoneDisplay: formatPhone(customer.phone),
-                    reviewSent: customer.reviewSent,
-                }}
-                businessName={businessName}
-                reviewLinkConfigured={reviewLinkConfigured}
-                messagingState={messagingState}
-                siteSlug={siteSlug}
-                onSent={onSent}
-            />
+            {demo && (
+                <ReviewRequestDialog
+                    open={open}
+                    onClose={() => setOpen(false)}
+                    triggerRef={buttonRef}
+                    align={align}
+                    contact={{
+                        contactId: customer.customerId,
+                        displayName: customer.name,
+                        phone: customer.phone,
+                        phoneDisplay: formatPhone(customer.phone),
+                        reviewSent: customer.reviewSent,
+                    }}
+                    businessName={businessName}
+                    reviewLinkConfigured={reviewLinkConfigured}
+                    messagingState={messagingState}
+                    siteSlug={siteSlug}
+                    onSent={onSent}
+                />
+            )}
+            {toast && <ReviewToast ok={toast.ok} text={toast.text} onDone={() => setToast(null)} />}
         </>
+    );
+}
+
+/**
+ * The review button's orange-yellow, in both themes (Xander, 2026-11-19: the toast is "in the
+ * same orange-yellow color as the review button"). Dark ink on it is 10.6:1.
+ */
+const REVIEW_FILL = "#f5a623";
+const REVIEW_INK = "#1c1405";
+
+/**
+ * The one-tap result, along the bottom of the screen for four seconds. Portalled into <body> so
+ * no transformed ancestor (the sliding record) can trap its `fixed` position; its colours are
+ * literal for the same reason.
+ */
+function ReviewToast({ ok, text, onDone }: { ok: boolean; text: string; onDone: () => void }) {
+    const done = useRef(onDone);
+    useEffect(() => {
+        done.current = onDone;
+    }, [onDone]);
+    useEffect(() => {
+        const t = window.setTimeout(() => done.current(), 4000);
+        return () => window.clearTimeout(t);
+    }, []);
+    if (typeof document === "undefined") return null;
+    return createPortal(
+        <div
+            role="status"
+            className="fixed z-[90] left-3 right-3 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 flex items-center gap-2.5 rounded-[14px] px-4 py-3.5 text-[15px] font-semibold"
+            style={{
+                bottom: "calc(24px + env(safe-area-inset-bottom, 0px))",
+                background: ok ? REVIEW_FILL : "#1b1f27",
+                color: ok ? REVIEW_INK : "#f4f6f9",
+                boxShadow: "0 14px 30px -10px rgba(0,0,0,0.45)",
+            }}
+        >
+            {ok && <Star size={18} weight="fill" aria-hidden="true" />}
+            <span>{text}</span>
+        </div>,
+        document.body,
     );
 }
 

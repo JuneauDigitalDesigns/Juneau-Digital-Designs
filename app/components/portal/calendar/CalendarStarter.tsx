@@ -37,7 +37,11 @@ export default function CalendarStarter({ siteSlug }: { siteSlug: string }) {
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                     >
                         <PlayCircle size={16} weight="fill" />
-                        Show me what Growth does for me
+                        {/* Centred and balanced when it wraps on a phone (Xander, 2026-11-19: "just me is on the
+
+                            bottom line and all the way left aligned"). */}
+
+                        <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
                     </Link>
                     <Link
                         href="/pricing"

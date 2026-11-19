@@ -19,7 +19,7 @@ import {
 } from "@/app/lib/crm-calendar";
 import { SectionHeader } from "../ui/Card";
 import { FeatureError, FeatureState } from "../ui/FeatureState";
-import { fetchCalendar, writeAppointment, type CalendarData, type CalendarFollowUp } from "./api";
+import { CALENDAR_NEW_EVENT, fetchCalendar, writeAppointment, type CalendarData, type CalendarFollowUp } from "./api";
 import AppointmentForm, { type ApptFormValues } from "./AppointmentForm";
 import CalendarStarter from "./CalendarStarter";
 import DayList from "./DayList";
@@ -71,6 +71,8 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
     const [failed, setFailed] = useState(false);
     const [warning, setWarning] = useState<string | null>(null);
     const [form, setForm] = useState<ApptFormValues | null>(null);
+    /** Always the latest opener, so the top bar's "+" listener never holds a stale day. */
+    const openNew = useRef<() => void>(() => {});
     const [busy, setBusy] = useState(false);
     const hasData = useRef(false);
 
@@ -106,6 +108,7 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
     const selected = picked ?? today ?? "";
     const ym = shown ?? selected.slice(0, 7);
 
+
     const pick = (day: string) => {
         setSelected(day);
         setHighlight(null);
@@ -125,6 +128,18 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
             notes: "",
         };
     };
+
+    // The phone top bar's "+" (2026-11-19): same as the page button, for the selected day.
+    useEffect(() => {
+        openNew.current = () => {
+            if (data && data.customers.length > 0) setForm(blank(selected));
+        };
+    });
+    useEffect(() => {
+        const on = () => openNew.current();
+        window.addEventListener(CALENDAR_NEW_EVENT, on);
+        return () => window.removeEventListener(CALENDAR_NEW_EVENT, on);
+    }, []);
 
     /** Optimistic: the bar moves now, and goes back if the server says no. */
     const patch = useCallback(
@@ -284,7 +299,8 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
                     onClick={() => setForm(blank(selected))}
                     data-tour="cal-new"
                     disabled={!data || data.customers.length === 0}
-                    className="ml-auto rounded-lg px-4 text-[13.5px] font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    // Desktop only: on a phone New appointment is the top bar's "+" (2026-11-19).
+                    className="ml-auto rounded-lg px-4 text-[13.5px] font-semibold hidden lg:inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ minHeight: 40, background: "var(--accent)", color: "var(--on-accent)" }}
                 >
                     <Plus size={13} weight="bold" /> New appointment

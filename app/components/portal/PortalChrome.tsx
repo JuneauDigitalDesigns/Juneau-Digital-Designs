@@ -21,6 +21,7 @@ import {
     Tray,
     Users,
     CalendarBlank,
+    Plus,
 } from "@phosphor-icons/react";
 import TourController, { launchTour } from "./tour/TourController";
 import { HELP_MENU } from "./tour/tours";
@@ -30,6 +31,7 @@ import SiteSelector from "./SiteSelector";
 import { PortalDataProvider } from "./PortalDataProvider";
 import { PortalChromeContext } from "./PortalChromeContext";
 import TabBadge from "./TabBadge";
+import { CALENDAR_NEW_EVENT } from "./calendar/api";
 import { StatusDot } from "./ui/StatusDot";
 import Drawer from "./ui/Drawer";
 import {
@@ -193,6 +195,9 @@ export default function PortalChrome({
                 bar and the business name steps aside, as an iPhone large title does. The JDD
                 mark left this bar for the More screen and sign-in. */}
             <header className="portal-topbar" data-scrolled={scrolled ? "true" : undefined}>
+                {/* Calendar (Xander, 2026-11-19): the account moves top left so New appointment
+                    can sit top right on its own. */}
+                {activeId === "calendar" && <PortalUserButton siteSlug={selected.slug} />}
                 {sites.length > 1 ? (
                     // Multi-site: the name is the switcher. Opens the bottom sheet of sites.
                     <button
@@ -216,7 +221,22 @@ export default function PortalChrome({
                 <div className="portal-topbar-title" aria-hidden="true">
                     {pageTitle}
                 </div>
-                <PortalUserButton siteSlug={selected.slug} />
+                {activeId === "calendar" ? (
+                    <button
+                        type="button"
+                        onClick={() => window.dispatchEvent(new Event(CALENDAR_NEW_EVENT))}
+                        className="portal-topbar-plus"
+                        aria-label="New appointment"
+                        title="New appointment"
+                        // Not `cal-new`: the page's own button holds that hook on desktop, and
+                        // this bar comes first in the DOM, hidden there.
+                        data-tour="cal-new-top"
+                    >
+                        <Plus size={20} weight="bold" />
+                    </button>
+                ) : (
+                    <PortalUserButton siteSlug={selected.slug} />
+                )}
             </header>
 
             {/* ── Desktop: the rail ────────────────────────────────────────────── */}

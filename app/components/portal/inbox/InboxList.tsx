@@ -1,6 +1,8 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, CheckCircle, Clock, Phone } from "@phosphor-icons/react";
+import { collapseProps } from "../ui/collapse";
 import { duration } from "@/app/lib/duration";
 import type { InboxItem } from "@/app/lib/crm-contacts";
 import { Chip, Mini, StatusChip, kindLabel, recordingLength } from "./chips";
@@ -59,6 +61,7 @@ export default function InboxList({
     empty: React.ReactNode | null;
 }) {
     const anyRows = sections.length > 0;
+    const reduce = useReducedMotion();
     return (
         <div className="flex flex-col min-h-0 lg:h-full">
             <div className="flex-1 min-h-0 lg:overflow-y-auto">
@@ -78,8 +81,10 @@ export default function InboxList({
                             {s.label}
                         </h2>
                         <ul className="lg:divide-y" style={{ borderColor: "var(--rule-weak)" }}>
+                            <AnimatePresence initial={false}>
                             {s.rows.map((row) => (
-                                <li key={row.id} className="border-t lg:border-t-0" style={{ borderColor: "var(--rule-weak)" }}>
+                                // Rows fold away as they leave the list (Done, a reminder, a filter).
+                                <motion.li key={row.id} {...collapseProps(reduce)} className="border-t lg:border-t-0" style={{ borderColor: "var(--rule-weak)", overflow: "hidden" }}>
                                     <DesktopRow
                                         row={row}
                                         selected={row.id === selectedRowId}
@@ -101,8 +106,9 @@ export default function InboxList({
                                         remindSupported={remindSupported}
                                         now={now}
                                     />
-                                </li>
+                                </motion.li>
                             ))}
+                            </AnimatePresence>
                         </ul>
                     </section>
                 ))}

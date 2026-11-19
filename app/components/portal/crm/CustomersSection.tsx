@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CaretLeft, Check, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import Sheet from "../inbox/Sheet";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { collapseProps } from "../ui/collapse";
 import type { PortalSiteProps } from "@/app/portal/types";
 import { Card, SectionHeader } from "../ui/Card";
 import { FeatureState, FeatureError } from "../ui/FeatureState";
@@ -11,7 +13,7 @@ import { useCachedFetch, CLIENT_TTL } from "../PortalDataProvider";
 import CustomerDrawer from "./CustomerDrawer";
 import CustomerRecord from "./CustomerRecord";
 import CustomerPanel from "./CustomerPanel";
-import { useIsMobile } from "../ui/useMediaQuery";
+import { useIsMobile, useMediaQuery } from "../ui/useMediaQuery";
 import StarterShowcase from "./StarterShowcase";
 import {
     COLLAPSED_BY_DEFAULT,
@@ -53,6 +55,8 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     );
 
     const isMobile = useIsMobile();
+    const isDesktop = useMediaQuery("(min-width: 1024px)");
+    const reduceMotion = useReducedMotion();
     const [collapsed, setCollapsed] = useState<Set<StageKey>>(new Set(COLLAPSED_BY_DEFAULT));
     const [adding, setAdding] = useState(false);
     const [overrides, setOverrides] = useState<Record<string, Partial<CustomerRow>>>({});
@@ -246,6 +250,33 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
      */
     const panelOpen = openId !== null && !isMobile;
 
+    const filterChips = (
+        <>
+            <Chip on={needsReply} onClick={() => setParam("unread", needsReply ? "" : "1")} count={unreadCount}>
+                Needs reply
+            </Chip>
+            <Chip on={staleOnly} onClick={() => setParam("stale", staleOnly ? "" : "1")} count={staleCount}>
+                Going stale
+            </Chip>
+            <Chip on={reviewReady} onClick={() => setParam("rr", reviewReady ? "" : "1")} count={reviewCount}>
+                ★ Review-ready
+            </Chip>
+            <Chip on={showArchived} onClick={() => setParam("archived", showArchived ? "" : "1")}>
+                Show archived
+            </Chip>
+            {filtersOn && (
+                <button
+                    type="button"
+                    onClick={() => router.replace(`?site=${encodeURIComponent(site.slug)}`, { scroll: false })}
+                    className="shrink-0 text-sm underline underline-offset-4 cursor-pointer"
+                    style={{ color: "var(--accent)" }}
+                >
+                    Clear
+                </button>
+            )}
+        </>
+    );
+
     return (
         <div>
             {/* The board, inert while a record is over it: the dimmed strip is a way out, not a
@@ -288,7 +319,11 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                     </div>
                 </div>
 
-                <Card data-tour="crm-filters" className="flex flex-wrap items-center gap-2">
+                {/* Desktop: search and filters in one card. Phone: search only here, and the
+                    filters as their own row under the stage pills (Xander, 2026-11-19: "keep the
+                    three filters on the phone as a row under the stage pills"). The `crm-filters`
+                    hook follows whichever row is showing, so the tour never lands on a hidden one. */}
+                <Card data-tour={isDesktop ? "crm-filters" : undefined} className="flex flex-wrap items-center gap-2">
                     <div
                         className="flex items-center gap-2 rounded-lg border px-3 py-1.5 min-w-[240px]"
                         style={{ background: "var(--bg)", borderColor: "var(--rule-strong)" }}
@@ -303,28 +338,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                             style={{ color: "var(--fg)" }}
                         />
                     </div>
-                    <Chip on={needsReply} onClick={() => setParam("unread", needsReply ? "" : "1")} count={unreadCount}>
-                        Needs reply
-                    </Chip>
-                    <Chip on={staleOnly} onClick={() => setParam("stale", staleOnly ? "" : "1")} count={staleCount}>
-                        Going stale
-                    </Chip>
-                    <Chip on={reviewReady} onClick={() => setParam("rr", reviewReady ? "" : "1")} count={reviewCount}>
-                        ★ Review-ready
-                    </Chip>
-                    <Chip on={showArchived} onClick={() => setParam("archived", showArchived ? "" : "1")}>
-                        Show archived
-                    </Chip>
-                    {filtersOn && (
-                        <button
-                            type="button"
-                            onClick={() => router.replace(`?site=${encodeURIComponent(site.slug)}`, { scroll: false })}
-                            className="text-sm underline underline-offset-4 cursor-pointer"
-                            style={{ color: "var(--accent)" }}
-                        >
-                            Clear
-                        </button>
-                    )}
+                    <div className="hidden lg:contents">{filterChips}</div>
                 </Card>
 
                 {all.length === 0 ? (
@@ -404,12 +418,25 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                                 );
                             })}
                         </div>
+                        <div
+                            // Literal here; the desktop card above carries it only on a desktop, and it
+                            // comes first in the DOM, so the tour finds whichever row is on screen.
+                            data-tour="crm-filters"
+                            className="lg:hidden flex items-center gap-2 overflow-x-auto -mx-4 px-4 pb-1 -mt-2"
+                            style={{ scrollbarWidth: "none" }}
+                        >
+                            {filterChips}
+                        </div>
                         <div data-tour="crm-list" className="lg:hidden portal-group">
-                            {rows
-                                .filter((c) => !stageParam || c.stage === stageParam)
-                                .map((c) => (
-                                    <MobileCard key={c.customerId} row={c} onOpen={() => openRecord(c.customerId)} onMove={move} />
-                                ))}
+                            <AnimatePresence initial={false}>
+                                {rows
+                                    .filter((c) => !stageParam || c.stage === stageParam)
+                                    .map((c) => (
+                                        <motion.div key={c.customerId} {...collapseProps(reduceMotion)}>
+                                            <MobileCard row={c} onOpen={() => openRecord(c.customerId)} onMove={move} />
+                                        </motion.div>
+                                    ))}
+                            </AnimatePresence>
                             {rows.filter((c) => !stageParam || c.stage === stageParam).length === 0 && (
                                 <p className="py-8 text-center text-sm" style={{ color: "var(--fg-3)" }}>
                                     No customers match these filters.
@@ -837,7 +864,7 @@ export function Chip({
         <button
             type="button"
             onClick={onClick}
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] cursor-pointer"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-full lg:rounded-lg border px-3.5 lg:px-3 py-2 lg:py-1.5 text-[14px] lg:text-[12.5px] whitespace-nowrap cursor-pointer"
             style={{
                 background: on ? "var(--accent)" : "var(--elev-1)",
                 color: on ? "var(--on-accent)" : "var(--fg-2)",
