@@ -626,368 +626,6 @@ select option {
   }
 }
 
-/* ── Calculator faders ──────────────────────────────────────────
-   A measured rail, not a console channel. This replaced a 7px slot carrying a
-   radio-dial tick scale, an --accent fill with a radial bloom tracking the
-   thumb, and a 14x26 coral fader cap with its own glow. Three problems with
-   that: the bloom muddied the junction where the fill met the cap, unlabelled
-   ticks implied a precision the log-scale job-value slider does not have, and
-   all of it was decoration on top of a control that sat inside two nested
-   boxes. What is left is a hairline, a fill, and a knob.
-
-   The range this moves through is stated by the mono labels flanking the rail
-   rather than by graduations, because a number at each end is the thing a
-   reader actually wants and a tick is not. */
-.calc-fader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.calc-fader-end {
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--fg-3);
-  font-variant-numeric: tabular-nums;
-  user-select: none;
-}
-
-/* The element is 26px tall so it can be grabbed; the rail is a 3px band drawn
-   centred inside it. Making the input itself 3px tall would be a hairline you
-   could see and not hit — 26px keeps a real target without the visual weight. */
-.calc-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  flex: 1;
-  min-width: 0;
-  display: block;
-  height: 26px;
-  background-color: transparent;
-  outline: none;
-  cursor: pointer;
-  background-image: linear-gradient(
-    to right,
-    var(--accent) 0 var(--pct, 0%),
-    var(--rule-strong) var(--pct, 0%) 100%
-  );
-  background-size: 100% 3px;
-  background-position: 0 50%;
-  background-repeat: no-repeat;
-}
-
-/* Firefox draws its own track behind the band above, which would double it up.
-   Handing the rail entirely to the input's background keeps one source of truth. */
-.calc-slider::-moz-range-track {
-  background: transparent;
-  border: 0;
-  height: 3px;
-}
-
-.calc-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  background: var(--accent-2);
-  box-shadow: 0 0 0 1px var(--rule-strong);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.calc-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border: none;
-  border-radius: 999px;
-  background: var(--accent-2);
-  box-shadow: 0 0 0 1px var(--rule-strong);
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-/* Scale plus a thicker ring, in place of the glow that used to signal this. */
-.calc-slider:hover::-webkit-slider-thumb,
-.calc-slider:active::-webkit-slider-thumb {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px var(--accent-2);
-}
-.calc-slider:hover::-moz-range-thumb,
-.calc-slider:active::-moz-range-thumb {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px var(--accent-2);
-}
-
-/* The element keeps `outline: none`, so a keyboard ring has to be drawn by the
-   thumb. The --bg gap is what separates the ring from the knob's own fill. */
-.calc-slider:focus-visible::-webkit-slider-thumb {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
-}
-.calc-slider:focus-visible::-moz-range-thumb {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
-}
-
-/* ── Calculator input rows ───────────────────────────────────
-   Each input reads as one self-describing sentence with the value inline, so
-   there is no label→value mapping to perform. Sentence left, rail right, on a
-   40/60 split: the rail wants the longer run (the job-value slider maps 0–100
-   onto $50–$500K logarithmically, so drag resolution is the whole game) and
-   the sentence wants a tight measure.
-
-   Rows are separated by whitespace alone. The hairline rules and the 28px
-   01/02/03 index rail that used to do this job went with the boxes — with no
-   card around the panel they were structure holding up nothing.
-
-   The submit row shares the template so Calculate lands under the rail rather
-   than spanning the full measure, which reads as the end of the sequence. */
-.calc-row,
-.calc-submit {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  column-gap: clamp(20px, 3vw, 40px);
-  /* Not baseline: rows 02 and 03 wrap to two lines in a 40% column and the rail
-     should sit against the middle of the copy block, whatever height it lands on. */
-  align-items: center;
-}
-
-.calc-submit > .btn {
-  grid-column: 2;
-  justify-self: start;
-}
-
-.calc-row-copy {
-  font-size: 17px;
-  line-height: 1.5;
-  color: var(--fg-2);
-  text-wrap: balance;
-}
-
-/* Was clamp(30px, 7vw, 40px) — poster scale, which it earned when the number was
-   the only content inside a 600px card. Unboxed and set beside its own rail, three
-   40px numerals stacked would be the loudest thing in the section. */
-.calc-row-value {
-  font-family: var(--font-display);
-  font-size: clamp(22px, 4.5vw, 26px);
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: var(--tracking-tight);
-  color: var(--accent-2);
-  /* The value sits mid-sentence, so a digit narrower than its neighbour shoves the
-     words after it sideways on every drag. tabular-nums fixes that where the font
-     ships the feature; the per-row --val-w floor covers it where it does not, and
-     also absorbs 10→9 and 100%→99% losing a character outright. */
-  font-variant-numeric: tabular-nums;
-  display: inline-block;
-  text-align: center;
-  min-width: var(--val-w, 2ch);
-}
-
-/* Two columns do not survive a 320px screen. The sentence takes the full width and the
-   rail drops beneath it — and the endpoint labels go, because their ~24px a side is
-   room the rail needs more than the reader needs the range restated. Calculate spans
-   the measure here: there is no rail column left to align it to. */
-@media (max-width: 639px) {
-  .calc-row,
-  .calc-submit {
-    grid-template-columns: 1fr;
-    row-gap: 14px;
-  }
-
-  .calc-fader-end { display: none; }
-
-  .calc-submit > .btn {
-    grid-column: 1;
-    justify-self: stretch;
-  }
-}
-
-/* ── "How we calculate this" modal ──────────────────────────── */
-.calc-modal-trigger:hover {
-  color: var(--fg);
-}
-
-.calc-modal-trigger:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-
-.calc-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-.calc-modal {
-  position: relative;
-  width: 100%;
-  max-width: 720px;
-  max-height: calc(100vh - 48px);
-  overflow-y: auto;
-  padding: 36px 36px 32px;
-  border-radius: 22px;
-  /* Override .glass transparency with an opaque themed base so the page can't bleed through */
-  background: var(--bg);
-}
-
-.calc-modal-header {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 16px;
-  align-items: flex-start;
-  margin-bottom: 28px;
-  position: relative;
-  z-index: 2;
-}
-
-.calc-modal-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
-  background: var(--surface);
-  border: 1px solid var(--rule-strong);
-  color: var(--fg-2);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.calc-modal-close:hover {
-  color: var(--fg);
-  border-color: var(--accent);
-  background: rgba(245, 237, 214, 0.08);
-}
-
-.calc-modal-close:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.calc-modal-steps {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
-  z-index: 2;
-}
-
-.calc-modal-step {
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  gap: 16px;
-  padding: 18px 0;
-  border-bottom: 1px solid var(--rule);
-}
-
-.calc-modal-step:last-child {
-  border-bottom: none;
-}
-
-.calc-modal-step-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  background: rgba(245, 237, 214, 0.10);
-  border: 1px solid rgba(245, 237, 214, 0.25);
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.calc-modal-step-body {
-  min-width: 0;
-}
-
-.calc-modal-step-row {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px 16px;
-  margin-bottom: 4px;
-}
-
-.calc-modal-step-title {
-  font-size: 14.5px;
-  color: var(--fg);
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.calc-modal-step-running {
-  font-family: var(--font-display);
-  font-size: 16px;
-  color: var(--accent);
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-}
-
-.calc-modal-step-formula {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  color: var(--fg-3);
-  margin-bottom: 8px;
-  word-break: break-word;
-}
-
-.calc-modal-step-note {
-  font-size: 13px;
-  color: var(--fg-2);
-  line-height: 1.55;
-}
-
-.calc-modal-link {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  white-space: nowrap;
-}
-
-.calc-modal-link:hover {
-  color: var(--fg);
-}
-
-.calc-modal-footer {
-  padding-top: 20px;
-  border-top: 1px solid var(--rule);
-  position: relative;
-  z-index: 2;
-}
-
-@media (max-width: 560px) {
-  .calc-modal {
-    padding: 28px 22px 24px;
-  }
-  .calc-modal-step {
-    grid-template-columns: 26px 1fr;
-    gap: 12px;
-  }
-  .calc-modal-step-running {
-    font-size: 14.5px;
-  }
-}
-
 /* ── Hero 60/40 split layout ────────────────────────────────── */
 .hero-split {
   display: grid;
@@ -1306,205 +944,9 @@ select option {
   animation-duration: 70s;
 }
 
-/* ── Calculator: one fixed card, three states ─────────────────
-   This replaced a card that grew on Calculate (530x481 → 1125x764) and again when
-   the methodology opened (→1336px). It outgrew every viewport height we support,
-   which made it the one section that could not sit in the pinned journey. Now the
-   box holds still and its contents swap: sliders → results → breakdown.
-
-   The height is set by stacking, not by a number — see `.calc-stack`.
-
-   The card is no longer drawn. It used to carry a border and a --panel fill around
-   all three views, with a second recessed --surface deck (`.calc-inputs`) nested
-   inside the sliders view — a box inside a box. The frame moved to `.calc-panel`, so
-   the answer states keep a container and the inputs sit on the page. What is left
-   here is the measure: 860px, unchanged, and deliberately so. The sliders could take
-   the full 1240px container now that nothing frames them, but then the region would
-   visibly widen on Calculate and narrow again on Recalculate, which is exactly the
-   resize the stacking above exists to prevent. The rail gets its extra length from
-   the deleted deck padding and index rail instead. */
-.calc-card {
-  position: relative;
-  margin: 0 auto;
-  max-width: 860px;
-}
-
-/* All three views share one grid cell. Inactive ones are `visibility: hidden`, which
-   still occupies layout — so the cell is permanently as tall as the tallest view and
-   the card cannot resize on a swap. This does the job a `min-height` would, without
-   having to know the number: a hardcoded 480px drifted 53px on desktop and 80px on a
-   phone, because the sliders' height depends on where their copy wraps. */
-.calc-stack { display: grid; }
-
-.calc-view {
-  grid-area: 1 / 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  visibility: hidden;
-  opacity: 0;
-}
-
-.calc-view.is-active {
-  visibility: visible;
-  opacity: 1;
-  animation: calc-in 350ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-/* Wins over the entrance by specificity, so it still applies to a view that has
-   already finished animating in. */
-.calc-view.is-active.is-leaving {
-  animation: calc-out 250ms ease forwards;
-}
-
-@keyframes calc-in  { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-@keyframes calc-out { to   { opacity: 0; } }
-
-/* Children that arrive after their view — the held beat before the remark, and the
-   actions after it. `both` holds them at opacity 0 through the delay. */
-.calc-step { animation: calc-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-/* States change instantly. `opacity` is deliberately NOT forced to 1 on the base
-   `.calc-view` — the inactive views are hidden by `visibility` and opacity together,
-   and only the active one should come back. */
-@media (prefers-reduced-motion: reduce) {
-  .calc-view,
-  .calc-view.is-active,
-  .calc-view.is-active.is-leaving,
-  .calc-step {
-    animation: none;
-    transform: none;
-  }
-  .calc-view.is-active { opacity: 1; }
-}
-
-/* Layout only. This was a recessed deck — --surface fill, inset shadow, 24px of
-   padding — sitting inside the card's own box. Both are gone; the gap is the only
-   thing separating one input from the next now, so it is wider than the 30px it was
-   when hairline rules were also doing that work. */
-.calc-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(30px, 4vh, 42px);
-}
-
-/* Carries the frame the card gave up, which is why the answer states still read as a
-   surface handed back to you while the inputs read as part of the page. Shared by the
-   results and breakdown views, so going back and forth between them changes nothing
-   but the contents. */
-.calc-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 26px;
-  padding: 26px 22px;
-  border: 1px solid var(--rule);
-  border-radius: 8px;
-  background-color: var(--panel);
-}
-
-/* Top-left in both results and breakdown, same position, contextual label — so it
-   reads as one control that goes back a step rather than two unrelated buttons. */
-.calc-back {
-  align-self: flex-start;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  transition: color 160ms ease;
-}
-.calc-back:hover { color: var(--accent-2); }
-
-/* Side by side, divided by a rule. Stacked, these two cost ~140px — the difference
-   between the results fitting the sliders' footprint and not. */
-.calc-figures {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 24px;
-}
-.calc-figures > * { display: flex; flex-direction: column; gap: 10px; }
-
-@media (min-width: 640px) {
-  .calc-figures {
-    grid-template-columns: 1fr 1px 1fr;
-    gap: 32px;
-    align-items: start;
-  }
-  /* The rule is a grid track, not a border, so it spans the taller of the two
-     columns without either one owning it. */
-  .calc-figures::before {
-    content: "";
-    grid-column: 2;
-    grid-row: 1;
-    align-self: stretch;
-    background: var(--rule);
-  }
-  .calc-figures > *:last-child { grid-column: 3; }
-}
-
-/* Sized up from the 60px this started at: stacking the views means the card is always
-   as tall as the sliders, so the results view has room it may as well use, and the
-   figure is the one thing in that view anybody came for. */
-.calc-figure {
-  font-family: var(--font-display);
-  font-size: clamp(44px, 5.6vw, 74px);
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: var(--tracking-tightest);
-  color: var(--fg);
-}
-.calc-figure--accent {
-  color: var(--accent-2);
-  text-shadow: 0 0 40px var(--accent-glow);
-}
-
-/* The loss figure, one step back. Same size, same weight, so the pair still reads as a
-   comparison — but the eye now travels loss → gain and lands on the coral, which is the
-   number the remark underneath argues. Both figures at full --fg made them compete, and
-   the one that won was the one we are not selling. */
-.calc-figure--muted { color: var(--fg-2); }
-
-.calc-remark {
-  font-weight: 700;
-  font-size: clamp(18px, 1.7vw, 23px);
-  line-height: 1.3;
-  color: var(--fg);
-  margin: 0;
-  text-wrap: balance;
-}
-
-.calc-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 28px;
-}
-
-.calc-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-  font-size: 14.5px;
-  color: var(--fg-2);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  transition: color 160ms ease;
-}
-.calc-link:hover { color: var(--accent-2); }
-.calc-link--lead {
-  font-weight: 700;
-  font-size: 16px;
-  color: var(--accent-2);
-}
-
+/* ── The calculator's working ("How we calculate this") ───────
+   The five steps behind the homepage calculator's answer, shown in its third view
+   (YearCalculator.tsx). The rest of the old calculator's rules went with the redesign. */
 .calc-breakdown-intro {
   margin: 0;
   color: var(--fg-2);
@@ -1536,47 +978,6 @@ select option {
   line-height: 1.5;
 }
 
-/* ── Hero CTA button group ───────────────────────────────── */
-/* `.hero-grid` and `.hero-offer` were removed with the two-column hero: the screenshot
-   moved into the journey's first section and the offer strip was replaced by the three
-   sections that now say the same things at length. The hero is a single centred column
-   of copy, so it needs no grid of its own. */
-.hero-cta-btn {
-  min-width: 220px;
-}
-
-@media (max-width: 640px) {
-  .hero-cta-btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-/* ── Scroll journey ──────────────────────────────────────────
-   Two columns at ≥900px, one below it. Copy is always first in the DOM — it is what
-   should be read first when the columns collapse — and the sections that want the visual
-   on the left get it there with `order`, not by reordering the markup. Doing it in the
-   markup would put the screenshot above the copy on every phone.
-
-   These sections used to sit inside a pinned stage that swapped them on scroll. That
-   stage, its `display: contents` fallback and its per-row outcome stagger are gone: the
-   page scrolls with Lenis now, and every section travels with the document and enters
-   through <JourneyReveal>. Lenis's own required rules come from its shipped stylesheet,
-   imported in SmoothScroll.tsx, not copied here. */
-
-/* Was inline on each <section>. A class rather than inline so a stylesheet can still
-   reach it; the values are the same ones the inline style had. */
-.journey-section {
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: clamp(64px, 7vw, 120px) clamp(18px, 4vw, 56px);
-}
-
-.calc-section {
-  position: relative;
-  padding: clamp(56px, 7vw, 120px) 0;
-  overflow: hidden;
-}
 /* ── The final asks ──────────────────────────────────────────
    Shared by the homepage close and the foot of /faq (<ClosingAsk>). Open, not boxed: a rule
    above, two halves split by a hairline from 860px, each a large line with its buttons. The
@@ -1620,16 +1021,12 @@ select option {
   .rail-cta-rule { height: 100%; min-height: 110px; }
 }
 
-/* ── The homepage, without cards (9 Nov 2026) ─────────────────
-   Approved by Xander from a ten-round mockup. Four rules hold it together:
-     1. Only the product gets a frame: the laptop, the phone film and the portal demo.
-        Nothing around words has a border, a fill or a shadow.
-     2. Colour arrives as ground, not as a box. The page stays cream; a `.wash` section
-        deepens towards sand through its middle and fades back to cream at both ends, so no
-        edge ever shows. The receptionist, the calculator and the close are washed.
-     3. Hairlines instead of cards for anything listed.
-     4. Scale does the hierarchy: `.home-display` headings up to about 100px.
-   Every section fills the same 1320px content width (`.journey-section`'s). */
+/* ── Section heads and the sand wash (9 Nov 2026) ─────────────
+   From the homepage's first redesign, still shared: `.wash` (the sand ground /hvac and other
+   pages use; the homepage now uses its own `.hp-wash`), and the centred section heads
+   (`.home-head`, `.home-display`, `.home-em`, `.home-head-copy`, `.home-lede`,
+   `.home-promise`), which the redesigned homepage reuses as drawn. Colour arrives as ground,
+   not as a box; hairlines instead of cards; scale does the hierarchy. */
 .wash {
   background: linear-gradient(180deg, var(--bg) 0%, var(--wash) 35%, var(--wash) 65%, var(--bg) 100%);
 }
@@ -1702,326 +1099,6 @@ select option {
   height: 2px;
   background: var(--accent-2);
 }
-.home-stage { margin-top: clamp(40px, 5vw, 72px); }
-.home-stage .laptop { box-shadow: 0 40px 90px -40px rgba(20, 18, 12, 0.45), 0 0 0 1px var(--rule-weak); }
-
-/* 02 · The receptionist: the words centred, the film centred under them, at every width. */
-.home-duo {
-  display: grid;
-  gap: clamp(40px, 5vw, 72px);
-  align-items: center;
-}
-.home-duo > * { min-width: 0; }
-
-/* The film's "Their phone / Your phone" switch: both phones named, the one on screen lit.
-   A control, so it keeps its pill; it is the only rounded thing beside the phone. */
-.film-switch {
-  display: inline-flex;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 999px;
-  border: 1px solid var(--rule-strong);
-}
-.film-switch span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  transition: background 300ms ease, color 300ms ease;
-}
-.film-switch span::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.5;
-}
-.film-switch span[aria-current="true"] { background: var(--fg); color: var(--bg); }
-.film-switch span[aria-current="true"]::before { background: var(--accent-2); opacity: 1; }
-
-/* The film's opening: the growth site at its real 390px layout, scaled to the phone's
-   screen. Overlays sit at the live page's own coordinates (FILM_SITE). */
-.film-site { position: absolute; inset: 0; overflow: hidden; background: #fff; }
-.film-site-vp { position: absolute; left: 0; top: 0; width: 390px; transform-origin: 0 0; overflow: hidden; }
-.film-site-page { position: relative; transition: transform 1s cubic-bezier(0.45, 0, 0.2, 1); }
-.film-site-page img { display: block; width: 390px; height: auto; }
-.film-press { position: absolute; border-radius: 10px; background: rgba(0, 0, 0, 0.2); opacity: 0; transition: opacity 150ms ease; }
-.film-press[data-on="true"] { opacity: 1; }
-.film-typed {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  padding: 0 15px;
-  border-radius: 8px;
-  font: 400 16px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #151a22;
-}
-.film-typed[data-focus="true"] { box-shadow: 0 0 0 2px #e2622b; }
-.film-typed[data-focus="true"]::after {
-  content: "";
-  width: 1.5px;
-  height: 19px;
-  margin-left: 1px;
-  background: #151a22;
-  animation: film-caret 0.9s steps(1) infinite;
-}
-@keyframes film-caret { 50% { opacity: 0; } }
-.film-tick {
-  position: absolute;
-  border-radius: 3px;
-  background: #e2622b;
-  color: #fff;
-  font: 700 12px/16px system-ui, sans-serif;
-  text-align: center;
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity 150ms ease, transform 150ms ease;
-}
-.film-tick::before { content: "✓"; }
-.film-tick[data-on="true"] { opacity: 1; transform: none; }
-/* A tap, not a cursor (2026-11-18): phones have no pointer. A ripple where the finger lands,
-   replayed for each tap (the element is keyed on the tap count). */
-.film-tap {
-  position: absolute;
-  z-index: 3;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-.film-tap::before,
-.film-tap::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-}
-/* The fingertip. */
-.film-tap::before {
-  left: -17px;
-  top: -17px;
-  width: 34px;
-  height: 34px;
-  background: rgba(13, 17, 23, 0.22);
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-  animation: film-tap-finger 0.9s ease-out both;
-}
-/* The ripple. */
-.film-tap::after {
-  left: -26px;
-  top: -26px;
-  width: 52px;
-  height: 52px;
-  border: 2px solid rgba(226, 98, 43, 0.9);
-  animation: film-tap-ring 0.6s ease-out both;
-}
-@keyframes film-tap-finger {
-  0% { opacity: 0; transform: scale(1.3); }
-  20% { opacity: 1; transform: scale(0.9); }
-  70% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1); }
-}
-@keyframes film-tap-ring {
-  0% { opacity: 0.9; transform: scale(0.3); }
-  100% { opacity: 0; transform: scale(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .film-site-page, .film-switch span { transition: none; }
-  .film-tap::before, .film-tap::after, .film-typed[data-focus="true"]::after { animation: none; }
-  .film-tap::after { display: none; }
-}
-
-/* 03 · The calculator: on the wash, rows split by hairlines, figures set as type. No card
-   and no panel; the answer is a pair of numerals divided by one rule. */
-.calc-open .calc-card { max-width: 1080px; }
-.calc-open .calc-inputs { gap: 0; border-top: 1px solid var(--wash-rule); }
-.calc-open .calc-row { padding: clamp(18px, 2.2vw, 26px) 0; border-bottom: 1px solid var(--wash-rule); }
-.calc-open .calc-submit { display: flex; justify-content: center; padding-top: clamp(26px, 3vw, 40px); }
-.calc-open .calc-panel { border: 0; background: none; padding: 0; }
-.calc-open .calc-figures { border-block: 1px solid var(--wash-rule); gap: 0; }
-.calc-open .calc-figures > * { padding: clamp(24px, 3vw, 40px) 10px; }
-.calc-open .calc-figure { font-size: clamp(52px, 9vw, 140px); line-height: 0.9; }
-@media (min-width: 640px) {
-  .calc-open .calc-figures > * + * { border-left: 1px solid var(--wash-rule); }
-}
-@media (max-width: 639px) {
-  .calc-open .calc-figures > * + * { border-top: 1px solid var(--wash-rule); }
-}
-.calc-heading {
-  margin: 0 auto;
-  max-width: 21ch;
-  text-align: center;
-}
-/* "Missed calls" is its coral close (`.home-em`), and never breaks across two lines. */
-.calc-section.wash { padding: 0; }
-.calc-body { margin-top: clamp(40px, 5vw, 64px); }
-
-/* ── Portal section (homepage, "And nothing slips.") ─────────
-   The demo is the section: heading and cue centred over the window, the window full width,
-   its rail under it, then the one line about the plans. See <PortalSection>. */
-.portal-section { text-align: center; }
-.portal-heading {
-  font-size: clamp(34px, 5.6vw, 72px);
-  font-weight: 800;
-  line-height: 0.95;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  text-wrap: balance;
-}
-/* A cue, not a control: small mono caps with chevrons that point down at the window's own
-   play button. Kept quiet so it never reads as a second start button. */
-.portal-cue {
-  margin: 18px auto 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-}
-.portal-cue-arrows {
-  display: flex;
-  gap: 22px;
-  color: var(--accent-2);
-}
-.portal-cue-arrows svg { animation: portal-cue-bob 1.8s ease-in-out infinite; }
-.portal-cue-arrows svg:nth-child(2) { animation-delay: 0.15s; }
-.portal-cue-arrows svg:nth-child(3) { animation-delay: 0.3s; }
-@keyframes portal-cue-bob {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50% { transform: translateY(5px); opacity: 1; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .portal-cue-arrows svg { animation: none; }
-}
-.portal-visual { margin-top: clamp(20px, 2.6vw, 32px); text-align: left; }
-.portal-plans-line {
-  max-width: 60ch;
-  margin: clamp(20px, 2.4vw, 28px) auto 0;
-  text-align: center;
-  font-size: 16px;
-  line-height: 1.55;
-  color: var(--fg-2);
-}
-
-/* ── Closing section (homepage) ──────────────────────────────
-   "Every plan starts here." on the left with the three parts every plan gets; the three plans
-   on the right in ONE cream panel, rows split by hairlines, Growth marked by a coral edge.
-   One raised object where there used to be three cards. The asks run underneath, open, with
-   no box (`.rail-cta`). On the wash. See <ClosingSection>. */
-.closing {
-  display: grid;
-  gap: clamp(36px, 4vw, 56px);
-}
-.closing > * { min-width: 0; }
-@media (min-width: 900px) {
-  .closing {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr);
-    gap: clamp(48px, 5vw, 88px);
-    align-items: center;
-  }
-}
-.closing-heading { max-width: 10ch; font-size: clamp(40px, 5.4vw, 80px); margin-bottom: clamp(36px, 4vw, 56px); }
-.closing-base { display: grid; gap: 24px; margin-top: clamp(28px, 3vw, 40px); }
-.closing-base-item { padding-left: 16px; border-left: 2px solid var(--accent); }
-.closing-base-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.closing-base-label svg { flex-shrink: 0; }
-.closing-base-title {
-  margin-top: 8px;
-  font-size: clamp(22px, 2vw, 28px);
-  font-weight: 800;
-  line-height: 1;
-  text-transform: uppercase;
-}
-.closing-base-detail {
-  margin-top: 8px;
-  font-size: 15.5px;
-  line-height: 1.55;
-  color: var(--fg-2);
-  max-width: 52ch;
-}
-.closing-bill {
-  margin-top: 28px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent-2);
-}
-.closing-plans {
-  background: var(--bg);
-  border: 1px solid var(--rule);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 40px 80px -40px rgba(20, 18, 12, 0.4);
-}
-.closing-plan {
-  position: relative;
-  display: grid;
-  gap: 6px 28px;
-  padding: 28px clamp(22px, 2.6vw, 36px);
-  border-bottom: 1px solid var(--rule);
-}
-.closing-plan:last-child { border-bottom: 0; }
-@media (min-width: 560px) {
-  .closing-plan { grid-template-columns: 200px minmax(0, 1fr); align-items: start; }
-  .closing-plan > .kicker, .closing-plan > .closing-price { grid-column: 1; }
-  .closing-plan > p:not(.closing-price) { grid-column: 2; grid-row: 1 / span 2; }
-}
-.closing-price {
-  font-family: var(--font-display);
-  font-size: clamp(44px, 4.4vw, 64px);
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: var(--tracking-tightest);
-  color: var(--fg);
-}
-.closing-price span {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0;
-  color: var(--fg-3);
-  margin-left: 4px;
-}
-.closing-plan p:not(.closing-price) { font-size: 16px; line-height: 1.55; color: var(--fg-2); }
-/* Growth: the coral edge and a faint warm tint, never a glowing box. */
-.closing-plan--featured {
-  padding-left: clamp(28px, 3vw, 42px);
-  background: linear-gradient(90deg, rgba(210, 84, 47, 0.07), transparent 70%);
-}
-.closing-plan--featured::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--accent-2);
-}
-.closing-plan--featured > .kicker { color: var(--accent-2); }
-.closing-plan--muted .closing-price { color: var(--fg-2); }
-.closing-plan--muted p:not(.closing-price) { color: var(--fg-3); }
-.closing-plan--muted a { color: var(--fg-2); text-decoration: underline; text-underline-offset: 2px; }
-.closing-plan--muted a:hover { color: var(--accent-2); }
 
 /* ── /faq ─────────────────────────────────────────────────────
    The FAQ on its own page: four groups of open, ruled entries in two columns, /pricing's
@@ -2125,17 +1202,6 @@ select option {
     display: none;
   }
 
-  /* The calculator's own reduced-motion handling sits with its rules above; only the
-     knob's hover/focus scale is left to silence here. The ring still thickens, so the
-     state is not lost, it just stops moving. */
-  .calc-slider::-webkit-slider-thumb {
-    transition: none !important;
-    transform: none !important;
-  }
-  .calc-slider::-moz-range-thumb {
-    transition: none !important;
-    transform: none !important;
-  }
 }
 
 /* ── Logo marquee item spacing ───────────────────────────── */
@@ -2154,412 +1220,6 @@ select option {
   .show-desktop { display: none; }
   .hide-on-mobile { display: none !important; }
 }
-
-/* ── Hero laptop (live demo site) ───────────────────────── */
-.laptop {
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--panel);
-  box-shadow: 0 30px 70px -30px rgba(0,0,0,0.38), 0 0 0 1px var(--rule-weak);
-}
-.laptop-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 14px;
-  background: var(--panel-header);
-  border-bottom: 1px solid var(--rule);
-}
-.laptop-dot {
-  width: 9px; height: 9px; border-radius: 999px;
-  background: var(--rule-strong);
-  flex-shrink: 0;
-}
-.laptop-screen {
-  position: relative;
-  overflow: hidden;
-  background: #fff;
-}
-.laptop-skeleton {
-  position: absolute; inset: 0;
-  background: var(--surface);
-}
-
-/* One-way, downward only. An `alternate` cycle pans back up, which reads as motion
-   nobody asked for — real scrolling only goes one way. Instead it holds at the bottom,
-   fades out, resets to the top while invisible, and fades back in. */
-@keyframes laptop-pan {
-  0%   { transform: translateY(0);                        opacity: 0; }
-  4%   { transform: translateY(0);                        opacity: 1; }
-  82%  { transform: translateY(var(--pan-travel, -3692px)); opacity: 1; }
-  92%  { transform: translateY(var(--pan-travel, -3692px)); opacity: 1; }
-  97%  { transform: translateY(var(--pan-travel, -3692px)); opacity: 0; }
-  100% { transform: translateY(0);                        opacity: 0; }
-}
-@media (prefers-reduced-motion: no-preference) {
-  .laptop-pan {
-    animation: laptop-pan var(--pan-duration, 34000ms) linear infinite;
-  }
-}
-
-/* Click to pause (12 Nov 2026). The toggle covers the whole laptop; hovering it rings the laptop
-   in coral and shows the icon. Paused, the pan holds on its frame and the icon stays up, so it
-   reads as paused rather than broken. */
-.laptop { position: relative; transition: box-shadow 0.2s ease; }
-.laptop-toggle {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  cursor: pointer;
-}
-.laptop-toggle-icon {
-  position: absolute;
-  top: 44px;
-  right: 14px;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(20, 18, 12, 0.72);
-  color: #fff;
-  opacity: 0;
-  transform: scale(0.9);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.laptop[data-pausable="true"]:hover,
-.laptop[data-pausable="true"]:has(.laptop-toggle:focus-visible) {
-  box-shadow: 0 0 0 2px var(--accent-2), 0 0 0 7px var(--accent-glow), 0 30px 70px -30px rgba(0,0,0,0.38);
-}
-.home-stage .laptop[data-pausable="true"]:hover,
-.home-stage .laptop[data-pausable="true"]:has(.laptop-toggle:focus-visible) {
-  box-shadow: 0 0 0 2px var(--accent-2), 0 0 0 7px var(--accent-glow), 0 40px 90px -40px rgba(20, 18, 12, 0.45);
-}
-.laptop[data-pausable="true"]:hover .laptop-toggle-icon,
-.laptop-toggle:focus-visible .laptop-toggle-icon,
-.laptop[data-paused="true"] .laptop-toggle-icon { opacity: 1; transform: scale(1); }
-.laptop-toggle:focus-visible { outline: none; }
-.laptop[data-paused="true"] .laptop-pan { animation-play-state: paused; }
-
-/* The "Visit site" link above the laptop: small, right-aligned, out of the laptop's way. */
-.home-visit {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-.home-visit a {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  text-decoration: none;
-  border-bottom: 1px solid var(--rule-strong);
-  padding-bottom: 2px;
-}
-.home-visit a:hover { color: var(--fg); border-color: var(--accent-2); }
-
-/* ── The two-act film ───────────────────────────────────── */
-.film-stage {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  /* Explicit — the parent centres its children, which makes this shrink-wrap to the
-     phone and collapses the phone's own `width: 100%` against it. */
-  width: 100%;
-  /* Reserved up front so act transitions never reflow the page mid-film. */
-  min-height: 596px;
-}
-.film-phone {
-  position: relative;
-  /* Fixed width, not `width: 100%` with a cap. A phone is a fixed-size object, and
-     sizing it as one means it can't collapse if an ancestor ever shrink-wraps —
-     which is exactly how this rendered as an 86px-wide pill. max-width keeps it
-     inside genuinely narrow viewports. */
-  width: 300px;
-  max-width: 100%;
-  height: 540px;
-  border-radius: 44px;
-  overflow: hidden;
-  background: #fff;
-  flex-shrink: 0;
-  /* deliberately no mask-image — .phone-frame fades its bottom out for hero
-     decoration, but here the screen content is the point */
-  border: 10px solid;
-  transition: border-color 400ms ease, box-shadow 400ms ease;
-}
-/* The two devices are visibly different hardware, so whose phone you're looking at
-   reads before the title card is even parsed. */
-.film-phone--customer {
-  border-color: #1a1a1a;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.08);
-}
-.film-phone--owner {
-  border-color: #b8a888;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.28), 0 0 0 1px rgba(0,0,0,0.12);
-}
-.film-notch {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 110px; height: 28px;
-  border-radius: 0 0 20px 20px;
-  background: currentColor;
-  color: inherit;
-  z-index: 12;
-}
-.film-phone--customer .film-notch { background: #1a1a1a; }
-.film-phone--owner .film-notch { background: #b8a888; }
-
-/* LOAD-BEARING that this is absolute. Both the pre-film gate and the post-film replay
-   render into this slot, so the stage occupies the same height at every phase. The
-   `.film-recap` block this replaced was a sibling BELOW the phone, which grew the stage
-   after the pinned panel had already committed and pushed the section past the frame. */
-.film-gate {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 30;
-}
-
-.film-gate-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.film-gate-line {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg-3);
-  text-align: center;
-}
-
-/* The two endings (12 Nov 2026). Bottom-anchored rather than centred: the last frame is the
-   owner's alert, whose bubble sits at the top of the screen, and stays readable above the
-   panel. Absolute like the gate, so the stage keeps its height. */
-.film-gate--end {
-  align-items: flex-end;
-  padding-bottom: 40px; /* low enough that the owner's text above it stays readable */
-  pointer-events: none;
-}
-.film-end {
-  pointer-events: auto;
-  width: min(300px, 92%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 20px 18px;
-  border-radius: 18px;
-  text-align: center;
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--rule-weak);
-  animation: film-end-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes film-end-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-.film-end-line {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 900;
-  text-transform: uppercase;
-  font-size: 21px;
-  line-height: 1.05;
-  letter-spacing: 0.01em;
-  color: var(--fg);
-}
-.film-end-btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
-.film-end-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--fg-2);
-  text-decoration: none;
-  border-bottom: 1px solid var(--rule-strong);
-  padding-bottom: 2px;
-}
-.film-end-link:hover { color: var(--fg); border-color: var(--accent-2); }
-
-/* Click to pause (12 Nov 2026): the toggle covers the phone while a story plays. Hovering
-   rings the phone in coral and shows the icon; paused, the icon stays up and every CSS
-   animation in the stage holds. */
-.film-device { position: relative; max-width: 100%; }
-.film-toggle {
-  position: absolute;
-  inset: 0;
-  z-index: 25;
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  border-radius: 44px;
-  background: transparent;
-  cursor: pointer;
-}
-.film-toggle:focus-visible { outline: none; }
-.film-toggle-icon {
-  position: absolute;
-  top: 40px;
-  right: 18px;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(20, 18, 12, 0.72);
-  color: #fff;
-  opacity: 0;
-  transform: scale(0.9);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-.film-device[data-pausable="true"]:hover .film-phone,
-.film-device[data-pausable="true"]:has(.film-toggle:focus-visible) .film-phone {
-  outline: 2px solid var(--accent-2);
-  outline-offset: 5px;
-}
-.film-device[data-pausable="true"]:hover .film-toggle-icon,
-.film-toggle:focus-visible .film-toggle-icon,
-.film-stage[data-paused="true"] .film-toggle-icon { opacity: 1; transform: scale(1); }
-.film-stage[data-paused="true"] *,
-.film-stage[data-paused="true"] *::before,
-.film-stage[data-paused="true"] *::after { animation-play-state: paused !important; }
-
-/* Your phone, Starter: the banner that drops in when you can't take the call, with a beep. */
-.film-busy {
-  position: absolute;
-  top: 40px;
-  left: 12px;
-  right: 12px;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #111;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
-}
-.film-busy-beep {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #ff3b30;
-  flex-shrink: 0;
-  animation: film-beep 0.8s ease-out 2;
-}
-@keyframes film-beep {
-  0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.6); }
-  100% { box-shadow: 0 0 0 12px rgba(255, 59, 48, 0); }
-}
-
-/* The Growth story's callouts on the site, in the site's own 390px units: the subject ringed
-   in coral, a line drawn from it, then the box. */
-.film-callout-ring {
-  position: absolute;
-  z-index: 2;
-  border: 3px solid #e2622b;
-  border-radius: 14px;
-  animation: film-co-in 0.3s ease both;
-}
-.film-callout {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.film-callout[data-side="above"] { flex-direction: column-reverse; transform: translateY(-100%); }
-.film-callout-line {
-  display: block;
-  width: 3px;
-  height: 40px;
-  background: #e2622b;
-  transform-origin: top center;
-  animation: film-co-line 0.45s 0.15s ease-out both;
-}
-.film-callout[data-side="above"] .film-callout-line { height: 22px; transform-origin: bottom center; }
-.film-callout-box {
-  margin: 0;
-  padding: 14px 16px;
-  border: 3px solid #e2622b;
-  border-radius: 14px;
-  background: #fff;
-  color: #151a22;
-  font: 600 19px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
-  text-align: center;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
-  animation: film-co-in 0.35s 0.55s ease both;
-}
-@keyframes film-co-line { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-@keyframes film-co-in { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .film-end, .film-busy-beep, .film-callout-ring, .film-callout-line, .film-callout-box { animation: none; }
-}
-
-/* The phone is a fixed 300px wide at every size, so a default-width button reads as
-   something sitting *inside* the device rather than an overlay on top of it. From
-   tablet up the button is deliberately wider than the phone so it clearly covers it.
-   Mobile keeps the stock `lg` size — the phone is 264px there and the stage only
-   ~339px, so a wide button would overflow.
-   `.btn.lg.film-gate-btn` to outrank `.btn.lg`'s own padding/font-size. */
-@media (min-width: 768px) {
-  .btn.lg.film-gate-btn {
-    min-width: 400px;
-    padding: 22px 40px;
-    font-size: 24px;
-  }
-}
-@media (min-width: 1100px) {
-  .btn.lg.film-gate-btn {
-    min-width: 460px;
-    padding: 26px 48px;
-    font-size: 28px;
-  }
-}
-
-/* `.film-recap`, `.film-chain`, `.film-chain-arrow`, `.film-recap-copy` and
-   `.film-recap-actions` lived here. The block they styled was appended below the phone
-   once the film ended, which changed the stage's height mid-panel. Its Get Started went
-   with it — the calculator and the pricing rail already carry the asks — and its replay
-   control moved into the gate above (now `.film-gate--end`), where it costs no height. */
-
-@media (max-width: 420px) {
-  .film-phone { width: 264px; height: 500px; }
-  .film-stage { min-height: 556px; }
-}
-
-/* `.dial-aside` lived here — the headed "Dial it yourself" block at the foot of the old
-   closing section. Both of its actions now sit in `.rail-cta` above. */
 
 /* ── Portal: rail + stage shell ─────────────────────────────
    Rail and stage share one grid, so the site name, the nav and the first card all sit on
@@ -4100,12 +2760,6 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   color: var(--fg-2);
 }
 
-/* The portal demo's space, held while the page works out which version to load (PortalDemoSwitch). */
-/* Below 768px it is the phone window's own height (`.phoneWindow`): the phone demo has no rail or
-   caption box under it since 2026-11-19. */
-.portal-demo-slot { min-height: min(680px, 78vh); }
-@media (min-width: 768px) { .portal-demo-slot { min-height: min(74vh, 720px); } }
-
 /* ── Phone tab bar: red counts (2026-11-19, Q11) ─────────────────────────────────────────
    White on #dc2626 is 4.8:1. The ring in the bar's own colour separates it from the icon. */
 .portal-tab-badge {
@@ -5473,4 +4127,503 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .contact-ledger-q { text-align: left; }
   .ty-onward,
   .ty-demo { justify-content: center; }
+}
+
+/* ── The homepage (`.hp-*`) ───────────────────────────────────────────────────
+   Redesigned in the /hvac page's voice and approved by Xander from three rounds of a mockup on
+   19 Nov 2026 (https://claude.ai/artifact/TuaQSED4zBHvbTof2RLM6T), built to it exactly. Values
+   are the mockup's. Section heads reuse `.home-head` / `.home-display` / `.home-em` /
+   `.home-head-copy` / `.home-lede` / `.home-promise` above, which the mockup draws the same way.
+   Everything that moves rests in a state that reads correctly without motion.
+   `.hp-m-cut` is what a phone leaves out (Xander, on /hvac: less copy on a phone). */
+.hp-page { width: 100%; background: var(--bg); }
+.hp-wrap {
+  max-width: calc(1320px + 2 * clamp(18px, 4vw, 56px));
+  margin: 0 auto;
+  padding: clamp(72px, 9vw, 150px) clamp(18px, 4vw, 56px);
+}
+.hp-wash { background: linear-gradient(180deg, var(--bg) 0%, var(--wash) 22%, var(--wash) 78%, var(--bg) 100%); }
+.hp-ic { display: block; flex: none; width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hp-eg { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
+.hp-h1,
+.hp-slip-head h2,
+.hp-group-h,
+.hp-spec h3,
+.hp-vs-heads h3,
+.hp-base-item h3 { font-family: var(--font-display); text-transform: uppercase; text-wrap: balance; color: var(--fg); }
+
+/* A voice, drawn: bars that stand for someone speaking. Only the receptionist's voices speak. */
+.hp-wave { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 22px; }
+.hp-wave > i { width: 3px; height: 40%; border-radius: 2px; background: currentColor; }
+.hp-wave > i:nth-child(2) { height: 85%; }
+.hp-wave > i:nth-child(3) { height: 55%; }
+.hp-wave > i:nth-child(4) { height: 100%; }
+.hp-wave > i:nth-child(5) { height: 45%; }
+.hp-wave > i:nth-child(6) { height: 75%; }
+.hp-wave > i:nth-child(7) { height: 30%; }
+@keyframes hp-speak { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: no-preference) {
+  .hp-wave.live > i { animation: hp-speak 1.1s ease-in-out infinite; transform-origin: 50% 50%; }
+  .hp-wave.live > i:nth-child(2) { animation-delay: -0.2s; }
+  .hp-wave.live > i:nth-child(3) { animation-delay: -0.5s; }
+  .hp-wave.live > i:nth-child(4) { animation-delay: -0.8s; }
+  .hp-wave.live > i:nth-child(5) { animation-delay: -0.35s; }
+  .hp-wave.live > i:nth-child(6) { animation-delay: -0.65s; }
+  .hp-wave.live > i:nth-child(7) { animation-delay: -0.1s; }
+}
+
+/* 1 · Hero: the claim on the left, the form itself on the right. */
+.hp-hero-wrap { padding-block: clamp(28px, 4vw, 64px) clamp(64px, 8vw, 120px); }
+.hp-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 448px); gap: clamp(36px, 5vw, 76px); align-items: center; }
+.hp-hero > * { min-width: 0; }
+.hp-h1 { margin: 0; font-weight: 900; font-size: clamp(39px, 6.2vw, 100px); line-height: 0.9; letter-spacing: 0.005em; }
+.hp-hero-p { margin: 28px 0 0; font-size: clamp(17px, 1.6vw, 21px); line-height: 1.55; color: var(--fg-2); max-width: 46ch; }
+.hp-hero-trades { margin: 14px 0 0; font-size: clamp(14px, 1.2vw, 16px); line-height: 1.5; color: var(--fg-3); max-width: 46ch; }
+
+/* The form as a slip of paper on the cream page: an ink rule on top, ruled blanks instead of
+   boxes. It is a tool, so it gets a surface; the words around it still have none. */
+.hp-slip {
+  position: relative;
+  padding: clamp(22px, 2.4vw, 30px);
+  background: var(--panel);
+  border-top: 4px solid var(--fg);
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 30px 60px -34px rgba(20, 18, 12, 0.45), 0 0 0 1px var(--rule);
+}
+.hp-slip-head { display: grid; gap: 10px; margin-bottom: 20px; }
+.hp-slip-head .kicker { color: var(--accent-2); }
+.hp-slip-head h2 { margin: 0; font-weight: 900; font-size: clamp(30px, 3vw, 40px); line-height: 0.95; }
+.hp-slip-head p:last-child { margin: 0; font-size: 15px; line-height: 1.5; color: var(--fg-2); }
+.hp-form { display: grid; gap: 15px; }
+.hp-field { display: grid; gap: 6px; }
+/* The site-wide form rule (top of this file) paints every input with `!important` and a teal
+   focus ring. The slip's fields are ruled blanks with a coral rule on focus, so they take it back
+   with a heavier selector (an id selector would too, but this build drops rules that start with
+   one). */
+.hp-slip input.hp-in.hp-in.hp-in.hp-in.hp-in,
+.hp-slip textarea.hp-in {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 11px 12px;
+  border-width: 0 0 2px !important;
+  border-style: solid !important;
+  border-color: var(--rule-strong) !important;
+  border-radius: 3px 3px 0 0;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  font: 16px/1.4 var(--font-body);
+  color: var(--fg) !important;
+  resize: vertical;
+}
+.hp-slip input.hp-in::placeholder,
+.hp-slip textarea.hp-in::placeholder { opacity: 0.75; }
+.hp-slip input.hp-in.hp-in.hp-in.hp-in.hp-in:focus,
+.hp-slip textarea.hp-in:focus {
+  outline: none;
+  border-color: var(--accent-2) !important;
+  background: rgba(210, 84, 47, 0.06) !important;
+  box-shadow: none !important;
+}
+.hp-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hp-plan {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  padding: 10px 11px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  font-family: inherit;
+  color: var(--fg);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.hp-plan > span:first-child { font-weight: 700; font-size: 15px; }
+.hp-plan > span:last-child { font-size: 12px; line-height: 1.3; color: var(--fg-3); }
+.hp-plan[aria-pressed="true"] { border-color: var(--accent-2); background: var(--accent-glow); }
+.hp-plan[aria-pressed="true"] > span:first-child { color: var(--accent-2); }
+.hp-skip { margin: 0; font-size: 12px; color: var(--fg-3); }
+.hp-agent { margin: 0; text-align: center; font-size: 12.5px; color: var(--fg-3); }
+.hp-agent a { color: var(--accent-2); font-weight: 600; text-decoration: none; }
+.hp-five { margin: 6px 0 0; text-align: center; }
+
+/* 2 · What your customers are trying to find out: searches scatter across the width and fade in
+   and out; spoken questions sit under them, their coral bar flashing as each one arrives. */
+.hp-band { margin-top: clamp(52px, 6.4vw, 88px); padding-top: clamp(34px, 4.2vw, 54px); border-top: 2px solid var(--fg); }
+.hp-group-h { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0; font-weight: 900; font-size: clamp(26px, 3.4vw, 44px); line-height: 0.95; text-align: center; }
+.hp-group-h .hp-ic { font-size: 0.8em; stroke-width: 2.6; color: var(--accent-2); }
+.hp-group-h .hp-wave { height: 0.7em; color: var(--accent-2); }
+.hp-sky { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px clamp(12px, 2vw, 28px); margin: clamp(26px, 3.4vw, 44px) 0 0; padding: 0; list-style: none; }
+.hp-sky > li { min-width: 0; min-height: 112px; }
+.hp-sky > li:nth-child(1) { justify-self: start; padding-top: 10px; }
+.hp-sky > li:nth-child(2) { justify-self: center; padding-top: 46px; }
+.hp-sky > li:nth-child(3) { justify-self: end; padding-top: 0; }
+.hp-sky > li:nth-child(4) { justify-self: center; padding-top: 30px; }
+.hp-sky > li:nth-child(5) { justify-self: start; padding-top: 4px; margin-left: 10%; }
+.hp-sky > li:nth-child(6) { justify-self: end; padding-top: 42px; }
+.hp-slot { max-width: 100%; transition: opacity 0.5s ease, transform 0.5s ease; }
+.hp-slot.out { opacity: 0; transform: translateY(7px); }
+.hp-q {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  margin: 0;
+  padding: 14px 24px 14px 18px;
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: 0 14px 28px -20px rgba(20, 18, 12, 0.45);
+  font-size: clamp(17px, 1.55vw, 22px);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--fg);
+}
+.hp-q .hp-ic { font-size: 20px; color: var(--fg-3); }
+.hp-tag { display: block; margin: 9px 0 0 22px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; line-height: 1.3; letter-spacing: 0.13em; text-transform: uppercase; color: var(--accent-2); }
+.hp-beat { display: grid; gap: 10px; justify-items: center; margin-top: clamp(22px, 3vw, 40px); text-align: center; color: var(--fg-2); }
+.hp-beat p { margin: 0; max-width: 56ch; }
+.hp-beat .hp-beat-lead { max-width: 34ch; font-size: clamp(19px, 1.9vw, 24px); font-weight: 600; line-height: 1.4; color: var(--fg); }
+.hp-said { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px clamp(24px, 4vw, 64px); margin: clamp(28px, 3.6vw, 48px) 0 0; padding: 0; list-style: none; }
+.hp-said > li { min-width: 0; min-height: clamp(128px, 12vw, 168px); }
+.hp-said > li:nth-child(2) { padding-top: 38px; }
+.hp-said > li:nth-child(3) { padding-top: 12px; }
+.hp-sq { position: relative; margin: 0; padding-left: 22px; font-size: clamp(21px, 2.3vw, 31px); font-weight: 600; line-height: 1.2; color: var(--fg); }
+.hp-sq::before { content: ""; position: absolute; left: 0; top: 0.12em; bottom: 0.12em; width: 4px; border-radius: 2px; background: var(--accent-2); }
+.hp-said .hp-tag { color: var(--fg-3); }
+@keyframes hp-lamp {
+  0% { opacity: 1; box-shadow: 0 0 0 0 var(--accent-glow); }
+  18% { opacity: 0.15; }
+  36% { opacity: 1; box-shadow: 0 0 14px 2px var(--accent-glow); }
+  54% { opacity: 0.15; }
+  72%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--accent-glow); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hp-slot.lit .hp-sq::before { animation: hp-lamp 1s ease-in-out 1; }
+}
+
+/* 3 · The website: six things it does, each beside the real piece of the demo site. */
+.hp-specs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(40px, 4.6vw, 64px) clamp(22px, 3vw, 44px); margin: clamp(48px, 6vw, 84px) 0 0; padding: 0; list-style: none; }
+.hp-spec { min-width: 0; }
+.hp-shot { position: relative; }
+.hp-shot-f { position: relative; aspect-ratio: 3 / 2; max-width: 100%; overflow: hidden; border: 1px solid var(--rule-strong); border-radius: 8px; background: #ffffff; box-shadow: 0 24px 48px -30px rgba(20, 18, 12, 0.45); }
+.hp-shot-f img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.hp-ring { position: absolute; width: 15%; aspect-ratio: 2.6 / 1; border: 2.5px solid var(--accent-2); border-radius: 999px; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55); }
+.hp-spec-n { position: absolute; left: -4px; bottom: -0.3em; font-family: var(--font-display); font-size: clamp(58px, 6vw, 84px); font-weight: 900; line-height: 0.8; color: var(--accent-2); -webkit-text-stroke: 9px var(--bg); paint-order: stroke fill; }
+.hp-spec h3 { margin: 34px 0 0; font-weight: 800; font-size: clamp(24px, 2.2vw, 30px); line-height: 1; }
+.hp-spec p { margin: 8px 0 0; max-width: 40ch; font-size: 16px; line-height: 1.55; color: var(--fg-2); }
+.hp-specs-cap { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 22px; margin-top: clamp(36px, 4vw, 56px); }
+.hp-specs-cap a { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-2); }
+.hp-under { margin: 14px auto 0; max-width: 60ch; text-align: center; font-size: 16px; color: var(--fg-2); }
+.hp-swipe { display: none; }
+
+/* 4 · The receptionist: three example calls across the width, each a voice answering a voice. */
+.hp-now { display: inline-flex; align-items: center; gap: 12px; margin: 0 0 18px; font-family: var(--font-display); font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; color: var(--accent-2); }
+.hp-onair-row { display: flex; justify-content: center; margin-top: clamp(44px, 5vw, 64px); }
+.hp-onair { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 999px; background: var(--fg); color: var(--bg); font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1; letter-spacing: 0.12em; text-transform: uppercase; }
+.hp-onair .hp-ic { font-size: 15px; }
+.hp-onair .hp-wave { height: 14px; gap: 2px; color: var(--accent-2); }
+.hp-onair .hp-wave > i { width: 2px; }
+.hp-calls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px clamp(28px, 4.4vw, 72px); margin-top: 36px; align-items: start; }
+.hp-call { display: grid; gap: 16px; min-width: 0; }
+.hp-call:nth-child(2) { margin-top: 84px; }
+.hp-call:nth-child(3) { margin-top: 30px; }
+.hp-call-of { display: flex; align-items: center; gap: 10px; margin: 0; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg); }
+.hp-call-of::before { content: ""; width: 22px; height: 2px; background: var(--accent-2); }
+.hp-said-c,
+.hp-said-r { margin: 0; }
+.hp-voice { display: flex; align-items: center; gap: 10px; }
+.hp-who { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; }
+.hp-said-c { color: var(--fg-3); }
+.hp-said-c blockquote { margin: 8px 0 0; font-size: 17px; line-height: 1.5; color: var(--fg-2); }
+.hp-said-r { margin-left: 9%; }
+.hp-said-r .hp-voice { color: var(--accent-2); }
+.hp-said-r blockquote { margin: 8px 0 0; font-size: clamp(19px, 1.85vw, 24px); font-weight: 600; line-height: 1.32; color: var(--fg); }
+.hp-urgent-link { margin: clamp(40px, 5vw, 60px) auto 0; max-width: 60ch; text-align: center; font-size: 16px; color: var(--fg-2); }
+.hp-urgent-link a { font-weight: 600; color: var(--fg); text-decoration: underline; text-decoration-color: var(--accent-2); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+/* 5 · Never / instead, mirrored around a spine: each "never" meets its "instead" in the middle. */
+.hp-vs { position: relative; margin-top: clamp(84px, 10vw, 140px); }
+.hp-vs::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--fg); }
+.hp-vs-heads,
+.hp-vs-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.hp-vs-heads h3 { margin: 0; padding-bottom: clamp(18px, 2.4vw, 30px); font-weight: 900; font-size: clamp(28px, 4.2vw, 56px); line-height: 0.92; }
+.hp-vs-heads h3:first-child { text-align: right; padding-right: clamp(20px, 3vw, 44px); }
+.hp-vs-heads h3:last-child { padding-left: clamp(20px, 3vw, 44px); }
+.hp-vs-row { border-top: 1px solid var(--wash-rule); }
+.hp-vs-cell { display: flex; align-items: center; gap: 16px; min-width: 0; padding-block: clamp(22px, 2.6vw, 32px); }
+.hp-vs-cell p { margin: 0; }
+.hp-vs-no { justify-content: flex-end; padding-right: 14px; text-align: right; }
+.hp-vs-yes { padding-left: 14px; }
+.hp-m { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-size: 19px; }
+.hp-vs-no .hp-m { border: 2px solid var(--accent-2); background: var(--wash); color: var(--accent-2); }
+.hp-vs-yes .hp-m { background: var(--fg); color: var(--bg); }
+.hp-vs-no .hp-say { font-family: var(--font-display); font-size: clamp(22px, 2.6vw, 34px); font-weight: 800; line-height: 1; text-transform: uppercase; }
+.hp-vs-yes .hp-say { max-width: 44ch; font-size: clamp(16.5px, 1.4vw, 19px); line-height: 1.45; color: var(--fg); }
+.hp-vs-lbl { display: none; margin-bottom: 4px !important; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
+
+/* 6 · Where the lead lands: one inbox, drawn as the portal draws it, changing trade, and the text
+   on "Your phone". The inbox keeps the portal's own colours and face (portal/inbox/InboxList.tsx),
+   so it reads as a screenshot of another surface. */
+.hp-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px clamp(10px, 1.8vw, 26px); margin-top: clamp(36px, 4.4vw, 56px); }
+.hp-tabs button { padding: 8px 2px; background: transparent; border: 0; border-bottom: 2px solid transparent; font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.3; letter-spacing: 0.13em; text-transform: uppercase; color: var(--fg-3); cursor: pointer; transition: color 0.2s ease, border-color 0.2s ease; }
+.hp-tabs button[aria-pressed="true"] { color: var(--fg); border-bottom-color: var(--accent-2); }
+.hp-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.hp-land { position: relative; max-width: 900px; margin: 26px auto 0; padding: 0 clamp(0px, 9vw, 130px) 150px 0; }
+.hp-land::before { content: ""; position: absolute; inset: 6% -6% 0; z-index: 0; background: radial-gradient(closest-side, var(--wash) 0%, transparent 100%); }
+.hp-inbox {
+  --hp-p-bg: #f6f7f9;
+  --hp-p-card: #ffffff;
+  --hp-p-fg: #0d1117;
+  --hp-p-fg-2: #4a5058;
+  --hp-p-fg-3: #656b73;
+  --hp-p-accent: #2563eb;
+  --hp-p-attn: #c2410c;
+  --hp-p-rule: rgba(13, 17, 23, 0.09);
+  --hp-p-rule-strong: rgba(13, 17, 23, 0.18);
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border: 1px solid var(--hp-p-rule-strong);
+  border-radius: 12px;
+  background: var(--hp-p-bg);
+  box-shadow: 0 40px 70px -40px rgba(20, 18, 12, 0.45), 0 2px 6px rgba(20, 18, 12, 0.06);
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  color: var(--hp-p-fg);
+}
+.hp-inbox-top { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--hp-p-rule); background: var(--hp-p-card); }
+.hp-inbox-top b { font-size: 17px; font-weight: 700; }
+.hp-inbox-biz { margin-left: auto; font-size: 12.5px; color: var(--hp-p-fg-3); }
+.hp-inbox-needs { padding: 3px 10px; border: 1px solid var(--hp-p-rule-strong); border-radius: 999px; background: var(--hp-p-bg); font-size: 12px; font-weight: 600; white-space: nowrap; color: var(--hp-p-fg-2); }
+.hp-inbox-day { padding: 12px 18px 6px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.4; letter-spacing: 0.1em; color: var(--hp-p-fg-3); }
+.hp-inbox-body { transition: opacity 0.35s ease; }
+.hp-inbox-body.swap { opacity: 0; }
+.hp-irow { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 10px; padding: 13px 18px 15px; border-top: 1px solid var(--hp-p-rule); background: var(--hp-p-card); text-align: left; }
+.hp-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; }
+.hp-irow.unread .hp-dot { background: var(--hp-p-accent); }
+.hp-r1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.hp-r1 strong { font-size: 15.5px; font-weight: 700; }
+.hp-irow:not(.unread) .hp-r1 strong { font-weight: 600; }
+.hp-r1 time { margin-left: auto; font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.4; color: var(--hp-p-fg-2); }
+.hp-st { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.hp-st.cb { background: #fbeee7; color: var(--hp-p-attn); }
+.hp-st.web { border: 1px solid var(--hp-p-rule); background: var(--hp-p-bg); color: var(--hp-p-fg-2); }
+.hp-pv { margin: 5px 0 0; font-size: 14px; line-height: 1.45; color: var(--hp-p-fg); }
+.hp-irow:not(.unread) .hp-pv { color: var(--hp-p-fg-2); }
+.hp-mini { display: inline-block; margin-top: 8px; padding: 1px 8px; border: 1px solid var(--hp-p-rule-strong); border-radius: 999px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.5; color: var(--hp-p-fg-2); }
+@keyframes hp-arrive { 0% { background: #eaf1ff; } 100% { background: var(--hp-p-card); } }
+@media (prefers-reduced-motion: no-preference) {
+  .hp-irow.unread.fresh { animation: hp-arrive 1.6s ease-out 1; }
+}
+/* "Your phone": a sliver of handset, labelled, that buzzes when a lead lands. */
+.hp-fone { position: absolute; z-index: 2; right: 0; bottom: 0; width: min(312px, 80%); }
+.hp-fone-lbl { display: flex; align-items: center; gap: 10px; margin: 0 0 10px 24px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg); }
+.hp-fone-lbl::before { content: ""; width: 22px; height: 2px; background: var(--accent-2); }
+.hp-fone-body {
+  position: relative;
+  padding: 10px 10px 34px;
+  border: 3px solid var(--fg);
+  border-bottom: 0;
+  border-radius: 34px 34px 0 0;
+  background: linear-gradient(180deg, var(--elev-2), var(--panel));
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+}
+.hp-fone-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 14px 10px; font-family: var(--font-inter), "Inter", system-ui, sans-serif; font-size: 12px; font-weight: 600; line-height: 1; color: var(--fg); }
+.hp-fone-top i { width: 62px; height: 18px; border-radius: 999px; background: var(--fg); }
+.hp-fone-sig { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+.hp-fone-sig b { width: 3px; height: 40%; border-radius: 1px; background: var(--fg); }
+.hp-fone-sig b:nth-child(2) { height: 70%; }
+.hp-fone-sig b:nth-child(3) { height: 100%; }
+.hp-sms {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 4px 12px;
+  padding: 13px 15px 14px;
+  border: 1px solid rgba(13, 17, 23, 0.18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 20px -14px rgba(20, 18, 12, 0.45);
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  color: #0d1117;
+  text-align: left;
+}
+.hp-sms-app { display: grid; grid-row: span 2; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: #34b855; font-size: 20px; color: #ffffff; }
+.hp-sms-l1 { display: flex; justify-content: space-between; gap: 10px; margin: 0; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: #656b73; }
+.hp-sms-l2 { margin: 0; font-size: 14px; line-height: 1.4; }
+.hp-sms-l2 b { display: block; font-weight: 600; }
+.hp-arc { position: absolute; top: 52px; width: 16px; height: 40px; border: 3px solid transparent; border-radius: 50%; opacity: 0; }
+.hp-arc.l { left: -20px; border-left-color: var(--accent-2); }
+.hp-arc.r { right: -20px; border-right-color: var(--accent-2); }
+.hp-arc.l2 { left: -34px; top: 44px; width: 22px; height: 56px; border-left-color: var(--accent-2); }
+.hp-arc.r2 { right: -34px; top: 44px; width: 22px; height: 56px; border-right-color: var(--accent-2); }
+@keyframes hp-buzz {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  15% { transform: translateX(-3px) rotate(-1deg); }
+  30% { transform: translateX(3px) rotate(1deg); }
+  45% { transform: translateX(-2px) rotate(-0.6deg); }
+  60% { transform: translateX(2px) rotate(0.6deg); }
+  78% { transform: translateX(-1px); }
+}
+@keyframes hp-arcflash { 0% { opacity: 0; } 15%, 55% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hp-fone.buzz .hp-fone-body { animation: hp-buzz 0.62s ease-in-out 1; }
+  .hp-fone.buzz .hp-arc { animation: hp-arcflash 0.9s ease-out 1; }
+  .hp-fone.buzz .hp-arc.l2,
+  .hp-fone.buzz .hp-arc.r2 { animation-delay: 0.12s; }
+}
+.hp-land-cap { margin: 18px 0 0; text-align: center; }
+.hp-plans-line { margin: clamp(26px, 3vw, 40px) auto 0; max-width: 60ch; text-align: center; font-size: clamp(17px, 1.5vw, 20px); line-height: 1.5; color: var(--fg-2); }
+.hp-plans-line strong { color: var(--fg); }
+
+/* 7 · The calculator, "the year": one box; the questions fade away and the answer takes their
+   place. All three views share one grid cell, so the box keeps its height when they swap. */
+.hp-cbox { display: grid; margin-top: clamp(36px, 5vw, 60px); padding-top: 28px; border-top: 2px solid var(--fg); }
+.hp-cview { grid-area: 1 / 1; min-width: 0; transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+.hp-cview.leaving { opacity: 0; transition: opacity 0.25s ease; }
+.hp-cview.off { visibility: hidden; opacity: 0; transform: translateY(12px); pointer-events: none; transition: none; }
+.hp-cstack { display: grid; align-self: center; justify-self: center; width: 100%; max-width: 720px; }
+.hp-crow { display: grid; gap: 14px; align-content: start; min-width: 0; padding-block: 22px; border-bottom: 1px solid var(--wash-rule); cursor: pointer; }
+.hp-crow:first-child { padding-top: 0; }
+.hp-crow p { margin: 0; font-size: clamp(17px, 1.6vw, 21px); color: var(--fg-2); }
+.hp-crow p b { font-family: var(--font-display); font-size: clamp(26px, 2.6vw, 34px); font-weight: 900; line-height: 1; color: var(--accent-2); }
+.hp-crow input[type="range"] { width: 100%; height: 24px; margin: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
+.hp-crow input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent-2) var(--pct, 20%), var(--rule-strong) var(--pct, 20%)); }
+.hp-crow input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent-2) var(--pct, 20%), var(--rule-strong) var(--pct, 20%)); }
+.hp-crow input[type="range"]::-webkit-slider-thumb { width: 20px; height: 20px; margin-top: -8px; border: 0; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 4px var(--accent-glow); -webkit-appearance: none; }
+.hp-crow input[type="range"]::-moz-range-thumb { width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 4px var(--accent-glow); }
+.hp-crow input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.hp-ends { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 11px; line-height: 1; color: var(--fg-3); }
+.hp-cgo { display: grid; justify-items: center; margin-top: 30px; }
+.hp-cback { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; padding: 4px 0; background: none; border: 0; font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.4; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); cursor: pointer; }
+.hp-cback:hover { color: var(--accent-2); }
+.hp-oc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: clamp(20px, 4vw, 56px); align-items: stretch; }
+.hp-oc-chart { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(4px, 1vw, 12px); align-items: end; height: clamp(220px, 30vw, 380px); border-bottom: 2px solid var(--fg); }
+.hp-mo { display: flex; align-items: flex-end; height: 100%; }
+.hp-mo i { position: relative; display: block; width: 100%; background: var(--fg); transform-origin: bottom; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.hp-mo i::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 50%; background: var(--accent-2); }
+.hp-oc:not(.grown) .hp-mo i { transform: scaleY(0); transition: none; }
+.hp-oc-x { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: clamp(4px, 1vw, 12px); margin-top: 8px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; line-height: 1; letter-spacing: 0.08em; text-align: center; color: var(--fg-3); }
+.hp-oc-cap { margin: 14px 0 0; }
+.hp-oc-figs { display: grid; align-content: space-between; gap: 24px; padding-bottom: 46px; }
+.hp-fig { display: grid; gap: 10px; justify-items: center; min-width: 0; text-align: center; }
+.hp-fig p { margin: 0; }
+.hp-fig-n { font-family: var(--font-display); font-size: clamp(48px, 6.4vw, 92px); font-weight: 900; line-height: 0.84; font-variant-numeric: tabular-nums; color: var(--fg); }
+.hp-fig.won .hp-fig-n { color: var(--accent-2); }
+.hp-remark { margin: clamp(26px, 3.2vw, 40px) auto 0; max-width: 46ch; text-align: center; font-size: clamp(18px, 1.8vw, 23px); font-weight: 600; line-height: 1.4; color: var(--fg); }
+.hp-cact { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 30px; margin-top: 20px; }
+.hp-cact a,
+.hp-cact button { display: inline-flex; align-items: center; gap: 8px; padding: 0; background: none; border: 0; font-family: var(--font-display); font-size: 17px; font-weight: 800; line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; color: var(--fg-2); text-decoration: none; cursor: pointer; }
+.hp-cact a { color: var(--accent-2); }
+.hp-cact button:hover { color: var(--accent-2); }
+.hp-cact .hp-ic { font-size: 16px; color: var(--accent-2); }
+.hp-cbreak { display: grid; gap: 22px; align-content: start; justify-self: center; width: 100%; max-width: 720px; }
+.hp-cbreak .hp-cback { margin: 0; justify-self: start; }
+
+/* 9 · Every plan starts here, the plans, the ask. Same layout and words as before, with more
+   signal: icons on the three basics, a live light on Growth, larger prices, the asks as
+   headlines, and the demo number set large beside a phone that rings. */
+.hp-closing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(32px, 5vw, 80px); margin-top: clamp(40px, 5vw, 72px); align-items: start; }
+.hp-closing > * { min-width: 0; }
+.hp-base-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 14px; align-items: start; padding-block: 20px; border-top: 1px solid var(--wash-rule); }
+.hp-base-ic { margin-top: 2px; font-size: 44px; stroke-width: 1.6; color: var(--accent-2); }
+.hp-base-item .kicker { color: var(--accent-2); }
+.hp-base-item h3 { margin: 8px 0 0; font-weight: 800; font-size: clamp(22px, 2.2vw, 28px); line-height: 1; }
+.hp-base-item p:last-child { margin: 6px 0 0; font-size: 15.5px; color: var(--fg-2); }
+.hp-bill { margin: 18px 0 0; font-family: var(--font-display); font-size: clamp(22px, 2.2vw, 28px); font-weight: 800; line-height: 1; text-transform: uppercase; }
+.hp-plans-panel { border-radius: 4px; background: var(--panel); box-shadow: 0 24px 48px -34px rgba(20, 18, 12, 0.45); }
+.hp-cplan { padding: 22px 24px; border-top: 1px solid var(--rule); }
+.hp-cplan:first-child { border-top: 0; }
+.hp-cplan.feat { border-left: 4px solid var(--accent-2); }
+.hp-cplan.muted { opacity: 0.72; }
+.hp-cplan p { margin: 0; }
+.hp-cplan p:last-child { font-size: 15.5px; color: var(--fg-2); }
+.hp-cplan strong { color: var(--fg); }
+.hp-cplan a { color: inherit; }
+.hp-price { margin: 6px 0 8px !important; font-family: var(--font-display); font-size: clamp(40px, 4.2vw, 58px); font-weight: 900; line-height: 1; }
+.hp-price span { margin-left: 4px; font-family: var(--font-mono); font-size: 14px; font-weight: 500; line-height: 1; color: var(--fg-3); }
+.hp-live-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 0 var(--accent-glow); vertical-align: 1px; }
+.hp-ask { display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr); margin-top: clamp(40px, 5.5vw, 72px); border-top: 2px solid var(--fg); text-align: center; }
+.hp-ask-half { display: grid; gap: 8px; justify-items: center; align-content: start; padding: clamp(34px, 4.4vw, 60px) 16px; }
+.hp-ask-half p { margin: 0; }
+.hp-ask-vr { margin-block: clamp(34px, 4.4vw, 60px); background: var(--rule); }
+.hp-ask-h { font-family: var(--font-display); font-size: clamp(34px, 4.6vw, 64px); font-weight: 900; line-height: 0.92; text-transform: uppercase; color: var(--fg); }
+.hp-ask-s { margin-bottom: 14px !important; font-size: clamp(17px, 1.5vw, 20px); color: var(--fg-2); }
+.hp-ask-pair { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.hp-ask-pair .btn.lg { box-shadow: 0 0 32px var(--accent-glow); }
+.hp-dial { display: inline-flex; align-items: center; gap: clamp(12px, 1.6vw, 22px); color: var(--accent-2); text-decoration: none; }
+.hp-dial:hover .hp-dial-n { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; }
+.hp-dial-n { font-family: var(--font-display); font-size: clamp(38px, 5.4vw, 78px); font-weight: 900; line-height: 0.9; letter-spacing: 0.01em; white-space: nowrap; }
+.hp-ringer { position: relative; font-size: clamp(34px, 4vw, 54px); transform-origin: 50% 60%; }
+.hp-ringer-arcs { position: absolute; left: -32%; top: -14%; width: 164%; height: 128%; opacity: 0; }
+@keyframes hp-ring { 0%, 22%, 100% { transform: rotate(0); } 3%, 11% { transform: rotate(-14deg); } 7%, 15% { transform: rotate(14deg); } 19% { transform: rotate(-8deg); } }
+@keyframes hp-ring-arcs { 0%, 20% { opacity: 1; } 24%, 100% { opacity: 0; } }
+@keyframes hp-pulse { 0% { box-shadow: 0 0 0 0 var(--accent-glow); } 70%, 100% { box-shadow: 0 0 0 9px rgba(210, 84, 47, 0); } }
+@media (prefers-reduced-motion: no-preference) {
+  .hp-cplan.feat .hp-live-dot { animation: hp-pulse 2.2s ease-out infinite; }
+  .hp-ringer { animation: hp-ring 4.2s infinite; }
+  .hp-ringer-arcs { animation: hp-ring-arcs 4.2s infinite; }
+}
+
+/* ── Narrower ── */
+@media (max-width: 1100px) {
+  .hp-sky { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hp-sky > li:nth-child(3) { justify-self: start; padding-top: 14px; margin-left: 6%; }
+  .hp-sky > li:nth-child(5) { margin-left: 0; }
+  .hp-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 980px) {
+  .hp-hero { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  .hp-h1 { font-size: clamp(39px, 12.4vw, 108px); }
+  .hp-hero-p,
+  .hp-hero-trades { margin-inline: auto; }
+  .hp-slip { width: 100%; max-width: 520px; text-align: left; }
+  .hp-land { padding-right: 0; padding-bottom: 0; }
+  .hp-fone { position: relative; margin: -14px 6px 0 auto; }
+  .hp-closing { grid-template-columns: minmax(0, 1fr); }
+  .hp-oc { grid-template-columns: minmax(0, 1fr); }
+  .hp-oc-figs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); order: -1; padding-bottom: 0; }
+  .hp-cback { margin-bottom: 14px; }
+}
+@media (max-width: 800px) {
+  /* Searches and questions sit around the middle of a phone screen, still staggered. */
+  .hp-sky { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .hp-sky > li:nth-child(n) { justify-self: center; max-width: 88%; min-height: 92px; padding-top: 0; margin-left: 0; }
+  .hp-sky > li:nth-child(odd) { transform: translateX(-6%); }
+  .hp-sky > li:nth-child(even) { transform: translateX(6%); }
+  .hp-sky > li:nth-child(n + 5) { display: none; }
+  .hp-sky .hp-tag { margin-left: 18px; }
+  .hp-q { align-items: flex-start; padding: 13px 18px 13px 15px; border-radius: 22px; }
+  .hp-q .hp-ic { margin-top: 2px; }
+  .hp-said { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .hp-said > li:nth-child(n) { justify-self: center; max-width: 86%; min-height: 108px; padding-top: 0; margin-left: 0; }
+  .hp-said > li:nth-child(1) { transform: translateX(-6%); }
+  .hp-said > li:nth-child(2) { transform: translateX(7%); }
+  .hp-said > li:nth-child(3) { transform: translateX(-2%); }
+  /* The six crops become a row you swipe, so a phone gets one at a time rather than six stacked. */
+  .hp-specs { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 4px 2px 22px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+  .hp-spec { flex: 0 0 84%; scroll-snap-align: center; }
+  .hp-swipe { display: block; margin: 2px 0 0; text-align: center; }
+  .hp-calls { grid-template-columns: minmax(0, 1fr); gap: 44px; }
+  .hp-call:nth-child(n) { margin-top: 0; }
+  .hp-call:nth-child(1) { margin-right: 6%; }
+  .hp-call:nth-child(3) { margin-left: 8%; }
+  .hp-vs::before { display: none; }
+  .hp-vs-heads { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-bottom: 6px; border-bottom: 2px solid var(--fg); text-align: center; }
+  .hp-vs-heads h3:first-child,
+  .hp-vs-heads h3:last-child { padding: 0 0 8px; text-align: center; }
+  .hp-vs-heads h3:last-child { color: var(--fg-2); }
+  .hp-vs-row { grid-template-columns: minmax(0, 1fr); gap: 14px; padding-block: 22px; border-top: 0; border-bottom: 1px solid var(--wash-rule); }
+  .hp-vs-cell { align-items: flex-start; padding: 0; }
+  .hp-vs-no { flex-direction: row-reverse; justify-content: flex-end; text-align: left; }
+  .hp-vs-lbl { display: block; }
+  .hp-plans { grid-template-columns: minmax(0, 1fr); }
+  .hp-plan { grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: baseline; }
+  .hp-tabs { gap: 2px 14px; }
+  .hp-tabs button { font-size: 11px; }
+  .hp-ask { grid-template-columns: minmax(0, 1fr); }
+  .hp-ask-vr { height: 1px; margin: 0 16px; }
+  .hp-base-item { grid-template-columns: 44px minmax(0, 1fr); }
+  .hp-base-ic { font-size: 34px; }
+  .hp-m-cut { display: none; }
 }
