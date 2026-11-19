@@ -88,6 +88,7 @@ test("the Text button does not push a hash entry that Back would land on", () =>
     assert.match(record, /href="#crm-sms"\s+onClick=\{\(e\) => \{[\s\S]*?e\.preventDefault\(\)/);
 });
 
-test("the phone sheet's way back reads All customers", () => {
-    assert.match(drawer, /back="All customers"/);
+// A full-screen push since 2026-11-19 (not a sheet), with the same words on its way back.
+test("the phone record's way back reads All customers", () => {
+    assert.match(drawer, /<CaretLeft[^>]*\/> All customers/);
 });

@@ -12,6 +12,8 @@ import {
     PhoneCall,
     Plus,
     Star,
+    CaretDown,
+    Check,
 } from "@phosphor-icons/react";
 import { tabHref } from "@/app/portal/types";
 import { duration } from "@/app/lib/duration";
@@ -26,6 +28,8 @@ import {
     type TimelineEvent,
 } from "./stages";
 import QuickReplies from "./QuickReplies";
+import TextThread from "./TextThread";
+import Sheet from "../inbox/Sheet";
 import ReviewRequestDialog from "../ReviewRequestDialog";
 import type { CustomerNote, Job } from "@/app/lib/crm-jobs";
 import {
@@ -84,6 +88,8 @@ export interface DetailResponse {
     notes: CustomerNote[];
     appointments: Appointment[];
     messagingState: "ready" | "not-on-plan" | "pending-build" | "connecting";
+    /** The site's texting number, for the phone texting screen's note. Null before provisioning. */
+    businessNumber?: string | null;
 }
 
 type TimelineFilter = "all" | "messages" | "calls" | "notes";
@@ -173,6 +179,8 @@ export default function CustomerRecord({
     const [draft, setDraft] = useState("");
     const [sending, setSending] = useState(false);
     const [fieldError, setFieldError] = useState<string | null>(null);
+    /** The phone's texting screen (2026-11-19). Never opens on the desktop panel. */
+    const [threadOpen, setThreadOpen] = useState(false);
 
     // The open tab belongs to the customer it was picked on: opening another one starts back on
     // `initialTab`. Derived during render rather than reset in an effect, so the new customer
@@ -200,13 +208,18 @@ export default function CustomerRecord({
      * click's state update is committed before the next frame, so the box exists by then.
      */
     const goText = useCallback(() => {
+        // On a phone, Text opens the texting screen when texting is live (2026-11-19, Xander).
+        if (variant === "sheet" && fetched?.messagingState === "ready" && !demo) {
+            setThreadOpen(true);
+            return;
+        }
         setTab("timeline");
         requestAnimationFrame(() => {
             const target = document.getElementById("crm-sms") ?? document.getElementById("crm-composer");
             target?.scrollIntoView({ block: "nearest" });
             target?.focus({ preventScroll: true });
         });
-    }, [setTab]);
+    }, [setTab, variant, fetched?.messagingState, demo]);
 
     const reload = useCallback(async () => {
         if (!customerId || isDemo) return;
@@ -588,7 +601,18 @@ export default function CustomerRecord({
                     boxShadow: "0 -10px 22px -16px rgba(13,17,23,0.28)",
                 }}
             >
-                {data?.messagingState === "ready" ? (
+                {data?.messagingState === "ready" && !page && !demo ? (
+                    // Phone: a tap-to-open bar. The conversation itself is the texting screen.
+                    <button
+                        type="button"
+                        onClick={() => setThreadOpen(true)}
+                        disabled={!customer.phone}
+                        className="w-full h-11 rounded-full border px-4 text-left text-[16px] cursor-pointer disabled:opacity-50"
+                        style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg-3)" }}
+                    >
+                        Text {customer.name ?? "them"}…
+                    </button>
+                ) : data?.messagingState === "ready" ? (
                     <>
                     {/* Inside this gate only: quick replies are a texting tool, and texting is
                         Growth/Enterprise with A2P verified. Draws nothing until the
@@ -781,6 +805,19 @@ export default function CustomerRecord({
                 <SheetHeader customer={customer} patch={patch} review={reviewProps} onText={goText} />
             )}
             {body}
+            {threadOpen && !page && data && (
+                <TextThread
+                    customer={customer}
+                    siteSlug={siteSlug}
+                    events={data.timeline}
+                    businessNumber={data.businessNumber ?? null}
+                    draft={draft}
+                    setDraft={setDraft}
+                    sending={sending}
+                    onSend={() => void sendMessage()}
+                    onClose={() => setThreadOpen(false)}
+                />
+            )}
             {booking && (
                 <AppointmentForm
                     initial={booking.values}
@@ -1053,64 +1090,119 @@ function SheetHeader({
     review: ReviewAnchorProps;
     onText: () => void;
 }) {
-    const button =
-        "portal-hit inline-flex items-center justify-center gap-1.5 rounded-lg border text-[13px] font-medium";
+    // Contact-card layout (2026-11-19 mockup, Q10): initials, name, "Customer since", the stage as
+    // one tappable pill, then round Call · Text · Review buttons like a phone's Contacts app.
+    const words = (customer.name ?? "").trim().split(/\s+/).filter(Boolean);
+    const initials = words.length ? ((words[0][0] ?? "") + (words.length > 1 ? words[words.length - 1][0] : "")).toUpperCase() : "?";
     return (
-        <header className="px-5 pt-4">
+        <header className="px-5 pt-6 pb-2 flex flex-col items-center text-center">
+            <span
+                aria-hidden="true"
+                className="w-[76px] h-[76px] rounded-full grid place-items-center text-[26px] font-bold"
+                style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--elev-1))", color: "var(--accent)" }}
+            >
+                {initials}
+            </span>
             <h2
-                className="m-0 text-[20px] font-bold leading-tight break-words"
+                className="m-0 mt-3 text-[27px] font-extrabold leading-tight break-words"
                 style={{ fontFamily: "var(--font-display)", color: "var(--fg)" }}
             >
                 {customer.name ?? "Customer"}
             </h2>
-            <p className="m-0 mt-1 text-[13px]" style={{ color: "var(--fg-2)" }}>
-                {customer.phone && (
-                    <>
-                        <a href={`tel:${customer.phone}`} style={{ color: "var(--accent)" }}>
-                            {formatPhone(customer.phone)}
-                        </a>
-                        {" · "}
-                    </>
-                )}
+            <p className="m-0 mt-1 text-[14px]" style={{ color: "var(--fg-3)" }}>
                 Customer since {dayLabel(customer.firstContactAt ?? customer.createdAt)}
             </p>
+            <div className="mt-3" data-tour="crm-drawer-stage">
+                <StagePill customer={customer} patch={patch} />
+            </div>
 
-            <div className="relative grid grid-cols-[76px_76px_minmax(0,1fr)] gap-2 mt-3">
-                {customer.phone ? (
-                    <a href={`tel:${customer.phone}`} className={button} style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}>
-                        <PhoneCall size={14} /> Call
+            <div className="relative flex justify-center gap-6 mt-4 mb-2">
+                {customer.phone && (
+                    <a href={`tel:${customer.phone}`} className="portal-round" aria-label={`Call ${customer.name ?? ""}`.trim()}>
+                        <span className="portal-round-dot" style={{ background: "var(--call)", color: "#ffffff" }}>
+                            <PhoneCall size={24} />
+                        </span>
+                        Call
                     </a>
-                ) : (
-                    <span />
                 )}
-                {customer.phone ? (
+                {customer.phone && (
                     <a
                         href="#crm-sms"
                         onClick={(e) => {
                             e.preventDefault();
                             onText();
                         }}
-                        className={button}
-                        style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}
+                        className="portal-round"
                     >
-                        <ChatCircle size={14} /> Text
+                        <span className="portal-round-dot" style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--elev-1))", color: "var(--accent)" }}>
+                            <ChatCircle size={24} />
+                        </span>
+                        Text
                     </a>
-                ) : (
-                    <span />
                 )}
-                <ReviewAnchor {...review} align="stretch" wide />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 mt-3.5 pb-3" data-tour="crm-drawer-stage">
-                <span
-                    className="text-[10px] uppercase tracking-wider"
-                    style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}
-                >
-                    Stage
-                </span>
-                <StagePicker customer={customer} patch={patch} />
+                <ReviewAnchor {...review} align="stretch" round />
             </div>
         </header>
+    );
+}
+
+/**
+ * The stage as one pill that opens the Stage sheet: the phone's way to move a customer, beside
+ * the list's long press. The desktop panel keeps its row of stage buttons (`StagePicker`).
+ */
+function StagePill({
+    customer,
+    patch,
+}: {
+    customer: CustomerRow;
+    patch: (body: Record<string, unknown>) => Promise<boolean>;
+}) {
+    const [open, setOpen] = useState(false);
+    const stage = STAGES.find((s) => s.key === customer.stage) ?? STAGES[0];
+    const color = STAGE_COLOR[stage.key];
+    return (
+        <>
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                aria-haspopup="dialog"
+                aria-label={`Stage: ${stage.label}`}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[15px] font-semibold cursor-pointer"
+                style={{ color, background: `color-mix(in srgb, ${color} 14%, var(--elev-1))` }}
+            >
+                {stage.label}
+                <CaretDown size={14} weight="bold" />
+            </button>
+            {open && (
+                <Sheet label="Stage" onClose={() => setOpen(false)}>
+                    <h2 className="m-0 px-1 text-[19px] font-bold text-left" style={{ fontFamily: "var(--font-display)" }}>
+                        Stage
+                    </h2>
+                    <p className="m-0 px-1 mb-1 text-[14.5px] text-left" style={{ color: "var(--fg-2)" }}>
+                        {customer.name ?? "Customer"}
+                    </p>
+                    {STAGES.map((s) => (
+                        <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => {
+                                setOpen(false);
+                                if (s.key !== customer.stage) void patch({ stage: s.key });
+                            }}
+                            aria-current={s.key === customer.stage ? "true" : undefined}
+                            className="flex items-center justify-between min-h-[52px] px-1 border-t text-[16.5px] cursor-pointer"
+                            style={{ borderColor: "var(--rule)", color: "var(--fg)" }}
+                        >
+                            <span className="inline-flex items-center gap-2">
+                                <span className="rounded-full" style={{ width: 10, height: 10, background: STAGE_COLOR[s.key] }} />
+                                {s.label}
+                            </span>
+                            {s.key === customer.stage && <Check size={20} weight="bold" style={{ color: "var(--accent)" }} />}
+                        </button>
+                    ))}
+                </Sheet>
+            )}
+        </>
     );
 }
 
@@ -1151,13 +1243,37 @@ function ReviewAnchor({
     messagingState,
     onSent,
     forceOpen,
-}: ReviewAnchorProps & { align: "end" | "stretch"; wide?: boolean }) {
+    round = false,
+}: ReviewAnchorProps & {
+    align: "end" | "stretch";
+    wide?: boolean;
+    /** The phone record's round button, labelled "Review" (approved 2026-11-19, string 6). */
+    round?: boolean;
+}) {
     const [openState, setOpen] = useState(false);
     const open = forceOpen ?? openState;
     const buttonRef = useRef<HTMLButtonElement>(null);
 
     return (
         <>
+            {round ? (
+                <button
+                    ref={buttonRef}
+                    type="button"
+                    onClick={() => setOpen((o) => !o)}
+                    disabled={!customer.phone}
+                    aria-expanded={open}
+                    aria-haspopup="dialog"
+                    aria-label={customer.reviewSent ? "Review requested" : "Request a review"}
+                    data-tour="crm-drawer-review"
+                    className="portal-round disabled:opacity-50"
+                >
+                    <span className="portal-round-dot" style={{ background: "color-mix(in srgb, var(--chart-warn) 16%, var(--elev-1))", color: "var(--chart-warn)" }}>
+                        <Star size={24} weight={customer.reviewSent ? "fill" : "regular"} />
+                    </span>
+                    Review
+                </button>
+            ) : (
             <button
                 ref={buttonRef}
                 type="button"
@@ -1172,6 +1288,7 @@ function ReviewAnchor({
                 <Star size={14} weight="fill" />
                 {customer.reviewSent ? "Review requested" : "Request a review"}
             </button>
+            )}
             <ReviewRequestDialog
                 open={open}
                 onClose={() => setOpen(false)}

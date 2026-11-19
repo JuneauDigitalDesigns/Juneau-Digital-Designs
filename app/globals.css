@@ -4125,3 +4125,32 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   line-height: 1;
   box-shadow: 0 0 0 2px var(--elev-1);
 }
+
+/* ── Round action buttons (the phone customer record's Call · Text · Review, 2026-11-19) ── */
+.portal-round {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 64px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-2);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.portal-round-dot {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  transition: transform 120ms ease;
+}
+.portal-round:active .portal-round-dot { transform: scale(0.94); }
+@media (prefers-reduced-motion: reduce) {
+  .portal-round:active .portal-round-dot { transform: none; }
+}

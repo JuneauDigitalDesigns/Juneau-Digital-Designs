@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CaretLeft, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { CaretLeft, Check, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import Sheet from "../inbox/Sheet";
 import type { PortalSiteProps } from "@/app/portal/types";
 import { Card, SectionHeader } from "../ui/Card";
 import { FeatureState, FeatureError } from "../ui/FeatureState";
@@ -56,7 +57,9 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     const [adding, setAdding] = useState(false);
     const [overrides, setOverrides] = useState<Record<string, Partial<CustomerRow>>>({});
 
-    const view = params.get("view") === "table" ? "table" : "board";
+    // Phones (2026-11-19, Q9): no table and no toggle; stage pills over one list instead.
+    const view = params.get("view") === "table" && !isMobile ? "table" : "board";
+    const stageParam = params.get("stage");
     const search = (params.get("q") ?? "").trim().toLowerCase();
     const needsReply = params.get("unread") === "1";
     const staleOnly = params.get("stale") === "1";
@@ -263,7 +266,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                             <Plus size={13} weight="bold" /> Add customer
                         </button>
                         <div
-                            className="inline-flex rounded-lg overflow-hidden border"
+                            className="hidden lg:inline-flex rounded-lg overflow-hidden border"
                             style={{ borderColor: "var(--rule-strong)", background: "var(--elev-1)" }}
                         >
                             {(["board", "table"] as const).map((v) => (
@@ -377,12 +380,37 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
                             )}
                         </div>
 
-                        {/* Mobile: stage-filtered list */}
-                        <div data-tour="crm-list" className="lg:hidden space-y-3">
-                            {rows.map((c) => (
-                                <MobileCard key={c.customerId} row={c} onOpen={() => openRecord(c.customerId)} onMove={move} />
-                            ))}
-                            {rows.length === 0 && (
+                        {/* Phone: stage pills with counts over one plain list (2026-11-19, Q9).
+                            Tap a pill to show that stage; long-press a row to move it. */}
+                        <div className="lg:hidden flex gap-2 overflow-x-auto -mx-4 px-4 pb-1" style={{ scrollbarWidth: "none" }}>
+                            {[{ key: "", label: "All", n: rows.length }, ...STAGES.map((s) => ({ key: s.key, label: s.label, n: byStage[s.key].length }))].map((p) => {
+                                const on = (stageParam ?? "") === p.key;
+                                return (
+                                    <button
+                                        key={p.key || "all"}
+                                        type="button"
+                                        aria-pressed={on}
+                                        onClick={() => setParam("stage", p.key)}
+                                        className="shrink-0 h-9 px-3.5 rounded-full border text-[14.5px] font-semibold cursor-pointer"
+                                        style={
+                                            on
+                                                ? { background: "var(--fg)", color: "var(--bg)", borderColor: "var(--fg)" }
+                                                : { background: "var(--elev-1)", color: "var(--fg-2)", borderColor: "var(--rule-strong)" }
+                                        }
+                                    >
+                                        {p.label}
+                                        {p.n > 0 && <span className="ml-1.5 tabular-nums">{p.n}</span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div data-tour="crm-list" className="lg:hidden portal-group">
+                            {rows
+                                .filter((c) => !stageParam || c.stage === stageParam)
+                                .map((c) => (
+                                    <MobileCard key={c.customerId} row={c} onOpen={() => openRecord(c.customerId)} onMove={move} />
+                                ))}
+                            {rows.filter((c) => !stageParam || c.stage === stageParam).length === 0 && (
                                 <p className="py-8 text-center text-sm" style={{ color: "var(--fg-3)" }}>
                                     No customers match these filters.
                                 </p>
@@ -587,6 +615,13 @@ export function BoardCard({ row, onOpen }: { row: CustomerRow; onOpen: () => voi
     );
 }
 
+/**
+ * One customer on a phone (2026-11-19 mockup, Q9): initials, name, a stage chip, and a second line
+ * that says the one thing worth knowing (a new reply, how long they have gone quiet, the next
+ * visit, or their number). Tap opens the record; a long press opens the Stage sheet, which
+ * replaced the per-row dropdown. The record's own stage pill does the same for anyone who
+ * cannot long-press.
+ */
 export function MobileCard({
     row,
     onOpen,
@@ -596,51 +631,123 @@ export function MobileCard({
     onOpen: () => void;
     onMove: (id: string, s: StageKey) => void;
 }) {
+    const [sheet, setSheet] = useState(false);
+    const press = useRef<{ t: number; x: number; y: number; fired: boolean } | null>(null);
+    const stage = STAGES.find((s) => s.key === row.stage) ?? STAGES[0];
+    // Read once per mount, in an initializer, so render stays pure.
+    const [now] = useState(() => Date.now());
+    const quietDays = row.stale ? Math.floor((now - Date.parse(row.lastContactAt ?? row.createdAt)) / 86_400_000) : 0;
+
+    const cancel = () => {
+        if (press.current) window.clearTimeout(press.current.t);
+    };
+
     return (
-        <div
-            className="rounded-xl border p-3"
-            style={{ background: "var(--elev-1)", borderColor: "var(--elev-border)", boxShadow: "var(--shadow-1)" }}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <button type="button" onClick={onOpen} className="text-left min-w-0 cursor-pointer">
-                    <div className="flex items-center gap-1.5 font-semibold text-sm">
-                        {row.stale && (
-                            <span className="rounded-full shrink-0" style={{ width: 7, height: 7, background: "var(--chart-warn)" }} />
-                        )}
-                        {row.name ?? "Unknown"}
-                    </div>
-                    <div className="text-[11.5px] mt-0.5" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}>
-                        {formatPhone(row.phone)}
-                    </div>
-                </button>
-                <select
-                    value={row.stage}
-                    onChange={(e) => onMove(row.customerId, e.target.value as StageKey)}
-                    className="text-[11px] px-2 py-1 rounded-lg border"
-                    style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg-2)", fontFamily: "var(--font-mono)" }}
+        <>
+            <button
+                type="button"
+                className="portal-cell min-h-[72px]"
+                onClick={() => {
+                    if (press.current?.fired) {
+                        press.current = null;
+                        return;
+                    }
+                    onOpen();
+                }}
+                onPointerDown={(e) => {
+                    if (e.pointerType === "mouse") return;
+                    const t = window.setTimeout(() => {
+                        if (press.current) press.current.fired = true;
+                        setSheet(true);
+                    }, 480);
+                    press.current = { t, x: e.clientX, y: e.clientY, fired: false };
+                }}
+                onPointerMove={(e) => {
+                    const p = press.current;
+                    if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) cancel();
+                }}
+                onPointerUp={cancel}
+                onPointerCancel={cancel}
+                onContextMenu={(e) => e.preventDefault()}
+                style={{ WebkitTouchCallout: "none", userSelect: "none" }}
+            >
+                <span
+                    aria-hidden="true"
+                    className="shrink-0 w-11 h-11 rounded-full grid place-items-center text-[15px] font-bold"
+                    style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--elev-1))", color: "var(--accent)" }}
                 >
-                    {STAGES.map((s) => (
-                        <option key={s.key} value={s.key}>
-                            {s.label}
-                        </option>
-                    ))}
-                </select>
-            </div>
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-                {row.unread && (
-                    <span
-                        className="text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ background: "rgba(37,99,235,0.09)", color: "var(--accent)", fontFamily: "var(--font-mono)" }}
-                    >
-                        New reply
-                    </span>
-                )}
-                <span className="ml-auto text-[11px]" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}>
-                    {shortAgo(row.lastContactAt ?? row.createdAt)}
+                    {initials(row.name)}
                 </span>
-            </div>
-        </div>
+                <span className="portal-cell-main flex flex-col gap-0.5">
+                    <span className="flex items-center gap-2 min-w-0">
+                        <strong className="truncate text-[17px]">{row.name ?? "Unknown"}</strong>
+                        <span
+                            className="ml-auto shrink-0 rounded-full px-2.5 py-[2px] text-[13px] font-semibold"
+                            style={{ color: stage.color, background: `color-mix(in srgb, ${stage.color} 13%, var(--elev-1))` }}
+                        >
+                            {stage.label}
+                        </span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[14px] min-w-0" style={{ color: "var(--fg-2)" }}>
+                        {row.unread ? (
+                            <>
+                                <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: "var(--accent)" }} />
+                                <b style={{ color: "var(--accent)" }}>New reply</b>
+                            </>
+                        ) : row.stale && quietDays > 0 ? (
+                            <>
+                                <span className="shrink-0 rounded-full" style={{ width: 8, height: 8, background: "var(--attn)" }} />
+                                {/* Approved 2026-11-19 (mockup string 7). */}
+                                <span style={{ color: "var(--attn)" }}>Going quiet · {quietDays} days</span>
+                            </>
+                        ) : (
+                            <span className="truncate" style={{ fontFamily: "var(--font-mono)", fontSize: 13 }}>
+                                {formatPhone(row.phone)}
+                            </span>
+                        )}
+                        <span className="ml-auto shrink-0 text-[12.5px]" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-3)" }}>
+                            {shortAgo(row.lastContactAt ?? row.createdAt)}
+                        </span>
+                    </span>
+                </span>
+            </button>
+            {sheet && (
+                <Sheet label="Stage" onClose={() => setSheet(false)}>
+                    <h2 className="m-0 px-1 text-[19px] font-bold" style={{ fontFamily: "var(--font-display)" }}>
+                        Stage
+                    </h2>
+                    <p className="m-0 px-1 mb-1 text-[14.5px]" style={{ color: "var(--fg-2)" }}>
+                        {row.name ?? "Unknown"}
+                    </p>
+                    {STAGES.map((s) => (
+                        <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => {
+                                setSheet(false);
+                                if (s.key !== row.stage) onMove(row.customerId, s.key);
+                            }}
+                            className="flex items-center justify-between min-h-[52px] px-1 border-t text-[16.5px] cursor-pointer"
+                            style={{ borderColor: "var(--rule)", color: "var(--fg)" }}
+                            aria-current={s.key === row.stage ? "true" : undefined}
+                        >
+                            <span className="inline-flex items-center gap-2">
+                                <span className="rounded-full" style={{ width: 10, height: 10, background: s.color }} />
+                                {s.label}
+                            </span>
+                            {s.key === row.stage && <Check size={20} weight="bold" style={{ color: "var(--accent)" }} />}
+                        </button>
+                    ))}
+                </Sheet>
+            )}
+        </>
     );
+}
+
+function initials(name: string | null): string {
+    const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "?";
+    return ((parts[0][0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
 }
 
 function TableView({ rows, onOpen }: { rows: CustomerRow[]; onOpen: (id: string) => void }) {
