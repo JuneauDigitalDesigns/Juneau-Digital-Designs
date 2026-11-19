@@ -102,13 +102,15 @@ export async function createAgreementLink(order: OperatorOrder, opts: { fresh?: 
 
 /** Everything the client's page needs, or just the state when there's nothing to show. */
 export async function resolveAgreementLink(code: string): Promise<
-    | { state: "inactive" }
+    /** `unknown`: no such code was ever issued (or it has expired away), what a guess finds. */
+    | { state: "inactive"; unknown?: true }
     | { state: "accepted"; order: OperatorOrder }
     | { state: "active"; order: OperatorOrder; sections: Section[]; termsHash: string; version: string }
 > {
     const link = await readLink(code);
-    const order = link ? await getOrder(link.orderId) : null;
-    if (!link || !order) return { state: "inactive" };
+    if (!link) return { state: "inactive", unknown: true };
+    const order = await getOrder(link.orderId);
+    if (!order) return { state: "inactive" };
     const { fingerprint, kind, termsHash } = await fingerprintFor(order);
     const state = agreementLinkState({ link, order, fingerprint, nowMs: Date.now() });
     if (state === "inactive") return { state };

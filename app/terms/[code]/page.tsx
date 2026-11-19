@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { resolveAgreementLink } from "@/app/lib/agreement-link";
-import { AGREE_CODE } from "@/app/lib/agreement-link.mjs";
+import { headers } from "next/headers";
+import { lookupAgreementLink } from "@/app/lib/agree-link-limit";
 import { smsConsentCopy } from "@/app/lib/sms-consent-text";
 import AgreeLinkClient, { AgreeDone, AgreeInactive } from "@/app/components/agreement/AgreeLinkClient";
 
@@ -15,7 +15,12 @@ export const metadata: Metadata = {
 export default async function AgreePage({ params }: { params: Promise<{ code: string }> }) {
     const { code } = await params;
     const normalized = code.trim().toUpperCase();
-    const view = AGREE_CODE.test(normalized) ? await resolveAgreementLink(normalized) : ({ state: "inactive" } as const);
+    // Through the per-IP limit on codes that don't exist (agree-link-limit.ts): past it, every code
+    // shows as no longer active, the page a wrong code already gets.
+    const h = await headers();
+    const fwd = h.get("x-forwarded-for");
+    const ip = (fwd ? fwd.split(",")[0].trim() : h.get("x-real-ip")) || null;
+    const view = await lookupAgreementLink(normalized, ip);
 
     return (
         <main style={{ minHeight: "100vh", background: "var(--bg)", padding: "48px max(16px, 4vw)" }}>
