@@ -4492,3 +4492,698 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   transition: color 0.18s ease, border-color 0.18s ease;
 }
 .nav-link:hover { color: var(--accent-2); border-bottom-color: var(--accent-2); }
+
+/* ── /hvac — "A website and AI receptionist for HVAC companies." ──────────
+   The first trade page, approved by Xander from the fourth round of its mockup (19 Nov 2026).
+   One device per section, as on /about: three phones that ring in turn, a call drawn as voices,
+   an inbox row, a never/instead ledger, a framed site with a legend, searches beside spoken
+   questions, a sum you type into. Type, colour and hairlines stay the site's. Light only, like
+   the rest of the marketing site.
+
+   `.hvac-m-cut` (and the two rules beside it at the bottom) is what a phone leaves out: Xander
+   asked for less copy on a phone, not a shorter page everywhere. */
+.hvac-page { background: var(--bg); }
+/* 1120px of content, as the approved mockup was laid out at, plus the side gutter. */
+.hvac-shell {
+  max-width: calc(1120px + 2 * clamp(18px, 4vw, 56px));
+  margin: 0 auto;
+  padding: clamp(88px, 11vw, 152px) clamp(18px, 4vw, 56px);
+}
+.hvac-shell-hero { padding-block: clamp(44px, 6vw, 84px) clamp(88px, 11vw, 148px); }
+.hvac-coral { color: var(--accent-2); }
+.hvac-h1,
+.hvac-h2,
+.hvac-h3,
+.hvac-beat-h,
+.hvac-when-h,
+.hvac-vs-h,
+.hvac-legend-h,
+.hvac-group-h {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--fg);
+}
+.hvac-h1 { margin-top: 14px; font-size: clamp(46px, 8.4vw, 104px); font-weight: 900; line-height: 0.88; letter-spacing: 0.005em; }
+.hvac-h2 { font-size: clamp(38px, 6.4vw, 80px); font-weight: 900; line-height: 0.9; }
+.hvac-h3 { font-size: 25px; font-weight: 800; line-height: 1; }
+.hvac-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 50ch; }
+.hvac-eg {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.hvac-centre { display: grid; gap: 16px; justify-items: center; text-align: center; }
+.hvac-split-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: end;
+}
+.hvac-under { margin-top: 16px; color: var(--fg-2); font-size: 16px; }
+
+/* Line icons and voices. */
+.hvac-ic {
+  display: block;
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hvac-wave { display: inline-flex; align-items: center; gap: 3px; height: 22px; }
+.hvac-wave > i { width: 3px; height: 40%; border-radius: 2px; background: currentColor; }
+.hvac-wave > i:nth-child(2) { height: 85%; }
+.hvac-wave > i:nth-child(3) { height: 55%; }
+.hvac-wave > i:nth-child(4) { height: 100%; }
+.hvac-wave > i:nth-child(5) { height: 45%; }
+.hvac-wave > i:nth-child(6) { height: 75%; }
+.hvac-wave > i:nth-child(7) { height: 30%; }
+
+/* 1 · Hero. The claim left; "When it picks up." right, its three beats filling the column. */
+.hvac-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.85fr);
+  gap: clamp(32px, 6vw, 80px);
+  align-items: stretch;
+}
+.hvac-intro {
+  margin-top: 28px;
+  max-width: 66%;
+  font-size: clamp(18px, 1.9vw, 23px);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--fg);
+}
+.hvac-hero-lede { margin-top: 14px; }
+.hvac-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.hvac-when { display: flex; flex-direction: column; }
+.hvac-when-h { font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 0.9; }
+.hvac-beats { list-style: none; margin: 0; padding: 0; flex: 1; display: grid; grid-auto-rows: 1fr; }
+.hvac-beat {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 4px 18px;
+  align-content: center;
+  padding-block: 26px;
+}
+.hvac-scene { grid-row: span 2; align-self: center; font-size: 56px; stroke-width: 1.7; color: var(--fg); }
+.hvac-beat-h { font-size: clamp(25px, 2.7vw, 34px); font-weight: 800; line-height: 1; }
+.hvac-pickline { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.hvac-ringer { position: relative; flex: none; font-size: 34px; color: var(--fg-2); transform-origin: 50% 60%; }
+.hvac-arcs { position: absolute; left: -12px; top: -6px; width: 58px; height: 46px; color: var(--accent-2); opacity: 0; }
+.hvac-wire {
+  flex: 1;
+  min-width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent-2)) left / 100% 100% no-repeat, var(--rule-strong);
+}
+.hvac-picked {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 18px 10px 13px;
+  border-radius: 999px;
+  background: var(--accent-2);
+  color: var(--on-accent-2);
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hvac-picked .hvac-ic { font-size: 20px; }
+.hvac-picked .hvac-wave { height: 18px; gap: 2px; }
+.hvac-picked .hvac-wave > i { width: 2px; }
+.hvac-then { margin-top: 8px; font-size: 16px; color: var(--fg-2); }
+.hvac-then b { color: var(--fg); }
+
+/* One loop: the phone rings in each moment in turn, then gets picked up. Without motion every
+   phone simply rests picked up. */
+@media (prefers-reduced-motion: no-preference) {
+  .hvac-beat:nth-child(1) .hvac-ringer { animation: hvac-ring1 10s infinite; }
+  .hvac-beat:nth-child(1) .hvac-arcs { animation: hvac-arc1 10s infinite; }
+  .hvac-beat:nth-child(1) .hvac-wire { animation: hvac-wire1 10s infinite; }
+  .hvac-beat:nth-child(1) .hvac-picked { animation: hvac-on1 10s infinite; }
+  .hvac-beat:nth-child(2) .hvac-ringer { animation: hvac-ring2 10s infinite; }
+  .hvac-beat:nth-child(2) .hvac-arcs { animation: hvac-arc2 10s infinite; }
+  .hvac-beat:nth-child(2) .hvac-wire { animation: hvac-wire2 10s infinite; }
+  .hvac-beat:nth-child(2) .hvac-picked { animation: hvac-on2 10s infinite; }
+  .hvac-beat:nth-child(3) .hvac-ringer { animation: hvac-ring3 10s infinite; }
+  .hvac-beat:nth-child(3) .hvac-arcs { animation: hvac-arc3 10s infinite; }
+  .hvac-beat:nth-child(3) .hvac-wire { animation: hvac-wire3 10s infinite; }
+  .hvac-beat:nth-child(3) .hvac-picked { animation: hvac-on3 10s infinite; }
+  .hvac-wave-live > i { animation: hvac-speak 1.1s ease-in-out infinite; transform-origin: 50% 50%; }
+  .hvac-wave-live > i:nth-child(2) { animation-delay: -0.2s; }
+  .hvac-wave-live > i:nth-child(3) { animation-delay: -0.5s; }
+  .hvac-wave-live > i:nth-child(4) { animation-delay: -0.8s; }
+  .hvac-wave-live > i:nth-child(5) { animation-delay: -0.35s; }
+  .hvac-wave-live > i:nth-child(6) { animation-delay: -0.65s; }
+  .hvac-wave-live > i:nth-child(7) { animation-delay: -0.1s; }
+}
+@keyframes hvac-speak { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+@keyframes hvac-ring1 { 0%, 12%, 100% { transform: rotate(0); } 2%, 6% { transform: rotate(-14deg); } 4%, 8% { transform: rotate(14deg); } 10% { transform: rotate(-8deg); } }
+@keyframes hvac-ring2 { 0%, 30%, 42%, 100% { transform: rotate(0); } 32%, 36% { transform: rotate(-14deg); } 34%, 38% { transform: rotate(14deg); } 40% { transform: rotate(-8deg); } }
+@keyframes hvac-ring3 { 0%, 60%, 72%, 100% { transform: rotate(0); } 62%, 66% { transform: rotate(-14deg); } 64%, 68% { transform: rotate(14deg); } 70% { transform: rotate(-8deg); } }
+@keyframes hvac-arc1 { 0%, 11% { opacity: 1; } 13%, 100% { opacity: 0; } }
+@keyframes hvac-arc2 { 0%, 29% { opacity: 0; } 30%, 41% { opacity: 1; } 43%, 100% { opacity: 0; } }
+@keyframes hvac-arc3 { 0%, 59% { opacity: 0; } 60%, 71% { opacity: 1; } 73%, 100% { opacity: 0; } }
+@keyframes hvac-wire1 { 0%, 11% { background-size: 0% 100%, auto; } 15%, 96% { background-size: 100% 100%, auto; } 100% { background-size: 0% 100%, auto; } }
+@keyframes hvac-wire2 { 0%, 41% { background-size: 0% 100%, auto; } 45%, 96% { background-size: 100% 100%, auto; } 100% { background-size: 0% 100%, auto; } }
+@keyframes hvac-wire3 { 0%, 71% { background-size: 0% 100%, auto; } 75%, 96% { background-size: 100% 100%, auto; } 100% { background-size: 0% 100%, auto; } }
+@keyframes hvac-on1 { 0%, 13% { opacity: 0.22; } 16%, 96% { opacity: 1; } 100% { opacity: 0.22; } }
+@keyframes hvac-on2 { 0%, 43% { opacity: 0.22; } 46%, 96% { opacity: 1; } 100% { opacity: 0.22; } }
+@keyframes hvac-on3 { 0%, 73% { opacity: 0.22; } 76%, 96% { opacity: 1; } 100% { opacity: 0.22; } }
+
+/* 2 · The receptionist on an HVAC call. */
+.hvac-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.hvac-call {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(56px, 6vw, 88px);
+  margin-top: clamp(52px, 7vw, 88px);
+  align-items: start;
+}
+.hvac-onair {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 12px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.hvac-onair .hvac-ic { font-size: 15px; }
+.hvac-onair .hvac-wave { height: 14px; gap: 2px; color: var(--accent-2); }
+.hvac-onair .hvac-wave > i { width: 2px; }
+.hvac-talk { display: grid; gap: clamp(40px, 5vw, 60px); margin-top: 36px; text-align: left; }
+.hvac-exchange { display: grid; gap: 16px; }
+/* A zigzag down the column (Xander, round 3): a little in, well right, then hard left. */
+.hvac-exchange:nth-child(1) { margin-inline: 9%; }
+.hvac-exchange:nth-child(2) { margin-left: 24%; }
+.hvac-exchange:nth-child(3) { margin-right: 24%; }
+.hvac-said { margin: 0; }
+.hvac-voice { display: flex; align-items: center; gap: 10px; }
+.hvac-who { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; }
+.hvac-said blockquote { margin: 8px 0 0; }
+.hvac-said-caller { max-width: 86%; color: var(--fg-3); }
+.hvac-said-caller blockquote { font-size: 17px; line-height: 1.5; color: var(--fg-2); }
+.hvac-said-rec { margin-left: 12%; }
+.hvac-said-rec .hvac-voice { color: var(--accent-2); }
+.hvac-said-rec blockquote { font-size: clamp(19px, 2vw, 24px); font-weight: 600; line-height: 1.32; color: var(--fg); }
+
+.hvac-signals {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 2px solid var(--fg);
+}
+.hvac-signals > li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 0 12px;
+  align-items: start;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--wash-rule);
+  font-size: 15.5px;
+  line-height: 1.4;
+  color: var(--fg-2);
+}
+.hvac-signals > li:nth-child(odd) { padding-right: 16px; }
+.hvac-signals > li:nth-child(even) { padding-left: 16px; border-left: 1px solid var(--wash-rule); }
+.hvac-signals b { display: block; font-weight: 600; color: var(--fg); }
+.hvac-signal-ic { font-size: 34px; color: var(--accent-2); }
+.hvac-co {
+  width: 34px;
+  height: 34px;
+  border: 2.5px solid var(--accent-2);
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 29px;
+  text-align: center;
+  color: var(--accent-2);
+}
+.hvac-slip-h { margin-top: 56px; }
+
+/* The portal inbox row, in the portal's own colours and face (see portal/inbox/InboxList.tsx). */
+.hvac-inbox {
+  --hvac-p-bg: #f6f7f9;
+  --hvac-p-card: #ffffff;
+  --hvac-p-fg: #0d1117;
+  --hvac-p-fg-2: #4a5058;
+  --hvac-p-fg-3: #656b73;
+  --hvac-p-accent: #2563eb;
+  --hvac-p-attn: #c2410c;
+  --hvac-p-rule: rgba(13, 17, 23, 0.09);
+  --hvac-p-rule-strong: rgba(13, 17, 23, 0.18);
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--hvac-p-rule-strong);
+  border-radius: 10px;
+  background: var(--hvac-p-bg);
+  box-shadow: 0 18px 36px -24px rgba(20, 18, 12, 0.45);
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  color: var(--hvac-p-fg);
+}
+.hvac-inbox-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--hvac-p-rule);
+  background: var(--hvac-p-card);
+}
+.hvac-inbox-top b { font-size: 16px; font-weight: 700; }
+.hvac-inbox-top span {
+  padding: 3px 10px;
+  border: 1px solid var(--hvac-p-rule-strong);
+  border-radius: 999px;
+  background: var(--hvac-p-bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hvac-p-fg-2);
+}
+.hvac-inbox-day { padding: 12px 16px 6px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.4; letter-spacing: 0.1em; color: var(--hvac-p-fg-3); }
+.hvac-inbox-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--hvac-p-rule);
+  background: var(--hvac-p-card);
+}
+.hvac-inbox-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--hvac-p-accent); }
+.hvac-inbox-r1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.hvac-inbox-r1 strong { font-size: 15.5px; font-weight: 700; }
+.hvac-inbox-chip {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hvac-p-attn) 11%, var(--hvac-p-card));
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--hvac-p-attn);
+}
+.hvac-inbox-time { margin-left: auto; font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.4; }
+.hvac-inbox-pv { margin-top: 5px; font-size: 14px; line-height: 1.45; }
+.hvac-inbox-mini {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--hvac-p-rule-strong);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--hvac-p-fg-2);
+}
+.hvac-inbox-skel i { display: block; height: 10px; border-radius: 5px; background: rgba(13, 17, 23, 0.07); }
+.hvac-inbox-skel i + i { width: 78%; margin-top: 9px; }
+
+/* Never / instead: two columns that answer each other, row by row. */
+.hvac-vs { margin-top: clamp(72px, 9vw, 120px); }
+.hvac-vs-heads,
+.hvac-vs-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 clamp(20px, 4vw, 56px);
+}
+.hvac-vs-heads { align-items: end; padding-bottom: 14px; border-bottom: 2px solid var(--fg); }
+.hvac-vs-h { font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 0.92; }
+.hvac-vs-row { align-items: start; padding-block: 26px; border-bottom: 1px solid var(--wash-rule); }
+.hvac-vs-cell { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; }
+.hvac-mark { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 1px; border-radius: 50%; font-size: 18px; }
+.hvac-vs-no .hvac-mark { border: 2px solid var(--accent-2); color: var(--accent-2); }
+.hvac-vs-yes .hvac-mark { background: var(--fg); color: var(--bg); }
+.hvac-vs-no p:last-child {
+  padding-top: 3px;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.5vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.hvac-vs-yes p:last-child { padding-top: 2px; font-size: 17px; line-height: 1.45; color: var(--fg); }
+.hvac-vs-lbl { display: none; margin-bottom: 4px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
+
+/* 3 · The HVAC website: the real demo in a frame you scroll, with a legend beside it. */
+.hvac-site {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: clamp(48px, 5vw, 72px);
+  margin-top: clamp(52px, 7vw, 88px);
+  align-items: start;
+}
+.hvac-frame {
+  overflow: hidden;
+  border: 1px solid var(--rule-strong);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 48px -28px rgba(20, 18, 12, 0.45);
+}
+.hvac-frame-bar { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: var(--fg); }
+.hvac-frame-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(244, 236, 216, 0.35); }
+.hvac-frame-bar span {
+  margin-left: 8px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(244, 236, 216, 0.75);
+}
+.hvac-frame-view { height: min(620px, 78vh); overflow-y: auto; overscroll-behavior: contain; }
+.hvac-frame-view:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.hvac-frame-view img { display: block; width: 100%; height: auto; }
+.hvac-frame-cap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.hvac-frame-cap a {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.hvac-legend { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--fg); }
+.hvac-legend > li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 0 10px;
+  padding-block: 22px;
+  border-bottom: 1px solid var(--rule);
+}
+.hvac-legend-n { font-family: var(--font-display); font-size: 34px; font-weight: 900; line-height: 0.9; color: var(--accent-2); }
+.hvac-legend-h { margin-bottom: 6px; font-size: 24px; font-weight: 800; line-height: 1; }
+.hvac-legend p { font-size: 16px; color: var(--fg-2); }
+
+/* 4 · What customers are trying to find out: what they search, then what they ask on a call. */
+.hvac-find-h { max-width: 14ch; font-size: clamp(42px, 7.4vw, 96px); }
+.hvac-find-h::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  margin: clamp(20px, 2.4vw, 30px) auto 0;
+  background: var(--accent-2);
+}
+.hvac-find .hvac-lede { max-width: 52ch; }
+.hvac-find-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.9fr);
+  gap: 24px clamp(32px, 6vw, 80px);
+  align-items: start;
+  margin-top: clamp(56px, 7vw, 92px);
+  padding-top: clamp(36px, 4.5vw, 56px);
+  border-top: 2px solid var(--fg);
+}
+.hvac-group-h { display: flex; align-items: center; gap: 14px; font-size: clamp(26px, 3.4vw, 42px); font-weight: 900; line-height: 0.95; }
+.hvac-group-h .hvac-ic { flex: none; font-size: 0.8em; stroke-width: 2.6; color: var(--accent-2); }
+.hvac-group-h .hvac-wave { flex: none; height: 0.7em; color: var(--accent-2); }
+.hvac-qs {
+  list-style: none;
+  margin: clamp(22px, 3vw, 34px) 0 0;
+  padding: 0;
+  display: grid;
+  gap: clamp(16px, 2.2vw, 24px);
+  justify-items: start;
+}
+.hvac-qs > li { max-width: 100%; }
+.hvac-q {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 100%;
+  padding: 15px 26px 15px 20px;
+  border-radius: 999px;
+  background: var(--elev-1);
+  box-shadow: 0 14px 28px -20px rgba(20, 18, 12, 0.45);
+  font-size: clamp(18px, 2.1vw, 25px);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--fg);
+}
+.hvac-q .hvac-ic { flex: none; font-size: 22px; color: var(--fg-3); }
+.hvac-q-n {
+  flex: none;
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent-2);
+}
+.hvac-qs-typed > li:nth-child(1) { margin-left: 4%; }
+.hvac-qs-typed > li:nth-child(2) { margin-left: 22%; }
+.hvac-qs-typed > li:nth-child(4) { margin-left: 30%; }
+.hvac-qs-typed > li:nth-child(5) { margin-left: 10%; }
+.hvac-qs-spoken > li:nth-child(1) { margin-left: 6%; }
+.hvac-qs-spoken > li:nth-child(2) { margin-left: 26%; }
+.hvac-qs-spoken .hvac-q {
+  padding: 0 0 0 18px;
+  border-left: 4px solid var(--accent-2);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: clamp(21px, 2.6vw, 31px);
+  line-height: 1.2;
+}
+.hvac-find-src { margin-top: 22px; }
+.hvac-beat-copy { display: grid; gap: 14px; padding-top: clamp(44px, 6vw, 76px); color: var(--fg-2); }
+.hvac-beat-lead { font-size: clamp(19px, 1.9vw, 23px); font-weight: 600; line-height: 1.4; color: var(--fg); }
+
+/* 5 · The missed call: the homepage sum with two blanks to type into. Every figure sits in the
+   same top-aligned box, so all five share one line whatever their labels wrap to. */
+.hvac-sum {
+  --hvac-num: clamp(44px, 6vw, 78px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 22px clamp(8px, 1.3vw, 16px);
+  margin-top: clamp(40px, 6vw, 64px);
+}
+.hvac-term { display: grid; gap: 10px; justify-items: center; max-width: 150px; }
+.hvac-num {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  height: calc(var(--hvac-num) * 0.85 + 12px);
+  border-bottom: 4px solid transparent;
+  font-family: var(--font-display);
+  font-size: var(--hvac-num);
+  font-weight: 900;
+  line-height: 0.85;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.hvac-field { border-bottom-color: var(--accent-2); color: var(--accent-2); }
+.hvac-cur { font-size: 0.72em; }
+.hvac-sum input {
+  height: calc(var(--hvac-num) * 0.85);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+/* The site-wide form rule (top of this file) paints every input grey with dark text and, on a
+   phone, forces 16px, all `!important`. These figures are type, not form boxes, so they take it
+   back. Six classes outrank that rule's five :not()s (an id selector would too, but this
+   build drops rules that start with one). */
+.hvac-sum .hvac-num input.hvac-input.hvac-input.hvac-input.hvac-input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+.hvac-sum input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.hvac-sum input::-webkit-outer-spin-button,
+.hvac-sum input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.hvac-term-l {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--fg-3);
+}
+.hvac-pair { display: flex; align-items: flex-start; gap: clamp(8px, 1.3vw, 16px); }
+.hvac-op {
+  display: flex;
+  align-items: center;
+  height: calc(var(--hvac-num) * 0.85 + 12px);
+  font-family: var(--font-display);
+  font-size: clamp(30px, 4vw, 52px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--fg-3);
+}
+.hvac-calc-go { display: grid; gap: 14px; justify-items: center; margin-top: 40px; }
+.hvac-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  margin-top: clamp(40px, 5vw, 60px);
+  border-top: 2px solid var(--fg);
+  border-bottom: 1px solid var(--rule);
+  text-align: center;
+}
+.hvac-vr { background: var(--rule); }
+.hvac-result-half { display: grid; gap: 8px; justify-items: center; padding: 26px 12px; }
+.hvac-big {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 8vw, 104px);
+  font-weight: 900;
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+.hvac-big.hvac-coral { color: var(--accent-2); }
+.hvac-src { margin-top: 18px; }
+
+/* 6 · Close. */
+.hvac-close-h { font-size: clamp(46px, 8.6vw, 108px); }
+.hvac-close .hvac-lede { max-width: 46ch; }
+.hvac-ask { margin-top: clamp(36px, 5vw, 56px); }
+
+@media (max-width: 800px) {
+  .hvac-hero,
+  .hvac-split-head,
+  .hvac-call,
+  .hvac-site,
+  .hvac-find-row { grid-template-columns: minmax(0, 1fr); }
+
+  /* Section headings and the copy under them are centred on a phone (Xander, round 4). Lists
+     and drawings stay as drawn. */
+  .hvac-hero-copy,
+  .hvac-split-head,
+  .hvac-when-h,
+  .hvac-then,
+  .hvac-side .hvac-h3,
+  .hvac-calls-col,
+  .hvac-beat-copy,
+  .hvac-find-src,
+  .hvac-calc-go { text-align: center; }
+  .hvac-split-head { justify-items: center; }
+  .hvac-intro { max-width: none; margin-inline: auto; }
+  .hvac-acts { justify-content: center; }
+  .hvac-group-h { justify-content: center; text-align: center; }
+  .hvac-when-h { margin-bottom: 6px; }
+  .hvac-beat { grid-template-columns: 52px minmax(0, 1fr); gap: 4px 14px; padding-block: 22px; }
+  .hvac-scene { font-size: 46px; }
+
+  .hvac-exchange:nth-child(1) { margin-inline: 5%; }
+  .hvac-exchange:nth-child(2) { margin-left: 12%; }
+  .hvac-exchange:nth-child(3) { margin-right: 12%; }
+  .hvac-said-rec { margin-left: 8%; }
+  .hvac-said-caller { max-width: 94%; }
+
+  .hvac-signals > li {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 10px;
+    padding: 22px 8px;
+    text-align: center;
+  }
+  .hvac-signals > li:nth-child(odd) { padding-right: 8px; }
+  .hvac-signals > li:nth-child(even) { padding-left: 8px; }
+
+  .hvac-vs-heads { grid-template-columns: minmax(0, 1fr); gap: 8px; text-align: center; }
+  .hvac-vs-heads .hvac-vs-h + .hvac-vs-h { color: var(--fg-2); }
+  .hvac-vs-row { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .hvac-vs-lbl { display: block; }
+
+  .hvac-frame-view { height: 460px; }
+
+  .hvac-find-row .hvac-beat-copy { padding-top: 0; }
+  .hvac-qs-typed > li:nth-child(n) { margin-left: 0; }
+  .hvac-qs-typed > li:nth-child(even) { margin-left: 8%; }
+  /* A search keeps its magnifier beside the words; the monthly count drops under them. */
+  .hvac-qs-typed .hvac-q {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 12px;
+    padding: 14px 20px 14px 16px;
+    border-radius: 22px;
+  }
+  .hvac-qs-typed .hvac-q-n { grid-column: 2; margin-left: 0; }
+  .hvac-qs-spoken > li:nth-child(1) { margin-left: 4%; }
+  .hvac-qs-spoken > li:nth-child(2) { margin-left: 10%; }
+
+  /* The sum is written down the page, one figure to a line, the way you'd write it by hand. */
+  .hvac-sum {
+    --hvac-num: 46px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    max-width: 320px;
+    margin-inline: auto;
+  }
+  .hvac-sum > .hvac-term { padding-left: 34px; }
+  .hvac-pair { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 10px; align-items: start; }
+  .hvac-term { grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; justify-items: start; max-width: none; }
+  .hvac-num { justify-self: end; }
+  .hvac-term-l { text-align: left; }
+  .hvac-op { font-size: 28px; }
+  .hvac-result { grid-template-columns: minmax(0, 1fr); }
+  .hvac-vr { height: 1px; }
+
+  /* Left off a phone: enough stays to explain the page without a wall of words. */
+  .hvac-m-cut,
+  .hvac-qs-typed > li:nth-child(n + 4),
+  .hvac-beat-copy p:not(.hvac-beat-lead) { display: none; }
+}
+
+/* The homepage trade line's links ("Built for HVAC, ..."): the words stay as they were, so a
+   linked trade reads as part of the line, with an underline that says it goes somewhere. */
+.home-trade-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-2);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.home-trade-link:hover { color: var(--accent-2); }

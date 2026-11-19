@@ -32,7 +32,7 @@ const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.ur
 
 test("the sitemap lists every public page at the www address and nothing private", () => {
     const urls = sitemap().map((e) => e.url);
-    for (const path of ["/", "/about", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"]) {
+    for (const path of ["/", "/about", "/hvac", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"]) {
         assert.ok(urls.includes(path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`), `sitemap is missing ${path}`);
     }
     for (const url of urls) {
@@ -69,6 +69,7 @@ test("each public page gets a canonical address and a link preview that repeat i
     assert.equal(m.twitter.title, "FAQ | Juneau Digital Designs");
     for (const [file, path] of [
         ["app/about/page.tsx", "/about"],
+        ["app/hvac/page.tsx", "/hvac"],
         ["app/pricing/page.tsx", "/pricing"],
         ["app/faq/page.tsx", "/faq"],
         ["app/activation/page.tsx", "/activation"],
@@ -123,8 +124,10 @@ test("JSON-LD cannot close its own script tag", () => {
 });
 
 test("the homepage names the trades under the hero", () => {
+    // Since 19 Nov 2026 a trade with its own page is a link (HVAC first). The words are unchanged,
+    // so the line is read with the link tags taken out.
     assert.match(
-        read("app/components/home/homepageclient.tsx"),
+        read("app/components/home/homepageclient.tsx").replace(/<Link [^>]*>|<\/Link>/g, ""),
         /Built for HVAC, plumbing, roofing, lawn care, pressure washing and detailing businesses\./,
     );
 });
