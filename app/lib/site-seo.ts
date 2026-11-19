@@ -36,6 +36,13 @@ export const HVAC_TITLE = "HVAC Website Design + 24/7 AI Receptionist | JDD";
 export const HVAC_DESCRIPTION = `We write, build and host your HVAC website, and an AI receptionist answers the heating and cooling calls you miss, 24/7. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
 
 /**
+ * /plumbing, the second trade page. Xander approved the title and description with the page,
+ * from the third round of its mockup (19 Nov 2026). The price is Schedule A's, never typed.
+ */
+export const PLUMBING_TITLE = "Plumber Website Design + 24/7 AI Receptionist | JDD";
+export const PLUMBING_DESCRIPTION = `We write, build and host your plumbing website, and an AI receptionist answers the calls you miss, 24/7, from burst pipes to water heaters. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
+
+/**
  * /contact. Xander approved the page, with this title and description, from the round-1 mockup
  * (19 Nov 2026). Its /contact/thank-you child is deliberately NOT a public path: it is the
  * post-send landing page for Google Ads, is `noindex`, and never belongs in the sitemap.
@@ -52,6 +59,7 @@ export const PUBLIC_PATHS = [
     "/",
     "/about",
     "/hvac",
+    "/plumbing",
     "/contact",
     "/pricing",
     "/faq",
@@ -249,6 +257,52 @@ export function hvacJsonLd() {
                 url: `${SITE_URL}/hvac`,
                 provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
                 audience: { "@type": "BusinessAudience", name: "HVAC companies" },
+                offers: {
+                    "@type": "Offer",
+                    name: starter.name,
+                    url: `${SITE_URL}/pricing`,
+                    priceCurrency: "USD",
+                    price: starter.monthlyPrice,
+                    priceSpecification: {
+                        "@type": "UnitPriceSpecification",
+                        price: starter.monthlyPrice,
+                        priceCurrency: "USD",
+                        unitCode: "MON",
+                        referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+                    },
+                },
+            },
+        ],
+    };
+}
+
+/**
+ * /plumbing, as a page about one service for one trade. Same shape as `hvacJsonLd`, because it
+ * is the same offer to a different trade: no `areaServed`, since the page names no region.
+ */
+export function plumbingJsonLd() {
+    const starter = SCHEDULES.starter;
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": `${SITE_URL}/plumbing#page`,
+                url: `${SITE_URL}/plumbing`,
+                name: PLUMBING_TITLE,
+                description: PLUMBING_DESCRIPTION,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${SITE_URL}/plumbing#service` },
+            },
+            {
+                "@type": "Service",
+                "@id": `${SITE_URL}/plumbing#service`,
+                name: "Websites and a 24/7 AI receptionist for plumbing companies",
+                serviceType: "Website design and AI answering service",
+                description: PLUMBING_DESCRIPTION,
+                url: `${SITE_URL}/plumbing`,
+                provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
+                audience: { "@type": "BusinessAudience", name: "Plumbing companies" },
                 offers: {
                     "@type": "Offer",
                     name: starter.name,

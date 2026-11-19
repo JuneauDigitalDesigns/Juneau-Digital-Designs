@@ -32,7 +32,7 @@ const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.ur
 
 test("the sitemap lists every public page at the www address and nothing private", () => {
     const urls = sitemap().map((e) => e.url);
-    for (const path of ["/", "/about", "/hvac", "/contact", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"]) {
+    for (const path of ["/", "/about", "/hvac", "/plumbing", "/contact", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"]) {
         assert.ok(urls.includes(path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`), `sitemap is missing ${path}`);
     }
     for (const url of urls) {
@@ -70,6 +70,7 @@ test("each public page gets a canonical address and a link preview that repeat i
     for (const [file, path] of [
         ["app/about/page.tsx", "/about"],
         ["app/hvac/page.tsx", "/hvac"],
+        ["app/plumbing/page.tsx", "/plumbing"],
         ["app/contact/page.tsx", "/contact"],
         ["app/pricing/page.tsx", "/pricing"],
         ["app/faq/page.tsx", "/faq"],
