@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import {
@@ -29,6 +28,7 @@ import PortalUserButton from "./PortalUserButton";
 import PortalBrand from "./PortalBrand";
 import SiteSelector from "./SiteSelector";
 import { PortalDataProvider } from "./PortalDataProvider";
+import { PortalChromeContext } from "./PortalChromeContext";
 import { StatusDot } from "./ui/StatusDot";
 import Drawer from "./ui/Drawer";
 import {
@@ -115,7 +115,6 @@ export default function PortalChrome({
     const params = useSearchParams();
     const router = useRouter();
     const [collapsed, setCollapsed] = useState(railCollapsed);
-    const [moreOpen, setMoreOpen] = useState(false);
     const [switchOpen, setSwitchOpen] = useState(false);
 
     // Same selection rule the pages use, so the chrome and the panel can never disagree
@@ -134,6 +133,19 @@ export default function PortalChrome({
     // `readonly ["settings","support"]` narrows `.includes()` to its own members, so it
     // rejects any other tab id at compile time. Widening the receiver, not the value.
     const isInMore = (MOBILE_MORE_TABS as readonly PortalTabId[]).includes(activeId);
+    const isMore = segment === "more";
+    // The small title the mobile top bar shows once the page has scrolled.
+    const pageTitle = isMore ? "More" : (PORTAL_TABS.find((t) => t.id === activeId)?.label ?? "");
+
+    // Large-title collapse: past 40px the page's own <h1> has gone under the bar, so the bar
+    // takes over the title. One passive listener on the window, which is what scrolls here.
+    const [scrolled, setScrolled] = useState(false);
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 40);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
 
     function toggleRail() {
         const next = !collapsed;
@@ -170,50 +182,36 @@ export default function PortalChrome({
                 tier={selected.features.crm.state === "ready" ? "growth" : "starter"}
                 siteStatus={selected.status}
             />
-            {/* ── Mobile: slim topbar ──────────────────────────────────────────── */}
-            <header className="portal-topbar">
-                <a
-                    href="https://juneaudigitaldesigns.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="portal-mark"
-                    aria-label="Juneau Digital Designs, agency home (opens in a new tab)"
-                >
-                    <Image
-                        src="/jdd-lockup-portal.png"
-                        alt=""
-                        width={640}
-                        height={192}
-                        priority
-                    />
-                </a>
-
-                {/* Name only on mobile — the host moved to the More drawer's "Open {host}"
-                    link. A single centred line keeps the row readable, which the old
-                    stacked name+host+wide-select layout did not: the 224px select overlapped
-                    both and neither could be read. */}
-                <div className="portal-topbar-site">
-                    <div className="portal-topbar-name" title={selected.name}>
-                        {selected.name}
-                    </div>
-                </div>
-
-                {/* Compact switcher, multi-site only. Replaces the native <select> that ate
-                    the row; opens a bottom sheet of sites instead. The rail keeps the native
-                    select, where it has room. */}
-                {sites.length > 1 && (
+            {/* ── Mobile: top bar ──────────────────────────────────────────────────
+                The approved app mockup (2026-11-19): business name top left, account top
+                right, and nothing else at rest — each page's own <h1> is the large title
+                under it. Once the page scrolls, that title shrinks into the middle of the
+                bar and the business name steps aside, as an iPhone large title does. The JDD
+                mark left this bar for the More screen and sign-in. */}
+            <header className="portal-topbar" data-scrolled={scrolled ? "true" : undefined}>
+                {sites.length > 1 ? (
+                    // Multi-site: the name is the switcher. Opens the bottom sheet of sites.
                     <button
                         type="button"
                         onClick={() => setSwitchOpen(true)}
-                        className="portal-topbar-switch"
+                        className="portal-topbar-site"
                         aria-haspopup="dialog"
                         aria-expanded={switchOpen}
                         aria-label={`Switch site — currently ${selected.name}`}
-                        title="Switch site"
                     >
-                        <CaretUpDown size={16} weight="bold" />
+                        <span className="portal-topbar-name">{selected.name}</span>
+                        <CaretUpDown size={15} weight="bold" aria-hidden />
                     </button>
+                ) : (
+                    <div className="portal-topbar-site">
+                        <span className="portal-topbar-name" title={selected.name}>
+                            {selected.name}
+                        </span>
+                    </div>
                 )}
+                <div className="portal-topbar-title" aria-hidden="true">
+                    {pageTitle}
+                </div>
                 <PortalUserButton siteSlug={selected.slug} />
             </header>
 
@@ -422,7 +420,9 @@ export default function PortalChrome({
             {/* Inside the layout, so the cache survives tab navigation; the sections it
                 serves are all below it in `children`. */}
             <main className="portal-stage">
-                <PortalDataProvider>{children}</PortalDataProvider>
+                <PortalChromeContext.Provider value={{ sites, selected, accountEmail, host }}>
+                    <PortalDataProvider>{children}</PortalDataProvider>
+                </PortalChromeContext.Provider>
             </main>
 
             {/* ── Mobile: bottom tab bar ───────────────────────────────────────── */}
@@ -439,7 +439,7 @@ export default function PortalChrome({
                             aria-current={isActive ? "page" : undefined}
                             className={`portal-tab${isActive ? " is-active" : ""}`}
                         >
-                            <Icon size={21} weight={isActive ? "fill" : "regular"} />
+                            <Icon size={25} weight={isActive ? "fill" : "regular"} />
                             <span>{tab.shortLabel}</span>
                             {isLocked ? (
                                 <>
@@ -458,16 +458,17 @@ export default function PortalChrome({
                     );
                 })}
 
-                <button
-                    type="button"
-                    onClick={() => setMoreOpen(true)}
-                    className={`portal-tab${isInMore ? " is-active" : ""}`}
-                    aria-haspopup="dialog"
-                    aria-expanded={moreOpen}
+                {/* More is its own screen since 2026-11-19, so it is a link like the others
+                    and the back gesture works from it. It also stays lit on the pages it
+                    lists (Analytics, Settings, Support). */}
+                <Link
+                    href={tabHref("more", selected.slug)}
+                    aria-current={isMore ? "page" : undefined}
+                    className={`portal-tab${isMore || isInMore ? " is-active" : ""}`}
                 >
-                    <DotsThree size={21} weight="bold" />
+                    <DotsThree size={25} weight="bold" />
                     <span>More</span>
-                </button>
+                </Link>
             </nav>
 
             {/* Mobile site switcher. Only reachable from the topbar button, which is itself
@@ -511,101 +512,6 @@ export default function PortalChrome({
                 </nav>
             </Drawer>
 
-            <Drawer open={moreOpen} onClose={() => setMoreOpen(false)} title="More">
-                <nav className="flex flex-col gap-1" aria-label="More sections">
-                    {MOBILE_MORE_TABS.map((id) => {
-                        const { tab, isLocked, isReady } = tabState(id);
-                        const Icon = TAB_ICON[tab.id];
-
-                        return (
-                            <Link
-                                key={tab.id}
-                                href={tabHref(tab.href, selected.slug)}
-                                onClick={() => setMoreOpen(false)}
-                                aria-current={tab.id === activeId ? "page" : undefined}
-                                className={`portal-rail-link${tab.id === activeId ? " is-active" : ""}`}
-                                style={{ minHeight: 44 }}
-                            >
-                                <Icon
-                                    size={18}
-                                    weight={tab.id === activeId ? "fill" : "regular"}
-                                    className="shrink-0"
-                                />
-                                <span>{tab.label}</span>
-                                {isLocked ? (
-                                    <>
-                                        <Lock
-                                            size={12}
-                                            weight="fill"
-                                            className="shrink-0 ml-auto"
-                                            style={{ color: "var(--fg-3)" }}
-                                        />
-                                        <span className="sr-only">(not included in your plan)</span>
-                                    </>
-                                ) : !isReady ? (
-                                    <>
-                                        <span className="ml-auto inline-flex">
-                                            <StatusDot status="pending" size={6} />
-                                        </span>
-                                        <span className="sr-only">(not yet available)</span>
-                                    </>
-                                ) : null}
-                            </Link>
-                        );
-                    })}
-
-                    {host && (
-                        <a
-                            href={selected.canonical ?? undefined}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="portal-rail-link"
-                            style={{ minHeight: 44 }}
-                        >
-                            <ArrowSquareOut size={18} className="shrink-0" />
-                            <span>Open {host}</span>
-                        </a>
-                    )}
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setMoreOpen(false);
-                            launchTour("page");
-                        }}
-                        className="portal-rail-link"
-                        style={{ minHeight: 44, width: "100%", cursor: "pointer" }}
-                    >
-                        <PlayCircle size={18} className="shrink-0" />
-                        <span>{HELP_MENU.page}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setMoreOpen(false);
-                            launchTour("all");
-                        }}
-                        className="portal-rail-link"
-                        style={{ minHeight: 44, width: "100%", cursor: "pointer" }}
-                    >
-                        <ArrowCounterClockwise size={18} className="shrink-0" />
-                        <span>{HELP_MENU.all}</span>
-                    </button>
-                </nav>
-
-                <div
-                    className="mt-4 pt-4 flex items-center gap-2.5"
-                    style={{ borderTop: "1px solid var(--rule-weak)" }}
-                >
-                    <PortalUserButton siteSlug={selected.slug} onLeave={() => setMoreOpen(false)} />
-                    <span
-                        className="truncate min-w-0"
-                        style={{ color: "var(--fg-3)", fontSize: "var(--text-sm)" }}
-                    >
-                        {accountEmail}
-                    </span>
-                </div>
-            </Drawer>
         </div>
     );
 }

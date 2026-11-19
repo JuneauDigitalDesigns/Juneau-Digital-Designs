@@ -14,7 +14,7 @@ import { siteNotices } from "@/app/lib/page-additions-store";
 const TONE: Record<string, { color: string; bg: string }> = {
     blue: { color: "var(--accent)", bg: "color-mix(in srgb, var(--accent) 10%, transparent)" },
     green: { color: "var(--chart-pos)", bg: "color-mix(in srgb, var(--chart-pos) 11%, transparent)" },
-    amber: { color: "#8a5200", bg: "color-mix(in srgb, #c8842a 16%, transparent)" },
+    amber: { color: "var(--chart-warn)", bg: "color-mix(in srgb, var(--chart-warn) 14%, transparent)" },
     grey: { color: "var(--fg-3)", bg: "var(--surface)" },
 };
 

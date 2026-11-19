@@ -107,3 +107,36 @@
         animation: none !important;
     }
 }
+
+/* ── Dark (2026-11-19) ────────────────────────────────────────────────────────────────────
+   The portal follows the OS into dark, so the tour card does too. Mirrors the dark
+   `.portal-scope` block in globals.css: --elev-2, --fg, --fg-2, --fg-3, --accent, --rule-strong.
+   The arrow is coloured per side by driver.js; only its fill colour changes here. */
+@media (prefers-color-scheme: dark) {
+    .driver-popover.jdd-tour {
+        background: #1d222b;
+        color: #f1f3f6;
+        border-color: rgba(122, 165, 255, 0.35);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+    }
+    .driver-popover.jdd-tour .driver-popover-title { color: #f1f3f6; }
+    .driver-popover.jdd-tour .driver-popover-description { color: #b9bfc8; }
+    .driver-popover.jdd-tour .driver-popover-progress-text,
+    .driver-popover.jdd-tour .driver-popover-close-btn { color: #9198a3; }
+    .driver-popover.jdd-tour .driver-popover-next-btn {
+        background: #7aa5ff;
+        border-color: #7aa5ff;
+        color: #0b0d11;
+    }
+    .driver-popover.jdd-tour .driver-popover-next-btn:hover {
+        background: #9dbcff;
+        border-color: #9dbcff;
+    }
+    .driver-popover.jdd-tour .driver-popover-prev-btn {
+        background: transparent;
+        color: #b9bfc8;
+        border-color: rgba(255, 255, 255, 0.18);
+    }
+    .driver-popover.jdd-tour .driver-popover-arrow { border-color: #1d222b; }
+    .driver-active-element { outline-color: #7aa5ff !important; }
+}

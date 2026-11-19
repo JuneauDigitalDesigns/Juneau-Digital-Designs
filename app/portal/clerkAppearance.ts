@@ -156,27 +156,75 @@ export const AGENCY_HEX = {
     white: "#ffffff", //       input fill, per the mockup
 } as const;
 
+/**
+ * The agency's dark palette, for the same roles. Sign-in, sign-up and the account menu follow the
+ * OS into dark since 2026-11-19 (Xander: "Sign in can turn dark with the phone"). These are the
+ * marketing site's own dark tokens from before it went light-only on 9 Nov, recovered from git.
+ *
+ * Contrast (WCAG 2, computed; see test/clerk-appearance.test.mjs):
+ *   fg on card / bg / panelHeader 14.9 / 16.0 / 13.9; fg2 10.9 / 11.7 / 10.2; teal on card 6.6;
+ *   onCoral on coral 6.6 and on coralDeep 7.9, so the dark button label is AA at any size.
+ */
+export const AGENCY_HEX_DARK = {
+    bg: "#14120c",
+    panelHeader: "#221f15",
+    panel: "#0e0d08",
+    card: "#1a1810",
+    fg: "#f0e7d2",
+    fg2: "#d6ccb2",
+    coral: "#ff6b4a",
+    coralDeep: "#ff8466",
+    onCoral: "#14120c",
+    teal: "#3fa9b3",
+    danger: "#ff8a6a",
+    success: "#6fcf97",
+    warning: "#f5b75a",
+    white: "#14120c",
+} as const;
+
+/**
+ * Clerk reads its colours from these custom properties, which `app/globals.css` defines on
+ * `:root` from AGENCY_HEX and redefines from AGENCY_HEX_DARK under prefers-color-scheme: dark.
+ * They live on `:root` because Clerk's popover and modal portal into <body>, outside any scope.
+ * The test pins the CSS to the two objects above, so they cannot drift apart.
+ */
+export const CLERK_VAR = {
+    bg: "var(--clerk-bg)",
+    panelHeader: "var(--clerk-panel-header)",
+    card: "var(--clerk-card)",
+    fg: "var(--clerk-fg)",
+    fg2: "var(--clerk-fg2)",
+    coral: "var(--clerk-coral)",
+    coralDeep: "var(--clerk-coral-deep)",
+    onCoral: "var(--clerk-on-coral)",
+    teal: "var(--clerk-teal)",
+    danger: "var(--clerk-danger)",
+    success: "var(--clerk-success)",
+    warning: "var(--clerk-warning)",
+    white: "var(--clerk-input)",
+} as const;
+
 export const clerkAppearance = {
     // Must match the layer named in the `@layer` order line at the top of globals.css.
     cssLayerName: "clerk",
     variables: {
-        colorBackground: AGENCY_HEX.card,
-        colorForeground: AGENCY_HEX.fg,
-        colorMutedForeground: AGENCY_HEX.fg2,
-        colorPrimary: AGENCY_HEX.coral,
-        colorPrimaryForeground: AGENCY_HEX.onCoral,
-        colorInput: AGENCY_HEX.white,
-        colorInputForeground: AGENCY_HEX.fg,
-        colorNeutral: AGENCY_HEX.fg, // base for hovers and dividers
+        colorBackground: CLERK_VAR.card,
+        colorForeground: CLERK_VAR.fg,
+        colorMutedForeground: CLERK_VAR.fg2,
+        colorPrimary: CLERK_VAR.coral,
+        colorPrimaryForeground: CLERK_VAR.onCoral,
+        colorInput: CLERK_VAR.white,
+        colorInputForeground: CLERK_VAR.fg,
+        colorNeutral: CLERK_VAR.fg, // base for hovers and dividers
         // Clerk's control borders. 0.5 ink is 3.52:1 on the white input, clearing WCAG 1.4.11's
         // 3:1 for a control boundary; the mockup's 0.28 (--rule-strong) is 1.89:1.
-        colorBorder: "rgba(20, 18, 12, 0.5)",
+        colorBorder: "var(--clerk-border)",
         colorRing: "rgba(210, 84, 47, 0.25)", // --accent-2 at 25%, the mockup's focus ring
         colorShadow: "rgba(20, 18, 12, 0.10)", // --glass-shadow tint
         colorModalBackdrop: "rgba(20, 18, 12, 0.45)",
-        colorDanger: AGENCY_HEX.danger,
-        colorSuccess: AGENCY_HEX.success,
-        colorWarning: AGENCY_HEX.warning,
+        colorDanger: CLERK_VAR.danger,
+        colorSuccess: CLERK_VAR.success,
+        colorWarning: CLERK_VAR.warning,
         borderRadius: "6px",
         // The agency body face (`--font-body` in `:root`), named by its next/font variable rather
         // than `var(--font-body)`: `.portal-scope` redefines `--font-body`, and the UserButton
@@ -187,23 +235,23 @@ export const clerkAppearance = {
     elements: {
         // ── The account popover (ClerkMenu mockup) ──────────────────────────────────────────
         // Portalled into <body>, outside `.portal-scope`, hence literal hex in the classes too.
-        userButtonAvatarBox: "size-7 shadow-[0_0_0_2px_#ffffff,0_0_0_4px_rgba(210,84,47,0.4)]",
+        userButtonAvatarBox: "size-7 shadow-[0_0_0_2px_var(--clerk-card),0_0_0_4px_rgba(210,84,47,0.4)]",
         userButtonPopoverCard:
-            "w-[340px] max-w-[calc(100vw-24px)] rounded-[12px] border border-[rgba(20,18,12,0.10)] bg-[#fffdf5] text-[#14120c] shadow-[0_18px_40px_rgba(20,18,12,0.18)]",
-        userButtonPopoverMain: "bg-[#fffdf5]",
+            "w-[340px] max-w-[calc(100vw-24px)] rounded-[12px] border border-[var(--clerk-rule)] bg-[var(--clerk-card)] text-[var(--clerk-fg)] shadow-[0_18px_40px_rgba(20,18,12,0.18)]",
+        userButtonPopoverMain: "bg-[var(--clerk-card)]",
         userPreview: "px-[18px] py-4 gap-3",
-        userPreviewMainIdentifier: "text-[14px] font-semibold text-[#14120c]",
+        userPreviewMainIdentifier: "text-[14px] font-semibold text-[var(--clerk-fg)]",
         // 10.27:1 on the card.
-        userPreviewSecondaryIdentifier: "text-[12.5px] text-[#43402c]",
+        userPreviewSecondaryIdentifier: "text-[12.5px] text-[var(--clerk-fg2)]",
         userButtonPopoverActions: "border-t-0",
         // Label 10.27:1 on the card; hover 15.90:1 (ink on cream).
         userButtonPopoverActionButton:
-            "h-[46px] gap-[14px] px-[18px] border-t border-[rgba(20,18,12,0.08)] text-[13.5px] text-[#43402c] hover:bg-[#f4ecd8] hover:text-[#14120c]",
+            "h-[46px] gap-[14px] px-[18px] border-t border-[var(--clerk-rule-weak)] text-[13.5px] text-[var(--clerk-fg2)] hover:bg-[var(--clerk-bg)] hover:text-[var(--clerk-fg)]",
         // An icon, not text: 4.08:1 on the card clears the 3:1 non-text floor.
-        userButtonPopoverActionButtonIcon: "size-4 text-[#d2542f] opacity-100",
+        userButtonPopoverActionButtonIcon: "size-4 text-[var(--clerk-coral)] opacity-100",
         // "Secured by Clerk": 8.42:1 on the sand footer.
         userButtonPopoverFooter:
-            "bg-none bg-[#f0e6cd] border-t border-[rgba(20,18,12,0.10)] text-[#43402c]",
+            "bg-none bg-[var(--clerk-panel-header)] border-t border-[var(--clerk-rule)] text-[var(--clerk-fg2)]",
     },
 } as const satisfies ClerkProviderAppearance;
 
@@ -227,23 +275,24 @@ export const clerkAuthAppearance = {
     elements: {
         rootBox: "w-full",
         cardBox:
-            "w-full max-w-none rounded-[12px] border border-[rgba(20,18,12,0.10)] shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_18px_40px_rgba(20,18,12,0.10)]",
-        card: "bg-[#fffdf5] shadow-none border-0 rounded-none px-5 pt-[22px] pb-5 gap-[15px] lg:px-8 lg:pt-[30px] lg:pb-[26px] lg:gap-[18px]",
+            // Phones (2026-11-19 launch screen): no card, the form sits straight on the page.
+            "w-full max-w-none rounded-none border-0 shadow-none lg:rounded-[12px] lg:border lg:border-[var(--clerk-rule)] lg:shadow-[0_18px_40px_var(--clerk-rule)]",
+        card: "bg-transparent lg:bg-[var(--clerk-card)] shadow-none border-0 rounded-none px-0 pt-[6px] pb-5 gap-[15px] lg:px-8 lg:pt-[30px] lg:pb-[26px] lg:gap-[18px]",
         // 150px wide at the lockup's 10:3.
         logoBox: "hidden lg:flex h-[45px] justify-center",
         logoImage: "h-[45px] w-auto",
         // Big Shoulders 900, uppercase: the agency's display voice. Ink on card, 18.39:1.
         headerTitle:
-            "[font-family:var(--font-display)] font-black uppercase text-[28px] lg:text-[32px] leading-none tracking-normal text-[#14120c]",
+            "[font-family:var(--font-display)] font-black uppercase text-[28px] lg:text-[32px] leading-none tracking-normal text-[var(--clerk-fg)]",
         // 10.27:1 on the card.
-        headerSubtitle: "text-[13.5px] text-[#43402c]",
+        headerSubtitle: "text-[13.5px] text-[var(--clerk-fg2)]",
         socialButtonsBlockButton:
-            "h-12 lg:h-[46px] rounded-[6px] bg-[#fffdf5] border border-[rgba(20,18,12,0.5)] shadow-none hover:bg-[#f4ecd8]",
-        socialButtonsBlockButtonText: "text-[15px] lg:text-[14px] font-semibold text-[#14120c]",
-        dividerLine: "bg-[rgba(20,18,12,0.16)]",
+            "h-12 lg:h-[46px] rounded-[6px] bg-[var(--clerk-card)] border border-[var(--clerk-border)] shadow-none hover:bg-[var(--clerk-bg)]",
+        socialButtonsBlockButtonText: "text-[15px] lg:text-[14px] font-semibold text-[var(--clerk-fg)]",
+        dividerLine: "bg-[var(--clerk-rule-strong)]",
         // 10.27:1 on the card.
-        dividerText: "text-[12px] text-[#43402c]",
-        formFieldLabel: "text-[13px] font-semibold text-[#14120c]",
+        dividerText: "text-[12px] text-[var(--clerk-fg2)]",
+        formFieldLabel: "text-[13px] font-semibold text-[var(--clerk-fg)]",
         // `!` because globals.css has an unlayered `input:not(...) { … !important }` rule for the
         // marketing forms (fill `--surface`, teal focus). An !important in a *layer* beats an
         // unlayered !important, so these restore the mockup's white field and coral focus.
@@ -252,19 +301,19 @@ export const clerkAuthAppearance = {
         // height at 36px; `max-h-none` and the shadow ring restore the mockup's 46px field with
         // an edge that clears 3:1 (0.5 ink on white, 3.52:1). Focus: coral edge plus coral ring.
         formFieldInput:
-            "h-12 max-h-none lg:h-[46px] px-3 !text-[16px] lg:!text-[14.5px] !bg-[#ffffff] !text-[#14120c] !shadow-[0_0_0_1px_rgba(20,18,12,0.5)] focus:!shadow-[0_0_0_1px_#d2542f,0_0_0_4px_rgba(210,84,47,0.25)]",
+            "h-12 max-h-none lg:h-[46px] px-3 !text-[16px] lg:!text-[14.5px] !bg-[var(--clerk-input)] !text-[var(--clerk-fg)] !shadow-[0_0_0_1px_var(--clerk-border)] focus:!shadow-[0_0_0_1px_var(--clerk-coral),0_0_0_4px_rgba(210,84,47,0.25)]",
         // The agency's `.btn.primary`: Big Shoulders 800, uppercase, coral. The label is cream on
         // coral at 4.08:1, which passes only as large text, so the size must stay >= 18.66px
         // bold. 20px (21px on phones) is the mockup's. Hover darkens to 5.31:1.
         formButtonPrimary:
-            "h-[50px] lg:h-12 rounded-[6px] bg-[#d2542f] hover:bg-[#b8441f] text-[#fffdf5] [font-family:var(--font-display)] font-extrabold text-[21px] lg:text-[20px] tracking-[0.04em] uppercase shadow-[0_8px_20px_-8px_rgba(210,84,47,0.55)] after:hidden",
+            "h-[50px] lg:h-12 rounded-[6px] bg-[var(--clerk-coral)] hover:bg-[var(--clerk-coral-deep)] text-[var(--clerk-on-coral)] [font-family:var(--font-display)] font-extrabold text-[21px] lg:text-[20px] tracking-[0.04em] uppercase shadow-[0_8px_20px_-8px_rgba(210,84,47,0.55)] after:hidden",
         // The sand strip under the card: "Don't have an account? Sign up", "Secured by Clerk".
-        footer: "bg-none bg-[#f0e6cd] border-t border-[rgba(20,18,12,0.10)]",
+        footer: "bg-none bg-transparent lg:bg-[var(--clerk-panel-header)] border-t-0 lg:border-t lg:border-[var(--clerk-rule)]",
         // 8.42:1 on the sand.
-        footerActionText: "text-[13px] text-[#43402c]",
+        footerActionText: "text-[13px] text-[var(--clerk-fg2)]",
         // Teal link, 4.69:1 on the sand; underlined so it isn't carried by colour alone.
         footerActionLink:
-            "text-[13px] font-semibold text-[#1f6f78] underline underline-offset-2 hover:text-[#14525a]",
+            "text-[13px] font-semibold text-[var(--clerk-teal)] underline underline-offset-2 hover:text-[var(--clerk-teal-deep)]",
     },
 } as const satisfies ClerkTheme;
 

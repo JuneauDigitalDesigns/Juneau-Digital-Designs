@@ -75,7 +75,8 @@ export default function MarketingChrome({ children }: { children: React.ReactNod
  * at the bottom of globals.css.
  */
 function PortalCanvas() {
-    return <style>{`html,body{background:#f6f7f9}`}</style>;
+    // Dark follows the OS since 2026-11-19; keep both in step with --bg in .portal-scope.
+    return <style>{`html,body{background:#f6f7f9}@media (prefers-color-scheme: dark){html,body{background:#0b0d11}}`}</style>;
 }
 
 /**
@@ -89,7 +90,8 @@ function PortalCanvas() {
  * step with `--bg` in the light `:root` block at the top of globals.css.
  */
 function AuthCanvas() {
-    return <style>{`html,body{background:#f4ecd8}`}</style>;
+    // Dark follows the OS since 2026-11-19 (agency dark --bg); keep in step with AuthShell.
+    return <style>{`html,body{background:#f4ecd8}@media (prefers-color-scheme: dark){html,body{background:#14120c}}`}</style>;
 }
 
 /**

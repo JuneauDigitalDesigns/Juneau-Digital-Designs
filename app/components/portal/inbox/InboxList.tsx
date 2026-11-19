@@ -213,7 +213,7 @@ function DesktopRow({
             style={
                 checked
                     ? { background: "var(--accent)", borderColor: "var(--accent)", color: "var(--on-accent)" }
-                    : { background: "var(--elev-1)", borderColor: "rgba(13,17,23,0.45)" }
+                    : { background: "var(--elev-1)", borderColor: "var(--fg-3)" }
             }
         >
             {checked && <Check size={10} weight="bold" />}

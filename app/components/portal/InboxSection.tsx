@@ -753,7 +753,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                                 onClick={() => deleteLead(confirmDelete)}
                                 disabled={deleting}
                                 className="rounded-lg px-4 py-2.5 min-h-11 text-sm font-semibold cursor-pointer disabled:opacity-60"
-                                style={{ background: "var(--chart-neg)", color: "#ffffff" }}
+                                style={{ background: "var(--chart-neg)", color: "var(--on-neg)" }}
                             >
                                 {deleting ? "Deleting…" : "Delete permanently"}
                             </button>

@@ -19,24 +19,30 @@ namespace and no component sweep.
 That block is **unlayered and last in the file**. `:root` and `[data-theme="dark"]` are also
 unlayered, so source order decides and the scoped block wins.
 
-**Do not add a dark counterpart.** The portal is light-only by design, and the mechanism
-above is what enforces it: when `next-themes` flips `data-theme` on `<html>`, there is no
-dark portal block to match, so the scoped values keep applying. Removing a theme toggle was
-a consequence of that decision, not the cause.
+**Dark follows the OS (since 2026-11-19).** The portal was light-only until Xander's mobile app
+rework (Q14: "follow the phone setting"). The dark values are a second `.portal-scope` block
+under `@media (prefers-color-scheme: dark)`, after the light one, with the same token names, so
+components that read `var()` re-theme without edits. There is no toggle. Anything that
+hand-copies a portal value (the mirror table below) needs a dark pair too, and so does any literal
+colour in a component: use a token (`--toast-*`, `--on-neg`, `--call*`, `--attn*` exist for the
+cases that had literals).
 
 ## The scope boundary
 
 | Route | Scoped? | Theme |
 |---|---|---|
 | `/portal` and all `(dash)` routes | yes | product |
-| **`/portal/sign-in`, `/portal/sign-up`** | **no** | **agency, pinned light** |
+| **`/portal/sign-in`, `/portal/sign-up`** | **no** | **agency, light or dark with the OS** |
 | **`/portal/onboarding`** | **no** | **agency** |
 | everything else | no | agency |
 
 Sign-in and sign-up moved to the agency brand on 2026-11-09 (Xander, Q6: "Sign-in uses the
 AGENCY palette and the JDD lockup"). They render inside `AuthShell`
-(`app/portal/sign-in/_auth/`), which restates the light `:root` tokens on its own root so the
-page stays cream when next-themes has followed the OS into the dark agency theme.
+(`app/portal/sign-in/_auth/`), which restates the agency tokens on its own root: light, and since
+2026-11-19 the agency's dark palette under `prefers-color-scheme: dark` (Xander: "Sign in can turn
+dark with the phone"). On phones it is a launch screen: lockup and "Client Portal" centred above
+the form, links pinned to the bottom. Dark uses `public/jdd-lockup-portal-dark.png`, a
+cream-and-coral recolour of the same cutout.
 
 `<PortalScope>` is applied per-route, **not** in `app/portal/layout.tsx`. That layout also
 wraps onboarding, which is a sales funnel and deliberately stays on the agency brand —
@@ -53,9 +59,9 @@ Two consequences worth knowing:
 - **Clerk's provider spans the whole boundary, and every Clerk surface is agency.**
   `app/portal/layout.tsx` wraps every `/portal/**` route in
   `<ClerkProvider appearance={clerkAppearance}>`, onboarding included. Since 2026-11-09 that
-  appearance is the agency palette in literal hex: the sign-in and sign-up cards, the account
-  popover and the Manage account modal are all cream and coral, even though the popover opens
-  over the cool dashboard. That is the approved ClerkMenu design, not a leak. Clerk UI added to
+  appearance is the agency palette (since 2026-11-19 through `--clerk-*` variables, light or
+  dark with the OS): the sign-in and sign-up cards, the account popover and the Manage account
+  modal are all agency cream and coral (or the agency dark), even over the cool dashboard. That is the approved ClerkMenu design, not a leak. Clerk UI added to
   onboarding would now arrive matching it. The sign-in and sign-up cards layer
   `clerkAuthAppearance` on top at the component.
 - **Clerk's CSS is in a cascade layer.** `cssLayerName: "clerk"`, ordered by the `@layer` line
@@ -66,13 +72,15 @@ Two consequences worth knowing:
 
 ## What the scope does not reach
 
+- **Clerk.** Every Clerk colour is a `--clerk-*` custom property on `:root` (light, then dark
+  under `prefers-color-scheme`), and `clerkAppearance.ts` points at them with `var()` (Clerk 7
+  accepts CSS variables in `variables`). `AGENCY_HEX` / `AGENCY_HEX_DARK` hold the values and
+  `test/clerk-appearance.test.mjs` pins the CSS to them, with AA checks for both themes.
 - **Inline styles.** They beat everything here. This is why `ui/Card.tsx` and
   `SettingsSection.tsx` needed real edits rather than re-theming for free.
 - **Anything React-portals into `<body>`.** Clerk's `<UserButton>` popover and its Manage
-  account modal. `clerkAppearance.ts` carries **literal hex** instead of `var()`: a `var()`
-  evaluated at `<body>` resolves against `:root`, which is the agency palette *and follows the
-  OS into dark mode*. Clerk is agency-themed on purpose now, but pinned light, so its hexes
-  mirror the light `:root` block, not the scoped one. Each value names the token it mirrors.
+  account modal resolve `var()` against `:root`, not the scope. That is why Clerk reads its own
+  `--clerk-*` properties, defined on `:root` (see Clerk above), rather than portal tokens.
 - **Ancestors.** A scope cannot style `<body>`. `body { background: var(--bg) }` resolves at
   `:root`, so portal routes would show cream in the overscroll gutter. `MarketingChrome`
   emits a small `<style>` for portal routes to repaint the canvas. It is server rendered
@@ -139,9 +147,9 @@ back wearing the agency cream and coral. Those files hand-copy the portal values
 | File | Mirrors | Why it cannot use `var()` |
 |---|---|---|
 | `app/globals.css` → `.portal-scope` | the source of truth | — |
-| `app/portal/clerkAppearance.ts` | **agency light `:root`**: `--bg`, `--panel-header`, `--elev-2`, `--fg`, `--fg-2`, `--accent`, `--accent-2`, `--chart-neg`, `--chart-pos` (in `AGENCY_HEX` and in the `elements` class strings) | Clerk's popover and modal portal into `<body>`, and `:root` goes dark with the OS while Clerk stays cream |
-| `app/portal/sign-in/_auth/AuthShell.module.css` | **agency light `:root`**: `--bg`, `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--accent-2`, `--accent-glow`, `--on-accent-2`, `--panel`, `--panel-header`, `--elev-2`, `--rule*`, `--surface` | the sign-in page is cream-only; `:root` follows the OS into the dark agency theme |
-| `app/components/MarketingChrome.tsx` → `AuthCanvas` | agency light `--bg` | paints `<html>`/`<body>`, which no scope reaches |
+| `app/portal/clerkAppearance.ts` + the `--clerk-*` block in `app/globals.css` | **agency light and dark**: `AGENCY_HEX` / `AGENCY_HEX_DARK`, pinned to the CSS by the test | Clerk's popover and modal portal into `<body>`, outside any scope |
+| `app/portal/sign-in/_auth/AuthShell.module.css` | **agency light and dark**: `--bg`, `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--accent-2`, `--accent-glow`, `--on-accent-2`, `--panel`, `--panel-header`, `--elev-2`, `--rule*`, `--surface` | `:root` no longer carries an agency dark theme, so the page restates both |
+| `app/components/MarketingChrome.tsx` → `AuthCanvas`, `PortalCanvas` | agency `--bg` and portal `--bg`, light and dark | paints `<html>`/`<body>`, which no scope reaches |
 | `app/components/portal/tour/tour-theme.css` | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--rule-strong` | driver.js popovers render into `<body>` |
 | `app/components/home/PortalDemo.module.css` (the `.pop*` tour-card rules) | `--fg`, `--fg-2`, `--fg-3`, `--accent`, `--chart-warn` | the homepage demo's tour card sits over the window, outside `.portal-scope` |
 
@@ -186,7 +194,9 @@ portal-only and preloading is per-document, so preloading would push them onto m
 pages for visitors who never see the portal. The trade is a brief FOUT on first portal paint.
 
 The scale is **fixed px, no `clamp()`**. Marketing type is viewport-driven because the type
-*is* the design; product type should not resize when someone drags a window. 14px base.
+*is* the design; product type should not resize when someone drags a window. 14px base on
+desktop; below 1024px one step bigger (16px body, 30px page titles, Xander Q15, 2026-11-19), set
+as token overrides in a `max-width: 1023px` block so components need no edits.
 
 ## The brand band
 
@@ -222,5 +232,6 @@ no cream halo on cream, grey, white, saturated blue and near-black. It is also c
 *type* extent rather than the ink bbox, because the divider hairline alone ran 100px taller
 than the type and would have spent a quarter of the band on it.
 
-The art is near-black. **Light backgrounds only** — there is no light-on-dark variant of this
-asset. (`public/JDD_mark_1.webp` is a dark-ground variant of the original, not a cutout.)
+The art is near-black. **Light backgrounds only** for this file. Dark sign-in uses
+`public/jdd-lockup-portal-dark.png` (2026-11-19), the same cutout recoloured cream with the coral
+J brightened. Inside the portal the lockup stays on its cream chip in both themes. (`public/JDD_mark_1.webp` is a dark-ground variant of the original, not a cutout.)

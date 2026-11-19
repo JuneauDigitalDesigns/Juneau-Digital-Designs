@@ -2593,84 +2593,69 @@ select option {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 52px;
-  padding: 0 14px;
-  /* Translucent so content scrolling under it reads as depth rather than a seam. The solid
-     fallback matters: `backdrop-filter` is unsupported in Firefox on Android by default and
-     the bar would otherwise be transparent there. */
+  /* Clears the status bar when installed full-screen (viewportFit: cover). */
+  padding: env(safe-area-inset-top, 0px) 12px 0 16px;
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  /* Clear at rest, so the page's own large title reads as the top of the screen. Frosted
+     once scrolled, when content passes under it. The solid fallback matters: Firefox on
+     Android has no `backdrop-filter` by default. */
   background: var(--bg);
-  background: color-mix(in srgb, var(--bg) 86%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 0.5px solid transparent;
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+.portal-topbar[data-scrolled] {
+  background: color-mix(in srgb, var(--bg) 84%, transparent);
+  backdrop-filter: saturate(1.6) blur(16px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  border-bottom-color: var(--rule-strong);
 }
 
-/* The agency mark on mobile, cropped out of the full lockup rather than shipped as a second
-   asset. `jdd-lockup-portal.png` is 640×192 and the "JDD" glyph occupies its left ~41%, so
-   an image sized to 93×28 inside a 39px window shows the mark and clips the wordmark. This
-   deliberately reuses the one verified cutout: `JDs_nobg.png` is white-on-transparent and
-   would be invisible here, and `JDD_mark.webp` carries a baked cream ground (see
-   PORTAL-DESIGN.md). Cream chip behind it, because it is still the only warm surface. */
-.portal-mark {
-  flex: none;
-  width: 39px;
-  height: 28px;
-  overflow: hidden;
-  border-radius: 5px;
-  background: var(--brand-band);
+/* Business name, top left. A button (opening "Switch site") only for multi-site clients. */
+.portal-topbar-site {
   display: flex;
   align-items: center;
-}
-.portal-mark img {
-  display: block;
-  width: 93px;
-  height: 28px;
-  max-width: none;
-  object-fit: contain;
-  object-position: left center;
-}
-
-.portal-topbar-site { min-width: 0; flex: 1; }
-.portal-topbar-name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 14.5px;
-  line-height: 1.2;
-  letter-spacing: var(--tracking-tight);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.portal-topbar-host {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  color: var(--fg-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Compact site switcher in the topbar. Replaces the 224px native <select> that used to
-   overlap the name/host — a fixed square control that never competes with the name block
-   for width. Opens the "Switch site" sheet. */
-.portal-topbar-switch {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--elev-2);
-  border: 1px solid var(--rule);
+  gap: 4px;
+  min-width: 0;
+  max-width: 62%;
+  min-height: 44px;
   color: var(--fg-2);
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  background: none;
+  border: 0;
+  padding: 0;
   cursor: pointer;
+  transition: opacity 160ms ease;
   -webkit-tap-highlight-color: transparent;
-  transition: color 130ms ease, border-color 130ms ease;
 }
-.portal-topbar-switch:hover {
+div.portal-topbar-site { cursor: default; }
+.portal-topbar-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.portal-topbar[data-scrolled] .portal-topbar-site { opacity: 0; pointer-events: none; }
+
+/* The page title, shown in the middle of the bar only once the large title has scrolled
+   under it. Decorative (aria-hidden): the page's own <h1> is the heading. */
+.portal-topbar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 56%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 650;
+  font-size: 17px;
   color: var(--fg);
-  border-color: var(--rule-strong);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
 }
+.portal-topbar[data-scrolled] .portal-topbar-title { opacity: 1; }
+.portal-topbar > :last-child { margin-left: auto; }
 
 .portal-tabbar {
   position: fixed;
@@ -2681,9 +2666,10 @@ select option {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   background: var(--elev-1);
-  background: color-mix(in srgb, var(--elev-1) 94%, transparent);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--elev-1) 92%, transparent);
+  backdrop-filter: saturate(1.6) blur(18px);
+  -webkit-backdrop-filter: saturate(1.6) blur(18px);
+  border-top: 0.5px solid var(--rule-strong);
   /* Clears the iPhone home indicator. Dead without `viewportFit: "cover"` in app/layout.tsx
      — env() returns 0 and the last row of a list sits under the bar, untappable. */
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -2694,21 +2680,22 @@ select option {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  /* 52px, comfortably over the 44px floor, without needing `.portal-hit`. */
-  min-height: 52px;
-  font-size: 10px;
+  gap: 2px;
+  /* 54px, comfortably over the 44px floor, for gloved thumbs. */
+  min-height: 54px;
+  font-size: 10.5px;
+  font-weight: 500;
   color: var(--fg-3);
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
 }
-.portal-tab svg { width: 21px; height: 21px; }
-.portal-tab.is-active { color: var(--accent); font-weight: 600; }
+.portal-tab svg { width: 25px; height: 25px; }
+.portal-tab.is-active { color: var(--accent); font-weight: 650; }
 .portal-tab .portal-tab-lock {
   position: absolute;
   top: 7px;
   right: 50%;
-  margin-right: -16px;
+  margin-right: -18px;
   color: var(--fg-3);
 }
 /* The rail sits on the page colour, not an elevated one, so the white active-tab pill has
@@ -2841,21 +2828,20 @@ select option {
   min-width: 0;
   /* Bottom padding clears the fixed tab bar (52px) plus the home indicator, or the last
      row of a call log is unreachable behind it. */
-  padding: 20px 14px calc(52px + 28px + env(safe-area-inset-bottom, 0px));
+  padding: 20px 16px calc(54px + 28px + env(safe-area-inset-bottom, 0px));
 }
 
 /* The global form reset sets background/border on every `select` with `!important`, which
    beats the component's inline style. Matching specificity + !important is the only way
    the rail's switcher can sit on the elevated surface rather than the 4% wash.
    `color-scheme` is what reaches the OS-drawn dropdown popup, which the `select option`
-   rule alone cannot style. Pinned to `light` rather than `light dark`: the portal has no
-   dark theme, so allowing `dark` here would let a user's OS preference render a dark
-   native popup against a permanently light control. */
+   rule alone cannot style. It follows the portal's own theme (light, or dark under
+   prefers-color-scheme since 2026-11-19), so the popup matches the control. */
 .portal-scope select.portal-site-select {
   background: var(--elev-2) !important;
   border-color: var(--rule) !important;
   color: var(--fg) !important;
-  color-scheme: light;
+  color-scheme: light dark;
 }
 
 @media (min-width: 1024px) {
@@ -3657,6 +3643,255 @@ select option {
   min-height: 100vh;
   min-height: 100dvh;
   background: var(--bg);
+}
+
+/* ── Portal: phone type scale (2026-11-19, Xander Q15) ──────────────────────────────────
+   Same fonts, one step bigger below the 1024px rail breakpoint: 16px body, 17px names, 30px
+   page titles, read at arm's length, often outdoors. Still fixed px per breakpoint, never
+   clamp(), for the reason given on the tokens above. Every component reads these tokens, so
+   the whole phone layout steps up without per-component edits. */
+@media (max-width: 1023px) {
+  .portal-scope {
+    --text-xs:   12px;
+    --text-sm:   14px;
+    --text-base: 16px;
+    --text-lg:   17px;
+    --text-xl:   19px;
+    --text-2xl:  21px;
+    --text-3xl:  26px;
+    --text-4xl:  30px;
+    --text-5xl:  30px;
+  }
+  .portal-scope h1:not([class*="cl-"]) {
+    font-size: var(--text-4xl);
+    font-weight: 800;
+    line-height: 1.1;
+  }
+}
+
+/* ── Portal: dark (2026-11-19, Xander Q14: "follow the phone setting") ──────────────────
+   This reverses the earlier light-only rule. Dark follows the OS through
+   `prefers-color-scheme`; there is no toggle. Same token names, so every component that
+   reads `var()` re-themes for free. Anything that hand-copies a portal value (see the mirror
+   table in PORTAL-DESIGN.md) needs its own dark pair.
+
+   Contrast, as text on --elev-1 #161a21 / --bg #0b0d11:
+     --fg   #f1f3f6  16.4 / 18.0     --fg-2 #b9bfc8  9.6 / 10.6     --fg-3 #9198a3  6.2 / 6.8
+     --accent #7aa5ff 7.0 / 7.7      --chart-pos #5ee08f 10.6        --chart-neg #ff8a8a 7.4
+     --chart-warn #f5b75a 9.7        --chart-neutral #a3afc0 8.0
+   `--brand-band` stays cream: the lockup is near-black art with no light-on-dark cut. */
+@media (prefers-color-scheme: dark) {
+  .portal-scope {
+    color-scheme: dark;
+    --bg:            #0b0d11;
+    --bg-body:       #0b0d11;
+    --elev-0:        #0b0d11;
+    --elev-1:        #161a21;
+    --elev-2:        #1d222b;
+    --panel:         #161a21;
+    --panel-header:  #11141a;
+
+    --fg:    #f1f3f6;
+    --fg-2:  #b9bfc8;
+    --fg-3:  #9198a3;
+
+    --accent:       #7aa5ff;
+    --accent-2:     #7aa5ff;
+    --accent-glow:  rgba(122, 165, 255, 0.24);
+    --on-accent:    #0b0d11;
+    --on-accent-2:  #0b0d11;
+    --online:       #5ee08f;
+
+    --rule:         rgba(255, 255, 255, 0.09);
+    --rule-weak:    rgba(255, 255, 255, 0.05);
+    --rule-strong:  rgba(255, 255, 255, 0.18);
+    --surface:      rgba(255, 255, 255, 0.05);
+    --elev-border:  rgba(255, 255, 255, 0.08);
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2:
+      0 1px 2px rgba(0, 0, 0, 0.4),
+      0 8px 24px -8px rgba(0, 0, 0, 0.6);
+    --glass-bg:     #1d222b;
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+
+    --chart-pos:     #5ee08f;
+    --chart-neg:     #ff8a8a;
+    --chart-warn:    #f5b75a;
+    --chart-neutral: #a3afc0;
+    --chart-series-1: #7aa5ff;
+    --chart-series-2: #b69cff;
+    --chart-series-3: #3fd0e8;
+    --chart-series-4: #94a3b8;
+    --chart-axis:           rgba(241, 243, 246, 0.66);
+    --chart-grid:           rgba(255, 255, 255, 0.08);
+    --chart-track:          rgba(255, 255, 255, 0.07);
+    --chart-tooltip-bg:     #1d222b;
+    --chart-tooltip-border: rgba(255, 255, 255, 0.14);
+  }
+  .portal-scope ::selection { color: #0b0d11; }
+}
+
+/* ── Portal: call and attention colours (2026-11-19, Xander Q13) ───────────────────────
+   Green is for calling someone, orange is for "needs you". Light values here; the dark block
+   above restates them. `--call` is a FILL behind white text (5.0:1); `--call-fg` is the same
+   green as text. */
+.portal-scope {
+  /* The undo toast is inverted against the page in both themes. */
+  --toast-bg:     #1b1f27;
+  --toast-fg:     #f4f6f9;
+  --toast-action: #9dc0ff;
+  /* Text on a --chart-neg fill (the delete button). */
+  --on-neg:       #ffffff;
+  --call:      #15803d;
+  --call-fg:   #136f32;
+  --call-wash: rgba(21, 128, 61, 0.12);
+  --attn:      #c2410c;
+  --attn-wash: rgba(194, 65, 12, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  .portal-scope {
+    --toast-bg:     #eef1f5;
+    --toast-fg:     #12161c;
+    --toast-action: #1d4ed8;
+    --on-neg:       #1a0505;
+    --call-fg:   #5ee08f;
+    --call-wash: rgba(94, 224, 143, 0.14);
+    --attn:      #fb9a55;
+    --attn-wash: rgba(251, 154, 85, 0.17);
+  }
+}
+.portal-btn-call {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: var(--call);
+  color: #ffffff;
+  font-weight: 650;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.portal-btn-call:hover { filter: brightness(1.08); }
+.portal-btn-call:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) {
+  .portal-btn-call { transition: none; }
+  .portal-btn-call:active { transform: none; }
+}
+
+/* ── Portal: grouped lists (the phone's More screen, and Settings) ─────────────────────── */
+.portal-more { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
+.portal-more h1 { margin: 0 0 4px; }
+.portal-group {
+  display: flex;
+  flex-direction: column;
+  background: var(--elev-1);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--rule-weak);
+}
+.portal-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 16px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: var(--text-base);
+  color: var(--fg);
+  background: none;
+  border: 0;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.portal-cell + .portal-cell::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 60px;
+  right: 0;
+  border-top: 0.5px solid var(--rule-strong);
+}
+a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
+.portal-cell-main { flex: 1; min-width: 0; }
+.portal-cell-chev { color: var(--fg-3); flex: none; }
+.portal-tile {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: #ffffff;
+  flex: none;
+}
+.portal-more-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--fg-3);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+/* Cream in both themes: the lockup has no light-on-dark cut. */
+.portal-more-chip { background: var(--brand-band); border-radius: 12px; padding: 8px 14px; }
+.portal-more-chip img { display: block; width: 150px; height: auto; }
+
+/* ── Clerk: sign-in, sign-up and the account menu (2026-11-19) ────────────────────────
+   `clerkAppearance.ts` points every Clerk colour at these. On `:root` because Clerk's popover
+   and modal portal into <body>, outside any scope. Light values mirror AGENCY_HEX, dark values
+   AGENCY_HEX_DARK; test/clerk-appearance.test.mjs pins both, so edit them together. */
+:root {
+  --clerk-bg: #f4ecd8;
+  --clerk-panel-header: #f0e6cd;
+  --clerk-card: #fffdf5;
+  --clerk-fg: #14120c;
+  --clerk-fg2: #43402c;
+  --clerk-coral: #d2542f;
+  --clerk-coral-deep: #b8441f;
+  --clerk-on-coral: #fffdf5;
+  --clerk-teal: #1f6f78;
+  --clerk-teal-deep: #14525a;
+  --clerk-danger: #c2401f;
+  --clerk-success: #2f7d4f;
+  --clerk-warning: #8a5a00;
+  --clerk-input: #ffffff;
+  --clerk-border: rgba(20, 18, 12, 0.5);
+  --clerk-rule: rgba(20, 18, 12, 0.10);
+  --clerk-rule-weak: rgba(20, 18, 12, 0.08);
+  --clerk-rule-strong: rgba(20, 18, 12, 0.16);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --clerk-bg: #14120c;
+    --clerk-panel-header: #221f15;
+    --clerk-card: #1a1810;
+    --clerk-fg: #f0e7d2;
+    --clerk-fg2: #d6ccb2;
+    --clerk-coral: #ff6b4a;
+    --clerk-coral-deep: #ff8466;
+    --clerk-on-coral: #14120c;
+    --clerk-teal: #3fa9b3;
+    --clerk-teal-deep: #6cc3cb;
+    --clerk-danger: #ff8a6a;
+    --clerk-success: #6fcf97;
+    --clerk-warning: #f5b75a;
+    --clerk-input: #14120c;
+    --clerk-border: rgba(240, 231, 210, 0.4);
+    --clerk-rule: rgba(240, 231, 210, 0.12);
+    --clerk-rule-weak: rgba(240, 231, 210, 0.08);
+    --clerk-rule-strong: rgba(240, 231, 210, 0.18);
+  }
 }
 
 /* ── /pricing: header ─────────────────────────────────────────────
