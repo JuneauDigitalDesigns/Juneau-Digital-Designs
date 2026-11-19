@@ -42,7 +42,7 @@ export default function PrivacyPolicyPage() {
                     Privacy Policy
                 </h1>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)", marginBottom: 40 }}>
-                    Effective date: November 9, 2026
+                    Effective date: November 19, 2026
                 </p>
 
                 {[
@@ -159,6 +159,15 @@ export default function PrivacyPolicyPage() {
                                         <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Blob.</span> File storage. Copies
                                         of accepted Terms of Service and onboarding image uploads are stored in Vercel Blob and accessible via a secure
                                         URL.
+                                    </li>
+                                    <li>
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Web Analytics.</span> Website
+                                        traffic statistics. When you visit our public pages, Vercel records the page you viewed, the
+                                        website that referred you, your approximate location (country, region and city), and your
+                                        browser, operating system and device type, so we can see how many people visit and which pages
+                                        they read. It does not use cookies, and visits are counted with an anonymous identifier that is
+                                        discarded after 24 hours. It is not used in the client portal or on the private links we send
+                                        you.
                                     </li>
                                     <li>
                                         <span style={{ fontWeight: 600, color: "var(--fg)" }}>Upstash Redis.</span> Data store.

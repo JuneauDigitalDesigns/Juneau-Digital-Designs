@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import MarketingChrome from "./components/MarketingChrome";
+import SiteAnalytics from "./components/SiteAnalytics";
 import { HOME_DESCRIPTION, HOME_TITLE, SITE_URL } from "./lib/site-seo";
 
 /**
@@ -160,6 +161,8 @@ export default function RootLayout({
               over the portal too — MarketingChrome now owns it and keeps it off the
               product routes while leaving it on /portal/onboarding. */}
           <MarketingChrome>{children}</MarketingChrome>
+          {/* Vercel Web Analytics. Off on the portal and private links; see SiteAnalytics. */}
+          <SiteAnalytics />
       </body>
     </html>
   );
