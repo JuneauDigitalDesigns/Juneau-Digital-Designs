@@ -29,6 +29,7 @@ import PortalBrand from "./PortalBrand";
 import SiteSelector from "./SiteSelector";
 import { PortalDataProvider } from "./PortalDataProvider";
 import { PortalChromeContext } from "./PortalChromeContext";
+import TabBadge from "./TabBadge";
 import { StatusDot } from "./ui/StatusDot";
 import Drawer from "./ui/Drawer";
 import {
@@ -171,6 +172,9 @@ export default function PortalChrome({
     }
 
     return (
+        // The whole shell, not just the page, sits in the data cache since 2026-11-19: the phone
+        // tab bar's badges read the same inbox and customers entries the pages do.
+        <PortalDataProvider>
         <div className="portal-shell" data-rail={collapsed ? "collapsed" : "expanded"}>
             <TourController
                 tourCompleted={tourCompleted}
@@ -421,7 +425,7 @@ export default function PortalChrome({
                 serves are all below it in `children`. */}
             <main className="portal-stage">
                 <PortalChromeContext.Provider value={{ sites, selected, accountEmail, host }}>
-                    <PortalDataProvider>{children}</PortalDataProvider>
+                    {children}
                 </PortalChromeContext.Provider>
             </main>
 
@@ -441,6 +445,9 @@ export default function PortalChrome({
                         >
                             <Icon size={25} weight={isActive ? "fill" : "regular"} />
                             <span>{tab.shortLabel}</span>
+                            {(tab.id === "calls" || tab.id === "customers") && !isLocked && (
+                                <TabBadge kind={tab.id} site={selected} />
+                            )}
                             {isLocked ? (
                                 <>
                                     <Lock size={9} weight="fill" className="portal-tab-lock" />
@@ -511,8 +518,8 @@ export default function PortalChrome({
                     })}
                 </nav>
             </Drawer>
-
         </div>
+        </PortalDataProvider>
     );
 }
 

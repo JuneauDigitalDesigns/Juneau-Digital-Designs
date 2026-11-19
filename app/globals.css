@@ -4105,3 +4105,23 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
    caption box under it since 2026-11-19. */
 .portal-demo-slot { min-height: min(680px, 78vh); }
 @media (min-width: 768px) { .portal-demo-slot { min-height: min(74vh, 720px); } }
+
+/* ── Phone tab bar: red counts (2026-11-19, Q11) ─────────────────────────────────────────
+   White on #dc2626 is 4.8:1. The ring in the bar's own colour separates it from the icon. */
+.portal-tab-badge {
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 6px);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: #dc2626;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--elev-1);
+}

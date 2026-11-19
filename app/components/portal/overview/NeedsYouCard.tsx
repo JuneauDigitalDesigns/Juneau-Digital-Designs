@@ -164,15 +164,10 @@ function Row({ row, nowMs, timeZone }: { row: NeedsYouRow; nowMs: number; timeZo
             </div>
 
             {row.dialNumber && (
+                // Green, as every call action is since 2026-11-19 (Xander Q13).
                 <a
                     href={`tel:${row.dialNumber}`}
-                    className="inline-flex items-center justify-center gap-2 shrink-0 w-full h-11 rounded-lg text-sm lg:w-auto lg:h-9 lg:px-3.5 lg:rounded-md lg:text-[13px] hover:opacity-90"
-                    style={{
-                        background: "var(--accent)",
-                        color: "var(--on-accent)",
-                        fontWeight: 600,
-                        border: "1px solid var(--accent)",
-                    }}
+                    className="portal-btn-call shrink-0 w-full h-12 text-[16px] lg:w-auto lg:min-h-0 lg:h-9 lg:px-3.5 lg:rounded-md lg:text-[13px]"
                     aria-label={`Call back ${who}`}
                 >
                     <PhoneIcon />
