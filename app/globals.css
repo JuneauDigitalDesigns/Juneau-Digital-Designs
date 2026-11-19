@@ -5172,11 +5172,15 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .home-trade-link:hover { color: var(--accent-2); }
 
-/* ── Nav pills: About and Trades ─────────────────────────────
+/* ── Nav pills: About, Trades and Contact ────────────────────
    Outlined boxes at the same size and weight as the two coral buttons beside them, so the bar
    reads as one row (Xander, 19 Nov 2026). The outline is the hierarchy: filled means "do this"
    (Pricing, Portal), outlined means "another page". Hovering fills the box in ink, which is the
-   same move `.btn.primary:hover` makes in reverse. */
+   same move `.btn.primary:hover` makes in reverse.
+
+   The 2px shadow under the resting box is Xander's pick (19 Nov 2026, "a shadow underneath":
+   option B of the nav-pill mockup), so the outlined pills sit off the bar rather than reading
+   flat. On hover the shadow deepens and spreads as the box lifts and fills. */
 .nav-pill {
   display: inline-flex;
   align-items: center;
@@ -5192,15 +5196,16 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   color: var(--fg);
   background: transparent;
   border: 1px solid var(--fg);
+  box-shadow: 0 2px 0 0 rgba(20, 18, 12, 0.14);
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
-.nav-pill:hover { background: var(--fg); color: var(--bg); transform: translateY(-1px); }
+.nav-pill:hover { background: var(--fg); color: var(--bg); transform: translateY(-1px); box-shadow: 0 4px 10px -2px rgba(20, 18, 12, 0.28); }
 .nav-pill:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-/* The trigger keeps the filled state while its menu is open, so the two read as one object. */
-.nav-pill-trigger[aria-expanded="true"] { background: var(--fg); color: var(--bg); }
+/* The trigger keeps the filled, lifted state while its menu is open, so the two read as one object. */
+.nav-pill-trigger[aria-expanded="true"] { background: var(--fg); color: var(--bg); box-shadow: 0 4px 10px -2px rgba(20, 18, 12, 0.28); }
 
 .nav-chevron { transition: transform 0.18s ease; }
 .nav-chevron-open { transform: rotate(180deg); }
