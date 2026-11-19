@@ -19,8 +19,13 @@ import s from "./PortalDemo.module.css";
  * played on the portal's real components at a phone's width: the Growth demo's phone replica
  * (`growth-demo/PhoneReplica`), which draws the live Inbox, board, customer file and review window
  * on sample data, so this cannot drift from the product either. Taps, not a cursor. A click on the
- * phone pauses it and the next carries on from exactly there; the step rail jumps between steps.
- * Reduced motion shows each step's finished frame and waits for the rail.
+ * phone pauses it and the next carries on from exactly there.
+ *
+ * The phone and nothing else (Xander, 2026-11-19: the step rail and the step info box "can hide,
+ * only show on desktop"). The desktop demo keeps both. Each step's caption is still read out to
+ * screen readers, from a visually hidden live region, since the phone itself is hidden from them.
+ * Reduced motion, which used to wait for the rail, holds each step's finished frame for the step's
+ * length on the same pausable clock, then shows the closing panel.
  */
 
 /** Which part of which replica scene each of the homepage's steps plays, in ms of that scene. */
@@ -41,31 +46,32 @@ export default function PortalDemoMobile() {
     const [step, setStep] = useState(0);
     const [t, setT] = useState(STEPS[0].from);
     const [paused, setPaused] = useState(false);
-    const [runId, setRunId] = useState(0);
     const clockRef = useRef<DemoClock | null>(null);
     const screenRef = useRef<HTMLDivElement>(null);
     const now = useMemo(() => demoNow(), []);
 
     useEffect(() => () => clockRef.current?.cancel(), []);
 
-    /** Play from step `i` to the end, each step on its own slice of the pausable clock. */
+    /**
+     * Play from step `i` to the end, each step on its own slice of the pausable clock. Under
+     * reduced motion each step shows its finished frame for the same length instead.
+     */
     const play = useCallback(
         async (i: number) => {
             clockRef.current?.cancel();
             const clock = createDemoClock();
             clockRef.current = clock;
             setPaused(false);
-            setRunId((n) => n + 1);
             setRun("playing");
             try {
                 for (let k = i; k < STEPS.length; k++) {
                     const seg = STEPS[k];
                     setStep(k);
                     const start = clock.elapsed();
-                    setT(seg.from);
+                    setT(reduce ? seg.to : seg.from);
                     while (clock.elapsed() - start < seg.to - seg.from) {
                         await clock.wait(TICK_MS);
-                        setT(Math.min(seg.to, seg.from + clock.elapsed() - start));
+                        if (!reduce) setT(Math.min(seg.to, seg.from + clock.elapsed() - start));
                     }
                 }
                 setRun("done");
@@ -73,17 +79,10 @@ export default function PortalDemoMobile() {
                 // Cancelled by a newer run or an unmount.
             }
         },
-        [],
+        [reduce],
     );
 
     function start(i: number) {
-        if (reduce) {
-            clockRef.current?.cancel();
-            setStep(i);
-            setT(STEPS[i].to);
-            setRun(i === STEPS.length - 1 ? "done" : "playing");
-            return;
-        }
         void play(i);
     }
 
@@ -98,8 +97,8 @@ export default function PortalDemoMobile() {
     const seg = STEPS[step];
     const view = { ...sceneView(seg.scene, t), caption: false };
     const idle = run === "idle";
-    const closing = run === "done" && !reduce;
-    const pausable = !reduce && run === "playing";
+    const closing = run === "done";
+    const pausable = run === "playing";
     const cap = DEMO_STEPS[step];
 
     return (
@@ -153,43 +152,16 @@ export default function PortalDemoMobile() {
                 )}
             </div>
 
-            {/* The step's caption, under the phone rather than over it, so it never covers what
-                it describes. The same words as the desktop demo's tour cards. */}
-            <div className={s.phoneCaption} aria-live="polite">
+            {/* The step's caption, for screen readers only: on a phone the demo is the phone alone
+                (2026-11-19). The same words as the desktop demo's tour cards. */}
+            <div className={s.srOnly} aria-live="polite">
                 {!idle && (
                     <>
-                        <p className={s.popTitle}>{cap.short}</p>
-                        <p className={s.popBody}>{cap.caption}</p>
-                        {cap.gated && <p className={s.popGate}>{CARRIER_LINE}</p>}
+                        <p>{`Step ${step + 1} of ${DEMO_STEPS.length}: ${cap.short}`}</p>
+                        <p>{cap.caption}</p>
+                        {cap.gated && <p>{CARRIER_LINE}</p>}
                     </>
                 )}
-            </div>
-
-            <div className={s.controls}>
-                <div className={s.steps} role="group" aria-label="Demo steps">
-                    {DEMO_STEPS.map((st, i) => {
-                        const state = idle ? "empty" : i < step ? "done" : i > step ? "empty" : run === "playing" && !reduce ? "running" : "full";
-                        return (
-                            <button
-                                key={st.key}
-                                type="button"
-                                className={s.step}
-                                aria-current={!idle && i === step ? "step" : undefined}
-                                aria-label={`Step ${i + 1}: ${st.short}`}
-                                onClick={() => start(i)}
-                            >
-                                <b>{i + 1}</b>
-                                <span className={s.stepName}>{st.short}</span>
-                                <i
-                                    key={`${i}-${state}-${runId}`}
-                                    className={s.bar}
-                                    data-state={state}
-                                    style={state === "running" ? { animationDuration: `${STEPS[i].to - STEPS[i].from}ms` } : undefined}
-                                />
-                            </button>
-                        );
-                    })}
-                </div>
             </div>
         </div>
     );
