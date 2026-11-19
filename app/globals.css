@@ -4218,7 +4218,6 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   align-items: end;
   padding-top: clamp(40px, 6vw, 80px);
 }
-.about-hero:not(:has(.about-hero-portrait)) { grid-template-columns: minmax(0, 1fr); }
 .about-intro {
   font-family: var(--font-body);
   font-size: clamp(22px, 2.6vw, 32px);
@@ -4242,6 +4241,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   background: var(--accent-2);
   border-radius: 3px;
 }
+.about-portrait picture { display: contents; }
 .about-portrait img {
   position: relative;
   display: block;
@@ -4249,6 +4249,14 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   height: auto;
   border-radius: 3px;
   border: 1px solid var(--rule);
+  /* The <picture> serves the frame as shot below 801px and a 4:5 crop above it, so the box
+     has to change shape with it. Stated here rather than left to the file's own dimensions:
+     the ratio is then known before a byte of the photo arrives, and the page cannot jump as
+     it loads. Keep these two in step with the `media` on the sources. */
+  aspect-ratio: 300 / 305;
+}
+@media (min-width: 801px) {
+  .about-portrait img { aspect-ratio: 4 / 5; }
 }
 .about-portrait-cap {
   margin-top: 30px;
