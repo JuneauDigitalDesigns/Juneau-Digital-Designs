@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { upload } from "@vercel/blob/client";
 import { SignOutButton } from "@clerk/nextjs";
+import { LEAD_FORM_NOT_VERIFIED, turnstileSiteKey, useTurnstile } from "@jdd/ui/turnstile";
 import { FINISH_LATER, SIGNED_OUT_URL } from "./wizard/finish-later";
 import { PrepError, precheck, prepareImage, type PrepKind } from "@/app/lib/image-prep";
 import { guessPhotoTown } from "@/app/lib/town-match";
@@ -127,6 +128,8 @@ export default function OnboardingPageClient({
     const [sheetOpen, setSheetOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    /** The human check the privacy policy promises (2026-11-19): the Get started form's widget. */
+    const turnstile = useTurnstile(turnstileSiteKey());
     const [done, setDone] = useState<{ slug: string | null } | null>(null);
     /** "Finish later" with no other site to go to: the "Saved" screen is showing. */
     const [paused, setPaused] = useState(false);
@@ -418,13 +421,25 @@ export default function OnboardingPageClient({
         setSubmitting(true);
         setSubmitError("");
         try {
+            // No token in time, or a widget that couldn't run, still sends: a signed-in client is
+            // never locked out of onboarding, and the server records it unverified.
+            const { token: turnstileToken, widgetError } = await turnstile.takeToken();
             const res = await fetch(`/api/portal/onboarding${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(buildPayload(state, ctx)),
+                body: JSON.stringify({
+                    ...buildPayload(state, ctx),
+                    ...(turnstileToken ? { turnstileToken } : {}),
+                    ...(!turnstileToken && (widgetError || !turnstileSiteKey()) ? { turnstileStatus: "error" } : {}),
+                }),
             });
-            const data = (await res.json().catch(() => ({}))) as { message?: string; slug?: string };
-            if (!res.ok) throw new Error(data.message || "Unable to submit your onboarding form right now.");
+            const data = (await res.json().catch(() => ({}))) as { message?: string; slug?: string; error?: string };
+            if (!res.ok) {
+                // Cloudflare accepts each token once: a second try needs a fresh one.
+                turnstile.reset();
+                if (res.status === 403 && data.error === "not-verified") throw new Error(LEAD_FORM_NOT_VERIFIED);
+                throw new Error(data.message || "Unable to submit your onboarding form right now.");
+            }
             if (storageKey) localStorage.removeItem(storageKey);
             setDone({ slug: data.slug ?? null });
         } catch (err) {
@@ -566,6 +581,11 @@ export default function OnboardingPageClient({
                         </div>
                     )}
                 </div>
+
+                {/* The human check. Empty, and no height, for nearly everyone; a client Cloudflare is
+                    unsure of sees one checkbox here, worded by Cloudflare. Mounted on every screen,
+                    because the widget renders once, when the wizard opens. */}
+                <div ref={turnstile.containerRef} className={s.humanCheck} />
 
                 <div className={s.bar}>
                     {done ? (

@@ -51,28 +51,36 @@ export interface AgencyLeadCheckInput {
     host: string | null;
 }
 
-export async function checkAgencyLead(input: AgencyLeadCheckInput): Promise<AgencyLeadCheck> {
+/**
+ * The agency widget's check alone, with no limits: the Get started form (below) and the onboarding
+ * wizard (`/api/portal/onboarding`, since 2026-11-19) both ask it. "unavailable" is never the
+ * visitor's fault: the caller keeps what was sent, marked unverified.
+ */
+export async function verifyAgencyHuman(
+    input: AgencyLeadCheckInput,
+    tag = "agency-lead",
+): Promise<Verification> {
+    if (!input.token && input.status === "error") return { kind: "unavailable" };
     const secret = process.env.TURNSTILE_SECRET_KEY?.trim() || null;
-    let v: Verification;
-    if (!input.token && input.status === "error") {
-        v = { kind: "unavailable" };
-    } else if (!secret) {
-        console.error("[agency-lead] TURNSTILE_SECRET_KEY not set: the Get started form has no human check");
-        v = { kind: "unavailable" };
-    } else {
-        v = await siteverify({
-            secret,
-            token: input.token ?? "",
-            ip: input.ip,
-            host: input.host,
-            action: "lead",
-            tag: "agency-lead",
-        });
+    if (!secret) {
+        console.error(`[${tag}] TURNSTILE_SECRET_KEY not set: no human check`);
+        return { kind: "unavailable" };
     }
-    if (v.kind === "failed") {
-        console.warn(`[agency-lead] human check failed (${v.codes.join(",") || "no code"})`);
-        return { ok: false, error: "not-verified" };
-    }
+    const v = await siteverify({
+        secret,
+        token: input.token ?? "",
+        ip: input.ip,
+        host: input.host,
+        action: "lead",
+        tag,
+    });
+    if (v.kind === "failed") console.warn(`[${tag}] human check failed (${v.codes.join(",") || "no code"})`);
+    return v;
+}
+
+export async function checkAgencyLead(input: AgencyLeadCheckInput): Promise<AgencyLeadCheck> {
+    const v = await verifyAgencyHuman(input);
+    if (v.kind === "failed") return { ok: false, error: "not-verified" };
 
     const L = agencyLeadLimits();
     const now = Date.now();

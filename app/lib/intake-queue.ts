@@ -1,8 +1,19 @@
 import "server-only";
 import { Redis } from "@upstash/redis";
-import type { QueuedIntake } from "@jdd/schema";
+import type { QueuedIntake as SchemaQueuedIntake } from "@jdd/schema";
 
-export type { QueuedIntake };
+/**
+ * The schema's queued intake, plus what only this site knows. The console imports the record as
+ * it is, so an extra field needs no schema release; the console can read it when it wants to.
+ */
+export type QueuedIntake = SchemaQueuedIntake & {
+  /**
+   * The wizard's human check (since 2026-11-19, `agency-lead-gate.ts`). "unverified": it couldn't
+   * run (Cloudflare down, the widget blocked in the client's browser), and a signed-in client is
+   * never locked out of onboarding for that. Absent on intakes from before the check.
+   */
+  humanCheck?: "passed" | "unverified";
+};
 
 /**
  * Intake queue (producer side).
