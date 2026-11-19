@@ -71,7 +71,7 @@ export default function TradesMenu() {
             <button
                 ref={buttonRef}
                 type="button"
-                className="nav-pill nav-pill-trigger"
+                className="nav-link nav-trades-trigger"
                 aria-expanded={open}
                 aria-haspopup="true"
                 aria-controls={menuId}
@@ -90,9 +90,12 @@ export default function TradesMenu() {
                         key="trades-menu"
                         id={menuId}
                         className="nav-trades-menu"
-                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
-                        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+                        /* `x: "-50%"` in every state, paired with `left: 50%` in the CSS, is what
+                           centres the panel under its trigger: framer-motion owns this element's
+                           `transform`, so the shift cannot live in the stylesheet. */
+                        initial={reduceMotion ? { opacity: 0, x: "-50%" } : { opacity: 0, x: "-50%", y: -6, scale: 0.98 }}
+                        animate={reduceMotion ? { opacity: 1, x: "-50%" } : { opacity: 1, x: "-50%", y: 0, scale: 1 }}
+                        exit={reduceMotion ? { opacity: 0, x: "-50%" } : { opacity: 0, x: "-50%", y: -6, scale: 0.98 }}
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                     >
                         <ul>

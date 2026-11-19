@@ -3834,21 +3834,76 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .home-trade-link:hover { color: var(--accent-2); }
 
-/* ── Nav pills: About, Trades and Contact ────────────────────
-   Outlined boxes at the same size and weight as the two coral buttons beside them, so the bar
-   reads as one row (Xander, 19 Nov 2026). The outline is the hierarchy: filled means "do this"
-   (Pricing, Portal), outlined means "another page". Hovering fills the box in ink, which is the
-   same move `.btn.primary:hover` makes in reverse.
+/* ── Nav bar: logo, centred pages, actions hard right ────────
+   Three zones rather than one row shoved right (Xander, 19 Nov 2026). The middle column is
+   `1fr`, so the pages centre in the BAR, not in the gap between their neighbours: the row then
+   stays put as pages are added instead of sliding left each time.
 
-   The 2px shadow under the resting box is Xander's pick (19 Nov 2026, "a shadow underneath":
-   option B of the nav-pill mockup), so the outlined pills sit off the bar rather than reading
-   flat. On hover the shadow deepens and spreads as the box lifts and fills. */
-.nav-pill {
+   One filled button in the bar. Two coral buttons meant neither read as the ask; the phone is
+   now the ask, and Portal is the way back in for people who have already bought. */
+.nav-bar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 18px;
+  height: 68px;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.nav-actions { display: flex; align-items: center; gap: 10px; justify-self: end; }
+
+/* The pages. Words, not boxes: five outlined pills plus two buttons was more edges than one
+   bar can carry, and it left the one filled button with nothing to stand out against. */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border-radius: 3px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.16s ease, background 0.16s ease;
+}
+.nav-link:hover { color: var(--accent-2); background: var(--surface); }
+.nav-link:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+/* Where you are now. Colour alone, no underline: the row is short enough to scan. */
+.nav-link-current { color: var(--accent-2); }
+.nav-trades-trigger[aria-expanded="true"] { color: var(--accent-2); background: var(--surface); }
+
+/* The call button. Mono for the number, which is what the footer does with it, and lower case
+   because an uppercased phone number is just a phone number with wider gaps. */
+.nav-tel {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  padding: 12px 18px;
+}
+/* The phone-sized call button: the glyph alone, since the number will not fit beside a menu. */
+.nav-tel-sm { display: none; padding: 10px 12px; }
+
+/* Portal: outlined, hard right, a door and its word. Not filled — it is for clients who already
+   have an account, so it should not compete with the thing the bar is asking a visitor to do. */
+.nav-portal {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 12px 24px;
+  gap: 8px;
+  padding: 12px 18px;
   border-radius: 3px;
   font-family: var(--font-display);
   font-weight: 800;
@@ -3858,16 +3913,44 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   color: var(--fg);
   background: transparent;
   border: 1px solid var(--fg);
-  box-shadow: 0 2px 0 0 rgba(20, 18, 12, 0.14);
   text-decoration: none;
   white-space: nowrap;
-  cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
-.nav-pill:hover { background: var(--fg); color: var(--bg); transform: translateY(-1px); box-shadow: 0 4px 10px -2px rgba(20, 18, 12, 0.28); }
-.nav-pill:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-/* The trigger keeps the filled, lifted state while its menu is open, so the two read as one object. */
-.nav-pill-trigger[aria-expanded="true"] { background: var(--fg); color: var(--bg); box-shadow: 0 4px 10px -2px rgba(20, 18, 12, 0.28); }
+.nav-portal:hover { background: var(--fg); color: var(--bg); transform: translateY(-1px); }
+.nav-portal:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+.nav-burger { display: none; color: var(--fg); background: transparent; border: 0; cursor: pointer; }
+
+/* The mobile menu's rows: the same words, full width, with a hairline between them. */
+.nav-link-sm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 13px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-weak);
+  background: transparent;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+}
+.nav-portal-sm { width: 100%; margin-top: 12px; padding: 14px; font-size: 16px; }
+
+@media (max-width: 860px) {
+  /* The pages and the two wide actions move into the menu; the bar keeps the logo, a call
+     button and the hamburger. */
+  .nav-bar { grid-template-columns: auto 1fr; height: 64px; }
+  .nav-links, .nav-portal:not(.nav-portal-sm), .nav-tel:not(.nav-tel-sm) { display: none; }
+  .nav-tel-sm, .nav-burger { display: inline-flex; align-items: center; }
+}
+
 
 .nav-chevron { transition: transform 0.18s ease; }
 .nav-chevron-open { transform: rotate(180deg); }
@@ -3878,7 +3961,10 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .nav-trades-menu {
   position: absolute;
   top: calc(100% + 8px);
-  left: 0;
+  /* Centred under its trigger, which sits in the middle of the bar. The -50% shift lives in
+     TradesMenu's animated values, not here: framer-motion writes `transform` on this element,
+     so a transform set in CSS would be overwritten the moment the menu animates. */
+  left: 50%;
   z-index: 60;
   min-width: 190px;
   padding: 6px;
@@ -3886,7 +3972,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   border: 1px solid var(--fg);
   border-radius: 3px;
   box-shadow: 0 18px 32px -20px rgba(20, 18, 12, 0.55);
-  transform-origin: top left;
+  transform-origin: top center;
 }
 /* Bridges the 8px gap under the button, so a pointer on its way to a link never leaves the
    hover area. The close delay in TradesMenu covers the rest. */

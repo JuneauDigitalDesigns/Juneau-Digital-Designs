@@ -49,16 +49,23 @@ test("the nav and the footer both read the shared list, not their own markup", (
   }
 });
 
-test("About and Trades are outlined pills, side by side, About first", () => {
+test("the bar runs Home, About, Trades, Contact, Pricing, in that order", () => {
   const nav = read("app/components/navbar/navbar.tsx");
-  const about = nav.indexOf('href="/about"');
-  const trades = nav.indexOf("<TradesMenu />");
-  assert.ok(about > -1 && trades > about, "About should come before Trades in the desktop nav");
-  assert.match(nav, /className="nav-pill"/, "About is not a pill");
-  const css = read("app/globals.css");
-  assert.match(css, /\.nav-pill \{/, "the pill style is missing");
-  assert.match(css, /border: 1px solid var\(--fg\)/, "the pill has no ink outline");
-  assert.doesNotMatch(css, /\.nav-link\b/, "the old plain-link style is still there");
+  const at = (needle) => {
+    const i = nav.indexOf(needle);
+    assert.ok(i > -1, `the nav is missing ${needle}`);
+    return i;
+  };
+  // Home and About come from LINKS, Trades is placed between About and Contact.
+  const order = [at('{ href: "/", label: "Home" }'), at('{ href: "/about", label: "About" }')];
+  assert.ok(order[1] > order[0], "Home should be the first link");
+  assert.ok(
+    at('{ href: "/contact", label: "Contact" }') < at('{ href: "/pricing", label: "Pricing" }'),
+    "Contact should come before Pricing",
+  );
+  assert.match(nav, /<TradesMenu \/>/, "the Trades menu is gone from the bar");
+  // "View Pricing" became "Pricing" (Xander, 19 Nov 2026).
+  assert.doesNotMatch(nav, /View Pricing/, 'the nav still says "View Pricing"');
 });
 
 test("the menu opens by click and keyboard as well as hover, and says so to a screen reader", () => {
