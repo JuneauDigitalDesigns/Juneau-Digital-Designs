@@ -36,8 +36,12 @@ export default function Navbar() {
                     <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-16" />
                 </Link>
 
-                {/* Desktop nav, pinned far right */}
+                {/* Desktop nav, pinned far right. About is a plain link, not a third coral
+                    button: the two buttons are the asks, and a third would flatten both. */}
                 <div className="ml-auto hidden items-center gap-4 md:flex">
+                    <Link href="/about" className="nav-link">
+                        About
+                    </Link>
                     <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
                         View Pricing
                     </Link>
@@ -85,6 +89,13 @@ export default function Navbar() {
                         }}
                     >
                         <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
+                            <Link
+                                className="btn ghost w-full justify-center"
+                                href="/about"
+                                onClick={() => setShowNav(false)}
+                            >
+                                About
+                            </Link>
                             <Link
                                 className="btn primary w-full justify-center"
                                 href="/pricing"

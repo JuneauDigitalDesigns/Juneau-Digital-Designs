@@ -32,7 +32,7 @@ const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.ur
 
 test("the sitemap lists every public page at the www address and nothing private", () => {
     const urls = sitemap().map((e) => e.url);
-    for (const path of ["/", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"]) {
+    for (const path of ["/", "/about", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"]) {
         assert.ok(urls.includes(path === "/" ? `${SITE_URL}/` : `${SITE_URL}${path}`), `sitemap is missing ${path}`);
     }
     for (const url of urls) {
@@ -68,6 +68,7 @@ test("each public page gets a canonical address and a link preview that repeat i
     assert.equal(m.openGraph.description, "Answers.");
     assert.equal(m.twitter.title, "FAQ | Juneau Digital Designs");
     for (const [file, path] of [
+        ["app/about/page.tsx", "/about"],
         ["app/pricing/page.tsx", "/pricing"],
         ["app/faq/page.tsx", "/faq"],
         ["app/activation/page.tsx", "/activation"],

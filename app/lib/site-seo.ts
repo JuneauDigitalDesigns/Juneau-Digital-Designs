@@ -32,7 +32,7 @@ export const PRICING_DESCRIPTION =
  * sitemap: the portal, sign-in, checkout, payment links, `/start`, `/terms/accept` and every
  * private `/terms/[code]` link stay out on purpose.
  */
-export const PUBLIC_PATHS = ["/", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"] as const;
+export const PUBLIC_PATHS = ["/", "/about", "/pricing", "/faq", "/activation", "/terms", "/privacy-policy", "/sms-terms"] as const;
 export type PublicPath = (typeof PUBLIC_PATHS)[number];
 
 /** The square logo, used as the link-preview picture until the site has a purpose-made one. */
@@ -69,6 +69,7 @@ export function pageMetadata(path: PublicPath, title: string, description: strin
    visible pages don't make. */
 
 const ORG_ID = `${SITE_URL}/#organization`;
+const PERSON_ID = `${SITE_URL}/about#xander-juneau`;
 
 export function organizationJsonLd() {
     return {
@@ -83,6 +84,7 @@ export function organizationJsonLd() {
                 logo: `${SITE_URL}${PREVIEW_IMAGE.url}`,
                 email: CONTACT.email,
                 telephone: CONTACT.phoneHref.replace(/^tel:/, ""),
+                founder: { "@id": PERSON_ID },
                 contactPoint: {
                     "@type": "ContactPoint",
                     contactType: "customer support",
@@ -126,6 +128,66 @@ export function plansJsonLd() {
                 referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
             },
         })),
+    };
+}
+
+/**
+ * /about, as a page about a person.
+ *
+ * Every field states something /about prints in words: his name, where he lives, the business
+ * he founded, the degree and the certificate. Nothing is added here that the page does not say,
+ * and nothing here may be edited without Xander's approval — these are claims about a real
+ * person, and a search engine treats them as facts about him.
+ */
+export function aboutJsonLd() {
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "AboutPage",
+                "@id": `${SITE_URL}/about#page`,
+                url: `${SITE_URL}/about`,
+                name: "Meet the owner",
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": PERSON_ID },
+                mainEntity: { "@id": PERSON_ID },
+            },
+            {
+                "@type": "Person",
+                "@id": PERSON_ID,
+                name: "Xander Juneau",
+                jobTitle: "Owner",
+                worksFor: { "@id": ORG_ID },
+                founderOf: { "@id": ORG_ID },
+                homeLocation: {
+                    "@type": "Place",
+                    address: {
+                        "@type": "PostalAddress",
+                        addressLocality: "Winter Garden",
+                        addressRegion: "FL",
+                        addressCountry: "US",
+                    },
+                },
+                alumniOf: [
+                    { "@type": "CollegeOrUniversity", name: "Valencia College" },
+                    { "@type": "EducationalOrganization", name: "Thinkful" },
+                ],
+                hasCredential: [
+                    {
+                        "@type": "EducationalOccupationalCredential",
+                        name: "Associate in Science, Electronics Engineering Technology",
+                        credentialCategory: "degree",
+                        recognizedBy: { "@type": "CollegeOrUniversity", name: "Valencia College" },
+                    },
+                    {
+                        "@type": "EducationalOccupationalCredential",
+                        name: "Engineering Immersion Program",
+                        credentialCategory: "certificate",
+                        recognizedBy: { "@type": "EducationalOrganization", name: "Thinkful" },
+                    },
+                ],
+            },
+        ],
     };
 }
 
