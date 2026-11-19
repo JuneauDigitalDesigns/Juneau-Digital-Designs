@@ -4,6 +4,7 @@ import {
     STAT_LABELS,
     TRADE_OPTIONS,
     isAnswered,
+    logoSummary,
     profilesForPayload,
     serviceStatuses,
     slotsFor,
@@ -85,7 +86,7 @@ export function detailLines(id: string, st: WizardState, ctx: WizardContext): st
         case "radius": return keep([st.serviceRadiusMiles]);
         case "offer": return keep([st.offerBadge]);
         case "tagline": return keep([st.tagline]);
-        case "logo": return keep([st.images.logo ? "Uploaded" : st.logoChoice === "design" ? "We'll design one" : ""]);
+        case "logo": return keep([logoSummary(st)]); // W10
         case "photos": return keep([st.images.heroSlides.length ? `${st.images.heroSlides.length} work photos` : "", st.images.aboutFeature ? "Team photo" : ""]);
         case "voice": return st.voice.length ? [st.voice.join(", ")] : [];
         case "setup": return keep([RECEPTIONIST_OPTIONS.find((o) => o.id === st.receptionistMode)?.label ?? ""]);

@@ -138,9 +138,12 @@ export type WizardState = {
 
     /** The line under the business name in the site's nav and footer (F-C2a, 2026-11-11). */
     tagline: string;
-    /** "design" = "Not yet. Design one for me." An uploaded logo lives in `images.logo`. */
+    /**
+     * "design" = "Not yet. Design one for me." Uploads live in `images`: `monogram` is the square
+     * logo (the nav's), `logo` the wide one (the footer's wordmark), @jdd/schema v1.42.0.
+     */
     logoChoice: "" | "design";
-    images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
+    images: { logo?: ImageMeta; monogram?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
     voice: string[];
     avoid: string;
 
@@ -402,13 +405,58 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "radius": return !!state.serviceRadiusMiles.trim();
         case "offer": return !!state.offerBadge.trim();
         case "tagline": return state.tagline.trim().length > 0;
-        case "logo": return !!state.images.logo || state.logoChoice === "design";
+        case "logo": return !!state.images.logo || !!state.images.monogram || state.logoChoice === "design";
         case "photos": return state.images.heroSlides.length > 0 || !!state.images.aboutFeature;
         case "voice": return state.voice.length > 0;
         case "setup": return !!state.receptionistMode;
         case "hours": return !!(state.hours && (state.hours !== CUSTOM_HOURS || state.customHours.trim())) || !!state.agentName.trim();
         default: return true;
     }
+}
+
+// ── Logos ────────────────────────────────────────────────────────────────────
+
+/** The two logo boxes: `monogram` is the square logo (nav), `logo` the wide one (footer). */
+export type LogoSlot = "monogram" | "logo";
+
+/** The Review line for the Logo screen (W10), or "" when nothing was given. */
+export function logoSummary(st: Pick<WizardState, "images" | "logoChoice">): string {
+    const { monogram, logo } = st.images;
+    if (monogram && logo) return C.logoSummaryBoth;
+    if (monogram) return C.logoSummarySquare;
+    if (logo) return C.logoSummaryWide;
+    return st.logoChoice === "design" ? "We'll design one" : "";
+}
+
+/**
+ * The shape nudge (W14, D2): a file that is clearly wide in the square box, or clearly square in
+ * the wide box, gets an offer to move it. `ratio` is width over height. A stacked logo (a symbol
+ * over the name) is near square, so it is offered the square box; the client may ignore it.
+ */
+export function logoShapeNudge(slot: LogoSlot, ratio: number): string | null {
+    if (!Number.isFinite(ratio) || ratio <= 0) return null;
+    if (slot === "monogram" && ratio >= 1.8) return C.logoLooksWide;
+    if (slot === "logo" && ratio <= 1.25) return C.logoLooksSquare;
+    return null;
+}
+
+/** Moves a logo to the other box, swapping with whatever is there. */
+export function moveLogo(images: WizardState["images"], from: LogoSlot): WizardState["images"] {
+    const to: LogoSlot = from === "monogram" ? "logo" : "monogram";
+    const next = { ...images, [to]: images[from], [from]: images[to] };
+    if (!next.logo) delete next.logo;
+    if (!next.monogram) delete next.monogram;
+    return next;
+}
+
+/** Initials for the square example (W8): the first letters of the first two words, "&" skipped. */
+export function exampleInitials(name: string): string {
+    return name
+        .split(/\s+/)
+        .filter((w) => /[A-Za-z0-9]/.test(w))
+        .slice(0, 2)
+        .map((w) => (w.match(/[A-Za-z0-9]/)?.[0] ?? "").toUpperCase())
+        .join("");
 }
 
 // ── Derived values ───────────────────────────────────────────────────────────
@@ -794,7 +842,7 @@ export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date =
             forbidden: state.avoid.trim(),
         },
         palette: { mode: "preset", presetId: defaultPaletteId(state.trade) },
-        hasLogo: !!state.images.logo,
+        hasLogo: !!(state.images.logo || state.images.monogram),
         // Q1: each general photo carries its town only when it's one of the client's towns.
         images: { ...state.images, heroSlides: state.images.heroSlides.map((img) => sentPhoto(img, towns)) },
         existingWebsiteUrl: state.website.trim(),
@@ -933,7 +981,9 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
     const d = raw as Record<string, unknown>;
     const images = d.images && typeof d.images === "object" ? (d.images as WizardState["images"]) : base.images;
     const safeImages: WizardState["images"] = {
+        // A draft saved before 2026-11-19 has one `logo`, which now means the wide logo (D3).
         ...(images.logo ? { logo: images.logo } : {}),
+        ...(images.monogram ? { monogram: images.monogram } : {}),
         heroSlides: Array.isArray(images.heroSlides) ? images.heroSlides.slice(0, MAX_WORK_PHOTOS) : [],
         ...(images.aboutFeature ? { aboutFeature: images.aboutFeature } : {}),
     };

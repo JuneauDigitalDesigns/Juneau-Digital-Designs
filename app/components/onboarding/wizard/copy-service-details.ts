@@ -161,6 +161,29 @@ export const C = {
     workCap: "Up to 10 photos.", // P3's limit, shown when a drop holds more photos than fit
     welcomePhotos: "Your logo and some photos of your work or your business. No logo or photos yet? That's fine, we'll sort it.", // P7
 
+    // Two logos (W2 to W14), approved word for word by Xander, 2026-11-19 ("The mockup for asking
+    // clients for both logos looks good", mockup https://claude.ai/artifact/Lmg7cMwAiivdPsPsNKaiB9,
+    // the Wording board). The square logo is the nav's monogram (`images.monogram`), the wide logo
+    // the footer's wordmark (`images.logo`), @jdd/schema v1.42.0. W1, W9 and W11 are unchanged.
+    logoHelp: "Your site shows your logo in two spots, so there are two boxes. Only have one? Put it in the box it looks most like. PNG, JPG or WebP, up to 10 MB.", // W2
+    logoSquare: "Square logo", // W3
+    logoSquareWhat: "Your initials or a symbol. It sits in the bar at the top of every page.", // W4
+    logoWide: "Wide logo", // W5
+    logoWideWhat: "Your business name written out as a logo. It sits at the bottom of every page.", // W6
+    logoUploadSquare: "Upload your square logo", // W7
+    logoUploadWide: "Upload your wide logo", // W7
+    logoLikeThis: "Like this", // W8
+    logoSummaryBoth: "Square and wide logos", // W10
+    logoSummarySquare: "Square logo only", // W10
+    logoSummaryWide: "Wide logo only", // W10
+    logoShownTop: "Shown at the top of every page", // W12
+    logoShownBottom: "Shown at the bottom of every page", // W12
+    logoNoWide: "No wide logo? That's fine. The bottom of each page shows your square logo next to your business name.", // W13
+    logoNoSquare: "No square logo? That's fine. The top of each page shows your business name on its own.", // W13
+    logoLooksWide: "This one looks wide. Move it to the wide logo box?", // W14
+    logoLooksSquare: "This one looks square. Move it to the square logo box?", // W14
+    logoMove: "Move it", // W14
+
     // The tagline question (T2 to T6), approved word for word by Xander, 2026-11-11 ("Approve as
     // drafted", mockup https://claude.ai/artifact/BaoLxNU2Gd9JPLhh4yW3CA). T6 is the first of the
     // two skip lines drafted.
