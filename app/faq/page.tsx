@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { faqJsonLd, pageMetadata } from "@/app/lib/site-seo";
 import { FAQ_GROUPS } from "@/app/data/faq";
-import FaqAsk from "@/app/components/faq/FaqAsk";
+import PageAsk from "@/app/components/PageAsk";
 import JsonLd from "@/app/components/JsonLd";
 
 export const metadata: Metadata = pageMetadata(
@@ -46,7 +46,7 @@ export default function FaqPage() {
                     </section>
                 ))}
 
-                <FaqAsk />
+                <PageAsk className="faq-ask" />
             </div>
         </main>
     );
