@@ -2,6 +2,12 @@
 /* Z-index constants: navbar 50 | grain 60 | modals 70 — this is a modal surface. */
 
 import { useEffect, useRef, useState } from "react";
+import {
+  LEAD_FORM_NOT_VERIFIED,
+  LEAD_FORM_TOO_MANY,
+  turnstileSiteKey,
+  useTurnstile,
+} from "@jdd/ui/turnstile";
 
 /**
  * The hero's interest form, as a slide-over.
@@ -13,6 +19,10 @@ import { useEffect, useRef, useState } from "react";
  *
  * It only submits a lead. It does NOT ring anyone — the demo agent is a separate CTA the
  * visitor dials themselves at the bottom of the page.
+ *
+ * A person sent it (2026-11-19): a Cloudflare Turnstile widget, the client sites' lead forms' own
+ * hook from @jdd/ui, in managed mode and nearly always invisible. Its token goes with the form and
+ * `/api/lead` checks it. A refused send shows the operator's approved words for the client forms.
  */
 
 /* The hints were written before the 2026-10 reprice and said the opposite of the product
@@ -35,6 +45,19 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const turnstile = useTurnstile(turnstileSiteKey());
+  /* The widget is invisible for nearly everyone, an empty block in a column spaced by `gap`, which
+     would double the space above Send. Pulled up by one gap while empty; given it back when
+     Cloudflare shows its checkbox. */
+  const [widgetShown, setWidgetShown] = useState(false);
+  const turnstileSlot = turnstile.containerRef;
+  useEffect(() => {
+    const el = turnstileSlot.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setWidgetShown(el.offsetHeight > 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [turnstileSlot, done]);
 
   const firstFieldRef = useRef<HTMLInputElement>(null);
   // Mount at translateX(100%) then flip on the next frame, so the panel animates in
@@ -77,18 +100,34 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
 
     setBusy(true);
     try {
+      // No token in time, or a widget that couldn't run, still sends: the lead is kept, marked
+      // unverified. With no site key (local development) the form sends exactly as it did.
+      const { token: turnstileToken, widgetError } = await turnstile.takeToken();
       const res = await fetch("/api/lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, businessName, phone, planInterest, note }),
+        body: JSON.stringify({
+          name,
+          businessName,
+          phone,
+          planInterest,
+          note,
+          ...(turnstileToken ? { turnstileToken } : {}),
+          ...(!turnstileToken && (widgetError || !turnstileSiteKey()) ? { turnstileStatus: "error" } : {}),
+        }),
       });
       if (!res.ok) {
+        // Cloudflare accepts each token once: the next try needs a fresh one.
+        turnstile.reset();
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(data.error || "Something went wrong. Try again, or just call us.");
+        if (res.status === 403 && data.error === "not-verified") setError(LEAD_FORM_NOT_VERIFIED);
+        else if (res.status === 429 && data.error === "too-many") setError(LEAD_FORM_TOO_MANY);
+        else setError(data.error || "Something went wrong. Try again, or just call us.");
         return;
       }
       setDone(true);
     } catch {
+      turnstile.reset();
       setError("Couldn't reach us just now. Try again, or give us a call.");
     } finally {
       setBusy(false);
@@ -311,6 +350,10 @@ export default function LeadPanel({ onClose }: { onClose: () => void }) {
                     style={{ ...fieldStyle, resize: "vertical" }}
                   />
                 </div>
+
+                {/* The human check. Empty for nearly everyone; a visitor Cloudflare is unsure of
+                    sees one checkbox here, worded by Cloudflare. */}
+                <div ref={turnstile.containerRef} style={{ marginTop: widgetShown ? 0 : -18 }} />
 
                 {error && (
                   <p style={{ fontSize: 14, color: "var(--accent-2)", margin: 0 }} role="alert">

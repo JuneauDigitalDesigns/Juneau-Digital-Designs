@@ -7,6 +7,9 @@ import { assertOwnNodeModules } from "./scripts/node-modules-guard.cjs";
 assertOwnNodeModules(typeof __dirname === "string" ? __dirname : process.cwd());
 
 const nextConfig: NextConfig = {
+  // @jdd/ui ships TypeScript source (the Turnstile hook the Get started form shares with the
+  // client sites' lead forms), so Next compiles it like our own code.
+  transpilePackages: ["@jdd/ui"],
   images: {
     // Default is 60 seconds, which meant every optimized image variant was re-processed by
     // the image function roughly once a minute regardless of traffic. Featured site images
