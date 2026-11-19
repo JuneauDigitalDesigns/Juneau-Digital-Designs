@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ChartLineUp, ChatCircle, Gauge, Tray, UsersThree } from "@phosphor-icons/react";
 import type { FeatureAvailability, PortalFeature } from "@jdd/schema";
 import { addReceptionistHref } from "@/app/portal/types";
 
@@ -184,7 +185,8 @@ export function FeatureState({
     }
 
     // "ready" but the upstream returned nothing — a genuinely empty log, not a fault.
-    return <Panel title={copy.emptyTitle} body={copy.emptyBody} />;
+    // Empty states get a large soft icon over the same words (2026-11-19, Xander Q19).
+    return <Panel title={copy.emptyTitle} body={copy.emptyBody} icon={EMPTY_ICON[feature]} />;
 }
 
 /** Wired up, but the request failed. Distinct from every lifecycle state above. */
@@ -218,17 +220,37 @@ export function FeatureError({
     );
 }
 
+const EMPTY_ICON: Partial<Record<PortalFeature, typeof Tray>> = {
+    leads: Tray,
+    calls: Tray,
+    crm: UsersThree,
+    messaging: ChatCircle,
+    traffic: ChartLineUp,
+    performance: Gauge,
+};
+
 function Panel({
     title,
     body,
     action,
+    icon: Icon,
 }: {
     title: string;
     body: string;
     action?: ReactNode;
+    icon?: typeof Tray;
 }) {
     return (
         <div className="portal-elev px-6 py-10 flex flex-col items-center text-center gap-3">
+            {Icon && (
+                <span
+                    aria-hidden="true"
+                    className="grid place-items-center rounded-full w-24 h-24 lg:w-16 lg:h-16 mb-1"
+                    style={{ background: "color-mix(in srgb, var(--accent) 12%, var(--elev-1))", color: "var(--accent)" }}
+                >
+                    <Icon size={44} />
+                </span>
+            )}
             <h2
                 className="font-bold"
                 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xl)" }}
