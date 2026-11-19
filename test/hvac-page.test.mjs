@@ -20,6 +20,7 @@ import { SCHEDULES } from "../app/lib/legal/schedules.ts";
 import { HVAC_SEARCHES, MARKETKEEP_SOURCE } from "../app/data/hvac-searches.ts";
 import { AI_RECOVERY_RATE, CLOSE_RATE, LEAD_RATE, formatDollars, lostPerYear } from "../app/data/missed-calls.ts";
 import { DEMO_SITE_URL } from "../app/data/demo-site.ts";
+import { TRADE_PAGES } from "../app/data/trade-pages.ts";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
 const page = read("app/hvac/page.tsx");
@@ -256,7 +257,12 @@ test("the page has its approved title and description, a sitemap entry and links
     assert.match(page, /pageMetadata\("\/hvac", HVAC_TITLE, HVAC_DESCRIPTION\)/);
     assert.ok(PUBLIC_PATHS.includes("/hvac"), "/hvac is not a public path");
     assert.ok(sitemap().some((e) => e.url === `${SITE_URL}/hvac`), "/hvac is missing from the sitemap");
-    assert.match(read("app/components/footer/footer.tsx"), /href="\/hvac"/, "the footer does not link to /hvac");
+    // The footer and the nav's Trades menu both render `TRADE_PAGES`, so being in that list is
+    // what puts /hvac in both. It used to be written into the footer's own markup.
+    assert.ok(
+        TRADE_PAGES.some((t) => t.href === "/hvac"),
+        "/hvac is not in TRADE_PAGES, so neither the footer nor the nav links to it",
+    );
     // The homepage's trade line links HVAC without changing its approved words.
     const home = prose(read("app/components/home/homepageclient.tsx"));
     assert.ok(

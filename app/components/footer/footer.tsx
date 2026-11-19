@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { CONTACT } from "@/app/data/contact"
+import { TRADE_PAGES } from "@/app/data/trade-pages"
 
 export default function Footer() {
     const year = new Date().getFullYear()
@@ -43,12 +44,15 @@ export default function Footer() {
                         </ul>
                     </div>
 
-                    {/* Col 3 — Trades. One page per trade, each added once Xander has approved its
-                        wording (HVAC first, 19 Nov 2026). Footer only, not the nav. */}
+                    {/* Col 3 — Trades. One page per trade, each added once Xander has approved
+                        its wording (HVAC first, 19 Nov 2026). The list is `TRADE_PAGES`, shared
+                        with the nav's Trades menu, so a new page shows up in both at once. */}
                     <div>
                         <div className="kicker" style={{ marginBottom: 14 }}>Trades</div>
                         <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 10, fontSize: 14, color: "var(--fg-2)" }}>
-                            <li><Link href="/hvac" className="footer-link">HVAC</Link></li>
+                            {TRADE_PAGES.map(trade => (
+                                <li key={trade.href}><Link href={trade.href} className="footer-link">{trade.label}</Link></li>
+                            ))}
                         </ul>
                     </div>
 

@@ -2,11 +2,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { TRADE_PAGES } from "@/app/data/trade-pages";
+import TradesMenu, { Chevron } from "./TradesMenu";
 
 export default function Navbar() {
     const [showNav, setShowNav] = useState(false);
+    /** The mobile menu's own Trades disclosure. The desktop one is `TradesMenu`. */
+    const [showTrades, setShowTrades] = useState(false);
     const navRef = useRef<HTMLDivElement>(null);
+    const reduceMotion = useReducedMotion();
+
+    /* Closing the menu also collapses Trades, so reopening it never starts expanded. Done here
+       rather than in an effect on `showNav`: the two belong to the same action. */
+    const closeNav = () => {
+        setShowNav(false);
+        setShowTrades(false);
+    };
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -17,6 +29,7 @@ export default function Navbar() {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
 
     return (
         <div
@@ -36,12 +49,14 @@ export default function Navbar() {
                     <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-16" />
                 </Link>
 
-                {/* Desktop nav, pinned far right. About is a plain link, not a third coral
-                    button: the two buttons are the asks, and a third would flatten both. */}
+                {/* Desktop nav, pinned far right. Two outlined pills (About, Trades) then the
+                    two coral asks: the outline says "another page", the fill says "do this", so
+                    the row still has one primary pair rather than four equal buttons. */}
                 <div className="ml-auto hidden items-center gap-4 md:flex">
-                    <Link href="/about" className="nav-link">
+                    <Link href="/about" className="nav-pill">
                         About
                     </Link>
+                    <TradesMenu />
                     <Link href="/pricing" className="btn primary" style={{ fontSize: 14 }}>
                         View Pricing
                     </Link>
@@ -56,7 +71,7 @@ export default function Navbar() {
                     aria-label={showNav ? "Close navigation menu" : "Open navigation menu"}
                     className="ml-auto select-none md:hidden"
                     style={{ color: "var(--fg)" }}
-                    onClick={() => setShowNav(prev => !prev)}
+                    onClick={() => (showNav ? closeNav() : setShowNav(true))}
                 >
                     <motion.div
                         key={showNav ? "close" : "open"}
@@ -89,24 +104,60 @@ export default function Navbar() {
                         }}
                     >
                         <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4">
+                            {/* Same pair as the desktop bar, in the same order. Trades expands in
+                                place rather than dropping over the page: there is nothing beside
+                                it on a phone for a floating panel to sit against. */}
                             <Link
-                                className="btn ghost w-full justify-center"
+                                className="nav-pill w-full justify-center"
                                 href="/about"
-                                onClick={() => setShowNav(false)}
+                                onClick={closeNav}
                             >
                                 About
                             </Link>
+                            <button
+                                type="button"
+                                className="nav-pill w-full justify-center"
+                                aria-expanded={showTrades}
+                                onClick={() => setShowTrades(prev => !prev)}
+                            >
+                                Trades
+                                <Chevron open={showTrades} />
+                            </button>
+                            <AnimatePresence initial={false}>
+                                {showTrades && (
+                                    <motion.ul
+                                        key="trades-mobile"
+                                        className="nav-trades-mobile"
+                                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                                        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+                                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                    >
+                                        {TRADE_PAGES.map(trade => (
+                                            <li key={trade.href}>
+                                                <Link
+                                                    href={trade.href}
+                                                    className="nav-trades-link"
+                                                    onClick={closeNav}
+                                                >
+                                                    {trade.label}
+                                                </Link>
+                                            </li>
+                                        ))}
+                                    </motion.ul>
+                                )}
+                            </AnimatePresence>
                             <Link
                                 className="btn primary w-full justify-center"
                                 href="/pricing"
-                                onClick={() => setShowNav(false)}
+                                onClick={closeNav}
                             >
                                 See Plans
                             </Link>
                             <Link
                                 className="btn primary w-full justify-center"
                                 href="/portal"
-                                onClick={() => setShowNav(false)}
+                                onClick={closeNav}
                             >
                                 Portal
                             </Link>
