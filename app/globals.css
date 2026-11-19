@@ -4377,7 +4377,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-tabs button { padding: 8px 2px; background: transparent; border: 0; border-bottom: 2px solid transparent; font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.3; letter-spacing: 0.13em; text-transform: uppercase; color: var(--fg-3); cursor: pointer; transition: color 0.2s ease, border-color 0.2s ease; }
 .hp-tabs button[aria-pressed="true"] { color: var(--fg); border-bottom-color: var(--accent-2); }
 .hp-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.hp-land { position: relative; max-width: 900px; margin: 26px auto 0; padding: 0 clamp(0px, 9vw, 130px) 150px 0; }
+/* The inbox sits centred under the trade names; the phone hangs past its right edge, outside the
+   box, rather than pushing the inbox left to make room (Xander, 19 Nov 2026). */
+.hp-land { position: relative; max-width: 770px; margin: 26px auto 0; padding: 0 0 150px; }
 .hp-land::before { content: ""; position: absolute; inset: 6% -6% 0; z-index: 0; background: radial-gradient(closest-side, var(--wash) 0%, transparent 100%); }
 .hp-inbox {
   --hp-p-bg: #f6f7f9;
@@ -4424,7 +4426,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .hp-irow.unread.fresh { animation: hp-arrive 1.6s ease-out 1; }
 }
 /* "Your phone": a sliver of handset, labelled, that buzzes when a lead lands. */
-.hp-fone { position: absolute; z-index: 2; right: 0; bottom: 0; width: min(312px, 80%); }
+/* Hangs up to 130px past the inbox, never so far that its buzz arcs (34px beyond the phone) leave
+   the screen: the overhang shrinks with the space beside the 770px inbox. */
+.hp-fone { position: absolute; z-index: 2; right: calc(-1 * clamp(0px, (100vw - 770px) / 2 - 60px, 130px)); bottom: 0; width: min(312px, 80%); }
 .hp-fone-lbl { display: flex; align-items: center; gap: 10px; margin: 0 0 10px 24px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg); }
 .hp-fone-lbl::before { content: ""; width: 22px; height: 2px; background: var(--accent-2); }
 .hp-fone-body {
@@ -4486,7 +4490,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* 7 · The calculator, "the year": one box; the questions fade away and the answer takes their
    place. All three views share one grid cell, so the box keeps its height when they swap. */
-.hp-cbox { display: grid; margin-top: clamp(36px, 5vw, 60px); padding-top: 28px; border-top: 2px solid var(--fg); }
+.hp-cbox { display: grid; margin-top: clamp(36px, 5vw, 60px); padding-top: 28px; }
 .hp-cview { grid-area: 1 / 1; min-width: 0; transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
 .hp-cview.leaving { opacity: 0; transition: opacity 0.25s ease; }
 .hp-cview.off { visibility: hidden; opacity: 0; transform: translateY(12px); pointer-events: none; transition: none; }
@@ -4587,7 +4591,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .hp-hero-trades { margin-inline: auto; }
   .hp-slip { width: 100%; max-width: 520px; text-align: left; }
   .hp-land { padding-right: 0; padding-bottom: 0; }
-  .hp-fone { position: relative; margin: -14px 6px 0 auto; }
+  .hp-fone { position: relative; right: auto; margin: -14px 6px 0 auto; }
   .hp-closing { grid-template-columns: minmax(0, 1fr); }
   .hp-oc { grid-template-columns: minmax(0, 1fr); }
   .hp-oc-figs { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); order: -1; padding-bottom: 0; }
