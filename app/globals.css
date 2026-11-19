@@ -4731,3 +4731,659 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .hp-base-ic { font-size: 34px; }
   .hp-m-cut { display: none; }
 }
+
+/* ── /plumbing — "Websites and an AI receptionist for plumbers." ──────────────
+   The second trade page, approved by Xander from the third round of its mockup (19 Nov 2026,
+   https://claude.ai/artifact/X1xhXjsibSdGYPjqubWoUV) with the instruction that the build match
+   that mockup exactly, desktop and phone. Every rule here is ported from it.
+
+   Deliberately NOT /hvac's furniture: a phone of incoming calls, one call down a centre spine
+   with timestamps, emergencies set as display type, the portal's phone row, a 2×2 rules grid,
+   six crops of the real design, a search box and a call log, and a work-order docket. Light only,
+   like the rest of the marketing site. `.plumb-m-cut` is what a phone leaves out. */
+.plumb-page {
+  /* The phone's own dark surface, and the two borrowed palettes: the client portal's (the inbox
+     row) and a search box's. All local to this page. */
+  --plumb-phone: var(--fg);
+  --plumb-screen: #1d1b15;
+  --plumb-ink: #f4ecd8;
+  --plumb-ink-2: rgba(244, 236, 216, 0.62);
+  --plumb-card: rgba(244, 236, 216, 0.10);
+  --plumb-shadow: rgba(20, 18, 12, 0.45);
+  --plumb-p-bg: #f6f7f9;
+  --plumb-p-card: #ffffff;
+  --plumb-p-fg: #0d1117;
+  --plumb-p-fg-2: #4a5058;
+  --plumb-p-fg-3: #656b73;
+  --plumb-p-accent: #2563eb;
+  --plumb-p-attn: #c2410c;
+  --plumb-p-attn-wash: #fbeee7;
+  --plumb-p-rule: rgba(13, 17, 23, 0.09);
+  --plumb-p-rule-strong: rgba(13, 17, 23, 0.18);
+  --plumb-g-ink: #202124;
+  --plumb-g-ink-2: #5f6368;
+  --plumb-g-line: #dfe1e5;
+  --plumb-g-card: #ffffff;
+  background: var(--bg);
+}
+.plumb-shell {
+  max-width: calc(1120px + 2 * clamp(18px, 4vw, 56px));
+  margin: 0 auto;
+  padding: clamp(88px, 11vw, 152px) clamp(18px, 4vw, 56px);
+}
+.plumb-shell-hero { padding-block: clamp(36px, 5vw, 72px) clamp(88px, 11vw, 140px); }
+.plumb-coral { color: var(--accent-2); }
+.plumb-h1,
+.plumb-h2,
+.plumb-handsfull-h,
+.plumb-lands-h,
+.plumb-urgent-h,
+.plumb-rules-h,
+.plumb-qa-h,
+.plumb-rcell h3,
+.plumb-slice h3 {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--fg);
+}
+.plumb-h1 { margin-top: 14px; font-size: clamp(50px, 9vw, 116px); font-weight: 900; line-height: 0.86; letter-spacing: 0.005em; }
+.plumb-h2 { font-size: clamp(38px, 6.4vw, 80px); font-weight: 900; line-height: 0.9; }
+.plumb-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 48ch; }
+.plumb-eg {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.plumb-centre { display: grid; gap: 16px; justify-items: center; text-align: center; }
+.plumb-split-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: end;
+}
+.plumb-ic {
+  display: block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A voice, drawn. */
+.plumb-wave { display: inline-flex; align-items: center; gap: 3px; height: 20px; flex: none; }
+.plumb-wave > i { width: 3px; height: 40%; border-radius: 2px; background: currentColor; }
+.plumb-wave > i:nth-child(2) { height: 85%; }
+.plumb-wave > i:nth-child(3) { height: 55%; }
+.plumb-wave > i:nth-child(4) { height: 100%; }
+.plumb-wave > i:nth-child(5) { height: 45%; }
+.plumb-wave > i:nth-child(6) { height: 75%; }
+.plumb-wave > i:nth-child(7) { height: 30%; }
+@media (prefers-reduced-motion: no-preference) {
+  .plumb-wave-live > i { animation: plumb-speak 1.1s ease-in-out infinite; transform-origin: 50% 50%; }
+  .plumb-wave-live > i:nth-child(2) { animation-delay: -0.2s; }
+  .plumb-wave-live > i:nth-child(3) { animation-delay: -0.5s; }
+  .plumb-wave-live > i:nth-child(4) { animation-delay: -0.8s; }
+  .plumb-wave-live > i:nth-child(5) { animation-delay: -0.35s; }
+  .plumb-wave-live > i:nth-child(6) { animation-delay: -0.65s; }
+  .plumb-wave-live > i:nth-child(7) { animation-delay: -0.1s; }
+}
+@keyframes plumb-speak { 0%, 100% { transform: scaleY(0.45); } 50% { transform: scaleY(1); } }
+
+/* 1 · Hero: the claim left; a phone taking calls while the plumber can't, right. */
+.plumb-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr);
+  gap: clamp(36px, 6vw, 88px);
+  align-items: center;
+}
+.plumb-intro { margin-top: 28px; max-width: 30ch; font-size: clamp(18px, 1.9vw, 23px); font-weight: 600; line-height: 1.35; color: var(--fg); }
+.plumb-hero-lede { margin-top: 14px; }
+.plumb-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.plumb-handsfull { display: grid; justify-items: center; gap: 18px; }
+.plumb-handsfull-h { font-size: clamp(30px, 3.4vw, 44px); font-weight: 900; line-height: 0.92; text-align: center; }
+.plumb-phone {
+  width: min(330px, 100%);
+  padding: 14px;
+  border-radius: 44px;
+  background: var(--plumb-phone);
+  box-shadow: 0 40px 70px -40px var(--plumb-shadow), 0 0 0 1px rgba(20, 18, 12, 0.4);
+}
+.plumb-screen {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 10px;
+  padding: 22px 14px 18px;
+  border-radius: 32px;
+  background: var(--plumb-screen);
+  color: var(--plumb-ink);
+}
+.plumb-screen::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 76px;
+  height: 20px;
+  margin-left: -38px;
+  border-radius: 12px;
+  background: #000;
+}
+.plumb-clock { margin-top: 18px; font-family: var(--font-display); font-size: 54px; font-weight: 800; line-height: 1; letter-spacing: 0.02em; text-align: center; }
+.plumb-date { margin-bottom: 8px; font-size: 12px; font-weight: 500; line-height: 1.4; text-align: center; color: var(--plumb-ink-2); }
+.plumb-call-group { display: grid; gap: 10px; }
+.plumb-where { padding: 4px 4px 0; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; line-height: 1.3; letter-spacing: 0.12em; text-transform: uppercase; color: var(--plumb-ink-2); }
+.plumb-call {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 2px 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--plumb-card);
+}
+.plumb-badge {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--fg-3);
+  font-size: 18px;
+  color: var(--plumb-ink);
+}
+.plumb-call-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; line-height: 1.3; }
+.plumb-call-top span { font-size: 11.5px; font-weight: 400; line-height: 1.3; white-space: nowrap; color: var(--plumb-ink-2); }
+.plumb-state { position: relative; height: 18px; font-size: 12.5px; font-weight: 500; line-height: 18px; }
+.plumb-state > span { position: absolute; inset: 0; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.plumb-ringing { color: var(--plumb-ink-2); }
+.plumb-answered { color: var(--accent-2); opacity: 0; }
+.plumb-answered .plumb-wave { height: 13px; gap: 2px; }
+.plumb-answered .plumb-wave > i { width: 2px; }
+.plumb-then { max-width: 30ch; font-size: 16px; text-align: center; color: var(--fg-2); }
+.plumb-then b { color: var(--fg); }
+
+/* One loop: each call rings, then the receptionist answers it, top to bottom. At rest every call
+   is answered, so a still frame tells the truth. */
+@media (prefers-reduced-motion: no-preference) {
+  .plumb-call-group:nth-of-type(1) .plumb-badge { animation: plumb-b1 9s infinite; }
+  .plumb-call-group:nth-of-type(1) .plumb-ringing { animation: plumb-r1 9s infinite; }
+  .plumb-call-group:nth-of-type(1) .plumb-answered { animation: plumb-a1 9s infinite; }
+  .plumb-call-group:nth-of-type(2) .plumb-badge { animation: plumb-b2 9s infinite; }
+  .plumb-call-group:nth-of-type(2) .plumb-ringing { animation: plumb-r2 9s infinite; }
+  .plumb-call-group:nth-of-type(2) .plumb-answered { animation: plumb-a2 9s infinite; }
+  .plumb-call-group:nth-of-type(3) .plumb-badge { animation: plumb-b3 9s infinite; }
+  .plumb-call-group:nth-of-type(3) .plumb-ringing { animation: plumb-r3 9s infinite; }
+  .plumb-call-group:nth-of-type(3) .plumb-answered { animation: plumb-a3 9s infinite; }
+}
+@keyframes plumb-b1 { 0%, 14% { background: var(--fg-3); transform: scale(1); } 3%, 9% { transform: scale(1.12); } 16%, 96% { background: var(--accent-2); transform: scale(1); } 100% { background: var(--fg-3); } }
+@keyframes plumb-b2 { 0%, 44% { background: var(--fg-3); transform: scale(1); } 33%, 39% { transform: scale(1.12); } 46%, 96% { background: var(--accent-2); transform: scale(1); } 100% { background: var(--fg-3); } }
+@keyframes plumb-b3 { 0%, 74% { background: var(--fg-3); transform: scale(1); } 63%, 69% { transform: scale(1.12); } 76%, 96% { background: var(--accent-2); transform: scale(1); } 100% { background: var(--fg-3); } }
+@keyframes plumb-r1 { 0%, 14% { opacity: 1; } 16%, 96% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes plumb-r2 { 0%, 44% { opacity: 1; } 46%, 96% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes plumb-r3 { 0%, 74% { opacity: 1; } 76%, 96% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes plumb-a1 { 0%, 14% { opacity: 0; } 16%, 96% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes plumb-a2 { 0%, 44% { opacity: 0; } 46%, 96% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes plumb-a3 { 0%, 74% { opacity: 0; } 76%, 96% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .plumb-badge { background: var(--accent-2); }
+  .plumb-ringing { opacity: 0; }
+  .plumb-answered { opacity: 1; }
+}
+
+/* 2 · The receptionist on a plumbing call. */
+.plumb-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.plumb-now .plumb-wave { height: 22px; }
+.plumb-callbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin-top: clamp(52px, 7vw, 84px);
+  padding: 14px 20px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.plumb-callbar-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 4px var(--accent-glow); }
+.plumb-callbar .plumb-wave { margin-left: auto; height: 16px; gap: 2px; color: var(--accent-2); }
+.plumb-callbar .plumb-wave > i { width: 2px; }
+
+/* One call down a spine: the caller turns left, the receptionist right, each with its time. */
+.plumb-spine { position: relative; margin-top: 34px; display: grid; gap: clamp(26px, 3.4vw, 38px); }
+.plumb-spine::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--rule-strong); }
+.plumb-turn { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr); align-items: start; }
+.plumb-t {
+  position: relative;
+  z-index: 1;
+  grid-column: 2;
+  justify-self: center;
+  padding: 6px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--wash);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--fg-3);
+}
+.plumb-say { grid-row: 1; }
+.plumb-turn-caller .plumb-say { grid-column: 1; text-align: right; }
+.plumb-turn-rec .plumb-say { grid-column: 3; }
+.plumb-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.plumb-turn-rec .plumb-who { color: var(--accent-2); }
+.plumb-say blockquote { margin: 8px 0 0; }
+.plumb-turn-caller blockquote { font-size: 17px; line-height: 1.5; color: var(--fg-2); }
+.plumb-turn-rec blockquote { font-size: clamp(18px, 1.9vw, 22px); font-weight: 600; line-height: 1.35; color: var(--fg); }
+
+/* The call ends, and an arrow hands off to where the lead lands. */
+.plumb-ended { position: relative; display: grid; justify-items: center; margin-top: clamp(26px, 3.4vw, 38px); }
+.plumb-end-pill {
+  position: relative;
+  z-index: 1;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.plumb-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
+.plumb-end-arrow { margin-top: -16px; font-size: 26px; color: var(--fg); stroke-width: 2.4; }
+
+/* Where the lead lands: the portal inbox, as the phone shows it. */
+.plumb-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
+.plumb-lands-h { max-width: 18ch; margin-inline: auto; font-size: clamp(32px, 4.4vw, 58px); font-weight: 900; line-height: 0.92; }
+.plumb-lands-sub { margin: 14px auto 0; max-width: 44ch; font-size: clamp(16px, 1.5vw, 19px); color: var(--fg-2); }
+.plumb-mini-phone {
+  width: 300px;
+  max-width: 100%;
+  padding: 11px;
+  border-radius: 38px;
+  background: var(--plumb-phone);
+  box-shadow: 0 30px 60px -36px var(--plumb-shadow);
+}
+.plumb-mini-screen {
+  overflow: hidden;
+  padding-bottom: 14px;
+  border-radius: 28px;
+  background: var(--plumb-p-bg);
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  color: var(--plumb-p-fg);
+  text-align: left;
+}
+.plumb-mini-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30px 16px 10px;
+  border-bottom: 1px solid var(--plumb-p-rule);
+  background: var(--plumb-p-card);
+}
+.plumb-mini-top b { font-size: 20px; font-weight: 700; }
+.plumb-mini-top span {
+  padding: 3px 10px;
+  border: 1px solid var(--plumb-p-rule-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--plumb-p-fg-2);
+}
+.plumb-mini-day { padding: 12px 16px 6px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.4; letter-spacing: 0.1em; color: var(--plumb-p-fg-3); }
+.plumb-mrow {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--plumb-p-rule);
+  background: var(--plumb-p-card);
+}
+.plumb-mrow-dot { width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; background: var(--plumb-p-accent); }
+.plumb-mrow-r1 { display: flex; align-items: baseline; gap: 8px; }
+.plumb-mrow-r1 strong { font-size: 16px; font-weight: 700; }
+.plumb-mrow-time { margin-left: auto; font-family: var(--font-mono); font-size: 12.5px; font-weight: 500; line-height: 1.4; }
+.plumb-mrow-chip {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--plumb-p-attn-wash);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--plumb-p-attn);
+}
+.plumb-mrow-pv { margin-top: 5px; font-size: 14px; line-height: 1.4; color: var(--plumb-p-fg); }
+.plumb-mrow-dim { opacity: 0.55; }
+.plumb-mrow-dim .plumb-mrow-dot { background: transparent; }
+
+/* Emergencies set as type, not an icon grid. */
+.plumb-urgent {
+  margin-top: clamp(64px, 8vw, 108px);
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: start;
+}
+.plumb-urgent-h { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 0.92; }
+.plumb-urgent-sub { margin-top: 14px; max-width: 34ch; font-size: 16px; color: var(--fg-2); }
+.plumb-em { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--fg); }
+.plumb-em > li { display: flex; align-items: center; gap: 18px; padding-block: 14px; border-bottom: 1px solid var(--wash-rule); }
+.plumb-em-drop { font-size: 26px; color: var(--accent-2); }
+.plumb-em b { font-family: var(--font-display); font-size: clamp(30px, 4vw, 54px); font-weight: 900; line-height: 0.95; letter-spacing: 0.005em; text-transform: uppercase; }
+.plumb-em span {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: right;
+  color: var(--fg-3);
+}
+
+/* It won't / instead, as a hairline 2×2 grid. */
+.plumb-rules { margin-top: clamp(64px, 8vw, 108px); }
+.plumb-rules-h { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 0.92; }
+.plumb-rgrid { margin-top: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 2px solid var(--fg); }
+.plumb-rcell { padding: 26px clamp(16px, 2.6vw, 34px) 28px 0; border-bottom: 1px solid var(--wash-rule); }
+.plumb-rcell:nth-child(even) { padding-right: 0; padding-left: clamp(16px, 2.6vw, 34px); border-left: 1px solid var(--wash-rule); }
+.plumb-rno {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.plumb-x { display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--accent-2); border-radius: 50%; font-size: 12px; }
+.plumb-rcell h3 { margin-top: 10px; font-size: clamp(24px, 2.6vw, 32px); font-weight: 800; line-height: 1; }
+.plumb-instead {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  font-size: 16.5px;
+  line-height: 1.45;
+  color: var(--fg);
+}
+.plumb-instead-lbl {
+  display: block;
+  margin-bottom: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.plumb-ok { display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; background: var(--fg); color: var(--bg); font-size: 12px; }
+
+/* 3 · The plumbing website: six crops of the real design, a point under each. */
+.plumb-slices {
+  margin-top: clamp(52px, 7vw, 88px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(40px, 5vw, 60px) clamp(18px, 2.4vw, 30px);
+}
+.plumb-slice { display: grid; gap: 16px; align-content: start; }
+.plumb-shot {
+  aspect-ratio: 1280 / 760;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background-image: url("/plumbing-site.webp");
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  box-shadow: 0 22px 44px -28px var(--plumb-shadow);
+}
+.plumb-slice:nth-child(1) .plumb-shot { background-position: 0 0; }
+.plumb-slice:nth-child(2) .plumb-shot { background-position: 0 20.2%; }
+.plumb-slice:nth-child(3) .plumb-shot { background-position: 0 42.7%; }
+.plumb-slice:nth-child(4) .plumb-shot { background-position: 0 54.3%; }
+.plumb-slice:nth-child(5) .plumb-shot { background-position: 0 76.05%; }
+.plumb-slice:nth-child(6) .plumb-shot { background-position: 0 91.17%; }
+.plumb-n { font-family: var(--font-display); font-size: 30px; font-weight: 900; line-height: 0.9; color: var(--accent-2); }
+.plumb-slice h3 { font-size: 23px; font-weight: 800; line-height: 1; }
+.plumb-slice p { font-size: 15.5px; color: var(--fg-2); }
+.plumb-pt { display: grid; gap: 6px; }
+.plumb-shotcap { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+
+/* 4 · What they search, beside what they ask on the phone. */
+.plumb-find .plumb-h2 { max-width: 15ch; }
+.plumb-qa {
+  margin-top: clamp(52px, 7vw, 88px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(32px, 5vw, 64px);
+  align-items: start;
+}
+.plumb-qa-h { display: flex; align-items: center; gap: 12px; font-size: clamp(24px, 2.8vw, 34px); font-weight: 900; line-height: 0.95; }
+.plumb-qa-h .plumb-ic { font-size: 0.8em; stroke-width: 2.6; color: var(--accent-2); }
+.plumb-qa-h .plumb-wave { height: 0.7em; color: var(--accent-2); }
+.plumb-gbox {
+  overflow: hidden;
+  margin-top: 22px;
+  border-radius: 24px;
+  background: var(--plumb-g-card);
+  box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--plumb-g-ink);
+}
+.plumb-gq { display: flex; align-items: center; gap: 12px; padding: 13px 18px; font-size: 17px; }
+.plumb-gq .plumb-ic { font-size: 18px; color: var(--plumb-g-ink-2); }
+.plumb-caret { width: 1.5px; height: 20px; margin-left: -10px; background: var(--plumb-g-ink); }
+@media (prefers-reduced-motion: no-preference) { .plumb-caret { animation: plumb-blink 1s steps(1) infinite; } }
+@keyframes plumb-blink { 50% { opacity: 0; } }
+.plumb-gsug { list-style: none; margin: 0; padding: 6px 0 10px; border-top: 1px solid var(--plumb-g-line); }
+.plumb-gsug > li { display: flex; align-items: center; gap: 12px; padding: 8px 18px; font-size: 16px; }
+.plumb-gsug > li .plumb-ic { font-size: 15px; color: var(--plumb-g-ink-2); }
+.plumb-gsug-q b { font-weight: 700; }
+.plumb-gsug-n {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent-2);
+}
+.plumb-src { margin-top: 14px; }
+.plumb-calllog { list-style: none; margin: 22px 0 0; padding: 0; border-top: 2px solid var(--fg); }
+.plumb-calllog > li {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 4px 14px;
+  align-items: center;
+  padding-block: 16px;
+  border-bottom: 1px solid var(--wash-rule);
+}
+.plumb-play { grid-row: span 2; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--fg); color: var(--bg); }
+.plumb-play svg { width: 14px; height: 14px; margin-left: 2px; fill: currentColor; stroke: none; }
+.plumb-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.plumb-meta .plumb-wave { height: 13px; gap: 2px; color: var(--accent-2); }
+.plumb-meta .plumb-wave > i { width: 2px; }
+.plumb-calllog q { font-size: clamp(18px, 1.9vw, 22px); font-weight: 600; line-height: 1.3; color: var(--fg); quotes: "\201C" "\201D"; }
+.plumb-answers { margin-top: 26px; display: grid; gap: 10px; font-size: 16px; color: var(--fg-2); }
+.plumb-answers-lead { font-size: clamp(18px, 1.8vw, 21px); font-weight: 600; line-height: 1.4; color: var(--fg); }
+
+/* 5 · The missed call, as a work order. */
+.plumb-wo-wrap { margin-top: clamp(44px, 6vw, 72px); display: grid; justify-items: center; }
+.plumb-wo {
+  position: relative;
+  width: min(640px, 100%);
+  padding: clamp(22px, 3.4vw, 40px);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--elev-1);
+  box-shadow: 0 30px 60px -38px var(--plumb-shadow);
+}
+/* The torn top and bottom edge of a docket. */
+.plumb-wo::before,
+.plumb-wo::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: radial-gradient(circle at 7px 0, var(--bg) 6px, transparent 6.5px) 0 0 / 14px 10px repeat-x;
+}
+.plumb-wo::before { top: -1px; }
+.plumb-wo::after { bottom: -1px; transform: scaleY(-1); }
+.plumb-wo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid var(--fg); }
+.plumb-wo-head b { font-family: var(--font-display); font-size: clamp(26px, 3vw, 34px); font-weight: 900; line-height: 1; text-transform: uppercase; }
+.plumb-wo-line {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding-block: 14px;
+  border-bottom: 1px dashed var(--rule-strong);
+}
+.plumb-wo-op { font-family: var(--font-display); font-size: 22px; font-weight: 800; line-height: 1; color: var(--fg-3); }
+.plumb-wo-what { font-size: 16.5px; color: var(--fg-2); }
+.plumb-wo-what .plumb-eg { display: block; margin-top: 2px; }
+.plumb-wo-val { font-family: var(--font-display); font-size: clamp(30px, 3.6vw, 42px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); }
+.plumb-wo-field { display: flex; align-items: baseline; border-bottom: 3px solid var(--accent-2); color: var(--accent-2); }
+/* The site-wide form rule (top of this file) paints every input grey with dark text and, on a
+   phone, forces 16px, all `!important`. These figures are type, not form boxes, so they take it
+   back. Six classes outrank that rule's five :not()s; an id selector would too, but this build
+   drops rules that start with one. */
+.plumb-wo .plumb-wo-val input.plumb-wo-input.plumb-wo-input.plumb-wo-input.plumb-wo-input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+.plumb-wo-input {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.plumb-wo-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.plumb-wo-input::-webkit-outer-spin-button,
+.plumb-wo-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.plumb-wo-go { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding-top: 20px; }
+.plumb-wo-total { margin-top: 22px; display: grid; gap: 12px; }
+.plumb-wo-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 12px; border-top: 2px solid var(--fg); }
+.plumb-wo-row + .plumb-wo-row { border-top: 1px solid var(--rule); }
+.plumb-wo-lbl { font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.4; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); }
+.plumb-wo-amt { font-family: var(--font-display); font-size: clamp(40px, 5.6vw, 64px); font-weight: 900; line-height: 0.9; font-variant-numeric: tabular-nums; color: var(--fg); }
+.plumb-wo-row:last-child .plumb-wo-amt { color: var(--accent-2); }
+.plumb-wo-src { margin-top: 20px; text-align: center; }
+
+/* 6 · Close. */
+.plumb-close-h { font-size: clamp(44px, 8vw, 104px); }
+.plumb-ask { margin-top: clamp(36px, 5vw, 56px); }
+
+@media (max-width: 860px) {
+  .plumb-hero,
+  .plumb-split-head,
+  .plumb-urgent,
+  .plumb-qa { grid-template-columns: minmax(0, 1fr); }
+  .plumb-hero-copy,
+  .plumb-split-head,
+  .plumb-urgent > div:first-child,
+  .plumb-rules-h,
+  .plumb-find,
+  .plumb-qa-h { text-align: center; }
+  .plumb-intro,
+  .plumb-hero-lede,
+  .plumb-split-head .plumb-lede,
+  .plumb-urgent-sub,
+  .plumb-lands-sub { margin-inline: auto; }
+  .plumb-acts { justify-content: center; }
+  .plumb-qa-h { justify-content: center; }
+  .plumb-callbar { justify-content: center; text-align: center; }
+  .plumb-callbar .plumb-wave { margin-left: 0; }
+  /* The call's spine moves to the left edge; every turn hangs off it. */
+  .plumb-spine::before { left: 22px; }
+  .plumb-ended { justify-items: start; }
+  .plumb-end-line { margin-left: 21px; }
+  .plumb-end-arrow { margin-left: 9px; }
+  .plumb-turn { grid-template-columns: 46px minmax(0, 1fr); }
+  .plumb-t { grid-column: 1; justify-self: start; }
+  .plumb-turn-caller .plumb-say,
+  .plumb-turn-rec .plumb-say { grid-column: 2; text-align: left; }
+  .plumb-em b { font-size: 30px; }
+  .plumb-em span { display: none; }
+  .plumb-rgrid { grid-template-columns: minmax(0, 1fr); }
+  .plumb-rcell,
+  .plumb-rcell:nth-child(even) { padding-inline: 0; border-left: 0; }
+  .plumb-slices { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .plumb-wo-line { grid-template-columns: 22px minmax(0, 1fr) auto; }
+  /* A long suggestion keeps its words; the monthly count drops under it. */
+  .plumb-gsug > li { flex-wrap: wrap; row-gap: 2px; }
+  .plumb-gsug-n { flex-basis: 100%; margin-left: 27px; }
+  /* Left off a phone, so the page explains itself without a wall of words. */
+  .plumb-m-cut { display: none !important; }
+}
