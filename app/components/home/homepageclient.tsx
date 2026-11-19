@@ -112,8 +112,14 @@ function Hero({ onOpenForm }: { onOpenForm: () => void }) {
       {/* The third clause is true on every plan, Starter included, so the hero never sells
           something one tier lacks. "24/7" stays: it is one of only two availability claims
           on the page, the other being the receptionist's "two in the morning". */}
-      <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px auto 32px", maxWidth: "46ch" }}>
+      <p style={{ fontSize: "clamp(17px,1.6vw,21px)", lineHeight: 1.55, color: "var(--fg-2)", margin: "28px auto 0", maxWidth: "46ch" }}>
         A website that gets you called, a 24/7 receptionist that answers when you can&apos;t, and one place where every lead waits for you. The front office you never had to hire.
+      </p>
+      {/* Names the trades, which the page otherwise never does, so the owners searching for
+          them find words they recognise (draft C3 of the agency search check, approved by
+          Xander 19 Nov 2026). Quieter than the paragraph above: it says who, not what. */}
+      <p style={{ fontSize: "clamp(14px,1.2vw,16px)", lineHeight: 1.5, color: "var(--fg-3)", margin: "14px auto 32px", maxWidth: "46ch" }}>
+        Built for HVAC, plumbing, roofing, lawn care, pressure washing and detailing businesses.
       </p>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
         {/* The ring-pulse animation stays with the phone CTA in <RailCTA> at the bottom

@@ -1,8 +1,10 @@
-export const metadata = {
-    title: "Turning on your receptionist | Juneau Digital Designs",
-    description:
-        "How to point your business line at your JDD AI receptionist: forward your existing number, or publish the number we give you. Step-by-step, per carrier.",
-};
+import type { Metadata } from "next";
+import { pageMetadata } from "@/app/lib/site-seo";
+export const metadata: Metadata = pageMetadata(
+    "/activation",
+    "Turning on your receptionist | Juneau Digital Designs",
+    "How to point your business line at your JDD AI receptionist: forward your existing number, or publish the number we give you. Step-by-step, per carrier.",
+);
 
 /**
  * The activation instructions, as a page a client can come back to.

@@ -1,7 +1,10 @@
-export const metadata = {
-    title: "Privacy Policy | Juneau Digital Designs",
-    description: "How Juneau Digital Designs collects, uses, and protects information submitted through contact forms, accepting our Terms of Service, and onboarding.",
-};
+import type { Metadata } from "next";
+import { pageMetadata } from "@/app/lib/site-seo";
+export const metadata: Metadata = pageMetadata(
+    "/privacy-policy",
+    "Privacy Policy | Juneau Digital Designs",
+    "How Juneau Digital Designs collects, uses, and protects information submitted through contact forms, accepting our Terms of Service, and onboarding.",
+);
 
 export default function PrivacyPolicyPage() {
     return (

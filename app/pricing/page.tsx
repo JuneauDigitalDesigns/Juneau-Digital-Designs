@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import PricingPageClient from "../components/pricing/pricingpageclient";
+import JsonLd from "../components/JsonLd";
+import { PRICING_DESCRIPTION, pageMetadata, plansJsonLd } from "@/app/lib/site-seo";
 
-export const metadata: Metadata = {
-    title: "Pricing | Juneau Digital Designs",
-    description: "Monthly pricing for a website, a 24/7 AI receptionist, and a portal where every lead lands. Month to month, no contract.",
-};
+export const metadata: Metadata = pageMetadata("/pricing", "Pricing | Juneau Digital Designs", PRICING_DESCRIPTION);
 
 export default function PricingPage() {
-    return <PricingPageClient />;
+    return (
+        <>
+            <JsonLd data={plansJsonLd()} />
+            <PricingPageClient />
+        </>
+    );
 }
