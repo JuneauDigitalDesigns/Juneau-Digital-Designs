@@ -149,5 +149,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         // Their calendar appointments, for "Coming up" and each job's visits.
         appointments: allAppointments.filter((a) => a.customerId === id),
         messagingState: siteFeature(ctx.site, "messaging").state,
+        // The site's own texting number, for the phone texting screen's "Texts go out from your
+        // business number" note (2026-11-19). It is the client's public business line, which
+        // their customers already see on every text; null before Twilio is provisioned.
+        businessNumber: (ctx.site as { twilioNumber?: string | null }).twilioNumber ?? null,
     });
 }
