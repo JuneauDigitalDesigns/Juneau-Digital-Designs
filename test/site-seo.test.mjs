@@ -126,10 +126,10 @@ test("JSON-LD cannot close its own script tag", () => {
 });
 
 test("the homepage names the trades under the hero", () => {
-    // Since 19 Nov 2026 a trade with its own page is a link (HVAC first). The words are unchanged,
-    // so the line is read with the link tags taken out.
+    // Since 19 Nov 2026 a trade with its own page is a link (HVAC, then plumbing), so the line is
+    // read with the link tags taken out. "auto detailing" is Xander's wording (19 Nov 2026).
     assert.match(
         read("app/components/home/homepageclient.tsx").replace(/<Link [^>]*>|<\/Link>/g, ""),
-        /Built for HVAC, plumbing, roofing, lawn care, pressure washing and detailing businesses\./,
+        /Built for HVAC, plumbing, roofing, lawn care, pressure washing and auto detailing businesses\./,
     );
 });
