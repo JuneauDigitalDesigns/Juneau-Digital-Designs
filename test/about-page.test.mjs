@@ -27,6 +27,9 @@ test("the facts about Xander are the ones he gave, word for word", () => {
   for (const sentence of [
     "I'm Xander Juneau. I built this for the trades.",
     "I live in Winter Garden, Florida, and I work with the local trades in and around Central Florida",
+    // The trade list matches the homepage hero's exactly, "auto detailing" included (Xander,
+    // 19 Nov 2026). Pinned here because the two must stay in step and this one used to lag.
+    "HVAC, plumbing, roofing, lawn care, pressure washing and auto detailing businesses.",
     "I spent about 12 years in the hospitality industry, and that's where I learned how to take care of people.",
     "I was learning how to lead and get results.",
     "That's how I treat my clients now: like friends or family.",

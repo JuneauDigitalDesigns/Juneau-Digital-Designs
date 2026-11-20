@@ -127,9 +127,11 @@ export default function AboutPage() {
                         Meet the <span className="about-coral">owner.</span>
                     </h1>
                     <p className="about-intro">I&apos;m Xander Juneau. I built this for the trades.</p>
+                    {/* "auto detailing", not "detailing" (Xander, 19 Nov 2026: "add 'auto' there
+                        too"), so this trade list matches the homepage hero's word for word. */}
                     <p className="about-where">
                         I live in Winter Garden, Florida, and I work with the local trades in and around Central
-                        Florida: HVAC, plumbing, roofing, lawn care, pressure washing and detailing businesses.
+                        Florida: HVAC, plumbing, roofing, lawn care, pressure washing and auto detailing businesses.
                     </p>
                 </div>
                 {/* Two crops of one photo, not one crop squeezed two ways: a tall 4:5 from
