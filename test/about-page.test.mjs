@@ -30,6 +30,10 @@ test("the facts about Xander are the ones he gave, word for word", () => {
     "I spent about 12 years in the hospitality industry, and that's where I learned how to take care of people.",
     "I was learning how to lead and get results.",
     "That's how I treat my clients now: like friends or family.",
+    // Approved 19 Nov 2026, from his own thought: "the hospitality industry has never really
+    // left me and you never really leave it". Both halves carry — that it stayed with him, and
+    // that nobody leaves it — so neither sentence is to be dropped or merged away.
+    "The hospitality industry never really left me. I don't think you ever really leave it.",
     // Approved 19 Nov 2026. He asked for this to say he did both at once rather than simply
     // dropping the word "first", which the new dates had made untrue.
     "I worked and studied at the same time, and earned an Associate in Science degree in Electronics Engineering Technology from Valencia College in 2019.",
