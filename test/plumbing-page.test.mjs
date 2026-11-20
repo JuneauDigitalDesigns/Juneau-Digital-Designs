@@ -18,6 +18,7 @@ import { PUBLIC_PATHS, SITE_URL, PLUMBING_TITLE, PLUMBING_DESCRIPTION, plumbingJ
 import { SCHEDULES } from "../app/lib/legal/schedules.ts";
 import { TRADE_PAGES } from "../app/data/trade-pages.ts";
 import { PLUMBING_SEARCHES, PLUMBING_SEARCH_SOURCE } from "../app/data/plumbing-searches.ts";
+import { TRADE_SEARCHES } from "../app/data/trade-searches.ts";
 import { AI_RECOVERY_RATE, CLOSE_RATE, LEAD_RATE, formatDollars, lostPerYear } from "../app/data/missed-calls.ts";
 
 const read = (p) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
@@ -184,6 +185,19 @@ test("the searches are real and sourced, and are not the homepage's list", () =>
         ["823,000", "49,500", "40,500", "22,200"],
     );
     assert.equal(PLUMBING_SEARCH_SOURCE, "Searches a month: Marketkeep, SEO keywords for plumbers, September 2026");
+
+    // Since 19 Nov 2026 the page holds no copy of these facts: both the phrase and the figure come
+    // from `trade-searches.ts`, so a corrected count there reaches the page on its own. This is
+    // what stops the two lists drifting apart, so it is pinned rather than assumed.
+    assert.ok(!read("app/data/plumbing-searches.ts").match(/\d{2},\d{3}|\d{3},\d{3}/), "a count is written out again here");
+    for (const s of PLUMBING_SEARCHES) {
+        const shared = TRADE_SEARCHES.plumbing.searches.find((t) => t.search === s.typed + s.rest);
+        assert.ok(shared, `${s.typed + s.rest} is not in the shared plumbing list`);
+        assert.equal(s.perMonth, shared.perMonth, `${s.typed + s.rest} prints a figure the source does not give`);
+    }
+    // The printed line names Marketkeep, so the shared list must still be Marketkeep's.
+    assert.match(TRADE_SEARCHES.plumbing.source, /Marketkeep/);
+
     says(
         page,
         [
