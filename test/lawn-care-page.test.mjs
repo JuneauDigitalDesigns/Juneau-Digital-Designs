@@ -214,7 +214,7 @@ test("the questions on the yard signs are examples, and the grass is the page's 
     assert.match(css, /\.lawn-signs::after \{[^}]*left: var\(--lawn-gl, 0px\); right: var\(--lawn-gr, 0px\)/s);
 });
 
-test("a missed call is counted as a season, and the lawn draws the two figures to one scale", () => {
+test("a missed call is counted as a season, and the street of lawns grows with the numbers", () => {
     says(
         page,
         [
@@ -235,8 +235,10 @@ test("a missed call is counted as a season, and the lawn draws the two figures t
             "One customer, one season:",
             "Won back with a receptionist",
             "Lost to missed calls, a year",
-            "Lost to missed calls",
-            "Won back",
+            "Every lawn here is a customer you'd have won this year.",
+            "Every lawn here is ${street.per} customers you'd have won this year.",
+            "Mown: won back with a receptionist",
+            "Overgrown: still lost",
         ],
         "the calculator",
     );
@@ -249,11 +251,23 @@ test("a missed call is counted as a season, and the lawn draws the two figures t
     const lost = lostPerYear(10, 45 * 30);
     assert.equal(formatDollars(lost), "$119K");
     assert.equal(formatDollars(lost * AI_RECOVERY_RATE), "$59.7K");
-    // The mown strip and the tall grass share one scale, so the mower stops a third of the way:
-    // the lost figure is always twice the won-back one. A picture whose split moved would
-    // misstate the sum.
-    assert.match(season, /MOWN_SHARE = AI_RECOVERY_RATE \/ \(1 \+ AI_RECOVERY_RATE\)/);
-    assert.equal(AI_RECOVERY_RATE / (1 + AI_RECOVERY_RATE), 1 / 3);
+    // Why a street (Xander, 20 Nov 2026): the share won back never moves, because it is a fixed
+    // half, so a single lawn mown to that share stopped in the same place whatever was typed. The
+    // number of customers does move, so that is what the street draws: one lawn per customer lost,
+    // the won-back ones mown. Ten missed calls a week is 89 lawns, 44 of them mown.
+    assert.doesNotMatch(season, /MOWN_SHARE|lawn-meadow/, "the single lawn is back");
+    const customers = 10 * 52 * LEAD_RATE * CLOSE_RATE;
+    assert.equal(Math.round(customers), 89);
+    assert.equal(Math.round(customers * AI_RECOVERY_RATE), 44);
+    assert.match(season, /const customersLost = \(missedPerWeek: number\) => missedPerWeek \* 52 \* LEAD_RATE \* CLOSE_RATE;/);
+    // One lawn a customer up to 160, then ten, then a hundred, so the street stays readable.
+    assert.match(season, /customers <= 160 \? 1 : customers <= 1600 \? 10 : 100/);
+    // The mower cuts it back and forth, the way a lawn is cut: every other row is reversed, and
+    // the mower faces the way it is going. It never jumps back to the start of a row.
+    assert.match(season, /r % 2 \? \[\.\.\.row\]\.reverse\(\) : row/);
+    assert.match(season, /back \? " scaleX\(-1\)" : ""/);
+    // Timers, not animation frames, so the run finishes in a background tab too.
+    assert.doesNotMatch(season, /requestAnimationFrame/);
 });
 
 test("the page has its approved title, description, sitemap entry and Trades listing", () => {
@@ -266,6 +280,8 @@ test("the page has its approved title, description, sitemap entry and Trades lis
     assert.ok(PUBLIC_PATHS.includes("/lawn-care"));
     assert.equal(sitemap().filter((e) => e.url === `${SITE_URL}/lawn-care`).length, 1);
     assert.deepEqual(TRADE_PAGES.find((t) => t.href === "/lawn-care"), { label: "Lawn Care", href: "/lawn-care" });
+    // The homepage's trade line links each trade that has a page, without changing its words.
+    assert.match(read("app/components/home/homepageclient.tsx"), /<Link href="\/lawn-care" className="home-trade-link">lawn care<\/Link>/);
     // The close is the shared pair, as every other page's is.
     assert.match(page, /<PageAsk className="lawn-ask" \/>/);
     says(page, ["Call it. <span className=\"lawn-coral\">See who picks up.</span>", "Plans start at ${SCHEDULES.starter.monthlyPrice} a month. Month to month, no contract."], "the close");
@@ -290,7 +306,7 @@ test("the page is its own design, not /hvac or /plumbing with the trade swapped"
     }
     // Its own devices: a route of lawns, the call written down field by field, one moving picture,
     // searches as mowing passes, questions on yard signs, the sum drawn as a lawn.
-    for (const own of ["lawn-route", "lawn-hw", "lawn-tour", "lawn-passes", "lawn-signs", "lawn-meadow"]) {
+    for (const own of ["lawn-route", "lawn-hw", "lawn-tour", "lawn-passes", "lawn-signs", "lawn-street"]) {
         assert.ok(css.includes(`.${own}`), `the stylesheet lost ${own}`);
     }
     // No region is named: that is settled site-wide, and never Maine, Utah or California.

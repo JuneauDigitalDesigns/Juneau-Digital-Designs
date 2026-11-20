@@ -35,7 +35,8 @@ export const metadata: Metadata = pageMetadata("/lawn-care", LAWN_CARE_TITLE, LA
  * calls); the call written down field by field beside the lead it fills (not a zigzag, not a
  * centre-spine timeline); one picture of the design that moves as you pick a part (not a scrolling
  * frame, not six crops); searches as mowing passes drawn to scale (not pills, not a search box);
- * questions on yard signs standing in grass; and the sum as a lawn, mown.
+ * questions on yard signs standing in grass; and the sum as a street of lawns, one per customer
+ * the missed calls cost, with the mower cutting the ones a receptionist wins back.
  *
  * NOTHING INVENTED. No lawn care client exists yet, so there is no lawn care receptionist script
  * to quote: the call is the standard script's answers, with the pricing answer adapted from the
@@ -391,7 +392,7 @@ export default function LawnCarePage() {
                 </div>
             </section>
 
-            {/* 5 · What a missed call costs, as a season, drawn as a lawn. */}
+            {/* 5 · What a missed call costs, as a season, drawn as a street of lawns. */}
             <section>
                 <div className="lawn-shell">
                     <div className="lawn-centre">

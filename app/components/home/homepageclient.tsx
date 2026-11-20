@@ -58,10 +58,10 @@ function Hero() {
                     <p className="hp-hero-p">
                         We build you a website that gets you found and noticed. Then we go a step further and replace your voicemail with a 24/7 receptionist. Every lead lands in one place.
                     </p>
-                    {/* Each trade becomes a link once its own page is live (HVAC, then plumbing, 19 Nov 2026).
-                        "auto detailing" is Xander's exact wording (19 Nov 2026). */}
+                    {/* Each trade becomes a link once its own page is live (HVAC, then plumbing, 19 Nov 2026;
+                        lawn care, 20 Nov 2026). "auto detailing" is Xander's exact wording (19 Nov 2026). */}
                     <p className="hp-hero-trades">
-                        Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, lawn care, pressure washing and auto detailing businesses.
+                        Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, <Link href="/lawn-care" className="home-trade-link">lawn care</Link>, pressure washing and auto detailing businesses.
                     </p>
                 </div>
                 <HeroForm />

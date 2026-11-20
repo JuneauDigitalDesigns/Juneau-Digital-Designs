@@ -5886,12 +5886,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-grass { position: absolute; left: 0; bottom: 0; width: 100%; height: 100px; overflow: visible; pointer-events: none; }
 .lawn-grass-back { z-index: 0; }
 .lawn-grass-front { z-index: 2; }
-.lawn-grass .g1, .lawn-meadow .g1 { fill: var(--lawn-g1); }
-.lawn-grass .g2, .lawn-meadow .g2 { fill: var(--lawn-g2); }
-.lawn-grass .g3, .lawn-meadow .g3 { fill: var(--lawn-g3); }
-.lawn-grass .g4, .lawn-meadow .g4 { fill: var(--lawn-g4); }
-.lawn-grass .g5, .lawn-meadow .g5 { fill: var(--lawn-g5); }
-.lawn-grass .g6, .lawn-meadow .g6 { fill: var(--lawn-g6); }
+.lawn-grass .g1 { fill: var(--lawn-g1); }
+.lawn-grass .g2 { fill: var(--lawn-g2); }
+.lawn-grass .g3 { fill: var(--lawn-g3); }
+.lawn-grass .g4 { fill: var(--lawn-g4); }
+.lawn-grass .g5 { fill: var(--lawn-g5); }
+.lawn-grass .g6 { fill: var(--lawn-g6); }
 .lawn-sign { position: relative; z-index: 1; padding-bottom: 52px; display: grid; }
 .lawn-sign::before,
 .lawn-sign::after { content: ""; position: absolute; bottom: 0; width: 3px; height: 52px; background: var(--fg); }
@@ -5988,54 +5988,45 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-amt { font-family: var(--font-display); font-size: clamp(40px, 7vw, 84px); font-weight: 900; line-height: 0.9; font-variant-numeric: tabular-nums; }
 .lawn-halves > div:first-child .lawn-amt { color: var(--accent-2); }
 .lawn-of { font-family: var(--font-body); font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--fg-2); }
-/* One lawn, two figures to one scale. The tall grass IS the money lost; the mown strip beside it
-   IS the money won back, so it is half as long and the mower stops a third of the way across.
-   --m is how far the mower has gone; the bracket spans exactly the grass still standing. */
-.lawn-meadow {
-  --m: 0%;
-  --gh: 132px;
-  position: relative;
-  height: calc(var(--gh) + 36px);
-  margin-bottom: 34px;
-  border-bottom: 4px solid var(--lawn-g1);
+/* The street: one lawn per customer the missed calls cost. Overgrown until a receptionist wins it
+   back, then mown. Long grass is drawn as dark, uneven blades; a mown lawn as neat stripes. It is
+   a street rather than one lawn because the share a receptionist wins back never changes (a fixed
+   half), while the number of customers does: the street grows and shrinks with what is typed. */
+.lawn-street-cap { font-family: var(--font-body); font-size: 16.5px; font-weight: 600; line-height: 1.4; }
+.lawn-street { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 6px; padding-top: 6px; }
+.lawn-lot {
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--lawn-g1);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(20, 18, 12, 0.18), transparent 55%),
+    repeating-linear-gradient(97deg, var(--lawn-g1) 0 2px, var(--lawn-g2) 2px 5px, var(--lawn-g6) 5px 7px, var(--lawn-g3) 7px 9px);
 }
-.lawn-meadow-g { position: absolute; left: 0; bottom: 0; width: 100%; height: var(--gh); overflow: visible; pointer-events: none; }
-.lawn-meadow-tall { clip-path: inset(-60px 0 0 var(--m)); }
-.lawn-meadow-short { clip-path: inset(0 calc(100% - var(--m)) 0 0); }
-.lawn-bracket { position: absolute; left: var(--m); right: 0; bottom: calc(var(--gh) * 1.02 + 6px); height: 10px; border: 2px solid var(--fg); border-bottom: 0; border-radius: 3px 3px 0 0; }
-.lawn-bracket span {
-  position: absolute;
-  left: 50%;
-  bottom: 100%;
-  transform: translateX(-50%);
-  margin-bottom: 5px;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--fg-2);
+.lawn-lot.is-mown { border-color: var(--lawn-g3); background: repeating-linear-gradient(90deg, var(--lawn-g4) 0 5px, var(--lawn-g5) 5px 10px); }
+@media (prefers-reduced-motion: no-preference) {
+  .lawn-lot.is-mown { animation: lawn-lot-mown 0.35s ease-out; }
 }
-/* The mown strip's own mark, under the ground line. */
-.lawn-under { position: absolute; left: 0; width: var(--m); top: calc(100% + 10px); height: 9px; border: 2px solid var(--accent-2); border-top: 0; border-radius: 0 0 3px 3px; opacity: 0; }
-.lawn-meadow.is-mown .lawn-under { opacity: 1; }
-.lawn-under span {
+@keyframes lawn-lot-mown {
+  from { filter: brightness(1.25); transform: scale(0.92); }
+  to { filter: none; transform: none; }
+}
+/* The mower drives from lawn to lawn, back and forth down the street. */
+.lawn-street-mower {
   position: absolute;
+  z-index: 1;
   left: 0;
-  top: 100%;
-  margin-top: 5px;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent-2);
+  top: 0;
+  width: 46px;
+  height: 32px;
+  overflow: visible;
+  color: var(--fg);
+  pointer-events: none;
+  transition: transform 0.07s linear, opacity 0.2s;
 }
-.lawn-meadow-mower { position: absolute; z-index: 1; bottom: 0; left: max(var(--m), 74px); width: 92px; height: 65px; margin-left: -70px; color: var(--fg); overflow: visible; }
+.lawn-street.is-parked .lawn-street-mower { transition: none; }
+.lawn-legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-family: var(--font-body); font-size: 14.5px; font-weight: 500; line-height: 1.4; color: var(--fg-2); }
+.lawn-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.lawn-legend .lawn-lot { width: 24px; flex: none; animation: none; }
 .lawn-sum-src { margin-top: 22px; text-align: center; }
 
 /* ── 6 · Close ── */
@@ -6100,8 +6091,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .lawn-signs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-inline: 6px; }
   .lawn-sign q { font-size: 15.5px; }
   .lawn-fill br { display: none; }
-  .lawn-meadow { --gh: 104px; }
-  .lawn-meadow-mower { width: 70px; height: 50px; margin-left: -54px; left: max(var(--m), 58px); }
+  .lawn-street { grid-template-columns: repeat(auto-fill, minmax(26px, 1fr)); gap: 5px; }
+  .lawn-street-mower { width: 36px; height: 25px; }
   .lawn-halves-lbl { font-size: 10.5px; }
   .lawn-of { font-size: 14px; }
   /* Left off a phone, so the page explains itself without a wall of words. */
