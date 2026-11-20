@@ -87,14 +87,14 @@ const LESSONS: { heading: string; learned: string; site: string }[] = [
 /** The road to JDD, oldest first. */
 const TIMELINE: { when: string; what: string; detail: string }[] = [
     {
-        when: "Valencia College, 2019",
-        what: "A.S., Electronics Engineering Technology",
-        detail: "The plan: design computer systems for spacecraft.",
+        when: "Since 2014",
+        what: "Hospitality",
+        detail: "Where I honed my skills in taking care of people, leading, and getting results.",
     },
     {
-        when: "About 12 years",
-        what: "Hospitality",
-        detail: "Where I learned to take care of people, and to lead and get results.",
+        when: "Valencia College, 2016 to 2019",
+        what: "A.S., Electronics Engineering Technology",
+        detail: "The plan: design computer systems for spacecraft.",
     },
     { when: "2020", what: "COVID-19", detail: "Furloughed, with no opportunities in sight." },
     {
@@ -247,8 +247,8 @@ export default function AboutPage() {
                         </p>
                         <p>That&apos;s how I treat my clients now: like friends or family.</p>
                         <p>
-                            I went to college first and earned an Associate in Science degree in Electronics
-                            Engineering Technology from Valencia College in 2019. My plan was a career designing
+                            I worked and studied at the same time, and earned an Associate in Science degree in
+                            Electronics Engineering Technology from Valencia College in 2019. My plan was a career designing
                             computer systems for spacecraft. Then COVID-19 happened. I was furloughed from my job, and
                             the opportunities weren&apos;t there.
                         </p>
