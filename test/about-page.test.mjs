@@ -30,7 +30,9 @@ test("the facts about Xander are the ones he gave, word for word", () => {
     "I spent about 12 years in the hospitality industry, and that's where I learned how to take care of people.",
     "I was learning how to lead and get results.",
     "That's how I treat my clients now: like friends or family.",
-    "Electronics Engineering Technology from Valencia College in 2019",
+    // Approved 19 Nov 2026. He asked for this to say he did both at once rather than simply
+    // dropping the word "first", which the new dates had made untrue.
+    "I worked and studied at the same time, and earned an Associate in Science degree in Electronics Engineering Technology from Valencia College in 2019.",
     "I still think like an engineer: work out how the thing should run, then build it properly.",
   ]) {
     assert.ok(prose.includes(sentence), `/about no longer says: ${sentence}`);
@@ -47,10 +49,21 @@ test("both quotes are present and attributed to Xander by name", () => {
   assert.equal(credits.length, 2, "each quote carries his name and title");
 });
 
+/*
+ * Reordered on 19 Nov 2026. Hospitality used to sit between the 2019 degree and 2020 with the
+ * label "About 12 years", which Xander read off the page as a claim that twelve years fitted
+ * into that one gap: "putting it in between my degree and the COVID-19 looks like I'm trying to
+ * say there's about 12 years of hospitality between 2019 and 2020, which obviously can't be
+ * true." He gave the two missing years — hospitality from 2014, the degree from 2016 — so every
+ * entry now carries a real date and the order is genuinely oldest to newest.
+ *
+ * The twelve years still appear, in the paragraph beside the timeline, where they read as a
+ * span rather than as a position on it.
+ */
 test("the timeline runs oldest to newest and names the real credentials", () => {
   const order = [
-    "Valencia College, 2019",
-    "About 12 years",
+    "Since 2014",
+    "Valencia College, 2016 to 2019",
     "2020",
     "June to November 2022",
     "Since then",
@@ -69,6 +82,18 @@ test("the timeline runs oldest to newest and names the real credentials", () => 
   assert.ok(
     prose.includes("Websites, AI receptionists and automations for the trades."),
     "the last timeline entry changed",
+  );
+  // Hospitality comes before the degree, and carries a start date rather than a span. Both are
+  // the point of the reorder, so they are asserted rather than left to the order loop above.
+  assert.ok(
+    prose.indexOf('what: "Hospitality"') < prose.indexOf('what: "A.S., Electronics Engineering Technology"'),
+    "Hospitality should come before the degree",
+  );
+  assert.doesNotMatch(prose, /when: "About 12 years"/, "the timeline is dating hospitality as a span again");
+  // Xander typed this line himself.
+  assert.ok(
+    prose.includes("Where I honed my skills in taking care of people, leading, and getting results."),
+    "the Hospitality wording changed",
   );
 });
 
