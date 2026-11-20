@@ -33,9 +33,9 @@ export default function LawnIcon({ name, className = "" }: { name: LawnIconName;
  * The walk-behind mower. Filled rather than stroked, and the only drawing on the site that is not
  * on a 24×24 grid, so it is its own component: handle, engine, deck and two wheels.
  */
-export function MowerIcon({ className = "" }: { className?: string }) {
+export function MowerIcon({ className = "", ref }: { className?: string; ref?: React.Ref<SVGSVGElement> }) {
     return (
-        <svg className={className} viewBox="0 0 44 31" aria-hidden="true" focusable="false">
+        <svg className={className} ref={ref} viewBox="0 0 44 31" aria-hidden="true" focusable="false">
             <path d="M2 4h8M6 4l13 15" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
             <rect x="21" y="9" width="13" height="9" rx="2" fill="var(--accent-2)" />
             <path d="M26 9V6h4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

@@ -101,7 +101,7 @@ test("1 · the hero: the live words, and the form on the page", () => {
         [
             "Get found. <br /> Get called. <br />",
             "We build you a website that gets you found and noticed. Then we go a step further and replace your voicemail with a 24/7 receptionist. Every lead lands in one place.",
-            'Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, lawn care, pressure washing and auto detailing businesses.',
+            'Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, <Link href="/lawn-care" className="home-trade-link">lawn care</Link>, pressure washing and auto detailing businesses.',
             "<HeroForm />",
         ],
         "the hero",

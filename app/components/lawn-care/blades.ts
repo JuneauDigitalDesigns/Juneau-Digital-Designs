@@ -88,7 +88,3 @@ export function drawBlades({ width, height, seed, min, max, shades, step, sway, 
  */
 export const SIGN_BACK = { height: 100, seed: 11, min: 44, max: 92, shades: ["g1", "g1", "g2", "g2", "g6", "g3"], step: 3.1, sway: 0.55, overhang: 4 } as const;
 export const SIGN_FRONT = { height: 100, seed: 29, min: 14, max: 40, shades: ["g2", "g3", "g3", "g4", "g4", "g5", "g6"], step: 2.6, sway: 0.55, overhang: 4 } as const;
-
-/** The lawn under the calculator: long grass, and the short mown row the mower leaves behind it. */
-export const MEADOW_TALL = { seed: 7, shades: ["g1", "g1", "g2", "g2", "g6", "g3"], step: 2.7, sway: 0.5, overhang: 2 } as const;
-export const MEADOW_SHORT = { seed: 19, min: 9, max: 17, shades: ["g3", "g4", "g4", "g5", "g5", "g2"], step: 2.2, sway: 0.25, overhang: 2 } as const;
