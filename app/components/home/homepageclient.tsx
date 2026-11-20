@@ -53,12 +53,15 @@ function Hero() {
                         <br />
                         <span className="home-em">Run like a team.</span>
                     </h1>
+                    {/* Xander's three beats, approved word for word on 19 Nov 2026 (draft A): the website,
+                        the receptionist in voicemail's place, the one place leads land. */}
                     <p className="hp-hero-p">
-                        A website that gets you called, a 24/7 receptionist that answers when you can&apos;t, and one place where every lead waits for you. The front office you never had to hire.
+                        We build you a website that gets you found and noticed. Then we go a step further and replace your voicemail with a 24/7 receptionist. Every lead lands in one place.
                     </p>
-                    {/* Each trade becomes a link once its own page is live (HVAC, 19 Nov 2026). Words unchanged. */}
+                    {/* Each trade becomes a link once its own page is live (HVAC, then plumbing, 19 Nov 2026).
+                        "auto detailing" is Xander's exact wording (19 Nov 2026). */}
                     <p className="hp-hero-trades">
-                        Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, plumbing, roofing, lawn care, pressure washing and detailing businesses.
+                        Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, lawn care, pressure washing and auto detailing businesses.
                     </p>
                 </div>
                 <HeroForm />
