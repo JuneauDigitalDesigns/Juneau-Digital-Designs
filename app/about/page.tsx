@@ -246,6 +246,15 @@ export default function AboutPage() {
                             care of people. I was learning how to lead and get results.
                         </p>
                         <p>That&apos;s how I treat my clients now: like friends or family.</p>
+                        {/* Closes the hospitality block before the story moves on to college, which
+                            is where Xander wanted the beat (19 Nov 2026) and which keeps the
+                            engineer line last, handing off to "What makes a website actually work."
+                            His thought, in his words: "the hospitality industry has never really
+                            left me and you never really leave it." Both halves have to stay. */}
+                        <p>
+                            The hospitality industry never really left me. I don&apos;t think you ever really leave
+                            it.
+                        </p>
                         <p>
                             I worked and studied at the same time, and earned an Associate in Science degree in
                             Electronics Engineering Technology from Valencia College in 2019. My plan was a career designing
