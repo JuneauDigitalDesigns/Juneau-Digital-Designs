@@ -20,13 +20,18 @@ import type { SpokenConsent } from "./spoken-consent";
 
 /**
  * The website form's SMS consent wording, by version: `@jdd/ui` `LEAD_SMS_CONSENT_TEXT`
- * (approved 2026-11-02, v1.3.0 onwards). The agency has no `@jdd/ui` dependency, so the words are
+ * (approved 2026-11-02, v1.3.0 onwards; respelled "inquiry" as v2 in v1.9.0, 2026-11-20). The agency has no `@jdd/ui` dependency, so the words are
  * copied here and the hash is computed from them. A new wording in `@jdd/ui` needs a row here, or
  * its form leads can't be texted.
  */
 const LEAD_SMS_CONSENT_TEXTS: Record<string, string> = {
     "lead-sms-consent-v1":
         "By giving us your number you agree we may text you about your enquiry. Message and data rates may apply. " +
+        "Message frequency varies. Reply STOP to opt out, HELP for help.",
+    // @jdd/ui v1.9.0 (2026-11-20): v1 respelled "inquiry", approved by Xander. Keep v1: leads already
+    // stored carry it, and they must stay textable.
+    "lead-sms-consent-v2":
+        "By giving us your number you agree we may text you about your inquiry. Message and data rates may apply. " +
         "Message frequency varies. Reply STOP to opt out, HELP for help.",
 };
 
