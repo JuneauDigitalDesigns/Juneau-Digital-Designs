@@ -42,6 +42,10 @@ export const HVAC_DESCRIPTION = `We write, build and host your HVAC website, and
 export const PLUMBING_TITLE = "Plumber Website Design + 24/7 AI Receptionist | JDD";
 export const PLUMBING_DESCRIPTION = `We write, build and host your plumbing website, and an AI receptionist answers the calls you miss, 24/7, from burst pipes to water heaters. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
 
+/** /lawn-care. Xander approved the page, with this title and description, on 19 Nov 2026. */
+export const LAWN_CARE_TITLE = "Lawn Care Website Design + 24/7 AI Receptionist | JDD";
+export const LAWN_CARE_DESCRIPTION = `We write, build and host your lawn care website, and an AI receptionist answers the calls you miss, 24/7, from weekly mowing to spring cleanups. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
+
 /**
  * /contact. Xander approved the page, with this title and description, from the round-1 mockup
  * (19 Nov 2026). Its /contact/thank-you child is deliberately NOT a public path: it is the
@@ -60,6 +64,7 @@ export const PUBLIC_PATHS = [
     "/about",
     "/hvac",
     "/plumbing",
+    "/lawn-care",
     "/contact",
     "/pricing",
     "/faq",
@@ -366,4 +371,51 @@ export function faqJsonLd(entries: FaqEntry[]) {
 /** JSON for a `<script type="application/ld+json">`, with `<` escaped so no text can close the tag. */
 export function jsonLdString(data: unknown): string {
     return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
+/**
+ * /lawn-care's structured data: the page, and the service it describes. Mirrors the HVAC and
+ * plumbing builders, with lawn care's own audience and wording, so the three trade pages describe
+ * themselves to search engines the same way. Only what the page itself says, nothing more.
+ */
+export function lawnCareJsonLd() {
+    const starter = SCHEDULES.starter;
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": `${SITE_URL}/lawn-care#page`,
+                url: `${SITE_URL}/lawn-care`,
+                name: LAWN_CARE_TITLE,
+                description: LAWN_CARE_DESCRIPTION,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${SITE_URL}/lawn-care#service` },
+            },
+            {
+                "@type": "Service",
+                "@id": `${SITE_URL}/lawn-care#service`,
+                name: "Websites and a 24/7 AI receptionist for lawn care companies",
+                serviceType: "Website design and AI answering service",
+                description: LAWN_CARE_DESCRIPTION,
+                url: `${SITE_URL}/lawn-care`,
+                provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
+                audience: { "@type": "BusinessAudience", name: "Lawn care companies" },
+                offers: {
+                    "@type": "Offer",
+                    name: starter.name,
+                    url: `${SITE_URL}/pricing`,
+                    priceCurrency: "USD",
+                    price: starter.monthlyPrice,
+                    priceSpecification: {
+                        "@type": "UnitPriceSpecification",
+                        price: starter.monthlyPrice,
+                        priceCurrency: "USD",
+                        unitCode: "MON",
+                        referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+                    },
+                },
+            },
+        ],
+    };
 }
