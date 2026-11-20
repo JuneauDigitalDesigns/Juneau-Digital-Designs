@@ -31,8 +31,10 @@ export const metadata: Metadata = pageMetadata("/plumbing", PLUMBING_TITLE, PLUM
  * quote: the three receptionist lines are the standard ones every client's script is written from
  * (it can't transfer, it won't quote, it confirms the service area), two of them in Xander's own
  * wording. The urgent list is the plumbing site design's own emergency words. The caller's lines,
- * the two inbox leads and their summaries are examples. The searches are real and sourced
- * (`app/data/plumbing-searches.ts`). No region is named: that is settled site-wide.
+ * the two inbox leads and their summaries are examples. The searches are real and sourced: their
+ * phrases and counts come from `app/data/trade-searches.ts`, the site's one list of published
+ * keyword figures, and `app/data/plumbing-searches.ts` only picks the four this page shows and
+ * where each breaks for the bolding. No region is named: that is settled site-wide.
  *
  * Styles are `.plumb-*` at the end of globals.css. `.plumb-m-cut` marks what a phone leaves out.
  * The closing pair is the shared `PageAsk`, the same component /hvac, /about and /faq close on.
