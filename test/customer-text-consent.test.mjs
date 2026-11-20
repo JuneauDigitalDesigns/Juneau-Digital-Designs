@@ -215,3 +215,22 @@ test("a form consent covers only its own number, and only the approved wording",
     assert.equal(rules.formConsentCovers(null, CELL), false);
     assert.equal(rules.LEAD_SMS_CONSENT_HASHES["lead-sms-consent-v1"], FORM_HASH, "pinned to @jdd/ui v1.7.0's wording");
 });
+
+/** @jdd/ui v1.9.0 `LEAD_SMS_CONSENT_TEXT` (v2, 2026-11-20): v1 respelled "inquiry". */
+const FORM_TEXT_V2 =
+    "By giving us your number you agree we may text you about your inquiry. Message and data rates may apply. Message frequency varies. Reply STOP to opt out, HELP for help.";
+/** The hash @jdd/ui's own test pins for v2, so the two repos are held to one wording. */
+const FORM_HASH_V2 = "729ea625dbf0c0d592b3fb6724803609eac36593495eb02b67a021665da79169";
+
+test("the respelled form wording (v2) is approved, and v1 records still are", () => {
+    // Without the v2 row, every lead from a v1.9.0 form reads as no consent and can't be texted.
+    assert.equal(createHash("sha256").update(FORM_TEXT_V2).digest("hex"), FORM_HASH_V2);
+    assert.equal(rules.LEAD_SMS_CONSENT_HASHES["lead-sms-consent-v2"], FORM_HASH_V2);
+    const lead = (consent) => ({ phone: CELL, phoneRaw: CELL, fields: { consent: JSON.stringify(consent) } });
+    const v2 = { basis: "web-form", textHash: FORM_HASH_V2, textVersion: "lead-sms-consent-v2" };
+    assert.equal(rules.formConsentCovers(lead(v2), CELL), true, "a v2 form lead can be texted");
+    assert.equal(rules.formConsentCovers({ phone: CELL, phoneRaw: CELL, fields: { consent: FORM_CONSENT } }, CELL), true, "v1 leads still can");
+    // A version names exactly one wording: each hash under the other's name is refused.
+    assert.equal(rules.formConsentCovers(lead({ ...v2, textHash: FORM_HASH }), CELL), false);
+    assert.equal(rules.formConsentCovers(lead({ ...v2, textVersion: "lead-sms-consent-v1" }), CELL), false);
+});
