@@ -18,4 +18,5 @@ export interface TradePage {
 export const TRADE_PAGES: readonly TradePage[] = [
     { label: "HVAC", href: "/hvac" },
     { label: "Plumbing", href: "/plumbing" },
+    { label: "Lawn Care", href: "/lawn-care" },
 ];

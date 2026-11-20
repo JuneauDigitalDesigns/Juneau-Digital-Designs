@@ -283,11 +283,10 @@ test("the page has its approved title, description, sitemap entry and Trades lis
     assert.match(read("app/plumbing/page.tsx"), /pageMetadata\("\/plumbing", PLUMBING_TITLE, PLUMBING_DESCRIPTION\)/);
     assert.ok(PUBLIC_PATHS.includes("/plumbing"), "/plumbing is not a public path");
     assert.ok(sitemap().some((e) => e.url === `${SITE_URL}/plumbing`), "/plumbing is missing from the sitemap");
-    // One list feeds both the nav's Trades menu and the footer's Trades column.
-    assert.deepEqual(
-        TRADE_PAGES.map((t) => t.href),
-        ["/hvac", "/plumbing"],
-    );
+    // One list feeds both the nav's Trades menu and the footer's Trades column. It grows as trade
+    // pages ship, so what matters here is that /plumbing is in it, under /hvac.
+    const trades = TRADE_PAGES.map((t) => t.href);
+    assert.deepEqual(trades.slice(0, 2), ["/hvac", "/plumbing"]);
 });
 
 test("the structured data says only what the page says", () => {

@@ -5387,3 +5387,723 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   /* Left off a phone, so the page explains itself without a wall of words. */
   .plumb-m-cut { display: none !important; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   /lawn-care — the third trade page, built to the mockup Xander approved on
+   19 Nov 2026 (https://claude.ai/artifact/1qwJGQuyTGL13qfjLvUPXA), desktop and
+   phone. Local to this page: every selector is prefixed `lawn-`, and the greens
+   live only here, since the rest of the site is sand and coral.
+   ───────────────────────────────────────────────────────────────────────────── */
+.lawn-page {
+  /* The only green on the site. Six of them, so a lawn does not read as one flat colour. */
+  --lawn-g1: #1e4028;
+  --lawn-g2: #2f7a33;
+  --lawn-g3: #4c8c3a;
+  --lawn-g4: #6ba34d;
+  --lawn-g5: #8fbf6a;
+  --lawn-g6: #5d7f2a;
+  /* The mown stripe behind the hero's lawns, and the dark pass of a search bar. */
+  --lawn-stripe: #dccba0;
+  --lawn-stripe-dark: #2b281d;
+  /* The call panel's dark surface. */
+  --lawn-ink: #f4ecd8;
+  --lawn-ink-2: rgba(244, 236, 216, 0.62);
+  --lawn-ink-3: rgba(244, 236, 216, 0.76);
+  --lawn-panel-rule: rgba(244, 236, 216, 0.13);
+  --lawn-panel-card: rgba(244, 236, 216, 0.10);
+  --lawn-shadow: rgba(20, 18, 12, 0.45);
+  /* The client portal's own palette, borrowed for the inbox. */
+  --lawn-p-bg: #f6f7f9;
+  --lawn-p-card: #ffffff;
+  --lawn-p-fg: #0d1117;
+  --lawn-p-fg-2: #4a5058;
+  --lawn-p-fg-3: #656b73;
+  --lawn-p-accent: #2563eb;
+  --lawn-p-attn: #c2410c;
+  --lawn-p-attn-wash: #fbeee7;
+  --lawn-p-rule: rgba(13, 17, 23, 0.09);
+  --lawn-p-rule-strong: rgba(13, 17, 23, 0.18);
+  background: var(--bg);
+}
+.lawn-shell {
+  max-width: calc(1120px + 2 * clamp(18px, 4vw, 56px));
+  margin: 0 auto;
+  padding: clamp(88px, 11vw, 152px) clamp(18px, 4vw, 56px);
+}
+.lawn-shell-hero { padding-block: clamp(36px, 5vw, 72px) clamp(88px, 11vw, 140px); }
+.lawn-coral { color: var(--accent-2); }
+
+/* Mown stripes on the sand bands: the one mark of a lawn the whole page carries, in sand. */
+.lawn-page .wash { position: relative; }
+.lawn-page .wash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(20, 18, 12, 0.03) 0 72px, transparent 72px 144px);
+  -webkit-mask-image: linear-gradient(180deg, transparent 4%, #000 20%, #000 80%, transparent 96%);
+  mask-image: linear-gradient(180deg, transparent 4%, #000 20%, #000 80%, transparent 96%);
+}
+.lawn-page .wash > .lawn-shell { position: relative; }
+
+.lawn-h1,
+.lawn-h2,
+.lawn-onroute-h,
+.lawn-lands-h,
+.lawn-left-h,
+.lawn-qa-h,
+.lawn-left-grid h4,
+.lawn-part-h {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  text-wrap: balance;
+  color: var(--fg);
+}
+.lawn-h1 { margin-top: 14px; font-size: clamp(50px, 9vw, 116px); font-weight: 900; line-height: 0.86; letter-spacing: 0.005em; }
+.lawn-h2 { font-size: clamp(38px, 6.4vw, 80px); font-weight: 900; line-height: 0.9; }
+.lawn-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 48ch; }
+.lawn-eg {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.lawn-centre { display: grid; gap: 16px; justify-items: center; text-align: center; }
+.lawn-split-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 72px);
+  align-items: end;
+}
+.lawn-ic {
+  display: block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A voice, drawn. */
+.lawn-wave { display: inline-flex; align-items: center; gap: 3px; height: 20px; flex: none; }
+.lawn-wave > i { width: 3px; height: 40%; border-radius: 2px; background: currentColor; }
+.lawn-wave > i:nth-child(2) { height: 85%; }
+.lawn-wave > i:nth-child(3) { height: 55%; }
+.lawn-wave > i:nth-child(4) { height: 100%; }
+.lawn-wave > i:nth-child(5) { height: 45%; }
+.lawn-wave > i:nth-child(6) { height: 75%; }
+.lawn-wave > i:nth-child(7) { height: 30%; }
+@media (prefers-reduced-motion: no-preference) {
+  .lawn-wave-live > i { animation: lawn-speak 1.1s ease-in-out infinite; transform-origin: 50% 50%; }
+  .lawn-wave-live > i:nth-child(2) { animation-delay: -0.2s; }
+  .lawn-wave-live > i:nth-child(3) { animation-delay: -0.5s; }
+  .lawn-wave-live > i:nth-child(4) { animation-delay: -0.8s; }
+  .lawn-wave-live > i:nth-child(5) { animation-delay: -0.35s; }
+  .lawn-wave-live > i:nth-child(6) { animation-delay: -0.65s; }
+  .lawn-wave-live > i:nth-child(7) { animation-delay: -0.1s; }
+}
+@keyframes lawn-speak {
+  0%, 100% { transform: scaleY(0.45); }
+  50% { transform: scaleY(1); }
+}
+
+/* ── 1 · Hero: the claim left; a morning's mowing route and its calls, right ── */
+.lawn-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr);
+  gap: clamp(36px, 6vw, 88px);
+  align-items: center;
+}
+.lawn-intro { margin-top: 28px; max-width: 30ch; font-family: var(--font-body); font-size: clamp(18px, 1.9vw, 23px); font-weight: 600; line-height: 1.35; }
+.lawn-hero-copy .lawn-lede { margin-top: 14px; }
+.lawn-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+.lawn-onroute { display: grid; justify-items: center; gap: 18px; }
+.lawn-onroute-h { font-size: clamp(30px, 3.4vw, 44px); font-weight: 900; line-height: 0.92; text-align: center; }
+.lawn-route {
+  width: min(430px, 100%);
+  padding: 20px 20px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--elev-1);
+  box-shadow: 0 34px 60px -40px var(--lawn-shadow);
+}
+.lawn-route-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
+.lawn-route-head b { font-family: var(--font-display); font-size: 26px; font-weight: 900; line-height: 1; text-transform: uppercase; }
+.lawn-leg { display: grid; gap: 6px; padding-block: 14px 12px; border-bottom: 1px solid var(--rule); }
+.lawn-leg:last-child { border-bottom: 0; padding-bottom: 4px; }
+.lawn-leg-top { display: flex; align-items: baseline; gap: 10px; }
+.lawn-leg-top b { font-family: var(--font-body); font-size: 16px; font-weight: 700; line-height: 1.2; }
+.lawn-leg-state {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.lawn-leg[data-state="next"] .lawn-leg-state,
+.lawn-leg[data-state="done"] .lawn-leg-state { color: var(--fg-3); }
+/* One lawn. --p is how far the mower has got: stripes behind it, bare grass ahead. At rest (and
+   with motion turned off) every lawn sits part-mown with its call already answered, so the page
+   says what it means before any script runs. */
+.lawn-plot {
+  --p: 78%;
+  position: relative;
+  height: 46px;
+  margin-top: 18px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  background: var(--elev-1);
+}
+.lawn-mown {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--p);
+  border-radius: 3px 0 0 3px;
+  background: repeating-linear-gradient(90deg, var(--wash) 0 7px, var(--lawn-stripe) 7px 14px);
+}
+.lawn-plot .lawn-mower { position: absolute; bottom: 2px; left: var(--p); width: 44px; height: 31px; margin-left: -27px; color: var(--fg); overflow: visible; }
+.lawn-leg[data-state="next"] .lawn-mower,
+.lawn-leg[data-state="done"] .lawn-mower { opacity: 0; }
+/* The call, planted where the mower was: grey when it rang, coral a little further on, answered. */
+.lawn-pin {
+  position: absolute;
+  z-index: 1;
+  top: -18px;
+  width: 30px;
+  height: 30px;
+  margin-left: -15px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 14px;
+  color: var(--elev-1);
+  box-shadow: 0 0 0 3px var(--elev-1);
+  opacity: 0;
+  transform: scale(0.2);
+  transition: transform 0.3s cubic-bezier(0.3, 1.6, 0.5, 1), opacity 0.18s;
+}
+.lawn-pin::after { content: ""; position: absolute; top: 100%; left: 50%; width: 2px; height: 33px; margin-left: -1px; background: inherit; }
+.lawn-pin-rang { left: var(--ring); background: var(--fg-3); }
+.lawn-pin-got { left: var(--got); background: var(--accent-2); }
+.lawn-leg.is-rung .lawn-pin-rang,
+.lawn-leg.is-got .lawn-pin-got { opacity: 1; transform: scale(1); }
+.lawn-incoming {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-height: 20px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.lawn-leg.is-rung .lawn-incoming { opacity: 1; }
+.lawn-incoming-top { font-size: 13.5px; font-weight: 600; line-height: 1.4; }
+.lawn-incoming-state { display: grid; }
+.lawn-incoming-state > span { grid-area: 1 / 1; display: flex; align-items: center; gap: 6px; transition: opacity 0.25s; }
+.lawn-ringing { color: var(--fg-3); }
+.lawn-answered { color: var(--accent-2); font-weight: 600; opacity: 0; }
+.lawn-leg.is-got .lawn-ringing { opacity: 0; }
+.lawn-leg.is-got .lawn-answered { opacity: 1; }
+.lawn-answered .lawn-wave { height: 13px; gap: 2px; }
+.lawn-answered .lawn-wave > i { width: 2px; }
+.lawn-then { max-width: 30ch; font-size: 16px; color: var(--fg-2); text-align: center; }
+.lawn-then b { color: var(--fg); }
+@media (prefers-reduced-motion: no-preference) {
+  .lawn-leg.is-rung:not(.is-got) .lawn-pin-rang svg { animation: lawn-jingle 0.45s ease-in-out infinite; }
+  .lawn-leg[data-state="mowing"] .lawn-mower { animation: lawn-rumble 0.22s linear infinite; }
+}
+@keyframes lawn-jingle {
+  0%, 100% { transform: rotate(-14deg); }
+  50% { transform: rotate(14deg); }
+}
+@keyframes lawn-rumble {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+/* ── 2 · The receptionist on a lawn call: what it hears, and what it writes down ── */
+.lawn-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.lawn-now .lawn-wave { height: 22px; }
+.lawn-hw { margin-top: clamp(52px, 7vw, 84px); display: grid; grid-template-columns: minmax(0, 1.2fr) 68px minmax(0, 1fr); }
+/* The call: one dark panel, a marker for each voice, so it stands off the page beside the lead. */
+.lawn-talk { padding: 22px 24px; display: grid; gap: 16px; align-content: center; border-top: 1px solid var(--lawn-panel-rule); background: var(--fg); color: var(--lawn-ink); }
+.lawn-talk-head { border-top: 0; border-radius: 10px 10px 0 0; padding-block: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.lawn-talk-last { border-radius: 0 0 10px 10px; box-shadow: 0 34px 46px -30px var(--lawn-shadow); }
+.lawn-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lawn-ink);
+}
+.lawn-bar-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 4px var(--accent-glow); }
+.lawn-talk-head > .lawn-wave { color: var(--accent-2); height: 16px; gap: 2px; }
+.lawn-talk-head > .lawn-wave > i { width: 2px; }
+.lawn-turn { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 3px 14px; align-items: start; }
+.lawn-av { grid-row: span 2; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; font-size: 15px; }
+.lawn-turn-rec .lawn-av { background: var(--accent-2); color: var(--on-accent-2); box-shadow: 0 0 0 4px var(--accent-glow); }
+.lawn-turn-rec .lawn-av .lawn-wave { height: 15px; gap: 2px; }
+.lawn-turn-rec .lawn-av .lawn-wave > i { width: 2px; }
+.lawn-turn-caller .lawn-av { background: var(--lawn-panel-card); color: var(--lawn-ink-2); }
+.lawn-who {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lawn-ink-2);
+}
+.lawn-turn-rec .lawn-who span { color: var(--accent-2); }
+.lawn-who time { letter-spacing: 0.04em; }
+.lawn-turn-rec .lawn-says { font-family: var(--font-body); font-size: clamp(17px, 1.7vw, 20px); font-weight: 600; line-height: 1.35; color: var(--lawn-ink); }
+.lawn-turn-caller .lawn-says { font-size: 16px; line-height: 1.5; color: var(--lawn-ink-3); }
+/* Each exchange is joined to the field it fills. */
+.lawn-arrow { position: relative; display: grid; place-items: center; }
+.lawn-arrow::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px dashed var(--rule-strong); }
+.lawn-arrow-head::before { display: none; }
+.lawn-go {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-2);
+  color: var(--on-accent-2);
+  font-size: 16px;
+  box-shadow: 0 0 0 4px var(--wash);
+}
+.lawn-field {
+  padding: 18px 22px;
+  display: grid;
+  gap: 4px;
+  align-content: center;
+  border-inline: 1px solid var(--rule);
+  border-bottom: 1px dashed var(--rule-strong);
+  background: var(--elev-1);
+}
+.lawn-field-head {
+  border-top: 1px solid var(--rule);
+  border-bottom: 2px solid var(--fg);
+  border-radius: 10px 10px 0 0;
+  padding-block: 16px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.lawn-field-head b { font-family: var(--font-display); font-size: 26px; font-weight: 900; line-height: 1; text-transform: uppercase; }
+.lawn-field-last { border-bottom: 1px solid var(--rule); border-radius: 0 0 10px 10px; box-shadow: 0 34px 46px -34px var(--lawn-shadow); }
+.lawn-field-lbl {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.lawn-field-val { font-family: var(--font-display); font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; line-height: 1.05; letter-spacing: 0.01em; text-transform: uppercase; }
+.lawn-field-yours .lawn-field-val { color: var(--accent-2); }
+.lawn-field-yours .lawn-field-val span { border-bottom: 3px dashed var(--accent-2); padding-bottom: 2px; }
+
+/* The call ends, and an arrow hands off to where the lead lands. */
+.lawn-ended { margin-top: clamp(30px, 4vw, 44px); display: grid; justify-items: center; }
+.lawn-end-pill {
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.lawn-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
+.lawn-end-arrow { margin-top: -16px; font-size: 26px; color: var(--fg); stroke-width: 2.4; }
+.lawn-lands { margin-top: 18px; display: grid; justify-items: center; gap: clamp(26px, 3.4vw, 40px); text-align: center; }
+/* 16ch, not the mockup's 18ch: the site's Big Shoulders sets narrower than the web font the
+   mockup drew with, and at 18ch this heading fell to two lines instead of the three Xander
+   approved. The measure is tuned to the shipped face so the stack is the one he signed off. */
+.lawn-lands-h { max-width: 16ch; margin-inline: auto; font-size: clamp(32px, 4.4vw, 58px); font-weight: 900; line-height: 0.92; }
+.lawn-lands-sub { margin: 14px auto 0; max-width: 50ch; font-size: clamp(16px, 1.5vw, 19px); color: var(--fg-2); }
+
+/* The portal inbox's own rows: unread dot, name, status, time, the summary, where it came from. */
+.lawn-inbox {
+  width: min(760px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--lawn-p-rule-strong);
+  border-radius: 12px;
+  background: var(--lawn-p-bg);
+  box-shadow: 0 30px 60px -38px var(--lawn-shadow);
+  font-family: var(--font-inter), "Inter", system-ui, sans-serif;
+  color: var(--lawn-p-fg);
+  text-align: left;
+}
+.lawn-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--lawn-p-rule); background: var(--lawn-p-card); }
+.lawn-inbox-top b { font-size: 16px; font-weight: 700; }
+.lawn-inbox-top span { padding: 3px 10px; border: 1px solid var(--lawn-p-rule-strong); border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--lawn-p-fg-2); }
+.lawn-inbox-day { padding: 12px 18px 6px; font-family: var(--font-mono); font-size: 10.5px; line-height: 1.4; letter-spacing: 0.1em; color: var(--lawn-p-fg-3); }
+.lawn-irow { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 12px; padding: 14px 18px; border-top: 1px solid var(--lawn-p-rule); background: var(--lawn-p-card); }
+.lawn-irow-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--lawn-p-accent); }
+.lawn-irow-r1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.lawn-irow-r1 strong { font-size: 15.5px; font-weight: 700; }
+.lawn-irow-chip { padding: 2px 9px; border-radius: 999px; background: var(--lawn-p-attn-wash); font-size: 12.5px; font-weight: 600; color: var(--lawn-p-attn); }
+.lawn-irow-r1 time { margin-left: auto; font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.4; }
+.lawn-irow-pv { margin-top: 5px; font-size: 14px; line-height: 1.45; }
+.lawn-irow-mini { display: inline-block; margin-top: 8px; padding: 1px 8px; border: 1px solid var(--lawn-p-rule-strong); border-radius: 999px; font-size: 11.5px; font-weight: 600; color: var(--lawn-p-fg-2); }
+.lawn-irow.is-read { opacity: 0.55; }
+.lawn-irow.is-read .lawn-irow-dot { background: transparent; }
+.lawn-irow.is-read strong { font-weight: 600; }
+.lawn-under-line { margin-top: -6px; font-family: var(--font-body); font-size: clamp(17px, 1.7vw, 20px); font-weight: 600; line-height: 1.4; }
+
+/* Three things it leaves to the owner. Lawn care has no emergencies, so this stands where the
+   other trade pages put their urgent list. */
+.lawn-left { margin-top: clamp(64px, 8vw, 108px); }
+.lawn-left-h { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 0.92; }
+.lawn-left-grid { margin-top: 26px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--fg); }
+.lawn-left-grid > div { padding: 24px clamp(14px, 2.2vw, 28px) 26px; display: grid; gap: 10px; align-content: start; border-left: 1px solid var(--wash-rule); }
+.lawn-left-grid > div:first-child { padding-left: 0; border-left: 0; }
+.lawn-left-grid h4 { margin: 0; font-size: clamp(26px, 3vw, 38px); font-weight: 900; line-height: 0.95; }
+.lawn-left-grid p { font-size: 16px; line-height: 1.5; color: var(--fg-2); }
+.lawn-left-foot { margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--wash-rule); font-family: var(--font-body); font-size: 17px; font-weight: 600; line-height: 1.4; }
+
+/* ── 3 · The website: one picture of the design, and the part you pick ── */
+.lawn-tour { margin-top: clamp(52px, 7vw, 88px); display: grid; gap: 0; }
+.lawn-frame { overflow: hidden; border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--elev-1); box-shadow: 0 30px 60px -36px var(--lawn-shadow); }
+.lawn-frame-bar { display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-bottom: 1px solid var(--rule); font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; line-height: 1; color: var(--fg-3); }
+.lawn-frame-bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--rule-strong); }
+.lawn-frame-bar span { margin-left: 10px; }
+.lawn-view,
+.lawn-shot {
+  aspect-ratio: 1280 / 760;
+  max-width: 100%;
+  background-image: url("/lawn-care-site.webp");
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lawn-view { transition: background-position 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
+}
+.lawn-parts { margin-top: 26px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.lawn-part {
+  appearance: none;
+  margin: 0;
+  padding: 18px clamp(12px, 1.8vw, 24px) 6px 0;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  border: 0;
+  border-top: 2px solid var(--rule-strong);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lawn-part + .lawn-part { padding-left: clamp(12px, 1.8vw, 24px); border-left: 1px solid var(--rule); }
+.lawn-part .lawn-shot { display: none; border: 1px solid var(--rule-strong); border-radius: 6px; }
+.lawn-part-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
+.lawn-part-h { display: block; font-size: clamp(21px, 2.1vw, 25px); font-weight: 800; line-height: 1; }
+.lawn-part-p { display: block; font-size: 15.5px; line-height: 1.5; color: var(--fg-2); }
+.lawn-part.is-on { border-top-color: var(--accent-2); }
+.lawn-part.is-on .lawn-part-tag { color: var(--accent-2); }
+.lawn-part:hover .lawn-part-h { color: var(--accent-2); }
+.lawn-part:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.lawn-shotcap { margin-top: 22px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+
+/* ── 4 · Searched, as mowing passes to scale; asked, on yard signs in grass ── */
+.lawn-find h2 { max-width: 15ch; }
+/* Same reason as `.lawn-lands-h`: unconstrained, the shipped face fits this on one line, where
+   the approved mockup stacks it in two. */
+.lawn-season-h { max-width: 20ch; }
+.lawn-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 64px); align-items: start; }
+.lawn-qa-h { display: flex; align-items: center; gap: 12px; font-size: clamp(24px, 2.8vw, 34px); font-weight: 900; line-height: 0.95; }
+.lawn-qa-h .lawn-ic,
+.lawn-qa-h .lawn-wave { color: var(--accent-2); }
+.lawn-qa-h .lawn-ic { font-size: 0.8em; stroke-width: 2.6; }
+.lawn-qa-h .lawn-wave { height: 0.7em; }
+.lawn-passes { list-style: none; margin: 22px 0 0; padding: 0; border-top: 2px solid var(--fg); }
+.lawn-passes li { padding-block: 14px 16px; display: grid; gap: 9px; border-bottom: 1px solid var(--wash-rule); }
+.lawn-pass-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.lawn-pass-q { font-family: var(--font-body); font-size: clamp(18px, 1.9vw, 22px); font-weight: 600; line-height: 1.25; }
+.lawn-pass-n {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+}
+.lawn-pass { height: 16px; min-width: 3px; border-radius: 2px; background: repeating-linear-gradient(90deg, var(--fg) 0 9px, var(--lawn-stripe-dark) 9px 18px); }
+.lawn-src { margin-top: 14px; }
+.lawn-answers { margin-top: 26px; display: grid; gap: 10px; font-size: 16px; color: var(--fg-2); }
+.lawn-answers-lead { font-family: var(--font-body); font-size: clamp(18px, 1.8vw, 21px); font-weight: 600; line-height: 1.4; color: var(--fg); }
+/* Yard signs, staked into grass: a taller row of blades behind them, a shorter one in front of
+   the stakes. The ground line runs to the outermost blade, which the script measures. */
+.lawn-signs { position: relative; margin-top: 22px; padding: 6px 12px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: end; border-bottom: 4px solid transparent; }
+.lawn-signs::after { content: ""; position: absolute; left: var(--lawn-gl, 0px); right: var(--lawn-gr, 0px); bottom: -4px; height: 4px; background: var(--lawn-g1); }
+.lawn-grass { position: absolute; left: 0; bottom: 0; width: 100%; height: 100px; overflow: visible; pointer-events: none; }
+.lawn-grass-back { z-index: 0; }
+.lawn-grass-front { z-index: 2; }
+.lawn-grass .g1, .lawn-meadow .g1 { fill: var(--lawn-g1); }
+.lawn-grass .g2, .lawn-meadow .g2 { fill: var(--lawn-g2); }
+.lawn-grass .g3, .lawn-meadow .g3 { fill: var(--lawn-g3); }
+.lawn-grass .g4, .lawn-meadow .g4 { fill: var(--lawn-g4); }
+.lawn-grass .g5, .lawn-meadow .g5 { fill: var(--lawn-g5); }
+.lawn-grass .g6, .lawn-meadow .g6 { fill: var(--lawn-g6); }
+.lawn-sign { position: relative; z-index: 1; padding-bottom: 52px; display: grid; }
+.lawn-sign::before,
+.lawn-sign::after { content: ""; position: absolute; bottom: 0; width: 3px; height: 52px; background: var(--fg); }
+.lawn-sign::before { left: 24%; }
+.lawn-sign::after { right: 24%; }
+.lawn-sign-face { padding: 12px 12px 14px; display: grid; gap: 8px; align-content: start; border: 2px solid var(--fg); border-radius: 4px; background: var(--elev-1); box-shadow: 0 14px 22px -18px var(--lawn-shadow); }
+.lawn-sign:nth-child(2) .lawn-sign-face { transform: rotate(-1.6deg); }
+.lawn-sign:nth-child(3) .lawn-sign-face { transform: rotate(1.2deg); }
+.lawn-sign:nth-child(4) .lawn-sign-face { transform: rotate(-0.8deg); }
+.lawn-sign:nth-child(3) { padding-bottom: 70px; }
+.lawn-sign:nth-child(3)::before,
+.lawn-sign:nth-child(3)::after { height: 70px; }
+.lawn-sign-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.lawn-sign-meta .lawn-wave { height: 12px; gap: 2px; color: var(--accent-2); }
+.lawn-sign-meta .lawn-wave > i { width: 2px; }
+.lawn-sign q { font-family: var(--font-body); font-size: clamp(16px, 1.55vw, 19px); font-weight: 700; line-height: 1.25; quotes: "\201C" "\201D"; }
+
+/* ── 5 · The missed call, as a season: a sentence to fill in, and the sum drawn as a lawn ── */
+.lawn-season { margin-top: clamp(44px, 6vw, 72px); display: grid; justify-items: center; gap: clamp(28px, 4vw, 44px); }
+.lawn-fill { max-width: 34ch; font-family: var(--font-body); font-size: clamp(24px, 3.2vw, 38px); font-weight: 600; line-height: 1.5; text-align: center; }
+.lawn-blank {
+  display: inline-flex;
+  align-items: baseline;
+  padding-inline: 4px;
+  border-bottom: 3px solid var(--accent-2);
+  font-family: var(--font-display);
+  font-size: 1.25em;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--accent-2);
+  font-variant-numeric: tabular-nums;
+}
+/* The site-wide form rule (top of this file) paints every input grey with dark text and, on a
+   phone, forces 16px, all `!important`. These figures are type, not form boxes, so they take it
+   back. Six classes outrank that rule's five :not()s; an id selector would too, but this build
+   drops rules that start with one. */
+.lawn-season .lawn-blank input.lawn-blank-in.lawn-blank-in.lawn-blank-in.lawn-blank-in {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+.lawn-blank-in {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.lawn-blank-in:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.lawn-blank-in::-webkit-outer-spin-button,
+.lawn-blank-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.lawn-sumpic { width: min(860px, 100%); display: grid; gap: clamp(18px, 2.6vw, 26px); }
+.lawn-one { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; }
+.lawn-one-each { font-family: var(--font-body); font-size: clamp(17px, 1.7vw, 20px); font-weight: 600; line-height: 1.3; }
+.lawn-one b { font-family: var(--font-display); font-size: clamp(26px, 3vw, 36px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+/* The two figures, each over its own part of the lawn: won back on the left, over the mown strip;
+   lost on the right, over the tall grass. */
+.lawn-halves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 2px solid var(--fg); }
+.lawn-halves > div { padding: 18px 12px 0; display: grid; gap: 8px; justify-items: center; align-content: start; text-align: center; }
+.lawn-halves > div + div { border-left: 1px solid var(--rule); }
+.lawn-halves-lbl {
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.lawn-key { flex: none; width: 18px; border-radius: 2px 2px 0 0; }
+.lawn-key-short { height: 5px; background: var(--lawn-g4); }
+.lawn-key-long { height: 15px; background: linear-gradient(90deg, var(--lawn-g1) 0 34%, var(--lawn-g2) 34% 67%, var(--lawn-g6) 67%); }
+.lawn-amt { font-family: var(--font-display); font-size: clamp(40px, 7vw, 84px); font-weight: 900; line-height: 0.9; font-variant-numeric: tabular-nums; }
+.lawn-halves > div:first-child .lawn-amt { color: var(--accent-2); }
+.lawn-of { font-family: var(--font-body); font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--fg-2); }
+/* One lawn, two figures to one scale. The tall grass IS the money lost; the mown strip beside it
+   IS the money won back, so it is half as long and the mower stops a third of the way across.
+   --m is how far the mower has gone; the bracket spans exactly the grass still standing. */
+.lawn-meadow {
+  --m: 0%;
+  --gh: 132px;
+  position: relative;
+  height: calc(var(--gh) + 36px);
+  margin-bottom: 34px;
+  border-bottom: 4px solid var(--lawn-g1);
+}
+.lawn-meadow-g { position: absolute; left: 0; bottom: 0; width: 100%; height: var(--gh); overflow: visible; pointer-events: none; }
+.lawn-meadow-tall { clip-path: inset(-60px 0 0 var(--m)); }
+.lawn-meadow-short { clip-path: inset(0 calc(100% - var(--m)) 0 0); }
+.lawn-bracket { position: absolute; left: var(--m); right: 0; bottom: calc(var(--gh) * 1.02 + 6px); height: 10px; border: 2px solid var(--fg); border-bottom: 0; border-radius: 3px 3px 0 0; }
+.lawn-bracket span {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+}
+/* The mown strip's own mark, under the ground line. */
+.lawn-under { position: absolute; left: 0; width: var(--m); top: calc(100% + 10px); height: 9px; border: 2px solid var(--accent-2); border-top: 0; border-radius: 0 0 3px 3px; opacity: 0; }
+.lawn-meadow.is-mown .lawn-under { opacity: 1; }
+.lawn-under span {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 5px;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-2);
+}
+.lawn-meadow-mower { position: absolute; z-index: 1; bottom: 0; left: max(var(--m), 74px); width: 92px; height: 65px; margin-left: -70px; color: var(--fg); overflow: visible; }
+.lawn-sum-src { margin-top: 22px; text-align: center; }
+
+/* ── 6 · Close ── */
+.lawn-close-h { font-size: clamp(44px, 8vw, 104px); }
+.lawn-ask { margin-top: clamp(36px, 5vw, 56px); }
+
+@media (max-width: 860px) {
+  .lawn-hero,
+  .lawn-split-head,
+  .lawn-qa { grid-template-columns: minmax(0, 1fr); }
+  .lawn-hero-copy,
+  .lawn-split-head,
+  .lawn-left-h,
+  .lawn-find,
+  .lawn-qa-h { text-align: center; }
+  .lawn-intro,
+  .lawn-hero-copy .lawn-lede,
+  .lawn-split-head .lawn-lede,
+  .lawn-lands-sub { margin-inline: auto; }
+  .lawn-acts,
+  .lawn-qa-h,
+  .lawn-now { justify-content: center; }
+  /* Each exchange becomes one card: what was said on top, dark; what it wrote on the lead
+     attached underneath, with the arrow on the seam between them. */
+  .lawn-hw { grid-template-columns: minmax(0, 1fr); }
+  .lawn-talk-head { margin-top: 0; padding: 0; justify-content: center; border-radius: 0; background: none; }
+  .lawn-talk-head .lawn-bar { padding: 10px 16px; border-radius: 999px; background: var(--fg); }
+  .lawn-talk-head > .lawn-wave,
+  .lawn-arrow-head,
+  .lawn-field-head { display: none; }
+  .lawn-talk,
+  .lawn-talk-last { margin-top: 20px; padding: 20px 16px 30px; border-top: 0; border-radius: 12px 12px 0 0; box-shadow: none; }
+  .lawn-arrow { height: 0; z-index: 1; }
+  .lawn-arrow::before { display: none; }
+  .lawn-go { position: absolute; top: -16px; transform: rotate(90deg); box-shadow: 0 0 0 4px var(--elev-1); }
+  .lawn-field,
+  .lawn-field-last { padding: 26px 16px 18px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 12px 12px; box-shadow: 0 22px 30px -26px var(--lawn-shadow); }
+  .lawn-field::before {
+    content: "Written on the lead";
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+  }
+  .lawn-irow-r1 time { margin-left: 0; flex-basis: 100%; order: 3; }
+  .lawn-left-grid { grid-template-columns: minmax(0, 1fr); }
+  .lawn-left-grid > div,
+  .lawn-left-grid > div:first-child { padding: 20px 0; border-left: 0; border-bottom: 1px solid var(--wash-rule); }
+  .lawn-left-foot { border-top: 0; text-align: center; }
+  /* The one big picture gives way to a picture over each point, since the controls that move it
+     are no use on a phone. */
+  .lawn-frame { display: none; }
+  .lawn-parts { grid-template-columns: minmax(0, 1fr); gap: 36px; margin-top: 0; }
+  .lawn-part,
+  .lawn-part + .lawn-part,
+  .lawn-part.is-on { padding: 0; border: 0; cursor: default; }
+  .lawn-part .lawn-shot { display: block; margin-bottom: 8px; }
+  .lawn-part-tag { color: var(--accent-2); }
+  .lawn-signs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-inline: 6px; }
+  .lawn-sign q { font-size: 15.5px; }
+  .lawn-fill br { display: none; }
+  .lawn-meadow { --gh: 104px; }
+  .lawn-meadow-mower { width: 70px; height: 50px; margin-left: -54px; left: max(var(--m), 58px); }
+  .lawn-halves-lbl { font-size: 10.5px; }
+  .lawn-of { font-size: 14px; }
+  /* Left off a phone, so the page explains itself without a wall of words. */
+  .lawn-m-cut { display: none !important; }
+}
