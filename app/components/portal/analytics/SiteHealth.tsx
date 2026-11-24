@@ -73,14 +73,14 @@ export function SiteHealth({
                         calls.state === "ready" ? (
                             lastCallAt ? `Last call ${relativeTime(lastCallAt)}` : "Answering your calls"
                         ) : calls.state === "not-on-plan" ? (
-                            // Web-only: the receptionist is in their plan and switching it on is
-                            // accepting the standard Starter terms, not an upgrade.
+                            // The website plan: adding the receptionist is its one upgrade, to
+                            // Starter + AI Receptionist (prorated, no new onboarding fee).
                             <a
                                 href={addReceptionistHref(slug)}
                                 className="underline underline-offset-2"
                                 style={{ color: "var(--accent)" }}
                             >
-                                Add your receptionist
+                                Add the AI receptionist
                             </a>
                         ) : (
                             receptionistDetail(calls)

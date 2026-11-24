@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { PortalSiteProps } from "@/app/portal/types";
+import { planName, planNameOf, type PortalSiteProps } from "@/app/portal/types";
 import { StatTile } from "./ui/StatTile";
 import { FeatureError } from "./ui/FeatureState";
 import { SectionCard, FieldRow, StaticField, inputStyle } from "./ui/FormPrimitives";
@@ -47,6 +47,11 @@ interface BillingData {
     canUpdateCard?: boolean;
     /** A downgrade the client accepted, waiting for the end of the paid period. */
     pendingPlanChange?: { fromPlan: string; toPlan: string; effectiveAt: number } | null;
+    /**
+     * Set by the server only while the first payment is under 30 days old (Terms v7): the first
+     * monthly fee that cancelling now refunds. The card never works this out itself.
+     */
+    refund?: { amount: number; currency: string } | null;
     paymentMethod?: { brand: string; last4: string; expMonth: number; expYear: number } | null;
     invoices?: Invoice[];
     error?: string;
@@ -63,12 +68,6 @@ function money(cents: number | null | undefined, currency = "usd"): string | nul
 function date(ms: number | null | undefined): string {
     return billingDate(ms) || "—";
 }
-
-const planLabel: Record<string, string> = {
-    starter: "Starter",
-    growth: "Growth",
-    enterprise: "Enterprise",
-};
 
 const CONTACT = "hello@juneaudigitaldesigns.com";
 
@@ -132,7 +131,7 @@ export default function BillingSection({
         return (
             <div className="space-y-8">
                 <SectionCard title="Plan" dataTour="billing-plan">
-                    <StaticField label="Plan" value={planLabel[site.plan] ?? site.plan} />
+                    <StaticField label="Plan" value={planName(site)} />
                     <StaticField label="Billing account" value={accountEmail} />
                     <p className="text-sm" style={{ color: "var(--fg-2)" }}>
                         {body}
@@ -172,12 +171,12 @@ export default function BillingSection({
             <div data-tour="billing-plan" className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatTile
                     label="Plan"
-                    value={planLabel[site.plan] ?? site.plan}
+                    value={planName(site)}
                     hint={amount && data.interval ? `${amount} per ${data.interval}` : undefined}
                     size="sm"
                 />
                 <StatTile label={C.statusLabel} value={statusText(status)} tone={statusTone(status.kind)} size="sm" />
-                <NextPaymentTile data={data} kind={status.kind} />
+                <NextPaymentTile data={data} kind={status.kind} minutes={!site.webOnly} />
             </div>
 
             {usage && <div data-tour="billing-minutes">{usage}</div>}
@@ -188,8 +187,8 @@ export default function BillingSection({
                     style={{ color: "var(--fg-2)", background: "var(--surface)", borderColor: "var(--rule)" }}
                 >
                     {downgradeTile({
-                        toName: planLabel[data.pendingPlanChange.toPlan] ?? data.pendingPlanChange.toPlan,
-                        fromName: planLabel[data.pendingPlanChange.fromPlan] ?? data.pendingPlanChange.fromPlan,
+                        toName: planNameOf(data.pendingPlanChange.toPlan),
+                        fromName: planNameOf(data.pendingPlanChange.fromPlan),
                         date: date(data.pendingPlanChange.effectiveAt),
                     })}
                 </p>
@@ -305,6 +304,7 @@ export default function BillingSection({
                 <CancellationCard
                     site={site}
                     periodEnd={data.currentPeriodEnd ?? null}
+                    refundAmount={data.refund ? money(data.refund.amount, data.refund.currency) : null}
                     endsAt={status.kind === "cancelling" ? (status.endsAt ?? null) : null}
                 />
             )}
@@ -319,7 +319,7 @@ function statusTone(kind: BillingStatusKind): "default" | "positive" | "negative
     return "default";
 }
 
-function NextPaymentTile({ data, kind }: { data: BillingData; kind: BillingStatusKind }) {
+function NextPaymentTile({ data, kind, minutes }: { data: BillingData; kind: BillingStatusKind; minutes: boolean }) {
     const next = data.nextPayment ?? null;
     if (kind === "active") {
         // The real next invoice (overage included); the plan price only if Stripe's preview failed.
@@ -332,7 +332,7 @@ function NextPaymentTile({ data, kind }: { data: BillingData; kind: BillingStatu
         return <StatTile label={C.nextPaymentLabel} value={value} hint={C.overdueHint} tone="negative" size="sm" />;
     }
     if (kind === "cancelling") {
-        return <StatTile label={C.nextPaymentLabel} value={C.nextPaymentNone} hint={C.nextPaymentNoneHint} size="sm" />;
+        return <StatTile label={C.nextPaymentLabel} value={C.nextPaymentNone} hint={minutes ? C.nextPaymentNoneHint : C.nextPaymentNoneHintNoMinutes} size="sm" />;
     }
     return <StatTile label={C.nextPaymentLabel} value={C.nextPaymentNone} size="sm" />;
 }
@@ -480,11 +480,14 @@ function PaymentMethodCard({
 function CancellationCard({
     site,
     periodEnd,
+    refundAmount,
     endsAt,
 }: {
     site: PortalSiteProps;
     /** When the month already paid for ends (epoch ms). */
     periodEnd: number | null;
+    /** The first monthly fee a cancel today refunds, as shown ("$97"), or null after the 30 days. */
+    refundAmount: string | null;
     /** Set when the subscription is already cancelling. */
     endsAt: number | null;
 }) {
@@ -518,7 +521,7 @@ function CancellationCard({
     return (
         <SectionCard title="Cancellation">
             <p className="text-sm mb-4" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                {cancellationCardText({ periodEnd: date(periodEnd) })}
+                {cancellationCardText({ periodEnd: date(periodEnd), minutes: !site.webOnly, refundAmount: refundAmount ?? undefined })}
             </p>
 
             {site.plan === "enterprise" && (
@@ -544,6 +547,7 @@ function CancellationCard({
                 <CancelDialog
                     site={site}
                     periodEnd={periodEnd}
+                    refundAmount={refundAmount}
                     onClose={() => setOpen(false)}
                     onCancelled={(effectiveDate) => {
                         setOpen(false);
@@ -561,13 +565,15 @@ function CancellationCard({
 function CancelDialog({
     site,
     periodEnd,
+    refundAmount,
     onClose,
     onCancelled,
 }: {
     site: PortalSiteProps;
     periodEnd: number | null;
+    refundAmount: string | null;
     onClose: () => void;
-    onCancelled: (effectiveDate: string) => void;
+    onCancelled: (effectiveDate: string | null) => void;
 }) {
     const [confirm, setConfirm] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -595,7 +601,9 @@ function CancelDialog({
             });
             const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
             if (!res.ok) throw new Error((data.error as string) ?? "Cancellation failed");
-            onCancelled(data.effectiveDate as string);
+            // A cancel inside the 30-day window ends the service today and answers `refunded`
+            // with no end date: the refreshed tab then shows the Cancelled banner.
+            onCancelled(typeof data.effectiveDate === "string" ? data.effectiveDate : null);
         } catch (e) {
             setError(e instanceof Error ? e.message : "Cancellation failed. Please contact support.");
             setSubmitting(false);
@@ -621,7 +629,7 @@ function CancelDialog({
                     {C.confirmHeading}
                 </h2>
                 <p className="text-sm mb-2.5" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                    {cancellationCardText({ periodEnd: date(periodEnd) })}
+                    {cancellationCardText({ periodEnd: date(periodEnd), minutes: !site.webOnly, refundAmount: refundAmount ?? undefined })}
                 </p>
                 <p className="text-sm mb-3" style={{ color: "var(--fg-2)" }}>
                     {C.confirmAfter}

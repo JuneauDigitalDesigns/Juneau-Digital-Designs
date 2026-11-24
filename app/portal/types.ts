@@ -1,3 +1,4 @@
+import { PLAN_LABELS } from "@jdd/schema";
 import type {
     FeatureAvailability,
     PortalFeature,
@@ -22,6 +23,12 @@ export interface PortalSiteProps {
      *  so the portal had no way to link a client to the site it reports on. */
     canonical: string | null;
     plan: PortalPlan;
+    /**
+     * Whether this is the website-only Starter plan: the schema's `isWebOnly`, worked out on the
+     * server because the browser never sees `receptionistMode`. True for plan `website` and for
+     * the legacy shape (`starter` with the receptionist declined), so old records read the same.
+     */
+    webOnly: boolean;
     status: PortalSiteStatus;
     /**
      * Whether a subscription pointer exists on the record — the *derived* result of
@@ -231,26 +238,58 @@ export function tabHref(href: string, slug: string): string {
 }
 
 /**
- * Where the Call Log upsell sends a Starter client.
+ * The plan a site is on, for naming and for deciding what it can do.
  *
- * The upgrade starts at the agreement rather than at checkout on purpose: Growth is a
- * materially different schedule (a voice agent, 350 call minutes, overage at $0.20/min), so
- * the terms are re-signed before the subscription changes. `/terms/accept` already renders the
- * right schedule from `?plan=`; `?upgrade=` tells it to finish at the upgrade endpoint
- * instead of the first-purchase checkout.
+ * A web-only site on the legacy shape (`starter` + declined) is the website plan, so it is named
+ * and offered the same as one stored as `website`.
  */
-export function upgradeHref(slug: string): string {
-    return `/terms/accept?plan=growth&upgrade=${encodeURIComponent(slug)}`;
+export function effectivePlan(site: Pick<PortalSiteProps, "plan" | "webOnly">): PortalPlan {
+    return site.webOnly ? "website" : site.plan;
 }
 
 /**
- * Where a website-only client switches the AI receptionist on (D7, 2026-11-04).
- *
- * The receptionist is part of Starter; website-only is the same price with it declined, signed
- * against a different schedule. Switching it on is accepting the standard Starter terms with a
- * phone choice, at no charge (contract v5.3 §15.4, Starter: no onboarding fee). Xander then
- * provisions it with onboard.js.
+ * The plan's name for a client, always from `PLAN_LABELS`; a name is never built from the id,
+ * because the id `starter` is no longer shown as "Starter". `short` is for tight chips only.
  */
+export function planName(
+    site: Pick<PortalSiteProps, "plan" | "webOnly">,
+    short = false,
+): string {
+    return planNameOf(effectivePlan(site), short);
+}
+
+/**
+ * Which tour a site gets, from its plan rather than from what its CRM is doing right now (a
+ * Growth site still being built has a CRM that is not ready yet, and used to get the Starter walk).
+ */
+export function tourTierFor(site: Pick<PortalSiteProps, "plan" | "webOnly">): "website" | "starter" | "growth" {
+    const plan = effectivePlan(site);
+    if (plan === "growth" || plan === "enterprise") return "growth";
+    return plan === "website" ? "website" : "starter";
+}
+
+/** The same, for a plan id with no site at hand (a pending plan change names two plans). */
+export function planNameOf(plan: string, short = false): string {
+    const label = (PLAN_LABELS as Record<string, { name: string; short: string }>)[plan];
+    if (!label) return plan;
+    return short ? label.short : label.name;
+}
+
+/**
+ * Where a client's one upsell goes. Website-only has exactly one: Starter + AI Receptionist
+ * (D5), never Growth. A receptionist plan's is Growth, as it was.
+ *
+ * Both start at the agreement rather than at checkout on purpose: each is a materially
+ * different schedule, so the terms are re-signed before the subscription changes. `/terms/accept`
+ * renders the right schedule from `?plan=`, and `?upgrade=` tells it to finish at the upgrade
+ * endpoint (prorated now, no new onboarding fee) instead of the first-purchase checkout.
+ */
+export function upgradeHref(slug: string, site?: Pick<PortalSiteProps, "plan" | "webOnly">): string {
+    const to = site?.webOnly ? "starter" : "growth";
+    return `/terms/accept?plan=${to}&upgrade=${encodeURIComponent(slug)}`;
+}
+
+/** Where "Add the AI receptionist" goes: the website plan's one upgrade. */
 export function addReceptionistHref(slug: string): string {
-    return `/terms/accept?plan=starter&receptionist=${encodeURIComponent(slug)}`;
+    return `/terms/accept?plan=starter&upgrade=${encodeURIComponent(slug)}`;
 }

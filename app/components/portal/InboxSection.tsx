@@ -33,6 +33,7 @@ import {
 } from "./inbox/model";
 import * as api from "./inbox/api";
 import InboxToolbar from "./inbox/InboxToolbar";
+import PastCalls from "./inbox/PastCalls";
 import InboxList, { CaughtUp, NothingMatches, dialNumber } from "./inbox/InboxList";
 import LeadDetail from "./inbox/LeadDetail";
 import UndoToast, { type UndoState } from "./inbox/UndoToast";
@@ -65,10 +66,18 @@ import { ShortcutHelp } from "./inbox/ShortcutHelp";
 interface InboxData {
     state: "ready" | "not-on-plan" | "pending-build" | "connecting" | "error";
     items: InboxItem[];
+    /**
+     * The calls a website-plan site kept from before its receptionist ended (B4). Present only for a
+     * site that has them: that is what draws the Past calls chip. Read-only, and never in `items`.
+     */
+    pastCalls?: InboxItem[];
     canPromote: boolean;
     truncated?: boolean;
     error?: string;
 }
+
+/** The `f` value of the Past calls view. Not an `InboxFilter`: it is a separate, read-only list. */
+const PAST_FILTER = "past";
 
 type Override = Partial<Pick<InboxItem, "archived" | "remindAt" | "read">>;
 
@@ -110,6 +119,8 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
     );
 
     const filter = parseInboxFilter(params.get("f"));
+    /** The Past calls view: only reachable when the payload carries past calls (B4). */
+    const pastView = params.get("f") === PAST_FILTER && Boolean(data?.pastCalls);
     const rawSearch = params.get("q") ?? "";
     const search = rawSearch.trim().toLowerCase();
     const urlOpen = params.get("open") || null;
@@ -592,16 +603,16 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
         return (
             <div className="space-y-6">
                 <SectionHeader title="Inbox" />
-                <FeatureState feature="leads" availability={{ state: data.state }} />
+                <FeatureState feature="leads" availability={{ state: data.state }} webOnly={site.webOnly} />
             </div>
         );
     }
 
-    if (all.length === 0) {
+    if (all.length === 0 && !data.pastCalls) {
         return (
             <div className="space-y-6">
                 <SectionHeader title="Inbox" />
-                <FeatureState feature="leads" availability={{ state: "ready" }} />
+                <FeatureState feature="leads" availability={{ state: "ready" }} webOnly={site.webOnly} />
             </div>
         );
     }
@@ -621,6 +632,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
             now={now}
             isDesktop={isDesktop}
             canPromote={canPromote}
+            webOnly={site.webOnly}
             remindSupported={remindSupported}
             promoting={promoting}
             remindOpen={remindOpen}
@@ -655,6 +667,8 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 onBulkClear={() => setChecked(new Set())}
                 searchRef={searchRef}
                 isDesktop={isDesktop}
+                webOnly={site.webOnly}
+                pastCalls={data.pastCalls ? { active: pastView, onOpen: () => setParam("f", PAST_FILTER) } : undefined}
             />
 
             {error && !paneOpen && (
@@ -663,6 +677,9 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                 </p>
             )}
 
+            {pastView ? (
+                <PastCalls items={data.pastCalls ?? []} now={now} isDesktop={isDesktop} />
+            ) : (
             <div className="portal-elev overflow-hidden lg:flex lg:h-[calc(100dvh-196px)] lg:min-h-[520px]">
                 {/* The list takes the full width until a record opens beside it. */}
                 <div
@@ -701,6 +718,7 @@ export default function InboxSection({ site }: { site: PortalSiteProps }) {
                     </div>
                 )}
             </div>
+            )}
 
             {/* Phone: the lead fills the screen, over the tab bar, and slides in from the right.
                 Fixed inside `.portal-scope`, so it reads the tokens like everything else. */}

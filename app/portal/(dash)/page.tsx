@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import type { PortalAccount, PortalSite } from "@jdd/schema";
+import { isWebOnly, type PortalAccount, type PortalSite } from "@jdd/schema";
 import { BuildProgress } from "@/app/components/portal/BuildProgress";
 import {
     GrowthProvisioning,
@@ -34,7 +34,7 @@ import {
     reviewsTile,
     type TileSpec,
 } from "@/app/components/portal/overview/OverviewTiles";
-import { GrowthLockedPanel, PipelineCard } from "@/app/components/portal/overview/PipelineCard";
+import { GrowthLockedPanel, PipelineCard, ReceptionistUpsellPanel } from "@/app/components/portal/overview/PipelineCard";
 import { currentSiteContext } from "@/app/lib/portal-dashboard";
 import { getInfraSnapshot } from "@/app/lib/portal-infra";
 import { getCachedScore } from "@/app/lib/portal-overview";
@@ -68,7 +68,7 @@ import {
     sinceLabel,
     spanLabel,
 } from "@/app/lib/portal-overview-time";
-import { tabHref, type PortalSiteProps } from "@/app/portal/types";
+import { addReceptionistHref, tabHref, type PortalSiteProps } from "@/app/portal/types";
 import { sampleInbox, samplePipeline } from "@/app/components/portal/tour/sample-data";
 import type { SampleTrade } from "@/app/data/trade-samples";
 
@@ -197,9 +197,14 @@ export default async function OverviewPage({
                         </Suspense>
                     ) : site.features.crm.state === "not-on-plan" ? (
                         // PR C makes `demo=growth` open the Growth demo on arrival.
-                        <GrowthLockedPanel
-                            demoHref={`${tabHref("customers", site.slug)}&demo=growth`}
-                        />
+                        site.webOnly ? (
+                            // Website plan: the one upsell is the AI receptionist, never Growth (D5).
+                            <ReceptionistUpsellPanel href={addReceptionistHref(site.slug)} />
+                        ) : (
+                            <GrowthLockedPanel
+                                demoHref={`${tabHref("customers", site.slug)}&demo=growth`}
+                            />
+                        )
                     ) : null}
 
                     <Suspense fallback={<CardSkeleton rows={4} />}>
@@ -222,7 +227,11 @@ interface BlockProps {
 /** The Inbox the blocks read: the client's, or the tour's samples. */
 async function inboxFor(account: PortalAccount, raw: PortalSite, sample: SampleTrade | null | undefined): Promise<OverviewInbox> {
     if (!sample) return getOverviewInbox(account, raw);
-    return { state: "ready", items: sampleInbox(sample, new Date(overviewClock().nowMs)), truncated: false };
+    return {
+        state: "ready",
+        items: sampleInbox(sample, new Date(overviewClock().nowMs), { webOnly: isWebOnly(raw) }),
+        truncated: false,
+    };
 }
 
 async function crmFor(account: PortalAccount, raw: PortalSite, sample: SampleTrade | null | undefined): Promise<OverviewCrm> {
@@ -258,7 +267,7 @@ async function LeadsBlock({ site, raw, account, sample }: BlockProps) {
     const inbox = await inboxFor(account, raw, sample);
     if (inbox.state === "error") return <FeatureError message={inbox.error} />;
     if (inbox.state !== "ready") {
-        return <FeatureState feature="leads" availability={{ state: inbox.state }} siteSlug={site.slug} />;
+        return <FeatureState feature="leads" availability={{ state: inbox.state }} webOnly={site.webOnly} />;
     }
 
     const { nowMs, timeZone, week } = overviewClock();
@@ -276,6 +285,7 @@ async function LeadsBlock({ site, raw, account, sample }: BlockProps) {
                 timeZone={timeZone}
             />
             <LeadsWeekCard
+                webOnly={site.webOnly}
                 week={thisWeek}
                 todayIndex={week.todayIndex}
                 chart={site.features.crm.state === "ready"}
@@ -298,7 +308,8 @@ async function TilesBlock({ site, raw, account, sample }: BlockProps) {
     const items = inbox.state === "ready" ? inbox.items : [];
     const { nowMs, timeZone, week } = overviewClock();
     const hours = clientHours(raw);
-    const caught = caughtAfterHours(items, week, { hours, timeZone });
+    // Calls caught after hours: the website plan has no calls, so there is no tile.
+    const caught = site.webOnly ? null : caughtAfterHours(items, week, { hours, timeZone });
 
     const tiles: TileSpec[] = [];
     if (growth) {

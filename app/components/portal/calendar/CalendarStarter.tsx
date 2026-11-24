@@ -9,10 +9,10 @@ import { SectionHeader } from "../ui/Card";
  * own: the demo opens on the Customers page (`?demo=growth`, the contract `StarterShowcase`
  * honours), and plans compare on the pricing page.
  */
-export default function CalendarStarter({ siteSlug }: { siteSlug: string }) {
+export default function CalendarStarter({ siteSlug, webOnly = false }: { siteSlug: string; webOnly?: boolean }) {
     return (
         <div className="space-y-6">
-            <SectionHeader title="Calendar" meta="Not included on Starter" />
+            <SectionHeader title="Calendar" meta="Not included on your plan" />
             <div
                 className="rounded-2xl border p-7 lg:p-8 flex gap-8 flex-wrap items-center"
                 style={{ background: "var(--elev-1)", borderColor: "var(--elev-border)", boxShadow: "var(--shadow-1)" }}
@@ -30,6 +30,8 @@ export default function CalendarStarter({ siteSlug }: { siteSlug: string }) {
                     </p>
                 </div>
                 <div className="flex flex-col gap-2.5 w-full sm:w-auto sm:min-w-[260px]">
+                    {/* The website plan gets no demo (D5): its one upsell is the receptionist. */}
+                    {!webOnly && (
                     <Link
                         href={`/portal/customers?site=${encodeURIComponent(siteSlug)}&demo=growth`}
                         data-tour="growth-demo-open"
@@ -43,6 +45,7 @@ export default function CalendarStarter({ siteSlug }: { siteSlug: string }) {
 
                         <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
                     </Link>
+                    )}
                     <Link
                         href="/pricing"
                         className="w-full rounded-lg border px-4 py-3 text-sm font-semibold text-center"

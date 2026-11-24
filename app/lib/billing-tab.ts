@@ -99,6 +99,8 @@ export const BILLING_COPY = {
     cancellingBannerAfter: "You keep full access until then, and a confirmation was sent to your account email.",
     nextPaymentNone: "None",
     nextPaymentNoneHint: "apart from any call-minute overage from this month",
+    /** B6 (24 Nov 2026): the website plan has no minutes, so its hint says nothing about overage. */
+    nextPaymentNoneHintNoMinutes: undefined as string | undefined,
     renewsEnding: (date: string) => `Your service ends on ${date}.`,
 
     // §5.5 other states.

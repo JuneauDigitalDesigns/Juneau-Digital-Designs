@@ -56,7 +56,21 @@ function dollars(line: string | undefined, fallback: number): number {
 
 /* ── the Inbox ───────────────────────────────────────────────────────────── */
 
-export function sampleInbox(trade: SampleTrade, now: Date): InboxItem[] {
+export function sampleInbox(trade: SampleTrade, now: Date, opts: { webOnly?: boolean } = {}): InboxItem[] {
+    const all = sampleInboxAll(trade, now);
+    if (!opts.webOnly) return all;
+    // A website-plan client has no calls, so the tour shows only form inquiries. The tour's own
+    // lead (the one the Handle step opens) stays, as a form inquiry, so that step still has one.
+    return all
+        .filter((i) => i.source !== "call" || i.id === TOUR_LEAD_ID)
+        .map((i) =>
+            i.id === TOUR_LEAD_ID
+                ? { ...i, source: "web-form" as const, durationSeconds: null, email: "dave@example.com", outcome: null }
+                : i,
+        );
+}
+
+function sampleInboxAll(trade: SampleTrade, now: Date): InboxItem[] {
     const s = tradeSample(trade);
     const base = {
         callbackPhone: null,

@@ -18,7 +18,11 @@ import { TOUR_LEAD_ID, TOUR_RECORD_ID } from "./sample-data";
  * element ids, never classes. A step whose anchor is not on the page shows as a centred card.
  */
 
-export type TourTier = "starter" | "growth";
+/**
+ * Three walks. `website` is the website-only Starter plan: no calls, no minutes, no lead texts, and
+ * one upsell (the AI receptionist). `starter` is Starter + AI Receptionist, as before.
+ */
+export type TourTier = "website" | "starter" | "growth";
 export type TourSection = "Home" | "Inbox" | "Customers" | "Calendar" | "More";
 export type RecordTabId = "timeline" | "contact" | "jobs" | "notes";
 
@@ -44,7 +48,10 @@ export interface TourStep {
     section: TourSection;
     /** Which page of More (or of the rail) the step is on, shown after the section name. */
     label?: string;
-    tier?: TourTier;
+    /** The tier or tiers that walk this step. Absent: every tier. */
+    tier?: TourTier | readonly TourTier[];
+    /** Words a tier reads instead, where the plan changes what the step is about. */
+    as?: Partial<Record<TourTier, { title?: string; body?: string; phone?: { title?: string; body?: string } }>>;
     /** A hand-off card: the title alone, pointing at the next section's tab. */
     handoff?: boolean;
     title: string;
@@ -102,10 +109,18 @@ export const TOUR_STEPS: TourStep[] = [
         phone: { body: "Leads still waiting on you. Tap Call back, or Inbox to see them all." },
         ...both("/portal", at("ov-needs")),
     },
-    { id: "week", section: "Home", title: "This week", body: "Your new leads this week, from calls and from your website.", ...both("/portal", at("ov-week")) },
+    {
+        id: "week",
+        section: "Home",
+        title: "This week",
+        body: "Your new leads this week, from calls and from your website.",
+        as: { website: { body: "Your new leads this week, from your website." } },
+        ...both("/portal", at("ov-week")),
+    },
     {
         id: "tiles",
         section: "Home",
+        tier: ["starter", "growth"],
         title: "The numbers that matter",
         body: "How fast callers got a call back, how many you caught after hours, and what's due today.",
         ...both("/portal", at("ov-tiles")),
@@ -118,6 +133,14 @@ export const TOUR_STEPS: TourStep[] = [
         body: "This is what happens after the call on Growth. Tap Show me what Growth does for me for a quick demo.",
         ...both("/portal", at("ov-locked")),
     },
+    {
+        id: "receptionist-adds",
+        section: "Home",
+        tier: "website",
+        title: "What the AI receptionist adds",
+        body: "When you can't pick up, the AI receptionist answers and puts the caller in your Inbox. Tap Add the AI receptionist to see the plan.",
+        ...both("/portal", at("ov-locked")),
+    },
     { id: "activity", section: "Home", title: "Latest activity", body: "Everything that's happened lately, newest first.", ...both("/portal", at("ov-activity")) },
     { id: "to-inbox", section: "Home", handoff: true, title: "Now let's take a look at your Inbox.", body: "", ...tabs("nav-calls", "tab-calls", "/portal") },
 
@@ -127,6 +150,7 @@ export const TOUR_STEPS: TourStep[] = [
         section: "Inbox",
         title: "👋 This is your inbox",
         body: "Every call your receptionist answers and every inquiry from your website lands here. Tap one to see who it was and what they wanted.",
+        as: { website: { body: "Every inquiry from your website lands here. Tap one to see who it was and what they wanted." } },
         ...both("/portal/calls", at("inbox-list")),
     },
     {
@@ -134,6 +158,7 @@ export const TOUR_STEPS: TourStep[] = [
         section: "Inbox",
         title: "Find anything fast",
         body: "**Needs you** shows what's still waiting on you. Switch to **All**, **Calls** or **Forms**, or search by name, number or what they said.",
+        as: { website: { body: "**Needs you** shows what's still waiting on you. Switch to **All**, or search by name, email or what they said." } },
         ...both("/portal/calls", at("inbox-filters")),
     },
     {
@@ -148,6 +173,7 @@ export const TOUR_STEPS: TourStep[] = [
     {
         id: "said",
         section: "Inbox",
+        tier: ["starter", "growth"],
         title: "What they said",
         body: "Your receptionist writes up what they wanted. Play the recording to hear the whole call.",
         ...both("/portal/calls", at("inbox-detail"), { open: "lead" }),
@@ -291,7 +317,7 @@ export const TOUR_STEPS: TourStep[] = [
     {
         id: "further",
         section: "Customers",
-        tier: "starter",
+        tier: ["website", "starter"],
         title: "Want to go further?",
         body: "Growth adds a record for each customer, a calendar for your jobs, texting from the portal, and one-click Google review requests.",
         phone: { body: "Growth adds a record for each customer, a calendar for your jobs, texting from the portal, and one-tap Google review requests." },
@@ -300,7 +326,7 @@ export const TOUR_STEPS: TourStep[] = [
     {
         id: "further-calendar",
         section: "Customers",
-        tier: "starter",
+        tier: ["website", "starter"],
         title: "Want to go further?",
         body: "The calendar comes with Growth too. Book jobs, keep track of estimates and schedule follow-ups, all from the same customer record.",
         ...tabs("nav-calendar", "tab-calendar", "/portal/calls"),
@@ -308,7 +334,7 @@ export const TOUR_STEPS: TourStep[] = [
     {
         id: "to-more-starter",
         section: "Customers",
-        tier: "starter",
+        tier: ["website", "starter"],
         handoff: true,
         title: "Now let's take a look at everything in More.",
         body: "",
@@ -369,6 +395,7 @@ export const TOUR_STEPS: TourStep[] = [
         id: "settings",
         section: "More",
         label: "Settings",
+        tier: ["starter", "growth"],
         title: "Your alerts and your plan",
         body: "Choose the mobile number that gets a text for every new lead, and see your plan and invoices.",
         desktop: { at: { path: "/portal/settings" }, anchor: at("nav-settings") },
@@ -378,6 +405,7 @@ export const TOUR_STEPS: TourStep[] = [
         id: "alerts",
         section: "More",
         label: "Settings",
+        tier: ["starter", "growth"],
         title: "Text alerts",
         body: "The mobile number here gets a text for every new lead. Change it any time.",
         ...both("/portal/settings", at("settings-alerts")),
@@ -388,6 +416,7 @@ export const TOUR_STEPS: TourStep[] = [
         id: "minutes",
         section: "More",
         label: "Settings",
+        tier: ["starter", "growth"],
         title: "Call minutes",
         body: "How many of your receptionist's call minutes you've used so far.",
         ...both("/portal/settings/billing", at("billing-minutes")),
@@ -415,16 +444,25 @@ export const TOUR_STEPS: TourStep[] = [
     },
 ];
 
+/** Does a tier walk this step? */
+function inTier(step: TourStep, tier: TourTier): boolean {
+    if (!step.tier) return true;
+    return typeof step.tier === "string" ? step.tier === tier : step.tier.includes(tier);
+}
+
 /** The whole walk for a tier on a kind of device, in order. */
 export function walkFor(tier: TourTier, device: TourDevice): TourStep[] {
-    return TOUR_STEPS.filter((s) => (!s.tier || s.tier === tier) && s[device] !== null);
+    return TOUR_STEPS.filter((s) => inTier(s, tier) && s[device] !== null);
 }
 
 /** The words a step shows on a kind of device. */
 export function wordsFor(step: TourStep, device: TourDevice, tier: TourTier): { title: string; body: string } {
     const phone = device === "mobile";
-    const title = (phone && step.phone?.title) || step.title;
-    const body = ((phone && step.phone?.body) || step.body) + (step.win && tier === "growth" ? WIN_JOBS : "");
+    const own = step.as?.[tier];
+    const title = (phone && (own?.phone?.title ?? step.phone?.title)) || own?.title || step.title;
+    const body =
+        ((phone && (own?.phone?.body ?? step.phone?.body)) || own?.body || step.body) +
+        (step.win && tier === "growth" ? WIN_JOBS : "");
     return { title, body };
 }
 

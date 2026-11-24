@@ -163,7 +163,7 @@ export default function TourController({
         (steps: TourStep[], device: TourDevice, whole: boolean, from = 0) => {
             if (!steps.length) return;
             clearCache();
-            startSampleMode({ trade, growth: tier === "growth" });
+            startSampleMode({ trade, growth: tier === "growth", webOnly: tier === "website" });
             document.body.classList.add(TOURING_CLASS);
             const r = { steps, i: Math.min(Math.max(from, 0), steps.length - 1), device, whole };
             runRef.current = r;

@@ -65,6 +65,7 @@ export default function LeadDetail({
     now,
     isDesktop,
     canPromote,
+    webOnly = false,
     remindSupported,
     promoting,
     remindOpen,
@@ -77,6 +78,8 @@ export default function LeadDetail({
     now: Date;
     isDesktop: boolean;
     canPromote: boolean;
+    /** The website plan names no other plan inside the Inbox: its one upsell is on Home. */
+    webOnly?: boolean;
     remindSupported: boolean;
     promoting: boolean;
     remindOpen: boolean;
@@ -293,7 +296,7 @@ export default function LeadDetail({
                 <div className="shrink-0 px-6 pt-[18px] pb-3.5 border-b flex flex-col gap-2.5" style={{ borderColor: "var(--rule)" }}>
                     {header}
                     {desktopActions}
-                    {!canPromote && (
+                    {!canPromote && !webOnly && (
                         <p className="text-xs leading-relaxed" style={{ color: "var(--fg-3)" }}>
                             Customer records and follow-up texting come with Growth.
                         </p>
@@ -305,7 +308,7 @@ export default function LeadDetail({
                 {!isDesktop && (
                     <div className="flex flex-col gap-2">
                         {header}
-                        {!canPromote && (
+                        {!canPromote && !webOnly && (
                             <p className="text-[13px] leading-relaxed" style={{ color: "var(--fg-3)" }}>
                                 Customer records and follow-up texting come with Growth.
                             </p>

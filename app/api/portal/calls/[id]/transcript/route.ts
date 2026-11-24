@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { siteFeature } from "@jdd/schema";
+import { callSource } from "@/app/lib/call-source";
 import { AIRTABLE_RECORD_ID } from "@/app/lib/call-brief";
 import { resolveTranscript } from "@/app/lib/call-recording";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
@@ -26,7 +26,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { id } = await params;
     if (!AIRTABLE_RECORD_ID.test(id)) return NOT_FOUND();
-    if (siteFeature(ctx.site, "calls").state !== "ready") return NOT_FOUND();
+    // Live calls, or the past calls a website-plan site kept after its receptionist ended (B4).
+    const source = callSource(ctx.site);
+    if (!source) return NOT_FOUND();
 
     const airtableKey = process.env.AIRTABLE_API_KEY;
     if (!airtableKey) {
@@ -34,7 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         return NOT_FOUND();
     }
 
-    const baseId = ctx.site.airtableBaseId as string;
+    const baseId = source.baseId;
     const turns = await resolveTranscript({
         baseId,
         airtableKey,
@@ -42,7 +44,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         recordId: id,
         siteSlug: ctx.site.slug,
         scopeToSite: ctx.account.sites.some((s) => s.slug !== ctx.site.slug && s.airtableBaseId === baseId),
-        agentId: ctx.site.retellAgentId ?? null,
+        agentId: source.agentId,
         acctScope: accountScope(ctx.account.email),
     });
     if (!turns) return NOT_FOUND();
