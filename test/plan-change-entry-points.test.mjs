@@ -18,7 +18,8 @@ const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 
 test("a Starter holder choosing Enterprise is sent to the contact page, before consolidation", () => {
   const start = read("app/start/page.tsx");
-  const starterCheck = start.indexOf('s.plan === "starter" && isActiveSite(s)');
+  // Both Starter plans: the website plan and Starter + AI Receptionist (v1.45.0).
+  const starterCheck = start.indexOf('(s.plan === "starter" || s.plan === "website") && isActiveSite(s)');
   const growthCheck = start.indexOf("growthSitesForConsolidation(account).length > 0");
   assert.ok(starterCheck > 0, "no Starter check");
   assert.ok(starterCheck < growthCheck, "Starter check must run first");

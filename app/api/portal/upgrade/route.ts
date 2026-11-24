@@ -10,7 +10,8 @@ import { saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan, upgradeBlockReason } from "@/app/lib/plan-billing";
 import { planLimits } from "@/app/lib/plan-limits";
-import { canAddPlan, isWebOnly, upsertSite } from "@jdd/schema";
+import { canAddPlan, isWebOnly, PLAN_LABELS, upsertSite } from "@jdd/schema";
+import { isPlanSlug } from "@/app/lib/plan-ids.mjs";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,15 @@ function formatDate(ms: number): string {
 }
 
 /**
- * Client-initiated upgrade: a live Starter site moves to Growth.
+ * Client-initiated upgrade, to the plan the signed agreement is for:
+ *
+ *   - website (Starter) → Starter + AI Receptionist (D6) or Growth (D8);
+ *   - Starter + AI Receptionist → Growth.
+ *
+ * Every one is prorated now, through `changeSubscriptionPlan`, with no new onboarding fee: the
+ * Stripe update swaps only the plan item, and the onboarding price is a one-time item that is
+ * never charged again. Leaving the website plan needs a phone choice on the agreement, and the
+ * operator then re-runs onboard.js to provision the number and agent.
  *
  * This is the second half of the upgrade; the first half is the agreement. Growth is a
  * materially different schedule — a voice agent, 350 call minutes, overage at $0.20/min — so
@@ -47,22 +56,45 @@ export async function POST(request: Request) {
 
     const { site, account } = ctx;
 
+    let body: { agreement_id?: string };
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    }
+
+    const agreementId = body.agreement_id?.trim();
+    if (!agreementId) {
+        return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
+    }
+
+    const agreement = await getAgreement(agreementId);
+    if (!agreement) {
+        return NextResponse.json({ error: "We couldn't find that acceptance." }, { status: 400 });
+    }
+    // The plan moved to is the plan the client accepted the terms for, and nothing else.
+    const targetPlan = agreement.plan;
+    if (!isPlanSlug(targetPlan)) {
+        return NextResponse.json({ error: "That acceptance isn't for a plan we sell." }, { status: 400 });
+    }
+    const targetName = PLAN_LABELS[targetPlan].name;
+
     // Idempotent: a double submit, a retry or a back-button replay must not charge twice.
-    // Already-upgraded is a success, not an error.
-    if (site.plan === "growth" || site.plan === "enterprise") {
+    // Already on that plan is a success, not an error.
+    if (site.plan === targetPlan && !isWebOnly(site)) {
         return NextResponse.json({ ok: true, alreadyUpgraded: true });
     }
     // One shared predicate with the CTA and the agreement page, so the three layers can't
-    // disagree about who may upgrade. A building site is explicitly allowed: billing and
+    // disagree about who may upgrade to what. A building site is explicitly allowed: billing and
     // provisioning are independent, and refusing meant a client who wanted Growth before
     // launch had no way to buy it.
-    const block = upgradeBlockReason(site);
-    if (block === "not-starter") {
-        return NextResponse.json({ error: "This site cannot be upgraded." }, { status: 400 });
+    const block = upgradeBlockReason(site, targetPlan);
+    if (block === "not-upgradable") {
+        return NextResponse.json({ error: "This site cannot be upgraded to that plan." }, { status: 400 });
     }
     if (block === "pending-onboarding") {
         return NextResponse.json(
-            { error: "Finish your onboarding form first, then you can add Growth." },
+            { error: `Finish your onboarding form first, then you can add ${targetName}.` },
             { status: 409 },
         );
     }
@@ -83,7 +115,7 @@ export async function POST(request: Request) {
      *
      * Same predicate as the gate, so the two cannot disagree about who is allowed what.
      */
-    if (canAddPlan(account, "growth", planLimits())) {
+    if (targetPlan === "growth" && canAddPlan(account, "growth", planLimits())) {
         return NextResponse.json(
             {
                 error:
@@ -102,37 +134,15 @@ export async function POST(request: Request) {
         );
     }
 
-    let body: { agreement_id?: string };
-    try {
-        body = await request.json();
-    } catch {
-        return NextResponse.json({ error: "Invalid request." }, { status: 400 });
-    }
-
-    const agreementId = body.agreement_id?.trim();
-    if (!agreementId) {
-        return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
-    }
-
-    const agreement = await getAgreement(agreementId);
-    if (!agreement) {
-        return NextResponse.json({ error: "We couldn't find that acceptance." }, { status: 400 });
-    }
-    if (agreement.plan !== "growth") {
-        return NextResponse.json(
-            { error: "That acceptance isn't for the Growth plan." },
-            { status: 400 },
-        );
-    }
     // And it has to be this account's own: accepted while this account was signed in. Anything
     // else is someone else's agreement being replayed. (Not `account.masterAgreement`: a held
     // upgrade agreement is only recorded there once the upgrade below succeeds.)
     if (!acceptedBy(agreement, account)) {
         return NextResponse.json({ error: "That acceptance isn't for this account." }, { status: 403 });
     }
-    // A website-only site has no phone setup to carry onto Growth, so the agreement has to say
-    // how the phone is handled. Without it the site would be Growth with the receptionist still
-    // "declined", which onboard.js refuses to provision.
+    // A website-only site has no phone setup to carry onto a receptionist plan, so the agreement
+    // has to say how the phone is handled. Without it the site would be on a receptionist plan
+    // with the receptionist still "declined", which onboard.js refuses to provision.
     const webOnly = isWebOnly(site);
     const phoneMode = agreement.receptionistMode;
     if (webOnly && phoneMode !== "forwarded" && phoneMode !== "published") {
@@ -143,7 +153,7 @@ export async function POST(request: Request) {
         slug: site.slug,
         accountEmail: account.email,
         site,
-        targetPlan: "growth",
+        targetPlan,
         agreementId,
         initiatedBy: "client",
     });
@@ -193,7 +203,7 @@ export async function POST(request: Request) {
             account,
             {
                 slug: site.slug,
-                plan: "growth",
+                plan: targetPlan,
                 stripeSubscriptionId: subscriptionId,
                 ...(webOnly ? { receptionistMode: phoneMode } : {}),
             },
@@ -223,9 +233,11 @@ export async function POST(request: Request) {
 
     // Billing has moved, provisioning hasn't: Xander runs the console plan upgrade for this site.
     after(() =>
-        sendOpsNotice(`[JDD] Upgrade: ${site.name ?? site.slug} → Growth`, [
-            `${account.email} upgraded <strong>${site.slug}</strong> from Starter to Growth in the portal. Stripe is billing Growth now.`,
-            `Run the console plan upgrade for this site: it turns LEAD_CALLBACK on and moves site.ts to growth.`,
+        sendOpsNotice(`[JDD] Upgrade: ${site.name ?? site.slug} → ${targetName}`, [
+            `${account.email} upgraded <strong>${site.slug}</strong> from ${PLAN_LABELS[site.plan].name} to ${targetName} in the portal. Stripe is billing ${targetName} now (prorated, no new onboarding fee).`,
+            targetPlan === "growth"
+                ? `Run the console plan upgrade for this site: it turns LEAD_CALLBACK on and moves site.ts to growth.`
+                : `Run the console plan upgrade for this site: it moves site.ts to starter with the phone choice below.`,
             ...(webOnly
                 ? [
                       `This site was website-only. Phone choice: <strong>${phoneMode}</strong>${agreement.forwardingNumber ? `, forwarding ${agreement.forwardingNumber}` : ""}. The number and agent need provisioning with onboard.js (--receptionist ${phoneMode}).`,

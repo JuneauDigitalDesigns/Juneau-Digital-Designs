@@ -1,5 +1,6 @@
 import "server-only";
-import { findAccountEmailByScope } from "./account-store";
+import { isWebOnly } from "@jdd/schema";
+import { findAccountEmailByScope, getAccount } from "./account-store";
 import { getOwnerEmail, setOwnerEmail } from "./portal-crm";
 import { getConsentStateForAccount, isDeliverable } from "./sms-consent";
 import { sendSms } from "./twilio";
@@ -43,7 +44,12 @@ export type LeadAlertResult =
               /** The live campaign (v1) does not describe this text, so it is held. */
               | "paused"
               /** The body carried a link while links are not allowed; refused before Twilio. */
-              | "has-link";
+              | "has-link"
+              /**
+               * D9: the site is website-only (the `website` plan, or the legacy starter +
+               * declined), whose owner gets no lead texts. The lead is in the portal inbox.
+               */
+              | "not-on-plan";
       };
 
 /**
@@ -130,6 +136,14 @@ export async function notifyOwnerOfLead({
     /** The stored lead — its Inbox id is `lead:<leadId>`. Only used when owner-text links are on. */
     leadId?: string | null;
 }): Promise<LeadAlertResult> {
+    // D9 (Xander, 2026-11-24): a website-only site's owner gets no new-lead texts; the lead is in
+    // the portal inbox only. Checked per site and at send time, before the campaign switch, so it
+    // holds under v1 and v2 alike. Consent is account-wide, and one account can hold a website
+    // site beside a receptionist site, so it is the SITE that decides, never the account.
+    if (await siteIsWebOnly(acctScope, slug)) {
+        console.log(`[lead-alert] not sent for ${slug}: website-only sites get no lead texts (D9); the lead is in the portal`);
+        return { sent: false, reason: "not-on-plan" };
+    }
     if (!ownerLeadAlertsEnabled()) {
         console.log(`[lead-alert] paused for ${slug}: the live campaign (OWNER_TEXT_CAMPAIGN=v1) does not describe it; the lead is in the portal`);
         return { sent: false, reason: "paused" };
@@ -197,6 +211,22 @@ export async function notifyOwnerOfCustomerReply({
  * send under JDD's name: no stranger's free text, and no link unless links are allowed, which is
  * checked here as well as in `sendSms`.
  */
+/**
+ * Is this site website-only? A read that fails is treated as yes, because a missing lead text costs
+ * nothing (the lead is in the inbox) and a text the plan doesn't include breaks D9. An account or
+ * site that isn't there is left to `textAccountOwner`, which finds no owner to text.
+ */
+async function siteIsWebOnly(acctScope: string, slug: string): Promise<boolean> {
+    try {
+        const email = (await getOwnerEmail(acctScope)) ?? (await findAccountEmailByScope(acctScope));
+        const site = email ? (await getAccount(email))?.sites.find((s) => s.slug === slug) : undefined;
+        return Boolean(site && isWebOnly(site));
+    } catch (e) {
+        console.error(`[lead-alert] couldn't read the plan for ${slug}; not texting`, e);
+        return true;
+    }
+}
+
 export async function textAccountOwner({
     acctScope,
     slug,

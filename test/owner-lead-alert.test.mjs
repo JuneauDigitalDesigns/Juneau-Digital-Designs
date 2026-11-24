@@ -289,3 +289,65 @@ test("the end-of-call brief is GSM-7 and one segment however long the name", asy
     assert.match(body, /^[\n\x20-\x7E]+$/, "GSM-7 only");
     assert.ok(body.length <= 160, `${body.length} chars: ${body}`);
 });
+
+/* ── D9: website-only sites get no lead texts (Xander, 2026-11-24) ─────────── */
+
+/** A real account record with two sites: one on the website plan, one with the receptionist. */
+function seedMixedAccount(email = OWNER_EMAIL) {
+    kv.set(
+        `jdd:account:${email}`,
+        JSON.stringify({
+            email,
+            sites: [
+                { slug: "arthurs-site-only", status: "live", plan: "website", addedAt: 1 },
+                { slug: "arthurs-plumbing", status: "live", plan: "starter", receptionistMode: "forwarded", addedAt: 1 },
+                { slug: "arthurs-legacy", status: "live", plan: "starter", receptionistMode: "declined", addedAt: 1 },
+            ],
+            createdAt: 1,
+            updatedAt: 1,
+        }),
+    );
+}
+
+test("D9: a lead on a website-plan site texts nobody, even with consent, under v2", async () => {
+    seedMixedAccount();
+    seedConsent("granted");
+
+    const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-site-only", name: "Maria Lopez" });
+
+    assert.deepEqual(result, { sent: false, reason: "not-on-plan" });
+    assert.equal(twilioCalls.length, 0);
+});
+
+test("D9: a legacy website-only Starter (starter + declined) is gated the same way", async () => {
+    seedMixedAccount();
+    seedConsent("granted");
+
+    const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-legacy", name: "Maria Lopez" });
+
+    assert.deepEqual(result, { sent: false, reason: "not-on-plan" });
+    assert.equal(twilioCalls.length, 0);
+});
+
+test("D9: the same account's receptionist site still texts: the gate is per site, not per account", async () => {
+    seedMixedAccount();
+    seedConsent("granted");
+
+    const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-plumbing", name: "Maria Lopez" });
+
+    assert.equal(result.sent, true);
+    assert.equal(twilioCalls.length, 1);
+});
+
+test("D9: the website gate holds under v1 too, ahead of the campaign pause", async () => {
+    seedMixedAccount();
+    seedConsent("granted");
+    process.env.OWNER_TEXT_CAMPAIGN = "v1";
+    try {
+        const result = await notifyOwnerOfLead({ acctScope: ACCT, slug: "arthurs-site-only", name: "Maria Lopez" });
+        assert.deepEqual(result, { sent: false, reason: "not-on-plan" });
+    } finally {
+        process.env.OWNER_TEXT_CAMPAIGN = "v2";
+    }
+    assert.equal(twilioCalls.length, 0);
+});

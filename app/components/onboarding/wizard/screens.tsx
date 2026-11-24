@@ -48,6 +48,7 @@ import {
     slotsFor,
     topTownsFor,
     townFromAddress,
+    webOnly,
     yearsInBusiness,
     type ScreenDef,
     type ServiceFacts,
@@ -59,7 +60,7 @@ import {
     type WizardState,
     withoutBefore,
 } from "./model";
-import { VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
+import { PLAN_LABELS, VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
 import { showsBeforeAfter } from "@/app/lib/before-after";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
@@ -727,11 +728,14 @@ export function ScreenBody(p: ScreenProps) {
                     <div className={s.chips} style={{ margin: "12px 0 18px" }}>
                         <Chip label={EMERGENCY_LINE} on={state.emergency} onClick={() => update({ emergency: !state.emergency })} />
                     </div>
-                    <div className={s.narrower}>
-                        <Field label="Name your receptionist" optional note="Leave it blank and we'll pick a friendly name.">
-                            <Text value={state.agentName} onChange={(v) => update({ agentName: v })} placeholder="e.g. Sam" />
-                        </Field>
-                    </div>
+                    {/* Website only has no receptionist to name. */}
+                    {webOnly(p.ctx) ? null : (
+                        <div className={s.narrower}>
+                            <Field label="Name your receptionist" optional note="Leave it blank and we'll pick a friendly name.">
+                                <Text value={state.agentName} onChange={(v) => update({ agentName: v })} placeholder="e.g. Sam" />
+                            </Field>
+                        </div>
+                    )}
                 </>
             );
 
@@ -1347,14 +1351,14 @@ function SetupScreen({ state, update, ctx, errors, goTo }: ScreenProps) {
     const signed = ctx.signedMode;
     return (
         <>
-            {signed ? (
+            {/* B3 (2026-11-24). Website only never reaches this screen (screensFor), so the only note is
+                for a client who signed with a receptionist. "Starter" is the `website` plan's name. */}
+            {signed && signed !== "declined" ? (
                 <p className={s.signedNote}>
-                    {signed === "declined"
-                        ? "To add the receptionist, just reply to your welcome email and we'll sort out the paperwork."
-                        : "You can switch between forwarding and a new number below. To move to website-only, reply to your welcome email and we'll handle the change."}
+                    {`You can switch between forwarding and a new number below. To drop the receptionist and move to ${PLAN_LABELS.website.name}, reply to your welcome email and we'll handle the change.`}
                 </p>
             ) : null}
-            {RECEPTIONIST_OPTIONS.filter((o) => allowed.includes(o.id) || (signed && o.id === signed)).map((o) => (
+            {RECEPTIONIST_OPTIONS.filter((o) => allowed.includes(o.id)).map((o) => (
                 <button key={o.id} type="button" className={s.opt} aria-pressed={state.receptionistMode === o.id} onClick={() => update({ receptionistMode: o.id })}>
                     <span className={s.optLabel}>{o.label}</span>
                     {o.id === signed ? <em className={s.tag} style={{ fontStyle: "normal" }}>You chose this when you signed up</em> : null}

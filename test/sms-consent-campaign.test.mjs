@@ -138,7 +138,8 @@ test("the validation messages say text alerts", () => {
     };
     assert.equal(validateAgreementSubmission({ ...base, smsConsent: true, alertPhone: "12" }), "A valid mobile number is required to enable text alerts");
     assert.equal(
-        validateAgreementSubmission({ ...base, receptionistMode: "declined", smsConsent: true, alertPhone: "(407) 555-0143" }),
+        // The website plan (D9) has no texts; website-only as a Starter variant is refused outright.
+        validateAgreementSubmission({ ...base, plan: "website", receptionistMode: undefined, smsConsent: true, alertPhone: "(407) 555-0143" }),
         "Text alerts require a receptionist",
     );
 });

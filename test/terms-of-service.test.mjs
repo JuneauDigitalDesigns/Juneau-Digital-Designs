@@ -149,7 +149,8 @@ test("the preamble opens the document, unnumbered, and the plan summary closes i
   assert.equal(sections[0].heading, "");
   assert.match(sections[0].intro[0].text, /^These Terms of Service \(the "Terms"\) are an agreement between Juneau Digital Designs LLC/);
   assert.equal(sections[1].num, 1);
-  assert.equal(sections.at(-1).heading, "PLAN SUMMARY: STARTER PLAN");
+  // `starter` is shown as "Starter + AI Receptionist" since v1.45.0 (D2).
+  assert.equal(sections.at(-1).heading, "PLAN SUMMARY: STARTER + AI RECEPTIONIST PLAN");
   // Thirteen numbered sections, the same for every plan.
   for (const [plan, opts] of PLANS) {
     const nums = getTermsForPlan(plan, { ...opts, campaign: "v1" }).sections.map((s) => s.num).filter((n) => n > 0);

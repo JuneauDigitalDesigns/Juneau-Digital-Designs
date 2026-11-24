@@ -31,8 +31,6 @@ interface Props {
      * they scroll through matches the one the server hashes and the PDF renders. Absent on every
      * other plan and on addenda.
      */
-    webOnlySections?: Section[];
-    webOnlyVersion?: string;
     /**
      * Set when an existing client is moving up a tier. Signing is identical; only the step
      * after it differs — an upgrade modifies the subscription they already have rather than
@@ -92,8 +90,9 @@ const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "O
 
 /**
  * The phone-handling options, worded to match the portal onboarding form so a client who sees
- * both never meets two different explanations of the same choice. `declined` is Starter-only and
- * filtered out below for Growth — those tiers have no website-only variant.
+ * both never meets two different explanations of the same choice. There is no "website only"
+ * option any more: since v1.45.0 that is the `website` plan (shown as "Starter"), chosen before
+ * signing, and it has no phone section at all.
  */
 const RECEPTIONIST_OPTIONS: {
     id: ReceptionistMode;
@@ -115,13 +114,6 @@ const RECEPTIONIST_OPTIONS: {
         detail:
             "We give you a number and you start using it: cards, truck, Google listing. Calls ring your phone first, and reach the receptionist only if you miss them.",
     },
-    {
-        id: "declined",
-        pill: "Website only",
-        heading: "Website only, no receptionist",
-        detail:
-            "We build the site and skip the phone side entirely. Same price as Starter, and you can switch the receptionist on later with no extra onboarding fee.",
-    },
 ];
 
 export default function AgreementClient({
@@ -130,8 +122,6 @@ export default function AgreementClient({
     sections,
     version,
     smsConsentCopy,
-    webOnlySections,
-    webOnlyVersion,
     upgradeSlug = null,
     downgradeSlug = null,
     receptionistSlug = null,
@@ -168,10 +158,10 @@ export default function AgreementClient({
     // A downgrade keeps the phone setup the client already has, like an upgrade, unless there
     // is none to keep (`askPhoneChoice`: switching the receptionist on, or a website-only
     // upgrade). Website-only is never offered when the point is to switch the receptionist on.
-    const showPhoneSection = !isEnterprise && (askPhoneChoice || (!isUpgrade && !isDowngrade));
-    const phoneOptions = RECEPTIONIST_OPTIONS.filter(
-        (o) => (plan === "starter" && !isAddingReceptionist) || o.id !== "declined",
-    );
+    // The website plan has no phone to set up (D4), whatever the path.
+    const isWebsitePlan = plan === "website";
+    const showPhoneSection = !isEnterprise && !isWebsitePlan && (askPhoneChoice || (!isUpgrade && !isDowngrade));
+    const phoneOptions = RECEPTIONIST_OPTIONS;
     const [receptionistMode, setReceptionistMode] = useState<ReceptionistMode | "">("");
     const [forwardingNumber, setForwardingNumber] = useState("");
 
@@ -181,14 +171,8 @@ export default function AgreementClient({
     const [scrollCompletedAt, setScrollCompletedAt] = useState<string | null>(null);
     const hasReadTerms = scrollCompletedAt !== null;
 
-    /**
-     * Website-only swaps the whole document. The reader shows the Web-Only terms, the submit
-     * sends `declined`, and the server hashes and renders that variant — so the three can never
-     * describe different things. Guarded on `webOnlySections` being present (Starter master only).
-     */
-    const isWebOnly = plan === "starter" && receptionistMode === "declined" && !!webOnlySections;
-    const activeSections = isWebOnly && webOnlySections ? webOnlySections : sections;
-    const activeVersion = isWebOnly && webOnlyVersion ? webOnlyVersion : version;
+    const activeSections = sections;
+    const activeVersion = version;
 
     /**
      * A receptionist exists to text about when the client did not decline it. Enterprise and
@@ -196,19 +180,14 @@ export default function AgreementClient({
      * through to `true`. This gates the optional call-alert SMS opt-in, replacing the stale
      * pre-reprice check that hid it on all of Starter.
      */
-    const hasReceptionist = showPhoneSection
-        ? receptionistMode === "forwarded" || receptionistMode === "published"
-        : true;
+    // D9 (2026-11-24): the website plan's owners get no lead texts, so it never offers them.
+    const hasReceptionist = isWebsitePlan
+        ? false
+        : showPhoneSection
+          ? receptionistMode === "forwarded" || receptionistMode === "published"
+          : true;
 
-    /**
-     * Switching into or out of website-only changes the terms on screen, so the client must read
-     * the document that now applies. Resetting the scroll gate re-locks the signature until they
-     * reach the end of it.
-     */
     function chooseReceptionistMode(id: ReceptionistMode) {
-        const wasWebOnly = isWebOnly;
-        const willBeWebOnly = plan === "starter" && id === "declined" && !!webOnlySections;
-        if (wasWebOnly !== willBeWebOnly) setScrollCompletedAt(null);
         setReceptionistMode(id);
     }
 
@@ -515,7 +494,6 @@ export default function AgreementClient({
                         {/* Keyed on the variant so switching to/from website-only remounts the
                             reader, resetting its internal scroll tracking along with the gate. */}
                         <TermsReader
-                            key={isWebOnly ? "web-only" : "standard"}
                             sections={activeSections}
                             onComplete={handleTermsComplete}
                         />
@@ -610,8 +588,8 @@ export default function AgreementClient({
                     </Section>
 
                     {/*
-                        Your phone — the required choice. Three pills on Starter (forward / new
-                        number / website only), two on Growth (no website-only). The shared box
+                        Your phone — the required choice. Two pills (forward / new number) on
+                        Starter + AI Receptionist and Growth; none on the website plan. The shared box
                         below restates the selected option, and picking "forward" reveals the
                         line to forward. Hidden for Enterprise (deferred to onboarding) and
                         upgrades (phone already set up).

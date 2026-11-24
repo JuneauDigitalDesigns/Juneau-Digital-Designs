@@ -63,11 +63,59 @@ const RECEPTIONIST_INCLUDED = [
   "Auto-generated call summaries and call metadata for every call, viewable in the client portal",
 ];
 
+/**
+ * The plans, cheapest first (D1–D3, 2026-11-24). `website` is the $97 website-only plan, shown
+ * as "Starter"; `starter` is today's plan with the receptionist, now $297 and shown as
+ * "Starter + AI Receptionist". Its old $197 price stays billed for grandfathered clients (D3) and
+ * is not printed here: this is what the plan costs when it is bought now.
+ *
+ * The `website` entry and the two prices are the plan-slug PR's (S4). The Terms v7 PR rewrites
+ * the plan-summary wording of this whole file, the refund row included, on top of it.
+ */
 export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
+  website: {
+    slug: "website",
+    name: "Starter",
+    monthlyPrice: 97,
+    onboardingFee: 297,
+    siteLabel: "one (1) website",
+    maxSites: 1,
+    hasVoiceAgent: false,
+    callMinutes: null,
+    overagePerMinute: null,
+    editAllowance: "two (2) content edits per month",
+    supportResponse: "one (1) business day",
+    cancellationNoticeDays: 0,
+    included: [
+      SITE_LINE,
+      SEARCH_LINE,
+      "Hosting on enterprise-grade infrastructure (Vercel)",
+      "SSL certificate and secure HTTPS delivery",
+      "Daily backups and uptime monitoring",
+      DOMAIN_LINE,
+      "Website contact form submissions recorded as leads in the client portal",
+      "Two (2) content edit requests per month (copy and colors only)",
+      STATS_LINE,
+      "Client portal access for website health and site status",
+      "Support response within one (1) business day",
+    ],
+    feeTable: [
+      ["Monthly subscription", "$97 per month"],
+      onboardingRow(297),
+      ["AI receptionist", "Not included on this plan"],
+      ["Content edits included", "2 per month (copy and colors only)"],
+      ["Additional edits, layout, or design changes", "Quoted per request"],
+      EXTRA_PAGES_ROW,
+      ["Late fee (invoice unpaid more than 15 days)", "$25"],
+      CHARGEBACK_ROW,
+      MINIMUM_TERM_ROW,
+    ],
+  },
+
   starter: {
     slug: "starter",
-    name: "Starter",
-    monthlyPrice: 197,
+    name: "Starter + AI Receptionist",
+    monthlyPrice: 297,
     onboardingFee: 297,
     siteLabel: "one (1) website",
     maxSites: 1,
@@ -93,7 +141,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       `Up to ${mins(STARTER_MINUTES)} call-minutes per month`,
     ],
     feeTable: [
-      ["Monthly subscription", "$197 per month"],
+      ["Monthly subscription", "$297 per month"],
       onboardingRow(297),
       ["Call-minutes included", `${mins(STARTER_MINUTES)} per month`],
       overageRow(),
@@ -188,6 +236,11 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
 };
 
 /**
+ * LEGACY (D14). The old website-only arrangement: Starter at Starter's old price with the
+ * receptionist declined. New signings use `SCHEDULES.website`; this stays only so an agreement
+ * accepted against it still renders, and the Terms v7 PR retires it. Kept here, not deleted, so
+ * the service pages' fallback (PR #197) still compiles until then.
+ *
  * The off-menu website-only plan, for a prospect who refuses to have AI on their phone line.
  *
  * **Never priced or listed as a public tier.** It is a sales concession, priced identically to

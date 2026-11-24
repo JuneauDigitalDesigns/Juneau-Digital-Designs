@@ -1,4 +1,10 @@
-export type PlanSlug = "starter" | "growth" | "enterprise";
+import type { PortalPlan } from "@jdd/schema";
+
+/**
+ * Every plan an agreement can be for: the schema's plan ids (v1.45.0). `website` is shown as
+ * "Starter" and `starter` as "Starter + AI Receptionist"; names come from `PLAN_LABELS`.
+ */
+export type PlanSlug = PortalPlan;
 
 /**
  * Which instrument is being signed.
@@ -17,7 +23,9 @@ export type AgreementKind = "master" | "addendum";
  * use, so the choice made here flows straight through to the site record without translation:
  *   - `forwarded`  — keep their existing advertised number and forward it to the JDD number.
  *   - `published`  — use the JDD-provisioned number as their business number.
- *   - `declined`   — website only, no receptionist. Starter plan only.
+ *   - `declined`   — website only, no receptionist. Since v1.45.0 that is the `website` plan,
+ *                    which needs no choice. `starter` + `declined` is a legacy record (D14):
+ *                    still read as website-only, never written by a new signing.
  */
 export type ReceptionistMode = "forwarded" | "published" | "declined";
 
@@ -99,9 +107,10 @@ export interface AgreementSubmission {
   /**
    * How the client wants their phone handled, chosen on the signing page.
    *
-   * Required for a new Starter/Growth purchase (not upgrades, and not Enterprise, which defers
-   * the per-site choice to the onboarding form). `declined` is only valid on Starter: Growth
-   * and Enterprise are receptionist plans with no website-only variant.
+   * Required for a new Starter + AI Receptionist or Growth purchase (not upgrades, not the
+   * website plan, which has no phone, and not Enterprise, which defers the per-site choice to the
+   * onboarding form). `declined` is never accepted on a new signing: website-only is its own
+   * plan. Older records may still carry `starter` + `declined` (D14).
    */
   receptionistMode?: ReceptionistMode;
   /**

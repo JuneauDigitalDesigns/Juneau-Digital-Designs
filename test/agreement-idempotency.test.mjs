@@ -120,7 +120,8 @@ test("changed details are a new agreement, sent to the address now given", async
 
 test("a different plan or receptionist choice is a different agreement", async () => {
   const base = await accept(submission());
-  for (const change of [{ plan: "growth" }, { receptionistMode: "declined" }]) {
+  // The website plan has no phone choice (v1.45.0), so it is the receptionist-choice variant now.
+  for (const change of [{ plan: "growth" }, { plan: "website", receptionistMode: undefined, forwardingNumber: undefined }]) {
     const other = await accept(submission(change));
     assert.equal(other.status, 200, JSON.stringify(change));
     assert.notEqual(other.agreement_id, base.agreement_id, JSON.stringify(change));

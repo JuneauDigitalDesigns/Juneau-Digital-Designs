@@ -26,7 +26,15 @@ export const runtime = "nodejs";
  * Same shared secret as plan-sync. The console never writes to Stripe.
  */
 
-const SUPPORTED: Record<string, PortalSite["plan"]> = { starter: "growth" };
+/**
+ * The downgrades an operator can ask for, by target plan → the plan it must come from:
+ *
+ *   - Growth → Starter + AI Receptionist, as before;
+ *   - Starter + AI Receptionist → Starter (the website plan). D7 (2026-11-24): operator-initiated
+ *     only, never self-serve, and at the period end like every downgrade. A grandfathered $197
+ *     subscription reads as `starter` (D3), so it can be moved too.
+ */
+const SUPPORTED: Record<string, PortalSite["plan"]> = { starter: "growth", website: "starter" };
 
 export async function GET(request: Request) {
     const gate = authorizeOps(request, "OPS_SHARED_SECRET", "ops/plan-change");
@@ -63,7 +71,10 @@ export async function POST(request: Request) {
     }
     const requiredFrom = SUPPORTED[toPlan];
     if (!requiredFrom) {
-        return NextResponse.json({ error: "Only a downgrade to starter can be scheduled here." }, { status: 400 });
+        return NextResponse.json(
+            { error: "Only growth → starter or starter → website can be scheduled here." },
+            { status: 400 },
+        );
     }
 
     const found = await findSite(email, slug);

@@ -35,7 +35,7 @@ export function clean(v: unknown, max = MAX_FIELD): string | null {
   return t.slice(0, max);
 }
 
-const PLANS: PlanInterest[] = ["starter", "growth", "enterprise"];
+const PLANS: PlanInterest[] = ["website", "starter", "growth", "enterprise"];
 function coercePlan(v: unknown): PlanInterest | null {
   if (typeof v !== "string") return null;
   const t = v.trim().toLowerCase();

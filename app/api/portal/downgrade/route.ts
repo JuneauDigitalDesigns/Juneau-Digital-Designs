@@ -1,3 +1,4 @@
+import { PLAN_LABELS } from "@jdd/schema";
 import { NextResponse, after } from "next/server";
 import { getAgreement, persistAgreement, saveAgreement } from "@/app/lib/kv";
 import { sendStoredAgreementEmail } from "@/app/lib/agreement-email";
@@ -101,9 +102,13 @@ export async function POST(request: Request) {
             effectiveAt: result.effectiveAt,
             interval: result.interval,
         });
-        await sendOpsNotice(`[JDD] Downgrade scheduled: ${site.name ?? site.slug} → Starter`, [
-            `${account.email} accepted the Starter terms for <strong>${site.slug}</strong>.`,
-            `Stripe moves the price on ${new Date(result.effectiveAt).toISOString().slice(0, 10)}, and the portal record follows by webhook. On or after that date, run the console downgrade to turn LEAD_CALLBACK off and move site.ts to starter.`,
+        const toName = PLAN_LABELS[pending.toPlan].name;
+        const onDate = new Date(result.effectiveAt).toISOString().slice(0, 10);
+        await sendOpsNotice(`[JDD] Downgrade scheduled: ${site.name ?? site.slug} → ${toName}`, [
+            `${account.email} accepted the ${toName} terms for <strong>${site.slug}</strong>.`,
+            pending.toPlan === "website"
+                ? `Stripe moves the price on ${onDate}, and the portal record follows by webhook. On or after that date, run the console downgrade to the website plan: it records the call history first, tears down the voice stack, and releases the number after the 30-day port-out window.`
+                : `Stripe moves the price on ${onDate}, and the portal record follows by webhook. On or after that date, run the console downgrade to turn LEAD_CALLBACK off and move site.ts to starter.`,
         ]);
     });
 
