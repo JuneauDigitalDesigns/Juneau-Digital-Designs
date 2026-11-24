@@ -117,7 +117,7 @@ test("FAQ markup carries every question /faq prints, the new answering-service o
     assert.ok(q, "the answering-service question is missing");
     assert.equal(
         q.acceptedAnswer.text,
-        "Yes, an AI one that only picks up when you don't. It answers 24/7 in English or Spanish, takes the caller's name, number and what the job is, puts the lead in your portal and texts you that it's there. Minutes come with your plan: 100 on Starter, 350 on Growth. Extra minutes are $0.20 each.",
+        "Yes, an AI one that only picks up when you don't. It answers 24/7 in English or Spanish, takes the caller's name, number and what the job is, puts the lead in your portal and texts you that it's there. Minutes come with your plan: 100 on Starter + AI Receptionist, 350 on Growth. Extra minutes are $0.20 each.",
     );
 });
 

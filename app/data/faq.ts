@@ -1,5 +1,6 @@
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { DEMO_TEL_DISPLAY } from "./demo-line";
+import { WEBSITE_PLAN } from "./website-plan";
 
 /**
  * Every FAQ answer the marketing site prints, in one place.
@@ -28,6 +29,7 @@ const minutes = (slug: "starter" | "growth" | "enterprise") =>
     SCHEDULES[slug].callMinutes?.toLocaleString("en-US") ?? "0";
 const overageRate = (slug: "starter" | "growth" | "enterprise") =>
     `$${(SCHEDULES[slug].overagePerMinute ?? 0.2).toFixed(2)}`;
+const monthly = (n: number) => `$${n.toLocaleString("en-US")}`;
 
 /** The answer the Growth card's "After carrier approval" tags link to. */
 export const LIVE_FAQ_ID = "how-fast-live";
@@ -46,22 +48,19 @@ const AI_INSTEAD_OF_ME: FaqEntry = {
 };
 
 /**
- * The web-only concession.
- *
- * Deliberately an FAQ answer rather than a fourth card. Web-only is `plan: "starter"` with
- * `receptionistMode: "declined"`, priced identically to Starter precisely so it is never the
- * economically attractive choice (see `WEB_ONLY_SCHEDULE`). Putting it on the cards with a price
- * would invite people to choose it to save money, which is backwards. Answering it here means the
- * prospect who asks gets a straight answer without the option being advertised to everyone.
+ * The website-only plan. Since 24 Nov 2026 that is Starter, a public plan with its own card, so
+ * the answer names it instead of talking the asker out of it (row A4 of the website-plan copy
+ * batch, approved by Xander). The two prices sit in separate sentences: D11 keeps the
+ * receptionist away from the website price. Both are read from the plan summary.
  */
 const WEBSITE_ONLY: FaqEntry = {
     q: "Can I get the website without the AI receptionist?",
-    a: "Yes, though we'll try to talk you out of it. The receptionist is where most of the value is — it's what turns a missed call into a lead. If you'd rather not have AI on your line, we'll build and host the same site at the same price and leave your phone alone. It's not a cheaper plan; it's the same plan with a piece switched off.",
+    a: `Yes. That's our Starter plan: we write, build and host your website for ${monthly(WEBSITE_PLAN.monthlyPrice)} a month and leave your phone alone. Inquiries from your website's forms land in your portal. If you want the AI receptionist later, you can add it from your portal. Starter + AI Receptionist is ${monthly(SCHEDULES.starter.monthlyPrice)} a month, with no second onboarding fee.`,
 };
 
 const MINUTES: FaqEntry = {
     q: "What happens if I go over my minutes?",
-    a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close. On Starter especially, keep an eye on it: ${minutes("starter")} minutes is roughly twenty short calls, so a busy month can run past it.`, // MSA call volume section
+    a: `They're billed at ${overageRate("growth")} a minute on your next invoice, and we'll give you a heads-up as you get close. On Starter + AI Receptionist especially, keep an eye on it: ${minutes("starter")} minutes is roughly twenty short calls, so a busy month can run past it.`, // MSA call volume section
 };
 
 const CONTRACT: FaqEntry = {
@@ -69,20 +68,22 @@ const CONTRACT: FaqEntry = {
     a: "No. There is no minimum term, no commitment period, and no cancellation fee on any plan. It's month to month. If you cancel, everything keeps running through the end of the month you've already paid for. Then we send you your website, ready to host anywhere, with your call log.", // MSA term and termination
 };
 
+/* Terms v7's 30-day refund (row E4 of the website-plan copy batch). Ships with Terms v7. */
 const NOT_HAPPY: FaqEntry = {
     q: "What if I'm not happy with the site?",
-    a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If it's still not working after a fair run, there is no commitment holding you here. Month to month means you can leave at the end of any month.",
+    a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If you cancel within your first 30 days, we refund that first month's fee (the onboarding fee isn't refunded). After that, month to month means you can leave at the end of any month.",
 };
 
 /* MSA delivery targets. The second paragraph is the carrier step for Growth's customer-facing
    texts: what it waits on, who handles it, and no timeframe, because approval is the carriers' to
-   grant. The owner's own lead texts come from JDD's number and are live from the start, so the
-   first paragraph says so. */
+   grant. The first paragraph used to list what "fully live" covers, the receptionist and the lead
+   texts included. Starter has neither, so the list was dropped to keep the answer true on every
+   plan (Xander, 24 Nov 2026, row F13). */
 const HOW_FAST: FaqEntry = {
     id: LIVE_FAQ_ID,
     q: "How fast can I be live?",
     a: [
-        "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week. That covers your site, your receptionist, your portal, and the texts we send you about new leads.",
+        "You'll have a preview site within 72 hours of sending your onboarding form back, and you're fully live within a week.",
         "On Growth, two features wait on one more step: texting your customers and asking for reviews. Those messages come from your own business number, so the carriers have to approve your business's text-messaging registration first. We file it for you, handle the back and forth, and switch both on as soon as it clears. The approval is the carriers' call, so we can't put a date on it. The callback and the pipeline work from day one.",
     ],
 };
@@ -121,7 +122,7 @@ const REPLACING_RECEPTIONIST: FaqEntry = {
    /pricing's answers are their own approved set. */
 const ANSWERING_SERVICE: FaqEntry = {
     q: "Is this an answering service?",
-    a: `Yes, an AI one that only picks up when you don't. It answers 24/7 in English or Spanish, takes the caller's name, number and what the job is, puts the lead in your portal and texts you that it's there. Minutes come with your plan: ${minutes("starter")} on Starter, ${minutes("growth")} on Growth. Extra minutes are ${overageRate("growth")} each.`,
+    a: `Yes, an AI one that only picks up when you don't. It answers 24/7 in English or Spanish, takes the caller's name, number and what the job is, puts the lead in your portal and texts you that it's there. Minutes come with your plan: ${minutes("starter")} on Starter + AI Receptionist, ${minutes("growth")} on Growth. Extra minutes are ${overageRate("growth")} each.`,
 };
 
 /* ── From the homepage's old "Before you call." section ──────────────────────────────────────

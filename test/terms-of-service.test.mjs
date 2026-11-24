@@ -128,17 +128,27 @@ test("the 2026-11-16 decisions read as approved", () => {
   assert.match(d, /We may offer optional services that are not part of any plan\./);
   assert.match(d, /we add it to our own Google Search Console account; that is for our use and is not a service to you/);
   assert.match(d, /search engine optimization services, such as ongoing search optimization, keyword research and new pages proposed from search data/);
-  // The homepage and pricing site line say the same as the plan summary, and never name Search Console (T5).
-  for (const f of ["app/components/pricing/pricingpageclient.tsx", "app/components/home/homepageclient.tsx"]) {
+  // The homepage and pricing site lines say the same as the plan summary, and never name Search Console (T5).
+  // /pricing's three "On every plan" points live in app/data/every-plan.ts since the four-plan
+  // redesign (rows F1–F2 of the website-plan copy batch, 24 Nov 2026), which split the site line in two.
+  const siteLines = {
+    "app/components/home/homepageclient.tsx": [
+      '"Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month."',
+    ],
+    "app/data/every-plan.ts": [
+      '"Written and built for you, with pages for your services and the towns you work in."',
+      '"Hosting, SSL, daily backups and uptime monitoring, plus 2 content edits a month."',
+    ],
+  };
+  for (const [f, lines] of Object.entries(siteLines)) {
     const src = readFileSync(fileURLToPath(new URL(`../${f}`, import.meta.url)), "utf8");
-    assert.ok(
-      src.includes(
-        '"Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month."',
-      ),
-      f,
-    );
+    for (const line of lines) assert.ok(src.includes(line), `${f}: ${line}`);
     assert.doesNotMatch(src, /Search Console/, f);
   }
+  assert.doesNotMatch(
+    readFileSync(fileURLToPath(new URL("../app/components/pricing/pricingpageclient.tsx", import.meta.url)), "utf8"),
+    /Search Console/,
+  );
   assert.match(d, /WE DO NOT GUARANTEE ANY NUMBER OF LEADS, CALLS, INQUIRIES, CUSTOMERS, VISITORS OR SEARCH RANKINGS\./);
   assert.match(d, /Florida is an all-party consent state \(Fla\. Stat\. § 934\.03\)/);
 });
