@@ -40,7 +40,8 @@ const RECORDING_OPENER = "We're now recording. You're okay with that?";
  */
 // r3 (Terms of Service v6.0, 2026-11-16): monthly only, "there are no refunds", and "the full
 // Terms of Service" (call-script items R1 and R2, approved by Xander).
-const SCRIPT_REVISION = "r3";
+// r4 (Terms of Service v7.0, 2026-11-24): the first-month refund in line 4, as Xander approved.
+const SCRIPT_REVISION = "r4";
 
 export function buildCallScript(
   plan: PlanSlug,
@@ -55,7 +56,7 @@ export function buildCallScript(
     `You are signing up for ${s.name}, billed monthly at ${money(s.monthlyPrice)} a month.`,
     `There is a one-time onboarding fee of ${money(s.onboardingFee)}, charged today with your first month. That makes ${money(today)} today.`,
     `It renews automatically every month, and you are charged ${money(s.monthlyPrice)} on this date each month until you cancel. There is no minimum term.`,
-    "You can cancel any time from your portal or by emailing us. It stops at the end of the period you have already paid for, and there are no refunds.",
+    "You can cancel any time from your portal or by emailing us. If you cancel within 30 days of today, we refund this first month's fee, but not the onboarding fee. After that, it stops at the end of the period you have already paid for, and there are no refunds.",
     ...(s.callMinutes != null
       ? [
           `Your plan includes ${s.callMinutes.toLocaleString("en-US")} call-minutes a month. Extra minutes are $${(s.overagePerMinute ?? 0).toFixed(2)} each.`,

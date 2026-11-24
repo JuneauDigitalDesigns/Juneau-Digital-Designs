@@ -26,7 +26,13 @@ import type { Block, SectionDef, SubsectionDef } from "./types";
  * under `OWNER_TEXT_CAMPAIGN=v2`; it was bumped rather than edited because whether any preview
  * deploy had recorded a v6.1 acceptance could not be checked, and a version names one text.
  *
- * TWO VERSIONS, ONE DIFFERENCE. v6.0 is the text under the SMS campaign live today (v1); v6.2 is
+ * v6.0 / v6.2 → v7.0 / v7.1 on 2026-11-24 (Xander confirmed the reading and the recommended
+ * answers in the v7 draft): a client who cancels within thirty days of their first payment gets
+ * their plan's first monthly fee back, never the onboarding fee (§1.2, §2.2, the Section 2
+ * heading), and every plan summary says so. The new plans (website-only Starter, Starter + AI
+ * Receptionist) ship in the same version.
+ *
+ * TWO VERSIONS, ONE DIFFERENCE. v7.0 is the text under the SMS campaign live today (v1); v7.1 is
  * the same text with §4.6 and the plan summary's text-alert line in the v2 wording. Which one is
  * shown follows `OWNER_TEXT_CAMPAIGN`, exactly as the SMS checkbox does, and each has its own
  * version string and hash, so an acceptance proves the words that client saw. The env is read on
@@ -37,7 +43,7 @@ import type { Block, SectionDef, SubsectionDef } from "./types";
 
 export type TermsCampaign = OwnerTextCampaign;
 
-export const TERMS_VERSIONS: Record<TermsCampaign, string> = { v1: "v6.0", v2: "v6.2" };
+export const TERMS_VERSIONS: Record<TermsCampaign, string> = { v1: "v7.0", v2: "v7.1" };
 
 /** The version for a campaign. Defaults to the live switch. */
 export function termsVersion(campaign: TermsCampaign = ownerTextCampaign()): string {
@@ -85,7 +91,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
         clause(p("The Service runs month to month. There is no minimum term and no early-termination fee.")),
         clause(
           p(
-            "You can cancel at any time, in your client portal or by emailing us. Cancellation takes effect at the end of the monthly term you have already paid for. The Service keeps running until then, and the handover in Section 9 starts when it ends.",
+            "You can cancel at any time, in your client portal or by emailing us. Cancellation takes effect at the end of the monthly term you have already paid for. The Service keeps running until then, and the handover in Section 9 starts when it ends. If you cancel within thirty (30) days of your first payment and we refund your first monthly fee under Section 2.2, the Service ends on the day we issue the refund instead, and the handover starts then.",
           ),
         ),
         clause(
@@ -97,7 +103,7 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
     },
     {
       id: "fees",
-      heading: "FEES, BILLING AND NO REFUNDS",
+      heading: "FEES, BILLING AND REFUNDS",
       subsections: [
         clause(
           p(
@@ -105,9 +111,9 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
           ),
         ),
         titled(
-          "No refunds",
+          "Refunds",
           p(
-            "Every fee is non-refundable, including the onboarding fee and the current month's fee. We do not prorate, credit or refund any part of a month for any reason, including when you cancel, change to a lower plan, or stop using the Service. The one exception is a move onto an Enterprise plan, described in Section 3.7.",
+            "If you cancel within thirty (30) days of your first payment, we refund your plan's first monthly fee to the payment method you paid with. The onboarding fee is never refunded, and neither is anything else charged in that time, such as an add-on or call-minute overage. This refund is available once per business, and not when the Service ends for breach under Section 12 or after you have filed a chargeback. Apart from that, every fee is non-refundable, including the current month's fee, and we do not prorate, credit or refund any part of a month for any reason, including when you cancel, change to a lower plan, or stop using the Service. The only other exception is a move onto an Enterprise plan, described in Section 3.7.",
           ),
         ),
         clause(
