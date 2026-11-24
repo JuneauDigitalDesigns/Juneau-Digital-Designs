@@ -78,4 +78,8 @@ test("the menu opens by click and keyboard as well as hover, and says so to a sc
   assert.match(menu, /aria-haspopup/, "the trigger does not say it opens a menu");
   assert.match(menu, /"Escape"/, "Escape does not close the menu");
   assert.match(menu, /useReducedMotion/, "the animation ignores a reduced-motion preference");
+  // A mouse press focuses the button before its click, so focus opened the menu and the click shut
+  // it again (fixed 24 Nov 2026). The click must judge by how the menu was open when the press began.
+  assert.match(menu, /onPointerDown=/, "the press is not recorded before its focus");
+  assert.match(menu, /was === "click"/, "a click closes only a menu opened by clicking");
 });

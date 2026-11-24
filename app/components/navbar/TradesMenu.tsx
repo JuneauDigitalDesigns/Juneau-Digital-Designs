@@ -18,6 +18,11 @@ import { TRADE_PAGES } from "@/app/data/trade-pages";
  *  - **Focus, not just hover.** Tabbing to the button opens the menu; Escape closes it and puts
  *    focus back on the button; focus leaving the group closes it.
  *  - **Reduced motion.** The slide becomes a plain fade for anyone who asked for less movement.
+ *  - **One press, one result.** A mouse press focuses the button before its click fires, so
+ *    focus would open the menu and the click would then toggle it straight shut. The click
+ *    therefore looks at how the menu was open when the press began: a press on a menu someone
+ *    opened by clicking closes it; anything else (closed, or opened by hover or focus) leaves it
+ *    open. Fixed 24 Nov 2026; before that, clicking Trades did nothing visible.
  *
  * The list itself is `app/data/trade-pages.ts`, shared with the footer.
  */
@@ -59,30 +64,40 @@ export default function TradesMenu({
             closeTimer.current = null;
         }
     };
-    const openNow = () => {
+    /** How the menu came to be open, set only when it opens from shut. */
+    const openedBy = useRef<"hover" | "focus" | "click" | null>(null);
+    /** `openedBy` as it was when the current press began, before the press's own focus. */
+    const atPress = useRef<"hover" | "focus" | "click" | null>(null);
+
+    const openNow = (by: "hover" | "focus" | "click") => {
         cancelClose();
+        if (!open) openedBy.current = by;
         setOpen(true);
+    };
+    const close = () => {
+        openedBy.current = null;
+        setOpen(false);
     };
     const closeSoon = () => {
         cancelClose();
-        closeTimer.current = setTimeout(() => setOpen(false), 140);
+        closeTimer.current = setTimeout(close, 140);
     };
 
     return (
         <div
             ref={groupRef}
             className="nav-trades"
-            onMouseEnter={openNow}
+            onMouseEnter={() => openNow("hover")}
             onMouseLeave={closeSoon}
-            onFocus={openNow}
+            onFocus={() => openNow("focus")}
             onBlur={(e) => {
                 // Only when focus has actually left the button and its menu, not when it moves
                 // between them.
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close();
             }}
             onKeyDown={(e) => {
                 if (e.key === "Escape" && open) {
-                    setOpen(false);
+                    close();
                     buttonRef.current?.focus();
                 }
             }}
@@ -94,7 +109,19 @@ export default function TradesMenu({
                 aria-expanded={open}
                 aria-haspopup="true"
                 aria-controls={menuId}
-                onClick={() => (open ? setOpen(false) : openNow())}
+                onPointerDown={() => {
+                    atPress.current = open ? openedBy.current : null;
+                }}
+                onClick={(e) => {
+                    // A keyboard press (detail 0) has no pointerdown, and its focus came earlier.
+                    const was = e.detail === 0 ? (open ? openedBy.current : null) : atPress.current;
+                    if (was === "click") {
+                        close();
+                    } else {
+                        openNow("click");
+                        openedBy.current = "click";
+                    }
+                }}
             >
                 {label}
                 <Chevron open={open} />
@@ -120,7 +147,7 @@ export default function TradesMenu({
                         <ul>
                             {items.map((item) => (
                                 <li key={item.href}>
-                                    <Link href={item.href} className="nav-trades-link" onClick={() => setOpen(false)}>
+                                    <Link href={item.href} className="nav-trades-link" onClick={close}>
                                         {item.label}
                                         {item.blurb && <small>{item.blurb}</small>}
                                     </Link>
