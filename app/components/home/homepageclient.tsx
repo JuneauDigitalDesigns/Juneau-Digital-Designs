@@ -45,13 +45,15 @@ function Hero() {
         <div className="hp-wrap hp-hero-wrap">
             <div className="hp-hero">
                 <div>
-                    {/* The third line is the spine of the page: what the whole system adds up to. */}
+                    {/* The page's one h1 names what we sell, in the words people search (Xander, 24 Nov
+                        2026, option C of the header mockup: https://claude.ai/artifact/HYDzyGNo9rYfy8HgAg4MAz).
+                        The three beats that used to be the headline sit above it as its eyebrow, with the
+                        third still the spine of the page: what the whole system adds up to. */}
+                    <p className="hp-beats">
+                        <span>Get found.</span> <span>Get called.</span> <span className="home-em">Run like a team.</span>
+                    </p>
                     <h1 className="hp-h1">
-                        Get found.
-                        <br />
-                        Get called.
-                        <br />
-                        <span className="home-em">Run like a team.</span>
+                        Website design and AI receptionist for <span className="hp-h1-em">local service businesses.</span>
                     </h1>
                     {/* Xander's three beats, approved word for word on 19 Nov 2026 (draft A): the website,
                         the receptionist in voicemail's place, the one place leads land. */}
