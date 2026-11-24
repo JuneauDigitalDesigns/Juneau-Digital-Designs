@@ -339,7 +339,7 @@ const PROGRAM_TWO: Section[] = [
             <>
                 <p style={{ marginBottom: 14 }}>
                     On the Growth and Enterprise plans, your client portal can text your own customers in two
-                    specific ways. Starter and website-only plans never send customer-facing messages at all.
+                    specific ways. The Starter and Starter + AI Receptionist plans never send customer-facing messages at all.
                 </p>
                 <ul style={ulStyle}>
                     <li>
