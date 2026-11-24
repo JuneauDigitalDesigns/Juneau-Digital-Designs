@@ -47,7 +47,15 @@ test("the footer keeps its pages, legal links and credit line", () => {
         assert.ok(footer.includes(`href="${href}"`), href);
     }
     assert.match(footer, /All rights reserved\./);
-    assert.match(footer, /WEBSITES \/ HOSTING \/ AI RECEPTIONIST/);
+    // Since 24 Nov 2026 each word of the credit line links to its service page, and it gained PORTAL + CRM.
+    for (const [href, word] of [
+        ["/website-design", "WEBSITES"],
+        ["/website-hosting", "HOSTING"],
+        ["/ai-receptionist", "AI RECEPTIONIST"],
+        ["/crm", "PORTAL + CRM"],
+    ]) {
+        assert.ok(footer.includes(`<Link href="${href}" className="footer-link">${word}</Link>`), `credit line: ${word}`);
+    }
 });
 
 /*

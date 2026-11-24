@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { CONTACT } from "@/app/data/contact";
 import type { FaqEntry } from "@/app/data/faq";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
+import type { PlanSchedule } from "@/app/lib/legal/types";
+import { WEBSITE_PLAN, RECEPTIONIST_PLAN } from "@/app/lib/service-prices";
 
 /**
  * What search engines and link previews read about the agency site.
@@ -55,6 +57,25 @@ export const CONTACT_TITLE = "Contact Juneau Digital Designs | Website + AI Rece
 export const CONTACT_DESCRIPTION = `Tell us about your business and we'll come back to you with what a website and a 24/7 AI receptionist would look like for it. Or call ${CONTACT.phoneDisplay}.`;
 
 /**
+ * The four service pages and /orlando. Xander approved every title and description with the pages,
+ * from the round-3 mockup (24 Nov 2026, https://claude.ai/artifact/KqRJeYPSZdpVs4XdsWDWsM), with
+ * "local service businesses" as the audience everywhere. Prices come from `service-prices.ts`.
+ */
+export const WEBSITE_DESIGN_TITLE = "Website Design for Local Service Businesses | JDD";
+export const WEBSITE_DESIGN_DESCRIPTION = `We write, build and host a custom website for your local service business, with service pages, town pages and a search-ready build. From $${WEBSITE_PLAN.monthlyPrice} a month, no contract.`;
+export const HOSTING_TITLE = "Hosting + Maintenance for Local Service Businesses | JDD";
+export const HOSTING_DESCRIPTION = `Fast hosting, SSL, daily backups, uptime monitoring and two content edits a month, handled for you. Your domain stays in your name. From $${WEBSITE_PLAN.monthlyPrice} a month.`;
+export const AI_RECEPTIONIST_TITLE = "24/7 AI Receptionist for Local Service Businesses | JDD";
+export const AI_RECEPTIONIST_DESCRIPTION =
+    "An AI receptionist that answers the calls you miss, 24/7, in English or Spanish. It rings you first, takes the caller's details and texts you. Month to month.";
+export const CRM_TITLE = "Lead Portal + CRM for Local Service Businesses | JDD";
+export const CRM_DESCRIPTION =
+    "Every call and web inquiry lands in one portal, with a text the moment it arrives. On Growth, a pipeline from Lead to Won, customer texts and review requests.";
+export const ORLANDO_TITLE = "Orlando Website Design + 24/7 AI Receptionist | JDD";
+export const ORLANDO_DESCRIPTION =
+    "Website design and a 24/7 AI receptionist for Orlando service businesses, from an owner who lives in Winter Garden. We write, build and host it. Month to month.";
+
+/**
  * The public pages, in the order the sitemap lists them. A page that is not here is not in the
  * sitemap: the portal, sign-in, checkout, payment links, `/start`, `/terms/accept` and every
  * private `/terms/[code]` link stay out on purpose.
@@ -62,6 +83,11 @@ export const CONTACT_DESCRIPTION = `Tell us about your business and we'll come b
 export const PUBLIC_PATHS = [
     "/",
     "/about",
+    "/website-design",
+    "/website-hosting",
+    "/ai-receptionist",
+    "/crm",
+    "/orlando",
     "/hvac",
     "/plumbing",
     "/lawn-care",
@@ -367,6 +393,123 @@ export function faqJsonLd(entries: FaqEntry[]) {
         })),
     };
 }
+
+/**
+ * A service page, or /orlando: the page, and the one service it describes.
+ *
+ * Same shape as the trade pages' builders. It says only what the page prints. The four service
+ * pages name no area at all (the trade-page rule: no state, no `areaServed`). /orlando names the
+ * city, inside Florida, which Xander allowed for that page alone (24 Nov 2026). An offer appears
+ * only where the page prints a price, priced from the plan summary.
+ */
+function servicePageJsonLd(opts: {
+    path: PublicPath;
+    title: string;
+    description: string;
+    name: string;
+    serviceType: string;
+    plan?: PlanSchedule;
+    orlando?: boolean;
+}) {
+    const url = `${SITE_URL}${opts.path}`;
+    const plan = opts.plan;
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": `${url}#page`,
+                url,
+                name: opts.title,
+                description: opts.description,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${url}#service` },
+            },
+            {
+                "@type": "Service",
+                "@id": `${url}#service`,
+                name: opts.name,
+                serviceType: opts.serviceType,
+                description: opts.description,
+                url,
+                provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
+                audience: { "@type": "BusinessAudience", name: "Local service businesses" },
+                ...(opts.orlando
+                    ? {
+                          areaServed: {
+                              "@type": "City",
+                              name: "Orlando",
+                              containedInPlace: { "@type": "State", name: "Florida" },
+                          },
+                      }
+                    : {}),
+                ...(plan
+                    ? {
+                          offers: {
+                              "@type": "Offer",
+                              name: plan.name,
+                              url: `${SITE_URL}/pricing`,
+                              priceCurrency: "USD",
+                              price: plan.monthlyPrice,
+                              priceSpecification: {
+                                  "@type": "UnitPriceSpecification",
+                                  price: plan.monthlyPrice,
+                                  priceCurrency: "USD",
+                                  unitCode: "MON",
+                                  referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+                              },
+                          },
+                      }
+                    : {}),
+            },
+        ],
+    };
+}
+
+export const websiteDesignJsonLd = () =>
+    servicePageJsonLd({
+        path: "/website-design",
+        title: WEBSITE_DESIGN_TITLE,
+        description: WEBSITE_DESIGN_DESCRIPTION,
+        name: "Website design for local service businesses",
+        serviceType: "Website design",
+        plan: WEBSITE_PLAN,
+    });
+export const hostingJsonLd = () =>
+    servicePageJsonLd({
+        path: "/website-hosting",
+        title: HOSTING_TITLE,
+        description: HOSTING_DESCRIPTION,
+        name: "Website hosting and maintenance for local service businesses",
+        serviceType: "Website hosting and maintenance",
+        plan: WEBSITE_PLAN,
+    });
+export const aiReceptionistJsonLd = () =>
+    servicePageJsonLd({
+        path: "/ai-receptionist",
+        title: AI_RECEPTIONIST_TITLE,
+        description: AI_RECEPTIONIST_DESCRIPTION,
+        name: "24/7 AI receptionist for local service businesses",
+        serviceType: "AI answering service",
+        plan: RECEPTIONIST_PLAN,
+    });
+export const crmJsonLd = () =>
+    servicePageJsonLd({
+        path: "/crm",
+        title: CRM_TITLE,
+        description: CRM_DESCRIPTION,
+        name: "Lead portal and CRM for local service businesses",
+        serviceType: "Customer relationship management",
+    });
+export const orlandoJsonLd = () =>
+    servicePageJsonLd({
+        path: "/orlando",
+        title: ORLANDO_TITLE,
+        description: ORLANDO_DESCRIPTION,
+        name: "Website design and a 24/7 AI receptionist in Orlando",
+        serviceType: "Website design and AI answering service",
+        orlando: true,
+    });
 
 /** JSON for a `<script type="application/ld+json">`, with `<` escaped so no text can close the tag. */
 export function jsonLdString(data: unknown): string {

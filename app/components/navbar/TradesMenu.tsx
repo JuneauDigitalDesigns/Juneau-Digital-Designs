@@ -21,7 +21,26 @@ import { TRADE_PAGES } from "@/app/data/trade-pages";
  *
  * The list itself is `app/data/trade-pages.ts`, shared with the footer.
  */
-export default function TradesMenu() {
+export interface NavMenuItem {
+    label: string;
+    href: string;
+    /** A line under the name. The Services menu has one; Trades has none. */
+    blurb?: string;
+}
+
+/**
+ * The Services menu is this same menu with another list and a line under each name
+ * (`app/data/service-pages.ts`, Xander, 24 Nov 2026), so the two can never behave differently.
+ */
+export default function TradesMenu({
+    label = "Trades",
+    items = TRADE_PAGES,
+    menuClassName = "",
+}: {
+    label?: string;
+    items?: readonly NavMenuItem[];
+    menuClassName?: string;
+} = {}) {
     const [open, setOpen] = useState(false);
     const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const groupRef = useRef<HTMLDivElement>(null);
@@ -77,7 +96,7 @@ export default function TradesMenu() {
                 aria-controls={menuId}
                 onClick={() => (open ? setOpen(false) : openNow())}
             >
-                Trades
+                {label}
                 <Chevron open={open} />
             </button>
 
@@ -87,9 +106,9 @@ export default function TradesMenu() {
                         /* AnimatePresence needs a stable key to know the child left. Without it
                            the exit animation runs but the element is never unmounted, leaving an
                            invisible panel over the page that still takes clicks. */
-                        key="trades-menu"
+                        key={`${label}-menu`}
                         id={menuId}
-                        className="nav-trades-menu"
+                        className={`nav-trades-menu ${menuClassName}`}
                         /* `x: "-50%"` in every state, paired with `left: 50%` in the CSS, is what
                            centres the panel under its trigger: framer-motion owns this element's
                            `transform`, so the shift cannot live in the stylesheet. */
@@ -99,10 +118,11 @@ export default function TradesMenu() {
                         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
                     >
                         <ul>
-                            {TRADE_PAGES.map((trade) => (
-                                <li key={trade.href}>
-                                    <Link href={trade.href} className="nav-trades-link" onClick={() => setOpen(false)}>
-                                        {trade.label}
+                            {items.map((item) => (
+                                <li key={item.href}>
+                                    <Link href={item.href} className="nav-trades-link" onClick={() => setOpen(false)}>
+                                        {item.label}
+                                        {item.blurb && <small>{item.blurb}</small>}
                                     </Link>
                                 </li>
                             ))}
