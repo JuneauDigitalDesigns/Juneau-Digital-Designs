@@ -52,12 +52,12 @@ test("the v2 keyword replies name customer messages", () => {
     );
 });
 
-test("Terms under v2 are v6.2, and §4.6 names customer-reply alerts", () => {
-    assert.equal(TERMS_VERSIONS.v2, "v6.2");
-    assert.equal(TERMS_VERSIONS.v1, "v6.0");
+test("Terms under v2 are v7.1 (v6.2 before the refund), and §4.6 names customer-reply alerts", () => {
+    assert.equal(TERMS_VERSIONS.v2, "v7.1");
+    assert.equal(TERMS_VERSIONS.v1, "v7.0");
     const text = JSON.stringify(buildSections("v2"));
     assert.ok(
         text.includes("If you opt in, we text you call summaries, new-lead alerts, customer-reply alerts and occasional service alerts about your own account."),
     );
-    assert.ok(!JSON.stringify(buildSections("v1")).includes("customer-reply"), "v6.0 is untouched");
+    assert.ok(!JSON.stringify(buildSections("v1")).includes("customer-reply"), "the v1 text never names them");
 });

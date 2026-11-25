@@ -71,7 +71,7 @@ const CONTRACT: FaqEntry = {
 
 const NOT_HAPPY: FaqEntry = {
     q: "What if I'm not happy with the site?",
-    a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If it's still not working after a fair run, there is no commitment holding you here. Month to month means you can leave at the end of any month.",
+    a: "We iterate. You get two content edit requests per month, and if the first build misses the mark, we redo it. If you cancel within your first 30 days, we refund that first month's fee (the onboarding fee isn't refunded). After that, month to month means you can leave at the end of any month.",
 };
 
 /* MSA delivery targets. The second paragraph is the carrier step for Growth's customer-facing

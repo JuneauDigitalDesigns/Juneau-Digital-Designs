@@ -42,10 +42,11 @@ test("/terms exists and is public, signed out", () => {
 
 test("/terms shows the version and hash the checkout records, from the same source", () => {
   const page = readFileSync(PAGE, "utf8");
-  // The words: the one resolver the agreement page and the PDF render from.
-  assert.match(page, /getTermsForPlan\(doc\.plan, \{ webOnly: doc\.webOnly \}\)/);
+  // The words: the one resolver the agreement page and the PDF render from. Since Terms v7 the
+  // website plan is its own slug, so the page no longer passes a webOnly option.
+  assert.match(page, /getTermsForPlan\(doc\.plan\)/);
   // The hash: the function /api/agreement and the operator close both store as audit.termsHash.
-  assert.match(page, /hashTermsForPlan\(doc\.plan, \{ webOnly: doc\.webOnly \}\)/);
+  assert.match(page, /hashTermsForPlan\(doc\.plan\)/);
   assert.match(readFileSync(root("app/api/agreement/route.ts"), "utf8"), /hashTermsForPlan\(/);
   assert.match(readFileSync(root("app/lib/verbal-agreement.ts"), "utf8"), /hashTermsForPlan\(/);
   // Both are printed, so a reader (or Stripe's reviewer) can match the page to a record.

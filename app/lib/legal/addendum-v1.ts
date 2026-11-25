@@ -6,7 +6,7 @@ import type { PlanSchedule, Section } from "./types";
  * It adopts the Terms of Service instead of the Master Services Agreement, and bills monthly only
  * (items P9 and P10, approved by Xander). The file keeps its v1 name so every import stays put.
  */
-export const ADDENDUM_VERSION = "addendum-v3";
+export const ADDENDUM_VERSION = "addendum-v4";
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 

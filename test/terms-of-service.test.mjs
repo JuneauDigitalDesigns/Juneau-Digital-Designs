@@ -27,8 +27,9 @@ const { hashTermsForPlan } = await import("../app/lib/legal/hash.ts");
 const { buildCallScript } = await import("../app/lib/legal/call-script.ts");
 
 const PLANS = [
+  ["website", {}],
   ["starter", {}],
-  ["starter", { webOnly: true }],
+  ["starter", { webOnly: true }], // the legacy website-only variant, kept for old records
   ["growth", {}],
   ["enterprise", {}],
 ];
@@ -53,10 +54,10 @@ function text(sections) {
 
 const doc = (plan, opts = {}, campaign = "v1") => text(getTermsForPlan(plan, { ...opts, campaign }).sections);
 
-test("the versions are v6.0 (SMS v1) and v6.2 (SMS v2), and each document carries its own", () => {
-  assert.deepEqual(TERMS_VERSIONS, { v1: "v6.0", v2: "v6.2" });
-  assert.equal(getTermsForPlan("growth", { campaign: "v1" }).version, "v6.0");
-  assert.equal(getTermsForPlan("growth", { campaign: "v2" }).version, "v6.2");
+test("the versions are v7.0 (SMS v1) and v7.1 (SMS v2), and each document carries its own", () => {
+  assert.deepEqual(TERMS_VERSIONS, { v1: "v7.0", v2: "v7.1" });
+  assert.equal(getTermsForPlan("growth", { campaign: "v1" }).version, "v7.0");
+  assert.equal(getTermsForPlan("growth", { campaign: "v2" }).version, "v7.1");
   // Different words, different hash: an acceptance proves which version the client saw.
   assert.notEqual(
     hashTermsForPlan("growth", { campaign: "v1" }),
@@ -117,8 +118,8 @@ test("the 2026-11-16 decisions read as approved", () => {
   assert.match(d, /we still send your website project and the PDF, and still hand over your domain\. The site content file and the port of your number wait/);
   assert.match(d, /prorated for the rest of the current month, and the higher plan's monthly fee from your next billing date/);
   assert.match(d, /The onboarding fee is charged once only, and never again, including when you change plans\./);
-  // Q8 (Xander, 2026-11-16): the one exception to "no credit", for Growth sites moving onto Enterprise.
-  assert.match(d, /The one exception is a move onto an Enterprise plan, described in Section 3\.7\./);
+  // Q8 (Xander, 2026-11-16): the exception to "no credit", for Growth sites moving onto Enterprise.
+  assert.match(d, /The only other exception is a move onto an Enterprise plan, described in Section 3\.7\./);
   assert.match(
     d,
     /When sites on a Growth plan move onto an Enterprise plan, the unused part of the current month on each of their Growth subscriptions is credited to your account and taken off your next invoices, and their unused included call minutes are added to your Enterprise allowance for the rest of that month only\./,
@@ -164,6 +165,7 @@ test("the plan summary is monthly only and lists the new lines", () => {
   assert.match(summary, /charged at checkout\./);
   assert.match(summary, /One-time onboarding fee \(charged once, at checkout\) \| \$297/);
   assert.match(summary, /Minimum term \| None/);
+  assert.match(summary, /Refund if you cancel in your first 30 days \| Your first monthly fee \(the onboarding fee is not refunded\)/);
   assert.match(summary, /Chargeback reimbursement \| The processor's fee/);
   assert.match(summary, /Phone number port-out \(when you leave\) \| \$50 per number/);
   assert.match(summary, /Site statistics through Vercel Analytics, and Lighthouse performance checks/);
@@ -171,10 +173,32 @@ test("the plan summary is monthly only and lists the new lines", () => {
   assert.match(summary, /A search-ready build: page titles, descriptions and canonical addresses/);
 });
 
-test("the read-aloud script is monthly, says no refunds, and names the Terms of Service (r3)", () => {
+test("the first-month refund reads as approved (v7.0, 2026-11-24)", () => {
+  const d = doc("growth");
+  assert.match(d, /FEES, BILLING AND REFUNDS/);
+  assert.doesNotMatch(d, /NO REFUNDS|\nNo refunds\n/);
+  assert.match(
+    d,
+    /If you cancel within thirty \(30\) days of your first payment, we refund your plan's first monthly fee to the payment method you paid with\. The onboarding fee is never refunded, and neither is anything else charged in that time, such as an add-on or call-minute overage\. This refund is available once per business, and not when the Service ends for breach under Section 12 or after you have filed a chargeback\./,
+  );
+  assert.match(d, /Apart from that, every fee is non-refundable, including the current month's fee/);
+  assert.match(
+    d,
+    /If you cancel within thirty \(30\) days of your first payment and we refund your first monthly fee under Section 2\.2, the Service ends on the day we issue the refund instead, and the handover starts then\./,
+  );
+  // Every plan summary carries the refund row.
+  for (const [plan, opts] of PLANS) {
+    assert.match(doc(plan, opts), /Refund if you cancel in your first 30 days \| Your first monthly fee/, plan);
+  }
+  // The FAQ says it once, in the "not happy" answer.
+  const faq = readFileSync(fileURLToPath(new URL("../app/data/faq.ts", import.meta.url)), "utf8");
+  assert.ok(faq.includes("If you cancel within your first 30 days, we refund that first month's fee (the onboarding fee isn't refunded)."));
+});
+
+test("the read-aloud script is monthly, states the first-month refund, and names the Terms of Service (r4)", () => {
   const s = buildCallScript("growth", "monthly");
-  assert.match(s.version, /-r3$/);
-  assert.match(s.lines.join("\n"), /there are no refunds\./);
+  assert.match(s.version, /-r4$/);
+  assert.match(s.lines.join("\n"), /If you cancel within 30 days of today, we refund this first month's fee, but not the onboarding fee\. After that, it stops at the end of the period you have already paid for, and there are no refunds\./);
   assert.match(s.lines.join("\n"), /the full Terms of Service we'll email you\. Do you agree\?/);
   assert.doesNotMatch(s.lines.join("\n"), /year|partial periods|full agreement/);
 });

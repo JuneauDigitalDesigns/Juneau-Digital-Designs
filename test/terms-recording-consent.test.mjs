@@ -72,7 +72,7 @@ for (const plan of PLANS) {
 test("the website-only document says the receptionist section does not apply to it", () => {
   const { sections } = getTermsForPlan("starter", { webOnly: true, campaign: "v1" });
   const s = sections.find((x) => x.heading === "THE AI RECEPTIONIST");
-  assert.equal(s.intro[0].text, "This section does not apply to a website-only plan.");
+  assert.equal(s.intro[0].text, "This section does not apply to the Starter plan, which does not include the AI receptionist.");
 });
 
 test("the pricing page does not sell transcripts the portal does not have", () => {

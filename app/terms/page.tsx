@@ -27,12 +27,12 @@ export const metadata: Metadata = pageMetadata(
  * protects `/terms`.
  */
 
-/** One tab per document a client can actually be asked to accept. */
-const DOCUMENTS: { key: string; label: string; plan: PlanSlug; webOnly?: boolean }[] = [
-    { key: "starter", label: "Starter", plan: "starter" },
+/** One tab per plan a client can be asked to accept, cheapest first. */
+const DOCUMENTS: { key: string; label: string; plan: PlanSlug }[] = [
+    { key: "website", label: "Starter", plan: "website" },
+    { key: "starter", label: "Starter + AI Receptionist", plan: "starter" },
     { key: "growth", label: "Growth", plan: "growth" },
     { key: "enterprise", label: "Enterprise", plan: "enterprise" },
-    { key: "website-only", label: "Starter (website only)", plan: "starter", webOnly: true },
 ];
 
 export default async function TermsPage({
@@ -41,9 +41,9 @@ export default async function TermsPage({
     searchParams: Promise<{ plan?: string }>;
 }) {
     const { plan: requested } = await searchParams;
-    const doc = DOCUMENTS.find((d) => d.key === requested) ?? DOCUMENTS[1];
-    const { version, sections } = getTermsForPlan(doc.plan, { webOnly: doc.webOnly });
-    const hash = hashTermsForPlan(doc.plan, { webOnly: doc.webOnly });
+    const doc = DOCUMENTS.find((d) => d.key === requested) ?? DOCUMENTS.find((d) => d.key === "growth")!;
+    const { version, sections } = getTermsForPlan(doc.plan);
+    const hash = hashTermsForPlan(doc.plan);
 
     return (
         <main style={{ minHeight: "100vh", background: "var(--bg)", padding: "64px max(24px, 4vw)" }}>

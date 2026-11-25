@@ -39,6 +39,11 @@ const onboardingRow = (fee: number): [string, string] => [
 const MINIMUM_TERM_ROW: [string, string] = ["Minimum term", "None"];
 const EXTRA_PAGES_ROW: [string, string] = ["Additional pages beyond those included", "Quoted per request"];
 const CHARGEBACK_ROW: [string, string] = ["Chargeback reimbursement", "The processor's fee"];
+/** Terms of Service v7.0 (2026-11-24): the first-month refund, on every plan. */
+const REFUND_ROW: [string, string] = [
+  "Refund if you cancel in your first 30 days",
+  "Your first monthly fee (the onboarding fee is not refunded)",
+];
 
 /** v6.0 (SMS campaign v1). Swapped for `TEXT_ALERT_LINE_V2` under the v2 campaign (v6.2). */
 export const TEXT_ALERT_LINE =
@@ -109,6 +114,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
       CHARGEBACK_ROW,
       MINIMUM_TERM_ROW,
+      REFUND_ROW,
     ],
   },
 
@@ -152,6 +158,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       CHARGEBACK_ROW,
       ["Phone number port-out (when you leave)", "$50 per number"],
       MINIMUM_TERM_ROW,
+      REFUND_ROW,
     ],
   },
 
@@ -169,7 +176,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     supportResponse: "one (1) business day",
     cancellationNoticeDays: 0,
     included: [
-      "Everything included in the Starter plan",
+      "Everything included in the Starter + AI Receptionist plan",
       "AI outbound callbacks to website form submissions, typically within sixty (60) seconds",
       "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, job value, and tags",
       "AI lead qualification, including answers to common questions drawn from the Client's intake",
@@ -191,6 +198,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       CHARGEBACK_ROW,
       ["Phone number port-out (when you leave)", "$50 per number"],
       MINIMUM_TERM_ROW,
+      REFUND_ROW,
     ],
   },
 
@@ -231,6 +239,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       CHARGEBACK_ROW,
       ["Phone number port-out (when you leave)", "$50 per number (up to $150 for all three)"],
       MINIMUM_TERM_ROW,
+      REFUND_ROW,
     ],
   },
 };
@@ -286,6 +295,7 @@ export const WEB_ONLY_SCHEDULE: PlanSchedule = {
     ["Late fee (invoice unpaid more than 15 days)", "$25"],
     CHARGEBACK_ROW,
     MINIMUM_TERM_ROW,
+    REFUND_ROW,
   ],
 };
 
