@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CONTACT } from "@/app/data/contact";
+import { CONTACT, PROFILES } from "@/app/data/contact";
 import type { FaqEntry } from "@/app/data/faq";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import type { PlanSchedule } from "@/app/lib/legal/types";
@@ -161,6 +161,8 @@ export function organizationJsonLd() {
                 email: CONTACT.email,
                 telephone: CONTACT.phoneHref.replace(/^tel:/, ""),
                 founder: { "@id": PERSON_ID },
+                // The agency's own profiles, the same links as the footer icons.
+                sameAs: PROFILES.map((p) => p.href),
                 contactPoint: {
                     "@type": "ContactPoint",
                     contactType: "customer support",
