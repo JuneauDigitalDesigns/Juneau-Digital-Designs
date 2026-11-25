@@ -139,7 +139,7 @@ export type OverviewCrm =
     | { state: "unavailable" }
     | { state: "error" };
 
-/** The CRM records, with `stale` derived by the board's own `isStale`. Growth/Enterprise. */
+/** The CRM records, with `stale` derived by the board's own `isStale`. Starter + AI, Growth, Enterprise. */
 export const getOverviewCrm = cache(async function getOverviewCrm(
     account: PortalAccount,
     site: PortalSite,

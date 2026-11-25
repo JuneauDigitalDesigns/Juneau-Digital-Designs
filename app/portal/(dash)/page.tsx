@@ -191,20 +191,22 @@ export default async function OverviewPage({
                         <TilesBlock site={site} raw={raw} account={account} sample={sample} />
                     </Suspense>
 
-                    {site.features.crm.state === "ready" ? (
+                    {/* The pipeline, dollars included, on every plan with the Customers board: Starter + AI,
+                        Growth and Enterprise (schema v1.47.0). */}
+                    {site.features.crm.state === "ready" && (
                         <Suspense fallback={<CardSkeleton rows={2} />}>
                             <PipelineBlock site={site} raw={raw} account={account} sample={sample} />
                         </Suspense>
-                    ) : site.features.crm.state === "not-on-plan" ? (
-                        // PR C makes `demo=growth` open the Growth demo on arrival.
-                        site.webOnly ? (
-                            // Website plan: the one upsell is the AI receptionist, never Growth (D5).
+                    )}
+                    {site.webOnly ? (
+                        // Website plan: the one upsell is the AI receptionist, never Growth (D5).
+                        site.features.crm.state === "not-on-plan" && (
                             <ReceptionistUpsellPanel href={addReceptionistHref(site.slug)} />
-                        ) : (
-                            <GrowthLockedPanel
-                                demoHref={`${tabHref("customers", site.slug)}&demo=growth`}
-                            />
                         )
+                    ) : site.features.calendar.state === "not-on-plan" ? (
+                        // Starter + AI: what Growth still adds, beneath its own pipeline. `demo=growth`
+                        // opens the Growth demo on arrival on the Customers board (GrowthDemoOnArrival).
+                        <GrowthLockedPanel demoHref={`${tabHref("customers", site.slug)}&demo=growth`} />
                     ) : null}
 
                     <Suspense fallback={<CardSkeleton rows={4} />}>
@@ -288,19 +290,21 @@ async function LeadsBlock({ site, raw, account, sample }: BlockProps) {
                 webOnly={site.webOnly}
                 week={thisWeek}
                 todayIndex={week.todayIndex}
-                chart={site.features.crm.state === "ready"}
+                chart={site.features.calendar.state === "ready"}
             />
         </div>
     );
 }
 
 /**
- * The tiles. Growth (CRM live): Callback speed, Caught after hours, Follow-ups due today,
- * Reviews asked for. Starter: Caught after hours, Handled this week, Longest wait. Each hides
- * when it has nothing true to show — see `OverviewTiles`.
+ * The tiles. Growth (calendar live): Callback speed, Caught after hours, Follow-ups due today,
+ * Reviews asked for. Starter and Starter + AI: Caught after hours, Handled this week, Longest
+ * wait. Each hides when it has nothing true to show — see `OverviewTiles`.
  */
 async function TilesBlock({ site, raw, account, sample }: BlockProps) {
-    const growth = site.features.crm.state === "ready";
+    // The Growth tiles stay Growth and Enterprise (`calendar`, schema v1.47.0): Starter + AI has the
+    // pipeline now, but no callbacks and no review requests to count, so it keeps the Starter tiles.
+    const growth = site.features.calendar.state === "ready";
     const [inbox, crm] = await Promise.all([
         inboxFor(account, raw, sample),
         growth ? crmFor(account, raw, sample) : null,

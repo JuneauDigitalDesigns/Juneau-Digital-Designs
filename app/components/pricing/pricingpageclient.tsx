@@ -109,7 +109,7 @@ function planCards(leadTextsLive: boolean): PlanCard[] {
                         ? "A summary of every call, and a text the moment a new lead arrives"
                         : "A summary of every call, and a text after every call",
                 },
-                { text: "A guided walkthrough of Growth's pipeline, inside your portal" },
+                { text: "A customer pipeline in your portal: move every lead from Lead to Won, with notes, follow-ups, job value and tags" },
             ],
             foot: [`${minutes(starter)} AI minutes per month included`, `Extra minutes ${overageRate(starter)} each`],
             checkout: "starter",
@@ -118,8 +118,8 @@ function planCards(leadTextsLive: boolean): PlanCard[] {
             highlighted: false,
         },
         {
-            /* Growth leads with the customer system; the 60-second callback is its highlight
-               underneath. "Within about a minute" matches the contract's "typically within
+            /* Growth leads with the calendar (copy batch G4, 2026-11-25: the pipeline moved down to
+               Starter + AI); the 60-second callback is its highlight underneath. "Within about a minute" matches the contract's "typically within
                sixty (60) seconds". */
             key: "growth",
             name: "Growth",
@@ -127,7 +127,7 @@ function planCards(leadTextsLive: boolean): PlanCard[] {
             tierLine: "Growth works them like a team would.",
             leadIn: "Everything in Starter + AI Receptionist, plus",
             items: [
-                { strong: "Customer pipeline.", text: "Move every lead from Lead to Won, with notes, job value and tags." },
+                { strong: "A calendar for every job.", text: "Book job visits, estimates and follow-up calls against each customer, in one month view." },
                 {
                     strong: "Customer texts and Google reviews.",
                     text: "Text customers back and ask for a review in one tap, from your business number.",

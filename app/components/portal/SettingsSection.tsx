@@ -840,7 +840,8 @@ const SIGNED_DATE = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZo
  * the text for. The approved label is the only text.
  */
 function ReviewMessageLink({ site }: { site: PortalSiteProps }) {
-    if (site.features?.crm?.state !== "ready") return null;
+    // `messaging` on the plan, not `crm`: Starter + AI has Customers but sends no review requests.
+    if (!site.features?.messaging || site.features.messaging.state === "not-on-plan") return null;
     return (
         <Link
             href={tabHref("more/review", site.slug)}

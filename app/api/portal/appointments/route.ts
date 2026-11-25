@@ -16,8 +16,9 @@ import {
 export const runtime = "nodejs";
 
 /**
- * The portal calendar. Growth and Enterprise only: it is part of the CRM, behind the same `crm`
- * gate as Customers, re-checked on every handler.
+ * The portal calendar. Growth and Enterprise only, behind its own `calendar` gate (schema v1.47.0;
+ * it shared `crm` with Customers until Customers came down to Starter + AI), re-checked on every
+ * handler.
  *
  * GET is everything the calendar page draws in one request: the appointments, the open
  * follow-ups that have a due date (they show on their day), and the customers and jobs the form
@@ -28,7 +29,7 @@ export const runtime = "nodejs";
 async function context(request: Request) {
     const ctx = await resolvePortalRequest(request);
     if (!ctx.ok) return { ok: false as const, response: ctx.response };
-    if (siteFeature(ctx.site, "crm").state !== "ready") {
+    if (siteFeature(ctx.site, "calendar").state !== "ready") {
         return {
             ok: false as const,
             response: NextResponse.json({ error: "Not available on this site." }, { status: 403 }),

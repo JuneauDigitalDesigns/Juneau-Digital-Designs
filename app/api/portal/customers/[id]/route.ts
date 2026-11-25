@@ -44,13 +44,16 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     const customer = await getCustomer(acct, slug, id);
     if (!customer) return NextResponse.json({ error: "No such customer" }, { status: 404 });
 
+    // The calendar is its own gate (schema v1.47.0): Starter + AI has this record but no calendar,
+    // so it gets no appointments (a growth → starter downgrade keeps them stored, unshown).
+    const calendarReady = siteFeature(ctx.site, "calendar").state === "ready";
     const [stored, messages, allTasks, jobs, storedNotes, allAppointments] = await Promise.all([
         listActivity(acct, slug, id),
         listMessages(acct, slug, id),
         listTasks(acct, slug),
         listJobs(acct, slug, id),
         listNotes(acct, slug, id),
-        listAppointments(acct, slug),
+        calendarReady ? listAppointments(acct, slug) : Promise.resolve([]),
     ]);
     // The Notes tab's list, the old single note last. Also folded into the timeline below, on
     // read like calls, so an edited note reads as edited and a deleted one is gone.
@@ -148,6 +151,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         notes,
         // Their calendar appointments, for "Coming up" and each job's visits.
         appointments: allAppointments.filter((a) => a.customerId === id),
+        calendarReady,
         messagingState: siteFeature(ctx.site, "messaging").state,
         // The site's own texting number, for the phone texting screen's "Texts go out from your
         // business number" note (2026-11-19). It is the client's public business line, which

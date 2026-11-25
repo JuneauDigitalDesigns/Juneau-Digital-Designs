@@ -9,7 +9,8 @@ import { createNote, deleteNote, updateNote } from "@/app/lib/portal-jobs";
 export const runtime = "nodejs";
 
 /**
- * A customer's notes: write, edit, delete. Growth and Enterprise only.
+ * A customer's notes: write, edit, delete. Every plan with the Customers board
+ * (Starter + AI, Growth and Enterprise since schema v1.47.0; never the website plan).
  *
  * Read through the customer record's GET, which also folds them into the timeline.
  *

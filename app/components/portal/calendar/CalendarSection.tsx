@@ -36,8 +36,8 @@ import MonthGrid, { KIND_HUE } from "./MonthGrid";
  *   next read reconciles. Creating waits for the server, which owns the id.
  * - **Overlap warns and never blocks.**
  *
- * Gated on `crm`, like Customers: Growth and Enterprise. Starter gets a page saying what Growth
- * adds. `?day=YYYY-MM-DD` opens on a day, which is how the customer record's "Open in calendar"
+ * Gated on its own `calendar` feature (schema v1.47.0): Growth and Enterprise. Starter + AI, which
+ * has Customers, and the website plan get a page saying what Growth adds. `?day=YYYY-MM-DD` opens on a day, which is how the customer record's "Open in calendar"
  * and "See calendar" land here.
  */
 
@@ -48,7 +48,7 @@ const noSubscribe = () => () => {};
 const readToday = () => todayDay();
 
 export default function CalendarSection({ site }: { site: PortalSiteProps }) {
-    const gate = site.features.crm;
+    const gate = site.features.calendar;
     const params = useSearchParams();
 
     /**
@@ -214,7 +214,7 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
         return (
             <div className="space-y-6">
                 <SectionHeader title="Calendar" />
-                <FeatureState feature="crm" availability={gate} />
+                <FeatureState feature="calendar" availability={gate} />
             </div>
         );
     }

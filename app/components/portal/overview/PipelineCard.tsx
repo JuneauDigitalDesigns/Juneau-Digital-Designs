@@ -170,13 +170,6 @@ function Dot({ color }: { color: string }) {
 }
 
 /**
- * Starter: "What happens after the call" — the locked pipeline, and the way into the demo.
- *
- * Links to `/portal/customers?site=…&demo=growth`, which PR C makes open the Growth demo on
- * arrival. The button label is the existing approved "Show me what Growth does for me".
- * The hatched columns are decoration (`aria-hidden`), echoing the board it unlocks.
- */
-/**
  * Website plan: the one upsell on Home, the AI receptionist (D5), in the wording Xander approved
  * on 24 Nov 2026 (copy batch C2). It takes the place of the Growth panel, keeps its `ov-locked`
  * anchor so the tour still points at it, and names no other plan and offers no demo.
@@ -238,6 +231,15 @@ export function ReceptionistUpsellPanel({ href }: { href: string }) {
     );
 }
 
+/**
+ * Starter + AI Receptionist: "What happens after the call", what Growth adds, and the way into the
+ * demo. Since schema v1.47.0 Starter + AI has the pipeline itself, so this sits beneath its
+ * PipelineCard and offers what is still Growth's: the calendar, texting and review requests (G9).
+ *
+ * Links to `/portal/customers?site=…&demo=growth`, which opens the Growth demo on arrival
+ * (`GrowthDemoOnArrival`, on the client's own board). The button label is the existing approved
+ * "Show me what Growth does for me". The hatched columns are decoration (`aria-hidden`).
+ */
 export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
     return (
         <Card density="none" className="p-4 lg:p-[22px] flex flex-col lg:flex-row gap-5 lg:gap-7 lg:items-center">
@@ -254,10 +256,11 @@ export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
                         margin: 0,
                     }}
                 >
-                    Track every job from first call to a Google review
+                    {/* Copy batch G9, approved word for word (2026-11-25). */}
+                    Book every job, then ask for the review
                 </h2>
                 <p style={{ fontSize: "13.5px", color: "var(--fg-2)", lineHeight: 1.4, margin: 0 }}>
-                    Growth adds a pipeline, texting from your business number and one-tap review
+                    Growth adds a calendar, texting from your business number and one-tap review
                     requests. See it working with sample customers.
                 </p>
                 <div className="flex gap-2.5 mt-1.5">

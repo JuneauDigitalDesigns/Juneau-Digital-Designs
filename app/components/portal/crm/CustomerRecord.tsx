@@ -88,6 +88,12 @@ export interface DetailResponse {
     notes: CustomerNote[];
     appointments: Appointment[];
     messagingState: "ready" | "not-on-plan" | "pending-build" | "connecting";
+    /**
+     * Whether the site's calendar is ready (schema v1.47.0: Growth and Enterprise). False on
+     * Starter + AI, which has the record but no calendar, so the record offers no booking and no
+     * way to a locked Calendar page. Absent (the demo's and the tour's sample records) means ready.
+     */
+    calendarReady?: boolean;
     /** The site's texting number, for the phone texting screen's note. Null before provisioning. */
     businessNumber?: string | null;
 }
@@ -345,6 +351,7 @@ export default function CustomerRecord({
 
     const page = variant === "panel";
     const pad = page ? "px-7" : "px-5";
+    const calendarOn = data?.calendarReady !== false;
 
     /** After a change from inside the record: the board re-reads, and so does the record. */
     const refresh = () => {
@@ -374,7 +381,7 @@ export default function CustomerRecord({
                 onChanged={refresh}
                 appointments={data?.appointments ?? []}
                 jobs={data?.jobs ?? []}
-                calendarLink={calendarHref(siteSlug)}
+                calendarLink={calendarOn ? calendarHref(siteSlug) : undefined}
                 today={today}
                 className={`${pad} pt-5 pb-4 border-b`}
             />
@@ -749,7 +756,9 @@ export default function CustomerRecord({
                         siteSlug={siteSlug}
                         onChanged={refresh}
                         className={`${pad} py-5`}
-                        renderMeta={(job) => {
+                        // No calendar on the plan (Starter + AI): no visits, no "No visit booked",
+                        // no Add to calendar. The job, its value and its address stay.
+                        renderMeta={!calendarOn ? undefined : (job) => {
                             const next = upcoming(visitsOf(job), today)[0];
                             if (!next) return "No visit booked";
                             const day = shortDayLabel(next.day, today);
@@ -757,8 +766,8 @@ export default function CustomerRecord({
                                 isAllDay(next) ? LENGTH_LABEL[ALL_DAY] : formatTime(next.startMinutes)
                             }`;
                         }}
-                        renderVisits={(job) => <Visits visits={visitsOf(job)} today={today} siteSlug={siteSlug} />}
-                        renderActions={(job) => (
+                        renderVisits={!calendarOn ? undefined : (job) => <Visits visits={visitsOf(job)} today={today} siteSlug={siteSlug} />}
+                        renderActions={!calendarOn ? undefined : (job) => (
                             <button
                                 type="button"
                                 onClick={() => void addToCalendar(job)}
@@ -984,7 +993,7 @@ function RecordHeader({
                             <PhoneCall size={14} /> Call
                         </a>
                     )}
-                    {customer.phone && (
+                    {customer.phone && canMessage(review) && (
                         <a
                             href="#crm-sms"
                             onClick={(e) => {
@@ -1005,7 +1014,7 @@ function RecordHeader({
                             <ChatCircle size={14} /> Text
                         </a>
                     )}
-                    <ReviewAnchor {...review} />
+                    {canMessage(review) && <ReviewAnchor {...review} />}
                 </div>
             </div>
 
@@ -1126,7 +1135,7 @@ function SheetHeader({
                         Call
                     </a>
                 )}
-                {customer.phone && (
+                {customer.phone && canMessage(review) && (
                     <a
                         href="#crm-sms"
                         onClick={(e) => {
@@ -1141,7 +1150,7 @@ function SheetHeader({
                         Text
                     </a>
                 )}
-                <ReviewAnchor {...review} round />
+                {canMessage(review) && <ReviewAnchor {...review} round />}
             </div>
         </header>
     );
@@ -1222,6 +1231,17 @@ interface ReviewAnchorProps extends ReviewContext {
     onSent: () => void;
     /** The Growth demo's record: a tap shows the note and sends nothing (`reviewTap`). */
     demo?: boolean;
+}
+
+/**
+ * Whether the record offers Text and Review at all. Not on a plan without customer messaging
+ * (Starter + AI has the record since schema v1.47.0, but texting and review requests stay Growth
+ * and Enterprise): both buttons are left out rather than shown and refused, and the Timeline's
+ * text bar keeps its existing "Texting your customers comes with Growth." On Growth before the
+ * carriers clear, they stay, and the server explains why a request can't go yet.
+ */
+export function canMessage(review: Pick<ReviewAnchorProps, "messagingState">): boolean {
+    return review.messagingState !== "not-on-plan";
 }
 
 /**

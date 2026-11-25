@@ -22,9 +22,10 @@ const starter = code(`${dir}/CalendarStarter.tsx`);
 const record = code("app/components/portal/crm/CustomerRecord.tsx");
 const types = code("app/portal/types.ts");
 
-test("Calendar is its own tab, gated like Customers", () => {
-    assert.match(types, /\{ id: "calendar", label: "Calendar", shortLabel: "Calendar", href: "calendar", feature: "crm" \}/);
-    assert.match(section, /site\.features\.crm/);
+test("Calendar is its own tab, behind its own gate (schema v1.47.0)", () => {
+    assert.match(types, /\{ id: "calendar", label: "Calendar", shortLabel: "Calendar", href: "calendar", feature: "calendar" \}/);
+    assert.match(section, /site\.features\.calendar/);
+    assert.match(section, /<FeatureState feature="calendar" availability=\{gate\} \/>/);
     assert.match(section, /gate\.state === "not-on-plan"\) return <CalendarStarter/);
 });
 
@@ -55,7 +56,8 @@ test("the approved words are on the page, the list and the form", () => {
 });
 
 test("a job can be added to the calendar from the Jobs tab", () => {
-    assert.match(record, /renderActions=\{\(job\) =>/);
+    // Only where the calendar is on the plan (Growth, Enterprise): Starter + AI has jobs, no calendar.
+    assert.match(record, /renderActions=\{!calendarOn \? undefined : \(job\) =>/);
     assert.ok(record.includes("Add to calendar"));
     assert.match(record, /<AppointmentForm\b/);
     assert.ok(record.includes("Open in calendar"));

@@ -463,17 +463,18 @@ test("consecutive title cards keep the dark screen and swap only their words", (
 });
 
 test("Upgrade goes where the old walkthrough went, the demo follows the site's trade, and ?demo=growth opens it once", () => {
-    const src = read("app/components/portal/crm/StarterShowcase.tsx");
+    // Since schema v1.47.0 Starter + AI lands on its own Customers board, which opens the demo.
+    const src = read("app/components/portal/crm/GrowthDemoOnArrival.tsx");
     assert.match(src, /<GrowthDemo upgradeUrl=\{upgradeHref\(site\.slug, site\)\}[^>]*trade=\{site\.sampleTrade\}/);
     assert.match(src, /DEMO_PARAM = "demo"/);
     assert.match(src, /DEMO_GROWTH = "growth"/);
     assert.match(src, /searchParams\.delete\(DEMO_PARAM\)/, "the parameter is dropped after opening");
-    assert.match(src, /A short demo with sample customers\. Nothing changes on your account\./);
+    assert.match(read("app/components/portal/crm/CustomersSection.tsx"), /<GrowthDemoOnArrival site=\{site\} \/>/);
     assert.match(read(`${DIR}/GrowthDemo.tsx`), /trade = "hvac"/);
 });
 
 test("the Show me what Growth does for me buttons are centred and wrap evenly", () => {
-    for (const f of ["app/components/portal/crm/StarterShowcase.tsx", "app/components/portal/calendar/CalendarStarter.tsx", "app/components/portal/overview/PipelineCard.tsx"]) {
+    for (const f of ["app/components/portal/calendar/CalendarStarter.tsx", "app/components/portal/overview/PipelineCard.tsx"]) {
         assert.match(read(f), /<span className="text-center" style=\{\{ textWrap: "balance" \}\}>Show me what Growth does for me<\/span>/, f);
     }
 });

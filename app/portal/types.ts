@@ -81,9 +81,10 @@ export const PORTAL_TABS = [
     // gate moved to `leads` — web-only sites have no call log but do receive form inquiries.
     { id: "calls", label: "Inbox", shortLabel: "Inbox", href: "calls", feature: "leads" },
     { id: "customers", label: "Customers", shortLabel: "Customers", href: "customers", feature: "crm" },
-    // Scheduling and follow-ups (Xander, 2026-11-12), part of the CRM: same gate as Customers,
-    // so Starter sees it with a padlock and a page that says what Growth adds.
-    { id: "calendar", label: "Calendar", shortLabel: "Calendar", href: "calendar", feature: "crm" },
+    // Scheduling and follow-ups (Xander, 2026-11-12). Its own gate since 2026-11-25 (schema
+    // v1.47.0): Customers came down to Starter + AI and the calendar stayed Growth and Enterprise,
+    // so Starter + AI and the website plan see it with a padlock and a page that says what Growth adds.
+    { id: "calendar", label: "Calendar", shortLabel: "Calendar", href: "calendar", feature: "calendar" },
     {
         id: "analytics",
         label: "Analytics",

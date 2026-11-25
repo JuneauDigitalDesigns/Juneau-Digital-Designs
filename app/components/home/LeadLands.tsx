@@ -182,7 +182,7 @@ export default function LeadLands() {
                 </div>
                 <p className="hp-eg hp-land-cap">Example leads. Example text.</p>
                 <p className="hp-plans-line">
-                    Every plan gets the inbox. <strong>Growth adds the pipeline, the texting and the reviews: the part a team would do.</strong>
+                    Every plan gets the inbox. <strong>Starter + AI adds the pipeline. Growth adds the calendar, the texting and the reviews: the part a team would do.</strong>
                 </p>
             </div>
         </section>

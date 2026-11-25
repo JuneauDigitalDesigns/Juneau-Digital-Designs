@@ -9,7 +9,8 @@ import { deleteAppointmentsForJob } from "@/app/lib/portal-calendar";
 export const runtime = "nodejs";
 
 /**
- * A customer's jobs: add, change, delete. Growth and Enterprise only, like the rest of the CRM.
+ * A customer's jobs: add, change, delete. Every plan with the Customers board
+ * (Starter + AI, Growth and Enterprise since schema v1.47.0; never the website plan), like the rest of the CRM.
  *
  * Reading them is the customer record's GET (`/api/portal/customers/[id]`), so opening a record
  * stays one request. Every change here re-totals the customer's value, which is what the board
