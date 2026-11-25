@@ -63,6 +63,12 @@ const PATHS = {
             <path d="M9 4v16M15 4v16" />
         </>
     ),
+    calendar: (
+        <>
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M3 10h18M8 3v4M16 3v4" />
+        </>
+    ),
     star: <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3l-5.6 2.9 1.1-6.2L3 9.6l6.2-.9z" />,
     chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
     gauge: (

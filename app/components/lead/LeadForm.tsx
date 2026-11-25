@@ -7,6 +7,7 @@ import {
   turnstileSiteKey,
   useTurnstile,
 } from "@jdd/ui/turnstile";
+import { PLAN_LABELS } from "@jdd/schema";
 import { DEMO_TEL } from "@/app/data/demo-line";
 
 /**
@@ -29,10 +30,12 @@ import { DEMO_TEL } from "@/app/data/demo-line";
 /* The hints were written before the 2026-10 reprice and said the opposite of the product
    twice: that Starter has no receptionist, and that its leads arrive by email. Every plan
    has the receptionist and every lead lands in the portal; what Growth adds is the
-   callback and the pipeline. */
+   callback, the calendar and texting (copy batch H5, 2026-11-25: the pipeline moved down to
+   Starter + AI). The `starter` option's name is PLAN_LABELS', never the id: the id `starter`
+   is shown as "Starter + AI Receptionist". */
 const PLANS: { slug: "starter" | "growth" | "enterprise"; label: string; hint: string }[] = [
-  { slug: "starter", label: "Starter", hint: "Site, receptionist, lead inbox" },
-  { slug: "growth", label: "Growth", hint: "+ callbacks and pipeline" },
+  { slug: "starter", label: PLAN_LABELS.starter.name, hint: "Site, receptionist, lead inbox" },
+  { slug: "growth", label: "Growth", hint: "+ callbacks, calendar and texting" },
   { slug: "enterprise", label: "Enterprise", hint: "Multiple locations" },
 ];
 

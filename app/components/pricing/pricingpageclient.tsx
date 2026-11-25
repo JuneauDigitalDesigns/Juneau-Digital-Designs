@@ -97,7 +97,7 @@ function planCards(leadTextsLive: boolean): PlanCard[] {
             name: "Starter + AI Receptionist",
             schedule: starter,
             tierLine: "Starter + AI Receptionist answers every missed call.",
-            tierRest: "The whole system, with the follow-up left to you.",
+            tierRest: "The whole system, with the calendar and texting left to Growth.",
             leadIn: "Everything in Starter, plus",
             items: [
                 { text: "If you don't pick up, the AI receptionist answers, 24/7, in English or Spanish" },

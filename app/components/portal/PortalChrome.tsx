@@ -179,6 +179,9 @@ export default function PortalChrome({
                 siteStatus={selected.status}
                 siteSlug={selected.slug}
                 trade={selected.sampleTrade ?? "other"}
+                // The plan's Customers board, from the same `crm` gate the real Inbox uses, not
+                // the tier: Starter + AI has it too (@jdd/schema v1.47.0).
+                crm={selected.features.crm.state !== "not-on-plan"}
             />
             {/* ── Mobile: top bar ──────────────────────────────────────────────────
                 The approved app mockup (2026-11-19): business name top left, account top

@@ -94,6 +94,7 @@ export default function TourController({
     siteStatus,
     siteSlug,
     trade,
+    crm,
 }: {
     tour: TourState;
     tier: TourTier;
@@ -102,6 +103,8 @@ export default function TourController({
     siteSlug: string;
     /** Which trade's sample data the tour shows. */
     trade: SampleTrade;
+    /** Whether the site's plan has the Customers board, so the sample Inbox offers Promote. */
+    crm: boolean;
 }) {
     const router = useRouter();
     const pathname = usePathname();
@@ -163,13 +166,13 @@ export default function TourController({
         (steps: TourStep[], device: TourDevice, whole: boolean, from = 0) => {
             if (!steps.length) return;
             clearCache();
-            startSampleMode({ trade, growth: tier === "growth", webOnly: tier === "website" });
+            startSampleMode({ trade, crm, webOnly: tier === "website" });
             document.body.classList.add(TOURING_CLASS);
             const r = { steps, i: Math.min(Math.max(from, 0), steps.length - 1), device, whole };
             runRef.current = r;
             setRun(r);
         },
-        [clearCache, tier, trade],
+        [clearCache, crm, tier, trade],
     );
 
     const go = useCallback(

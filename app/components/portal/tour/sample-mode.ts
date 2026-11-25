@@ -37,13 +37,19 @@ export interface SampleAnswer {
 /** The portal routes whose data the tour replaces. Writes to these never leave the browser. */
 const SAMPLE_ROUTES = /^\/api\/portal\/(inbox|customers|tasks|jobs|notes|appointments|messages|review-request|calls)(\/|$)/;
 
+/**
+ * `crm` is whether the site's plan has the Customers board (`siteFeature(site, "crm")` is not
+ * `not-on-plan`), the same gate the real `/api/portal/inbox` answers `canPromote` from. It was
+ * `growth` (tier === "growth") until 2026-11-25, which told a Starter + AI owner during the tour
+ * that customer records come with Growth, when since @jdd/schema v1.47.0 they come with theirs.
+ */
 export function sampleAnswer(
     pathname: string,
     method: string,
-    opts: { trade: SampleTrade; now: Date; growth: boolean; webOnly?: boolean },
+    opts: { trade: SampleTrade; now: Date; crm: boolean; webOnly?: boolean },
 ): SampleAnswer | null {
     if (!SAMPLE_ROUTES.test(pathname)) return null;
-    const { trade, now, growth, webOnly = false } = opts;
+    const { trade, now, crm, webOnly = false } = opts;
     const m = method.toUpperCase();
 
     if (m !== "GET") {
@@ -54,7 +60,7 @@ export function sampleAnswer(
 
     if (pathname === "/api/portal/inbox") {
         const items = sampleInbox(trade, now, { webOnly });
-        return { status: 200, body: { state: "ready", items, canPromote: growth, truncated: false } };
+        return { status: 200, body: { state: "ready", items, canPromote: crm, truncated: false } };
     }
     if (pathname === "/api/portal/customers") {
         return {
@@ -79,7 +85,7 @@ export function sampleAnswer(
 let realFetch: typeof fetch | null = null;
 
 /** Start answering the portal's lead and customer requests with the trade's sample data. */
-export function startSampleMode(opts: { trade: SampleTrade; growth: boolean; webOnly?: boolean; now?: Date }): void {
+export function startSampleMode(opts: { trade: SampleTrade; crm: boolean; webOnly?: boolean; now?: Date }): void {
     if (typeof window === "undefined" || realFetch) return;
     const real = window.fetch.bind(window);
     realFetch = real;
@@ -89,7 +95,7 @@ export function startSampleMode(opts: { trade: SampleTrade; growth: boolean; web
         const url = new URL(href, window.location.origin);
         if (url.origin !== window.location.origin) return real(input, init);
         const method = init?.method ?? (input instanceof Request ? input.method : "GET");
-        const answer = sampleAnswer(url.pathname, method, { trade: opts.trade, now, growth: opts.growth, webOnly: opts.webOnly });
+        const answer = sampleAnswer(url.pathname, method, { trade: opts.trade, now, crm: opts.crm, webOnly: opts.webOnly });
         if (!answer) return real(input, init);
         return Promise.resolve(
             new Response(JSON.stringify(answer.body), { status: answer.status, headers: { "Content-Type": "application/json" } }),
