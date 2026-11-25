@@ -4,506 +4,438 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
     Browser,
-    ChatCircleText,
+    CalendarCheck,
     Check,
-    Kanban,
-    Phone,
     PhoneOutgoing,
-    Star,
-    Tray,
+    Plus,
+    ShieldCheck,
     type Icon,
 } from "@phosphor-icons/react";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
+import type { PlanSchedule } from "@/app/lib/legal/types";
 import { LIVE_FAQ_ID, PRICING_FAQS } from "@/app/data/faq";
+import { EVERY_PLAN } from "@/app/data/every-plan";
+import { WEBSITE_PLAN } from "@/app/data/website-plan";
 
-type PlanSlug = "starter" | "growth" | "enterprise";
-
-/* Every number on this page comes from Schedule A (app/lib/legal/schedules.ts) —
-   the same source the signed agreement renders from. The prose is hand-written;
-   the figures are not, so the price card cannot quote a client something the
-   contract contradicts. */
-const minutes = (slug: PlanSlug) =>
-    SCHEDULES[slug].callMinutes?.toLocaleString("en-US") ?? "0";
-const overageRate = (slug: PlanSlug) =>
-    `$${(SCHEDULES[slug].overagePerMinute ?? 0.2).toFixed(2)}`;
+/* Every number on this page comes from the plan summary (app/lib/legal/schedules.ts), the same
+   source the signed agreement renders from. The prose is hand-written; the figures are not, so
+   a card cannot quote a client something the contract contradicts. */
 const dollars = (n: number) => `$${n.toLocaleString("en-US")}`;
+const minutes = (s: PlanSchedule) => s.callMinutes?.toLocaleString("en-US") ?? "0";
+const overageRate = (s: PlanSchedule) => `$${(s.overagePerMinute ?? 0.2).toFixed(2)}`;
 
-type PricingTier = {
-    slug: PlanSlug;
+/** Where a plan button goes. `null`: the plan has no sign-up flow yet, so its button is inactive. */
+type Checkout = "starter" | "growth" | "enterprise" | null;
+
+type CardItem = {
+    text: string;
+    /** A short bold lead-in, set before `text`. */
+    strong?: string;
+    /** Sent from the client's own number, so it waits on carrier approval. Links to the FAQ. */
+    gated?: boolean;
+    /** Growth's highlight: drawn as the coral strip rather than a check. */
+    callback?: boolean;
+};
+
+type PlanCard = {
+    key: "website" | "starter" | "growth";
     name: string;
-    tagline: string;
-    /** "Everything in X, plus", set as a quiet label above the list rather than as a bullet. */
-    leadIn?: string;
-    /** Capability, in the order a buyer should read it. Minutes are appended separately.
-     *  Growth's list is empty: its card renders GROWTH_SYSTEM instead. */
-    features: string[];
+    schedule: PlanSchedule;
+    /** The tier line, bold, then an optional plain second sentence. */
+    tierLine: string;
+    tierRest?: string;
+    leadIn: string;
+    items: CardItem[];
+    /** The mono footnote under a rule. Minutes on the receptionist plans. */
+    foot: string[];
+    checkout: Checkout;
+    cta: string;
+    /** The short label a phone shows on the plan pill. */
+    pill: string;
     highlighted: boolean;
 };
 
 /**
- * Tier content.
+ * The three main cards. Copy approved by Xander word for word (rows F4–F7 and F14 of the
+ * website-plan copy batch, 24 Nov 2026). Do not edit without a fresh approval.
  *
- * Two rules the 2026-10 reprice imposes on this list, both deliberate:
+ * Rules the four-plan lineup sets, both deliberate:
  *
- *  - **Minutes are never a headline.** They are appended last, as a footnote, because tiers
- *    are differentiated by capability now. Leading with minutes invites a buyer to pick the
- *    cheapest number that clears their call volume, which is the wrong question.
- *  - **Growth leads with the customer system**, not with its larger allowance. The pipeline,
- *    customer texts and review requests are the headline (GROWTH_SYSTEM); the 60-second
- *    callback is the secondary highlight under them. Starter reports a lead, Growth gives
- *    you the system to work it.
+ *  - **Starter claims nothing about the phone.** No receptionist, no call capture, no minutes,
+ *    and no lead texts (website-only owners get none, D9). It is the website plan.
+ *  - **Each card says what it adds over the one before**, in three lines under "Everything in X,
+ *    plus". Minutes are a footnote, never a headline.
+ *
+ * The tier lines match the sales tool's plan cards (D2), so the page and the call say the same.
  */
-const TIERS: PricingTier[] = [
-    {
-        slug: "starter",
-        name: "Starter",
-        /* The tier line, shared word for word with the homepage cards — change both or
-           neither. Starter is the way in: the whole system, with the follow-up left to the
-           owner. Its list is short because everything it shares with Growth now sits in
-           EVERY_PLAN above the cards, not because it is a lesser product. */
-        tagline: "Starter reports every lead. The way in: the whole system, with the follow-up left to you.",
-        features: [
-            "Web form leads go straight to your portal inbox",
-            "Client portal to check your site, your calls, and your web leads",
-            // Real, not a promise: StarterShowcase runs it from the locked Customers tab.
-            "A guided walkthrough of Growth's pipeline, inside your portal",
-        ],
-        highlighted: false,
-    },
-    {
-        slug: "growth",
-        name: "Growth",
-        /* The approved tier line on its own. Its old second sentence ("It calls web leads
-           back for you, and gives you a pipeline to run the rest.") is what the card body
-           now shows, so it was saying everything twice. */
-        tagline: "Growth works them like a team would.",
-        leadIn: "Everything in Starter, plus",
-        features: [],
-        highlighted: true,
-    },
-    {
-        slug: "enterprise",
-        name: "Enterprise",
-        tagline: "For people running more than one shop. Separate sites and receptionists, one portal, one bill.",
-        leadIn: "Everything in Growth, plus",
-        /* "One portal and call log", not "one pipeline": the contract promises a
-           consolidated portal view across sites; a pipeline spanning sites is not verified. */
-        features: [
-            "2 to 3 websites, for example a service site and an e-commerce site",
-            "A dedicated AI receptionist and phone number per site",
-            "One portal and call log covering every site",
-        ],
-        highlighted: false,
-    },
-];
-
-/**
- * What every plan gets, shown once above the cards.
- *
- * Starter and Growth run an identical stack front to back; they differ only in web-form
- * behaviour, the CRM, and minutes. Listed per card, the shared stack made Starter read as a
- * shorter, lesser list — the opposite of what is true. Stated once here, the cards carry
- * only the differences and Growth's additions read as additions.
- *
- * "Every call and web inquiry lands in your portal" replaced the old "Lead email" bullet:
- * no plan delivers leads by email any more.
- *
- * Set as a spec line in the page header (three facts between hairlines), not a box: the
- * boxed checklist read as something dropped onto the page. The seven facts the box listed
- * are all here, grouped by what they're about: the site, the phone, the leads.
- */
-const EVERY_PLAN: { Icon: Icon; title: string; detail: string }[] = [
-    {
-        Icon: Browser,
-        title: "A custom 4+ page site",
-        detail: "Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month.",
-    },
-    {
-        Icon: Phone,
-        title: "It rings you first",
-        detail: "If you don't pick up, the AI receptionist answers, 24/7, in English or Spanish. You get a summary of every call.",
-    },
-    {
-        // The new-lead text comes from JDD's own number, so it is live on every plan and
-        // carries no carrier-approval tag.
-        Icon: Tray,
-        title: "One inbox for every lead",
-        detail: "Every call and web inquiry lands in your portal, and you get a text the moment a new one arrives.",
-    },
-];
-
-/**
- * Growth's headline: the customer system. The callback follows it as a secondary strip.
- *
- * `gated` items send from the client's own business number, so they wait on that client's
- * A2P brand and campaign approval. Their tag says what they wait on, never how long, and
- * links to the FAQ answer that explains it.
- */
-const GROWTH_SYSTEM: { Icon: Icon; title: string; line: string; gated: boolean }[] = [
-    { Icon: Kanban, title: "Customer pipeline", line: "Move every lead from Lead to Won, with notes, job value and tags.", gated: false },
-    { Icon: ChatCircleText, title: "Customer texts", line: "Text customers back from your business number, right in your portal.", gated: true },
-    { Icon: Star, title: "Google reviews", line: "Ask for a Google review in one tap when the job is done.", gated: true },
-];
-const GROWTH_ALSO = "AI lead qualification, a searchable call log with recordings, and urgency and caller names pulled from every call.";
-
-/** The minutes footnote, appended last so it reads as a line item rather than a selling point. */
-function minutesLine(slug: PlanSlug): string {
-    return slug === "enterprise"
-        ? `${minutes(slug)} AI minutes per month, pooled across all your sites`
-        : `${minutes(slug)} AI minutes per month included`;
+function planCards(leadTextsLive: boolean): PlanCard[] {
+    const starter = SCHEDULES.starter;
+    const growth = SCHEDULES.growth;
+    return [
+        {
+            key: "website",
+            name: "Starter",
+            schedule: WEBSITE_PLAN,
+            tierLine: "Starter catches every web lead.",
+            leadIn: "Your website, plus",
+            items: [
+                { text: "Web form leads go straight to your portal inbox" },
+                { text: "A search-ready build: fast pages, titles, descriptions and a sitemap" },
+                { text: "Client portal to check your site and your web leads" },
+            ],
+            foot: ["Website only. We leave your phone alone."],
+            /* Xander, 24 Nov 2026: "wait until it has a flow it can connect to." The button stays
+               inactive until the $97 sign-up flow exists, then it reads "Start with Starter". */
+            checkout: null,
+            cta: "Coming soon",
+            pill: "Starter",
+            highlighted: false,
+        },
+        {
+            /* Today's Starter, renamed. It keeps the `starter` slug and its checkout. */
+            key: "starter",
+            name: "Starter + AI Receptionist",
+            schedule: starter,
+            tierLine: "Starter + AI Receptionist answers every missed call.",
+            tierRest: "The whole system, with the follow-up left to you.",
+            leadIn: "Everything in Starter, plus",
+            items: [
+                { text: "If you don't pick up, the AI receptionist answers, 24/7, in English or Spanish" },
+                /* Row F5 follows the owner-text campaign. Under v2 owners get a text for every new
+                   lead; under v1 (live today) only after a call, so the card says that until the
+                   switch flips (Xander, 24 Nov 2026, both lines word for word). */
+                {
+                    text: leadTextsLive
+                        ? "A summary of every call, and a text the moment a new lead arrives"
+                        : "A summary of every call, and a text after every call",
+                },
+                { text: "A guided walkthrough of Growth's pipeline, inside your portal" },
+            ],
+            foot: [`${minutes(starter)} AI minutes per month included`, `Extra minutes ${overageRate(starter)} each`],
+            checkout: "starter",
+            cta: "Start with Starter + AI",
+            pill: "+ AI",
+            highlighted: false,
+        },
+        {
+            /* Growth leads with the customer system; the 60-second callback is its highlight
+               underneath. "Within about a minute" matches the contract's "typically within
+               sixty (60) seconds". */
+            key: "growth",
+            name: "Growth",
+            schedule: growth,
+            tierLine: "Growth works them like a team would.",
+            leadIn: "Everything in Starter + AI Receptionist, plus",
+            items: [
+                { strong: "Customer pipeline.", text: "Move every lead from Lead to Won, with notes, job value and tags." },
+                {
+                    strong: "Customer texts and Google reviews.",
+                    text: "Text customers back and ask for a review in one tap, from your business number.",
+                    gated: true,
+                },
+                { strong: "The 60-second callback.", text: "Web form leads get a call back automatically, within about a minute.", callback: true },
+            ],
+            foot: [`${minutes(growth)} AI minutes per month included`, `Extra minutes ${overageRate(growth)} each`],
+            checkout: "growth",
+            cta: "Start with Growth",
+            pill: "Growth",
+            highlighted: true,
+        },
+    ];
 }
 
-export default function PricingPageClient() {
-    const [loadingPlan, setLoadingPlan] = useState<PlanSlug | null>(null);
-    const [checkoutError] = useState<string | null>(null);
+const GROWTH_ALSO = "AI lead qualification, a searchable call log with recordings, and urgency and caller names pulled from every call.";
 
-    function subscribe(slug: PlanSlug) {
+/* "One portal and call log", not "one pipeline": the contract promises a consolidated portal
+   view across sites; a pipeline spanning sites is not verified. */
+const ENTERPRISE_ITEMS = [
+    "2 to 3 websites, for example a service site and an e-commerce site",
+    "A dedicated AI receptionist and phone number per site",
+    "One portal and call log covering every site",
+];
+
+const POINT_ICONS: Icon[] = [Browser, ShieldCheck, CalendarCheck];
+
+export default function PricingPageClient({ leadTextsLive }: { leadTextsLive: boolean }) {
+    const [loadingPlan, setLoadingPlan] = useState<Checkout>(null);
+    /** The card a phone shows. Desktop shows all three and ignores it. Opens on the most popular. */
+    const [activePlan, setActivePlan] = useState<PlanCard["key"]>("growth");
+    const [enterpriseOpen, setEnterpriseOpen] = useState(false);
+    const [openFaqs, setOpenFaqs] = useState<ReadonlySet<number>>(new Set());
+
+    const cards = planCards(leadTextsLive);
+    const enterprise = SCHEDULES.enterprise;
+    const liveFaqIndex = PRICING_FAQS.findIndex((f) => f.id === LIVE_FAQ_ID);
+
+    const toggleFaq = (i: number) =>
+        setOpenFaqs((prev) => {
+            const next = new Set(prev);
+            if (next.has(i)) next.delete(i);
+            else next.add(i);
+            return next;
+        });
+    const openFaq = (i: number) => setOpenFaqs((prev) => (prev.has(i) ? prev : new Set(prev).add(i)));
+
+    function subscribe(slug: Exclude<Checkout, null>) {
         setLoadingPlan(slug);
         /**
-         * Everyone goes to `/start`, signed in or not.
-         *
-         * This used to jump straight to `/terms/accept`, which meant the funnel did not learn who
-         * the buyer was until they typed an email into the signature form — after reading the
-         * terms, and with no way to tell a returning client from a new one. `/start`
-         * authenticates, resolves the account, and only then decides whether this is a
-         * purchase, an addendum, or an upsell.
-         *
-         * This page stays static and anonymous: it renders identically for everyone and holds
-         * no entitlement logic, so there is nothing here to disagree with the server. Every
-         * plan is month to month, so the plan is all it sends.
+         * Everyone goes to `/start`, signed in or not. `/start` authenticates, resolves the
+         * account, and only then decides whether this is a purchase, an addendum, or an upsell.
+         * This page stays static and anonymous: it holds no entitlement logic, so there is
+         * nothing here to disagree with the server. Every plan is month to month, so the plan
+         * is all it sends.
          */
-        window.location.href = `/start?plan=${slug}`;
+        window.location.assign(`/start?plan=${slug}`);
     }
 
     return (
-        <main
-            style={{
-                minHeight: "100vh",
-                background: "var(--bg)",
-                position: "relative",
-                overflow: "hidden",
-                padding: "100px max(24px, 4vw)",
-            }}
-        >
+        <main className="pricing-page">
             <div className="aurora-grid" />
 
-            <div style={{ maxWidth: 1240, margin: "0 auto", position: "relative", zIndex: 2 }}>
-
-                {/* Header */}
-                <motion.div
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.55, ease: "easeOut" }}
-                    style={{ marginBottom: 32, textAlign: "center" }}
-                >
-                    {/* Approved 2026-11-04. Was "What it costs. All of it." plus a sub-line: the page
-                        opened by announcing the price. It now opens on what the owner gets, hands
-                        straight to the "On every plan" spec line below, and lets the cards show the
-                        cost a scroll later. One line, since 9 Nov 2026: its second beat ("The big
-                        shops have run on one for years.") left "run on what?" unanswered, and moved,
-                        reworked, to the end of the homepage's portal demo (DEMO_CLOSING).
-
-                        Colour-only emphasis, same display face: the convention the homepage sets
-                        with "Do Business." and "costing you?". Neither an italic nor a 900 Hanken
-                        Grotesk is loaded, so a body-font emphasis would be synthesised. */}
-                    <h1 className="pricing-hero-h1">
-                        Putting the system in your <span style={{ color: "var(--accent-2)" }}>hands</span>.
-                    </h1>
-                </motion.div>
-
-                {/* ── On every plan ── see EVERY_PLAN. Part of the header, not a box: three
-                    facts held by hairlines, with the kicker set into the top rule. Layout and
-                    the phone stack are `.pricing-spec*` in globals.css. */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-                    className="pricing-spec"
-                >
-                    <p className="kicker pricing-spec-legend">On every plan</p>
-                    <ul className="pricing-spec-cols">
-                        {EVERY_PLAN.map(({ Icon, title, detail }) => (
-                            <li key={title} className="pricing-spec-col">
-                                <span className="pricing-spec-ico" aria-hidden="true">
-                                    <Icon size={18} weight="regular" />
-                                </span>
-                                <div>
-                                    <p className="pricing-spec-title">{title}</p>
-                                    <p className="pricing-spec-detail">{detail}</p>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                </motion.div>
-
-                {/* Pricing Cards */}
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                        gap: 24,
-                        alignItems: "stretch",
-                    }}
-                >
-                    {TIERS.map((tier, index) => {
-                        const schedule = SCHEDULES[tier.slug];
-                        return (
-                        <motion.div
-                            key={tier.slug}
-                            initial={{ opacity: 0, y: 24 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.45, ease: "easeOut", delay: index * 0.1 }}
-                            className="glass"
-                            style={{
-                                position: "relative",
-                                display: "flex",
-                                flexDirection: "column",
-                                padding: "36px 30px 32px",
-                                minHeight: 460,
-                                borderRadius: 22,
-                                ...(tier.highlighted
-                                    ? {
-                                        transform: "scale(1.04)",
-                                        zIndex: 1,
-                                        borderTop: "2px solid var(--accent-2)",
-                                        boxShadow: "0 0 0 1px var(--accent-2) inset, 0 30px 80px -30px rgba(0,0,0,0.35), 0 0 60px -10px var(--accent-glow)",
-                                    }
-                                    : {}),
-                            }}
-                        >
-                            {/* Badges */}
-                            {tier.highlighted && (
-                                <span
-                                    style={{
-                                        position: "absolute",
-                                        top: 0,
-                                        left: "50%",
-                                        transform: "translateX(-50%)",
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10,
-                                        fontWeight: 500,
-                                        letterSpacing: "0.12em",
-                                        textTransform: "uppercase",
-                                        background: "var(--accent-2)",
-                                        color: "#fff",
-                                        borderRadius: "0 0 12px 12px",
-                                        padding: "5px 16px",
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    Most Popular
-                                </span>
-                            )}
-                            {tier.slug === "enterprise" && (
-                                <span
-                                    className="hide-on-mobile"
-                                    style={{
-                                        position: "absolute",
-                                        top: 16,
-                                        right: 20,
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10,
-                                        fontWeight: 500,
-                                        letterSpacing: "0.12em",
-                                        textTransform: "uppercase",
-                                        color: "var(--fg-2)",
-                                        border: "1px solid var(--rule-strong)",
-                                        background: "var(--surface)",
-                                        borderRadius: 999,
-                                        padding: "3px 10px",
-                                    }}
-                                >
-                                    Priority Support
-                                </span>
-                            )}
-
-                            {/* Plan header */}
-                            <div style={{ marginBottom: 24 }}>
-                                <span
-                                    style={{
-                                        display: "inline-block",
-                                        fontFamily: "var(--font-mono)",
-                                        fontSize: 10.5,
-                                        fontWeight: 500,
-                                        letterSpacing: "0.1em",
-                                        textTransform: "uppercase",
-                                        color: "var(--fg-3)",
-                                        border: "1px solid var(--rule)",
-                                        background: "var(--surface)",
-                                        borderRadius: 999,
-                                        padding: "3px 10px",
-                                        marginBottom: 16,
-                                    }}
-                                >
-                                    {tier.name}
-                                </span>
-                                <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginTop: 8 }}>
-                                    <span
-                                        style={{
-                                            fontFamily: "var(--font-display)",
-                                            fontSize: 52,
-                                            fontWeight: 600,
-                                            color: "var(--fg)",
-                                            letterSpacing: "var(--tracking-tightest)",
-                                            lineHeight: 1,
-                                        }}
-                                    >
-                                        {dollars(schedule.monthlyPrice)}
-                                    </span>
-                                    <span style={{ fontSize: 13, color: "var(--fg-3)", marginBottom: 6 }}>
-                                        /month
-                                    </span>
-                                    <span style={{ fontSize: 12, color: "var(--fg-3)", marginBottom: 6, marginLeft: 6 }}>
-                                        + {dollars(schedule.onboardingFee)} one-time setup
-                                    </span>
-                                </div>
-                                <p style={{ marginTop: 12, fontSize: 14, color: "var(--fg-2)", lineHeight: 1.5 }}>
-                                    {tier.tagline}
-                                </p>
-                            </div>
-
-                            <div style={{ flex: 1 }}>
-                                {tier.leadIn && <p className="pricing-lead-in">{tier.leadIn}</p>}
-
-                                {tier.slug === "growth" ? (
-                                    <>
-                                        {/* The star of Growth: the customer system, as three tiles on
-                                            a raised panel. See GROWTH_SYSTEM. */}
-                                        <div className="pricing-system">
-                                            <p className="pricing-system-h">Your customer system</p>
-                                            {GROWTH_SYSTEM.map(({ Icon, title, line, gated }) => (
-                                                <div key={title} className="pricing-system-row">
-                                                    <span className="pricing-system-ico" aria-hidden="true">
-                                                        <Icon size={20} weight="duotone" />
-                                                    </span>
-                                                    <div>
-                                                        <p className="pricing-system-title">
-                                                            {title}
-                                                            {gated && (
-                                                                <a href={`#${LIVE_FAQ_ID}`} className="pricing-gate-tag" title="How that works">
-                                                                    After carrier approval
-                                                                </a>
-                                                            )}
-                                                        </p>
-                                                        <p className="pricing-system-line">{line}</p>
-                                                    </div>
-                                                </div>
-                                            ))}
+            <div className="pricing-wrap">
+                {/* ── Top section: full width, the copy on the left and the plans on the right
+                    (Xander, 24 Nov 2026). Below 1180px the copy sits above the plans. ── */}
+                <section className="pricing-top" aria-labelledby="pricing-h1">
+                    <motion.div
+                        className="pricing-copy"
+                        initial={{ opacity: 0, y: 24 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.55, ease: "easeOut" }}
+                    >
+                        {/* Approved 2026-11-04. Colour-only emphasis, same display face: the
+                            convention the homepage sets. */}
+                        <h1 id="pricing-h1" className="pricing-h1">
+                            Putting the system in your <span style={{ color: "var(--accent-2)" }}>hands</span>.
+                        </h1>
+                        <span className="pricing-rule" aria-hidden="true" />
+                        <p className="kicker">On every plan</p>
+                        {/* See EVERY_PLAN. On a phone the details are cut and the titles carry it. */}
+                        <ul className="pricing-points">
+                            {EVERY_PLAN.map(({ title, detail }, i) => {
+                                const PointIcon = POINT_ICONS[i] ?? Check;
+                                return (
+                                    <li key={title} className="pricing-point">
+                                        <span className="pricing-point-ico" aria-hidden="true">
+                                            <PointIcon size={18} weight="regular" />
+                                        </span>
+                                        <div>
+                                            <p className="pricing-point-title">{title}</p>
+                                            <p className="pricing-point-detail">{detail}</p>
                                         </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </motion.div>
 
-                                        {/* The highlight, under the star. "Within about a minute"
-                                            matches the contract's "typically within sixty (60)
-                                            seconds". */}
-                                        <div className="pricing-callback">
-                                            <PhoneOutgoing size={18} weight="bold" aria-hidden="true" style={{ color: "var(--accent-2)", flexShrink: 0, marginTop: 1 }} />
-                                            <div>
-                                                <p className="pricing-callback-title">The 60-second callback</p>
-                                                <p className="pricing-callback-line">Web form leads get a call back automatically, within about a minute.</p>
-                                            </div>
-                                        </div>
+                    <div className="pricing-plans">
+                        {/* On a phone one plan shows at a time, picked from this row of pills
+                            (Xander, 24 Nov 2026). Hidden at 860px and up, where all three show. */}
+                        <div className="pricing-pills" role="group" aria-label="Choose a plan">
+                            {cards.map((c) => (
+                                <button
+                                    key={c.key}
+                                    type="button"
+                                    className="pricing-pill"
+                                    aria-pressed={activePlan === c.key}
+                                    onClick={() => setActivePlan(c.key)}
+                                >
+                                    <span className="pricing-pill-name">{c.pill}</span>
+                                    <span className="pricing-pill-price">{dollars(c.schedule.monthlyPrice)}/mo</span>
+                                </button>
+                            ))}
+                        </div>
 
-                                        <p className="pricing-also">
-                                            <strong>Also on Growth:</strong> {GROWTH_ALSO}
-                                        </p>
-                                    </>
-                                ) : (
-                                    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-                                        {tier.features.map((feature) => (
-                                            <li
-                                                key={feature}
-                                                style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--fg-2)" }}
-                                            >
-                                                <Check
-                                                    weight="bold"
-                                                    size={14}
-                                                    style={{ color: "var(--online)", marginTop: 2, flexShrink: 0 }}
-                                                />
-                                                <span>{feature}</span>
+                        <div className="pricing-cards" data-active={activePlan}>
+                            {cards.map((card, index) => (
+                                <motion.article
+                                    key={card.key}
+                                    data-plan={card.key}
+                                    aria-label={`${card.name} plan`}
+                                    className={`glass pricing-card${card.highlighted ? " pricing-card-feat" : ""}`}
+                                    initial={{ opacity: 0, y: 24 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 + index * 0.08 }}
+                                >
+                                    {card.highlighted && <span className="pricing-badge">Most Popular</span>}
+                                    <div>
+                                        <span className="pricing-name">{card.name}</span>
+                                    </div>
+                                    <div className="pricing-price">
+                                        <span className="pricing-amount">{dollars(card.schedule.monthlyPrice)}</span>
+                                        <span className="pricing-per">/month</span>
+                                    </div>
+                                    <p className="pricing-setup">+ {dollars(card.schedule.onboardingFee)} one-time setup</p>
+                                    <p className="pricing-tier">
+                                        <strong>{card.tierLine}</strong>
+                                        {card.tierRest && <> {card.tierRest}</>}
+                                    </p>
+
+                                    <p className="pricing-lead-in">{card.leadIn}</p>
+                                    <ul className="pricing-list">
+                                        {card.items.map((item) => (
+                                            <li key={item.strong ?? item.text} className={item.callback ? "pricing-callback" : "pricing-item"}>
+                                                {item.callback ? (
+                                                    <PhoneOutgoing size={16} weight="bold" aria-hidden="true" className="pricing-callback-ico" />
+                                                ) : (
+                                                    <Check size={14} weight="bold" aria-hidden="true" className="pricing-check" />
+                                                )}
+                                                <span>
+                                                    {item.strong && <strong>{item.strong}</strong>} {item.text}
+                                                    {item.gated && (
+                                                        <>
+                                                            {" "}
+                                                            <a
+                                                                href={`#${LIVE_FAQ_ID}`}
+                                                                className="pricing-gate-tag"
+                                                                title="How that works"
+                                                                onClick={() => liveFaqIndex >= 0 && openFaq(liveFaqIndex)}
+                                                            >
+                                                                After carrier approval
+                                                            </a>
+                                                        </>
+                                                    )}
+                                                </span>
                                             </li>
                                         ))}
                                     </ul>
-                                )}
-                            </div>
+                                    {card.key === "growth" && (
+                                        <p className="pricing-also">
+                                            <strong>Also on Growth:</strong> {GROWTH_ALSO}
+                                        </p>
+                                    )}
 
-                            {/* Minutes, as a line item under a rule rather than a bullet among the
-                                capabilities. Deliberately the least prominent thing on the card. */}
-                            <p
-                                style={{
-                                    margin: "16px 0 0",
-                                    paddingTop: 12,
-                                    borderTop: "1px solid var(--rule)",
-                                    fontFamily: "var(--font-mono)",
-                                    fontSize: 11,
-                                    color: "var(--fg-3)",
-                                    lineHeight: 1.5,
-                                }}
-                            >
-                                {minutesLine(tier.slug)}
-                                <br />
-                                Extra minutes {overageRate(tier.slug)} each
-                            </p>
-
-                            {/* CTA */}
-                            <div style={{ marginTop: 20 }}>
-                                <button
-                                    type="button"
-                                    onClick={() => subscribe(tier.slug)}
-                                    disabled={loadingPlan !== null}
-                                    className={tier.highlighted ? "btn primary" : "btn ghost"}
-                                    style={{ width: "100%", justifyContent: "center", cursor: loadingPlan ? "wait" : "pointer" }}
-                                >
-                                    {loadingPlan === tier.slug
-                                        ? "Redirecting…"
-                                        : tier.slug === "growth"
-                                            ? "Start with Growth"
-                                            : <><span className="show-desktop">Start with {tier.name}</span><span className="show-mobile">Start</span></>}
-                                </button>
-                                {checkoutError && loadingPlan === null && (
-                                    <p style={{ marginTop: 10, fontSize: 12, color: "var(--accent-2)" }}>
-                                        {checkoutError}
+                                    <p className="pricing-foot">
+                                        {card.foot.map((line, i) => (
+                                            <span key={line}>
+                                                {i > 0 && <br />}
+                                                {line}
+                                            </span>
+                                        ))}
                                     </p>
-                                )}
+
+                                    {card.checkout ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => card.checkout && subscribe(card.checkout)}
+                                            disabled={loadingPlan !== null}
+                                            className={`${card.highlighted ? "btn primary" : "btn ghost"} pricing-cta`}
+                                            style={{ cursor: loadingPlan ? "wait" : "pointer" }}
+                                        >
+                                            {loadingPlan === card.checkout ? "Redirecting…" : card.cta}
+                                        </button>
+                                    ) : (
+                                        <button type="button" className="btn ghost pricing-cta pricing-cta-off" disabled>
+                                            {card.cta}
+                                        </button>
+                                    )}
+                                </motion.article>
+                            ))}
+                        </div>
+
+                        {/* Enterprise: a slim row under the three, not a fourth card. Its lines
+                            are unchanged, behind "What's included". */}
+                        <motion.div
+                            className="pricing-ent"
+                            aria-label="Enterprise plan"
+                            role="group"
+                            initial={{ opacity: 0, y: 16 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.45, ease: "easeOut", delay: 0.4 }}
+                        >
+                            <div className="pricing-ent-row">
+                                <span className="pricing-name">Enterprise</span>
+                                <div>
+                                    <p className="pricing-ent-price">
+                                        <span className="pricing-ent-amount">{dollars(enterprise.monthlyPrice)}</span>
+                                        <span>/month</span>
+                                    </p>
+                                    <p className="pricing-setup">+ {dollars(enterprise.onboardingFee)} one-time setup</p>
+                                </div>
+                                <p className="pricing-ent-tier">
+                                    For people running more than one shop. Separate sites and receptionists, one portal, one bill.
+                                </p>
+                                <div className="pricing-ent-actions">
+                                    <button
+                                        type="button"
+                                        className="pricing-ent-toggle"
+                                        aria-expanded={enterpriseOpen}
+                                        aria-controls="pricing-ent-more"
+                                        onClick={() => setEnterpriseOpen((o) => !o)}
+                                    >
+                                        {enterpriseOpen ? "Hide details" : "What's included"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => subscribe("enterprise")}
+                                        disabled={loadingPlan !== null}
+                                        className="btn ghost pricing-ent-cta"
+                                        style={{ cursor: loadingPlan ? "wait" : "pointer" }}
+                                    >
+                                        {loadingPlan === "enterprise" ? "Redirecting…" : "Start with Enterprise"}
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="pricing-ent-more" className="pricing-ent-more" hidden={!enterpriseOpen}>
+                                <p className="pricing-lead-in">
+                                    Everything in Growth, plus <span className="pricing-priority">Priority Support</span>
+                                </p>
+                                <ul className="pricing-list pricing-ent-list">
+                                    {ENTERPRISE_ITEMS.map((line) => (
+                                        <li key={line} className="pricing-item">
+                                            <Check size={14} weight="bold" aria-hidden="true" className="pricing-check" />
+                                            <span>{line}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                                <p className="pricing-foot">
+                                    {minutes(enterprise)} AI minutes per month, pooled across all your sites
+                                    <br />
+                                    Extra minutes {overageRate(enterprise)} each
+                                </p>
                             </div>
                         </motion.div>
-                        );
-                    })}
-                </div>
-
-                {/* FAQ */}
-                <motion.div
-                    initial={{ opacity: 0, y: 24 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.45, ease: "easeOut", delay: 0.35 }}
-                    style={{ marginTop: "clamp(64px,8vw,120px)" }}
-                >
-                    <h2 style={{ textAlign: "center", textTransform: "uppercase", marginBottom: "clamp(28px,3vw,44px)" }}>
-                        How it works.
-                    </h2>
-                    {/* Reference-document layout, not cards: ruled entries in two columns.
-                        `min(100%, 400px)` is load-bearing — a bare minmax(400px, 1fr)
-                        overflows at 375px. The 1040 cap holds it to two columns. */}
-                    <div
-                        style={{
-                            maxWidth: 1040,
-                            margin: "0 auto",
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 400px), 1fr))",
-                            columnGap: 48,
-                            rowGap: 0,
-                        }}
-                    >
-                        {PRICING_FAQS.map((item) => (
-                            <div key={item.q} id={item.id} style={{ borderTop: "1px solid var(--rule)", padding: "24px 0 28px", scrollMarginTop: 96 }}>
-                                <h3 style={{ fontWeight: 700, fontSize: "clamp(18px,1.9vw,22px)", lineHeight: 1.15, textTransform: "uppercase", marginBottom: 10 }}>
-                                    {item.q}
-                                </h3>
-                                {(Array.isArray(item.a) ? item.a : [item.a]).map((para, i) => (
-                                    <p key={i} style={{ fontSize: 15.5, lineHeight: 1.65, color: "var(--fg-2)", margin: i ? "12px 0 0" : 0, maxWidth: "46ch" }}>{para}</p>
-                                ))}
-                            </div>
-                        ))}
                     </div>
-                </motion.div>
+                </section>
+
+                {/* ── FAQ, as an accordion (Xander, 24 Nov 2026). Every answer starts closed and
+                    stays in the page's HTML (`hidden`, not unmounted), so search engines and
+                    find-in-page still see it. The carrier tags open "How fast can I be live?". ── */}
+                <section className="pricing-faq" aria-labelledby="pricing-faq-h">
+                    <h2 id="pricing-faq-h" className="pricing-faq-h">
+                        How it <span style={{ color: "var(--accent-2)" }}>works.</span>
+                    </h2>
+                    <span className="pricing-rule pricing-rule-centre" aria-hidden="true" />
+                    <div className="pricing-acc">
+                        {PRICING_FAQS.map((item, i) => {
+                            const open = openFaqs.has(i);
+                            const panelId = `faq-a-${i}`;
+                            return (
+                                <div key={item.q} id={item.id} className={`pricing-qa${open ? " open" : ""}`}>
+                                    <h3 className="pricing-q-h">
+                                        <button
+                                            type="button"
+                                            className="pricing-q"
+                                            aria-expanded={open}
+                                            aria-controls={panelId}
+                                            onClick={() => toggleFaq(i)}
+                                        >
+                                            <span>{item.q}</span>
+                                            <span className="pricing-q-ico" aria-hidden="true">
+                                                <Plus size={14} weight="bold" />
+                                            </span>
+                                        </button>
+                                    </h3>
+                                    <div id={panelId} className="pricing-a" hidden={!open}>
+                                        {(Array.isArray(item.a) ? item.a : [item.a]).map((para, j) => (
+                                            <p key={j}>{para}</p>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
             </div>
         </main>
     );

@@ -2554,56 +2554,62 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   }
 }
 
-/* ── /pricing: header ─────────────────────────────────────────────
-   Two beats in one <h1>. `text-wrap: balance` keeps either line from ending on a lone word
-   at phone widths; browsers without it just wrap normally. */
-.pricing-hero-h1 {
-  font-size: clamp(30px, 8vw, 88px);
-  margin: 16px auto 0;
-  text-transform: uppercase;
-  overflow-wrap: break-word;
-  text-wrap: balance;
+/* ── /pricing (four plans, 24 Nov 2026) ─────────────────────────────────────────────────
+   See pricingpageclient.tsx. Three layouts:
+     ≥1180px  the top section runs full width: copy left, the three plan cards right, the
+              Enterprise row under the cards.
+     860–1179 the copy sits above the plans; the cards stay three across.
+     <860     a phone: the plan pills pick one card at a time, the point details and the
+              "Also on Growth" line are cut, and Enterprise stacks.
+   The FAQ is an accordion in one column at every width. */
+.pricing-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  padding: clamp(72px, 7vw, 108px) max(16px, 4vw) 0;
 }
-/* ── /pricing: "On every plan" spec line and the Growth card ──────────
-   See pricingpageclient.tsx. The spec line is part of the page header rather than a boxed
-   checklist: the kicker is set into the top hairline, and three facts sit between rules.
-   Three columns at desktop; one stacked column below 860px. */
-.pricing-spec {
-  max-width: 1080px;
-  margin: 0 auto 36px;
+.pricing-wrap {
+  position: relative;
+  z-index: 2;
+  max-width: 1560px;
+  margin: 0 auto;
 }
-.pricing-spec-legend {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin: 0 0 4px;
-}
-.pricing-spec-legend::before,
-.pricing-spec-legend::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid var(--rule);
-}
-.pricing-spec-cols {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+
+.pricing-top {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-bottom: 1px solid var(--rule);
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 2.25fr);
+  gap: clamp(32px, 4vw, 64px);
+  align-items: start;
 }
-.pricing-spec-col {
+.pricing-h1 {
+  margin: 0;
+  font-size: clamp(48px, 5.4vw, 92px);
+  line-height: 0.9;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+.pricing-rule {
+  display: block;
+  width: 44px;
+  height: 4px;
+  background: var(--accent-2);
+  margin: 28px 0 26px;
+}
+.pricing-rule-centre { margin: 26px auto 36px; }
+.pricing-copy .kicker { margin: 0 0 6px; }
+.pricing-points { list-style: none; margin: 0; padding: 0; }
+.pricing-point {
   display: grid;
   grid-template-columns: 40px 1fr;
   gap: 14px;
-  padding: 22px 26px 24px;
-  border-left: 1px solid var(--rule);
+  padding: 16px 0;
+  border-top: 1px solid var(--rule);
 }
-.pricing-spec-col:first-child {
-  border-left: 0;
-  padding-left: 4px;
-}
-.pricing-spec-ico {
+.pricing-point:last-child { border-bottom: 1px solid var(--rule); }
+.pricing-point-ico {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -2612,7 +2618,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   color: var(--accent);
   border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.pricing-spec-title {
+.pricing-point-title {
   margin: 2px 0 0;
   font-family: var(--font-display);
   font-size: 21px;
@@ -2621,86 +2627,101 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   line-height: 1;
   color: var(--fg);
 }
-.pricing-spec-detail {
+.pricing-point-detail {
   margin: 6px 0 0;
   font-size: 14px;
   line-height: 1.5;
   color: var(--fg-2);
 }
-@media (max-width: 859px) {
-  .pricing-spec-cols { grid-template-columns: 1fr; }
-  .pricing-spec-col,
-  .pricing-spec-col:first-child {
-    border-left: 0;
-    border-top: 1px solid var(--rule);
-    padding: 18px 4px;
-  }
-  .pricing-spec-col:first-child { border-top: 0; }
+
+/* Plan pills: a phone's plan switcher. Hidden until the phone layout below. */
+.pricing-pills { display: none; }
+
+.pricing-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
 }
+.pricing-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 30px 22px 22px;
+  border-radius: 22px;
+}
+.pricing-card-feat {
+  border-top: 2px solid var(--accent-2);
+  box-shadow: 0 0 0 1px var(--accent-2) inset, 0 30px 80px -30px rgba(0, 0, 0, 0.35), 0 0 60px -10px var(--accent-glow);
+}
+.pricing-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--accent-2);
+  color: #fff;
+  border-radius: 0 0 12px 12px;
+  padding: 5px 16px;
+  white-space: nowrap;
+}
+.pricing-name {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.pricing-price { display: flex; align-items: flex-end; gap: 4px; margin-top: 16px; }
+.pricing-amount {
+  font-family: var(--font-display);
+  font-size: 52px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: var(--tracking-tightest);
+  line-height: 1;
+}
+.pricing-per { font-size: 13px; color: var(--fg-3); margin-bottom: 6px; }
+.pricing-setup { margin: 6px 0 0; font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); }
+.pricing-tier { margin: 14px 0 0; font-size: 14.5px; line-height: 1.45; color: var(--fg-2); min-height: 42px; }
+.pricing-tier strong { color: var(--fg); font-weight: 600; }
 
 /* "Everything in X, plus": a label above a card's list, not a bullet in it. */
 .pricing-lead-in {
-  margin: 0 0 12px;
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg-3);
 }
-
-/* Growth's customer system: three icon tiles on a raised panel. --elev-* lifts in both
-   themes, where --surface alone would sink into the glass card in dark. */
-.pricing-system {
-  padding: 16px;
-  border-radius: 16px;
-  background: var(--elev-2);
-  border: 1px solid var(--elev-border);
-  box-shadow: var(--shadow-1);
-}
-.pricing-system-h {
-  margin: 0 0 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.pricing-system-row {
+.pricing-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+.pricing-item {
   display: grid;
-  grid-template-columns: 38px 1fr;
-  gap: 12px;
-  align-items: start;
-}
-.pricing-system-row + .pricing-system-row { margin-top: 14px; }
-.pricing-system-ico {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 13%, transparent);
-}
-.pricing-system-title {
-  margin: 1px 0 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--fg);
-}
-.pricing-system-line {
-  margin: 2px 0 0;
-  font-size: 13px;
+  grid-template-columns: 16px 1fr;
+  gap: 9px;
+  font-size: 14px;
   line-height: 1.45;
   color: var(--fg-2);
 }
+.pricing-item strong, .pricing-callback strong { color: var(--fg); font-weight: 600; }
+.pricing-check { margin-top: 3px; color: var(--online); }
 
-/* Customer-facing texting waits on the client's own carrier registration. Dashed, like
-   the homepage portal drawing's gated actions, and a link to the FAQ that explains it. */
+/* Customer-facing texting waits on the client's own carrier registration. Dashed, like the
+   homepage portal drawing's gated actions, and a link to the FAQ answer that explains it. */
 .pricing-gate-tag {
   display: inline-block;
   font-family: var(--font-mono);
@@ -2714,50 +2735,244 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   padding: 2px 7px;
   white-space: nowrap;
   text-decoration: none;
+  vertical-align: 1px;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 .pricing-gate-tag:hover,
-.pricing-gate-tag:focus-visible {
-  color: var(--fg);
-  border-color: var(--accent);
-}
+.pricing-gate-tag:focus-visible { color: var(--fg); border-color: var(--accent); }
 
-/* The callback, Growth's highlight under the system. Coral, as the page's action colour. */
+/* The callback, Growth's highlight. Coral, as the page's action colour. */
 .pricing-callback {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin-top: 16px;
-  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 9px;
+  margin: 0 -4px;
+  padding: 10px 12px;
   border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fg-2);
   background: color-mix(in srgb, var(--accent-2) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent-2) 26%, transparent);
 }
-.pricing-callback-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  line-height: 1.05;
-  color: var(--fg);
-}
-.pricing-callback-line {
-  margin: 3px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--fg-2);
-}
-.pricing-also {
+.pricing-callback-ico { margin-top: 2px; color: var(--accent-2); }
+.pricing-also { margin: 14px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--fg-3); }
+.pricing-also strong { font-weight: 600; color: var(--fg-2); }
+
+/* Minutes, as a line item under a rule. Deliberately the least prominent thing on a card. */
+.pricing-foot {
   margin: 16px 0 0;
-  font-size: 13px;
-  line-height: 1.5;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
   color: var(--fg-3);
 }
-.pricing-also strong {
+.pricing-cta { width: 100%; justify-content: center; margin-top: 18px; }
+.pricing-cta-off, .pricing-cta-off:hover { cursor: not-allowed; opacity: 0.55; border-style: dashed; background: transparent; color: var(--fg); transform: none; }
+
+/* Enterprise: a slim row under the three cards. */
+.pricing-ent {
+  margin-top: 16px;
+  padding: 16px 22px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.pricing-ent-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 14px 24px;
+  align-items: center;
+}
+.pricing-ent-price { margin: 0; display: flex; align-items: baseline; gap: 4px; white-space: nowrap; font-size: 13px; color: var(--fg-3); line-height: 1; }
+.pricing-ent .pricing-setup { margin-top: 4px; }
+.pricing-ent-amount {
+  font-family: var(--font-display);
+  font-size: 30px;
   font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.03em;
+}
+.pricing-ent-row > .pricing-name { justify-self: start; }
+.pricing-ent-tier { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--fg-2); }
+.pricing-ent-actions { display: flex; gap: 12px; align-items: center; }
+.pricing-ent-toggle {
+  min-height: 44px;
+  padding: 12px 2px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--rule-strong);
+  background: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--fg-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pricing-ent-toggle:hover,
+.pricing-ent-toggle:focus-visible { color: var(--accent-2); border-color: var(--accent-2); }
+.pricing-ent-cta { white-space: nowrap; }
+.pricing-ent-more {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 32px;
+}
+.pricing-ent-more[hidden] { display: none; }
+.pricing-ent-more .pricing-lead-in { grid-column: 1 / -1; margin: 0; padding: 0; border: 0; }
+.pricing-ent-more .pricing-foot { margin: 0; padding: 0; border: 0; align-self: end; }
+.pricing-priority {
+  margin-left: 8px;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+/* FAQ accordion. */
+.pricing-faq { padding: clamp(72px, 8vw, 128px) 0 clamp(72px, 8vw, 120px); }
+.pricing-faq-h {
+  margin: 0;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: clamp(40px, 6vw, 96px);
+  line-height: 0.9;
+}
+.pricing-acc { max-width: 900px; margin: 0 auto; border-bottom: 1px solid var(--rule); }
+.pricing-qa { border-top: 1px solid var(--rule); scroll-margin-top: 96px; }
+.pricing-q-h { margin: 0; font-size: inherit; text-transform: none; letter-spacing: normal; line-height: inherit; }
+.pricing-q {
+  width: 100%;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--fg);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(19px, 1.8vw, 23px);
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+.pricing-q:hover { color: var(--accent-2); }
+.pricing-q:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.pricing-q-ico {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--fg);
+  border: 1px solid var(--rule-strong);
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.pricing-qa.open .pricing-q-ico {
+  transform: rotate(45deg);
+  background: var(--accent-2);
+  border-color: var(--accent-2);
+  color: #fff;
+}
+.pricing-a { padding: 0 54px 26px 0; }
+.pricing-a[hidden] { display: none; }
+.pricing-a p { margin: 0 0 12px; font-size: 16px; line-height: 1.65; color: var(--fg-2); max-width: 66ch; }
+.pricing-a p:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .pricing-q-ico { transition: none; }
+}
+
+@media (max-width: 1179px) {
+  .pricing-top { grid-template-columns: minmax(0, 1fr); }
+  .pricing-h1 { max-width: 14ch; }
+  .pricing-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 24px; }
+  .pricing-point:last-child { border-bottom: 0; }
+}
+@media (max-width: 1023px) {
+  .pricing-ent-row { grid-template-columns: auto minmax(0, 1fr); }
+  .pricing-ent-tier, .pricing-ent-actions { grid-column: 1 / -1; }
+}
+
+/* A phone: centred header, titles only, one plan at a time behind the pills. */
+@media (max-width: 859px) {
+  .pricing-copy { text-align: center; }
+  .pricing-h1 { margin-inline: auto; font-size: clamp(44px, 14vw, 64px); }
+  .pricing-rule { margin: 24px auto; }
+  .pricing-points { display: block; text-align: left; }
+  .pricing-point { grid-template-columns: 36px 1fr; align-items: center; padding: 12px 0; }
+  .pricing-point:last-child { border-bottom: 1px solid var(--rule); }
+  .pricing-point-ico { width: 36px; height: 36px; }
+  .pricing-point-detail { display: none; }
+
+  .pricing-pills {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    margin: 8px 0 16px;
+    border: 1px solid var(--rule-strong);
+    border-radius: 999px;
+    background: var(--surface);
+  }
+  .pricing-pill {
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .pricing-pill-name {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
+  .pricing-pill-price { margin-top: 3px; font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); }
+  .pricing-pill[aria-pressed="true"] { background: var(--accent-2); color: var(--on-accent-2); }
+  .pricing-pill[aria-pressed="true"] .pricing-pill-price { color: var(--on-accent-2); }
+  .pricing-pill:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
+  .pricing-cards { grid-template-columns: minmax(0, 1fr); }
+  .pricing-cards[data-active="website"] .pricing-card:not([data-plan="website"]),
+  .pricing-cards[data-active="starter"] .pricing-card:not([data-plan="starter"]),
+  .pricing-cards[data-active="growth"] .pricing-card:not([data-plan="growth"]) { display: none; }
+  .pricing-card { padding: 28px 20px 20px; }
+  .pricing-tier { min-height: 0; font-size: 15px; }
+  .pricing-item, .pricing-callback { font-size: 14.5px; }
+  .pricing-also { display: none; }
+
+  .pricing-ent { padding: 16px 18px; }
+  .pricing-ent-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .pricing-ent-row > div:nth-child(2) { justify-self: end; text-align: right; }
+  .pricing-ent-price { justify-content: flex-end; }
+  .pricing-ent-actions { flex-wrap: wrap; justify-content: space-between; }
+  .pricing-ent-cta { flex: 1 1 100%; justify-content: center; }
+  .pricing-ent-more { grid-template-columns: minmax(0, 1fr); }
+
+  .pricing-q { padding: 16px 0; min-height: 60px; font-size: 19px; gap: 14px; }
+  .pricing-q-ico { width: 32px; height: 32px; }
+  .pricing-a { padding: 0 0 20px; }
+  .pricing-a p { font-size: 15.5px; }
 }
 
 /* ── Phone tab bar: red counts (2026-11-19, Q11) ─────────────────────────────────────────
