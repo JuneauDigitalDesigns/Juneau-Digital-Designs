@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { CONTACT } from "@/app/data/contact";
 import { TRADE_PAGES } from "@/app/data/trade-pages";
 import { SERVICE_PAGES } from "@/app/data/service-pages";
-import { MONOGRAM, WORDMARK } from "@/app/data/brand-marks";
+import { MONOGRAM, WORDMARK, WORDMARK_STACKED } from "@/app/data/brand-marks";
 import TradesMenu, { Chevron } from "./TradesMenu";
 import { DoorGlyph, PhoneGlyph } from "./NavIcons";
 
@@ -65,14 +65,13 @@ export default function Navbar() {
                 borderBottom: "1px solid var(--rule)",
             }}
         >
-            {/* Three zones, not one row pushed right (Xander, 19 Nov 2026): the logo, the pages
-                centred in the bar, and the two actions hard against the right edge. The middle
-                column is what centres the links, and it stays centred in the bar rather than
-                between its neighbours, so the row does not drift as pages are added.
+            {/* Three zones (Xander, 19 Nov 2026): the brand, the pages, the two actions. Since
+                24 Nov 2026 the bar runs the full width, with the brand hard against the left edge
+                and the pages set right, beside the actions, instead of centred.
 
                 One filled button only. Two coral buttons meant neither was the ask; now the
                 phone is the ask and Portal is the way back in for people who already bought. */}
-            <div className="nav-bar mx-auto w-full max-w-7xl px-4 sm:px-6">
+            <div className="nav-bar w-full px-4 sm:px-6">
                 {/* The brand as markup (Xander, 24 Nov 2026): monogram, a dark hairline, the
                     wordmark, all transparent, no baked-in box. Below 640px the wordmark stands
                     alone. The link names the business, so both pictures are decorative. */}
@@ -80,6 +79,8 @@ export default function Navbar() {
                     <Image src={MONOGRAM.src} alt="" width={MONOGRAM.width} height={MONOGRAM.height} priority className="nav-brand-mono" />
                     <span className="nav-brand-rule" aria-hidden="true" />
                     <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} priority className="nav-brand-word" />
+                    {/* 1040-1219px only: the stacked wordmark, so the pages still fit in the bar. */}
+                    <Image src={WORDMARK_STACKED.src} alt="" width={WORDMARK_STACKED.width} height={WORDMARK_STACKED.height} priority className="nav-brand-stacked" />
                 </Link>
 
                 <nav className="nav-links" aria-label="Pages">
@@ -158,7 +159,7 @@ export default function Navbar() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
                         transition={{ duration: 0.175, ease: "easeOut" }}
-                        className="absolute w-full md:hidden pb-6 pt-3"
+                        className="nav-menu-sm absolute w-full pb-6 pt-3"
                         style={{
                             background: "var(--nav-bg-solid)",
                             backdropFilter: "blur(28px) saturate(150%)",

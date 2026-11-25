@@ -12,3 +12,5 @@
  */
 export const MONOGRAM = { src: "/monogram.webp", width: 3200, height: 1684 } as const;
 export const WORDMARK = { src: "/wordmark.webp", width: 4800, height: 773 } as const;
+/** Juneau over Digital Designs: the nav's wordmark from 1040px to 1219px only (Xander's option B). */
+export const WORDMARK_STACKED = { src: "/wordmark-stacked.webp", width: 2200, height: 1000 } as const;

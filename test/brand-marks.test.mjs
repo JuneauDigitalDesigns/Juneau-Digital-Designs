@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { MONOGRAM, WORDMARK } from "../app/data/brand-marks.ts";
+import { MONOGRAM, WORDMARK, WORDMARK_STACKED } from "../app/data/brand-marks.ts";
 
 const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const read = (p) => readFileSync(root(p), "utf8");
@@ -20,7 +20,7 @@ const footer = read("app/components/footer/footer.tsx");
 const css = read("app/globals.css");
 
 test("both marks are real files, with their own pixel sizes", () => {
-    for (const mark of [MONOGRAM, WORDMARK]) assert.ok(existsSync(root(`public${mark.src}`)), `${mark.src} is missing`);
+    for (const mark of [MONOGRAM, WORDMARK, WORDMARK_STACKED]) assert.ok(existsSync(root(`public${mark.src}`)), `${mark.src} is missing`);
     assert.deepEqual([MONOGRAM.width, MONOGRAM.height], [3200, 1684]);
     assert.deepEqual([WORDMARK.width, WORDMARK.height], [4800, 773]);
 });
@@ -40,4 +40,14 @@ test("approved sizes, and the wordmark alone below 640px", () => {
     assert.match(css, /\.nav-brand-word \{[^}]*height: 44px/);
     assert.match(css, /\.footer-brand \{[^}]*max-height: 64px/);
     assert.match(css, /@media \(max-width: 639px\) \{\s*\.nav-brand-mono,\s*\.nav-brand-rule \{ display: none; \}/);
+});
+
+test("option B: the stacked wordmark from 1040px to 1219px, the menu below 1040px, the brand hard left", () => {
+    assert.ok(nav.includes("src={WORDMARK_STACKED.src}"), "the nav has no stacked wordmark");
+    assert.match(css, /@media \(min-width: 1040px\) and \(max-width: 1219px\) \{\s*\.nav-brand-word \{ display: none; \}\s*\.nav-brand-stacked \{ display: block; \}/);
+    assert.match(css, /@media \(max-width: 1039px\) \{\s*\.nav-bar/);
+    assert.match(css, /@media \(min-width: 1040px\) \{\s*\.nav-menu-sm \{ display: none; \}/);
+    assert.ok(nav.includes('className="nav-menu-sm '), "the phone menu must hide at the same width the burger does");
+    assert.doesNotMatch(nav, /nav-bar[^"]*max-w-7xl/, "the bar runs the full width");
+    assert.match(css, /\.nav-links \{[^}]*justify-content: flex-end/);
 });
