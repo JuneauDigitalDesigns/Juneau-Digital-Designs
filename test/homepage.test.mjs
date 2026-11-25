@@ -293,16 +293,21 @@ test("7 · the calculator is 'the year', with today's sum and words", () => {
     for (const m of ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]) assert.ok(calc.includes(`"${m}"`), m);
 });
 
-test("9 · the close: same words, on cream, with Get Started going to /contact", () => {
+test("9 · the close: four plans, on cream, with Get Started going to /contact", () => {
+    // The three points are /pricing's (app/data/every-plan.ts, row F9), and none promises the phone:
+    // the $97 Starter has no receptionist and no lead texts.
+    assert.match(home, /import \{ EVERY_PLAN \} from "@\/app\/data\/every-plan"/);
+    assert.match(home, /EVERY_PLAN\.map/);
+    assert.doesNotMatch(home, /It rings you first|One inbox for every lead/);
     says(
         home,
         [
-            "A custom 4+ page site",
-            "It rings you first",
-            "One inbox for every lead",
             "One system. One monthly bill.",
-            "Everything every plan gets. This is where it starts. <strong>Starter reports every lead.</strong>",
-            "Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong>Growth works them like a team would.</strong>",
+            // F10–F12 of the website-plan copy batch (Xander, 24 Nov 2026).
+            "Your website, written, built and hosted for you, with every web inquiry in your portal. <strong>Starter catches every web lead.</strong>",
+            "Starter + AI Receptionist",
+            "Everything in Starter, plus the AI receptionist. When you can't pick up, it answers, 24/7, and puts the lead in your portal. <strong>Starter + AI Receptionist answers every missed call.</strong>",
+            "Everything in Starter + AI Receptionist, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong>Growth works them like a team would.</strong>",
             "Two or three sites, each with its own receptionist and phone number, all feeding one portal. One monthly bill.",
             "Get started.",
             "Contact us now.",
@@ -314,6 +319,7 @@ test("9 · the close: same words, on cream, with Get Started going to /contact",
         "the close",
     );
     // Prices come from Schedule A, never typed in.
+    assert.match(home, /WEBSITE_PLAN\.monthlyPrice/);
     assert.match(home, /SCHEDULES\.starter\.monthlyPrice/);
     assert.match(home, /SCHEDULES\.growth\.monthlyPrice/);
     assert.match(home, /SCHEDULES\.enterprise\.monthlyPrice/);
