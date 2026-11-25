@@ -48,6 +48,10 @@ export const PLUMBING_DESCRIPTION = `We write, build and host your plumbing webs
 export const LAWN_CARE_TITLE = "Lawn Care Website Design + 24/7 AI Receptionist | JDD";
 export const LAWN_CARE_DESCRIPTION = `We write, build and host your lawn care website, and an AI receptionist answers the calls you miss, 24/7, from weekly mowing to spring cleanups. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
 
+/** /auto-detailing, the fourth trade page. Xander approved the page, with this title and description, on 25 Nov 2026. Price is Schedule A's, never typed. */
+export const AUTO_DETAILING_TITLE = "Auto Detailing Website Design + 24/7 AI Receptionist | JDD";
+export const AUTO_DETAILING_DESCRIPTION = `We write, build and host your detailing website, and an AI receptionist answers the calls you miss, 24/7, from interior details to ceramic coatings. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
+
 /**
  * /contact. Xander approved the page, with this title and description, from the round-1 mockup
  * (19 Nov 2026). Its /contact/thank-you child is deliberately NOT a public path: it is the
@@ -91,6 +95,7 @@ export const PUBLIC_PATHS = [
     "/hvac",
     "/plumbing",
     "/lawn-care",
+    "/auto-detailing",
     "/contact",
     "/pricing",
     "/faq",
@@ -544,6 +549,53 @@ export function lawnCareJsonLd() {
                 url: `${SITE_URL}/lawn-care`,
                 provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
                 audience: { "@type": "BusinessAudience", name: "Lawn care companies" },
+                offers: {
+                    "@type": "Offer",
+                    name: starter.name,
+                    url: `${SITE_URL}/pricing`,
+                    priceCurrency: "USD",
+                    price: starter.monthlyPrice,
+                    priceSpecification: {
+                        "@type": "UnitPriceSpecification",
+                        price: starter.monthlyPrice,
+                        priceCurrency: "USD",
+                        unitCode: "MON",
+                        referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+                    },
+                },
+            },
+        ],
+    };
+}
+
+/**
+ * /auto-detailing's structured data: the page, and the service it describes. Same shape as the
+ * other three trade pages' builders, with detailing's own audience and wording — no `areaServed`,
+ * since the page names no region. Only what the page itself says.
+ */
+export function autoDetailingJsonLd() {
+    const starter = SCHEDULES.starter;
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": `${SITE_URL}/auto-detailing#page`,
+                url: `${SITE_URL}/auto-detailing`,
+                name: AUTO_DETAILING_TITLE,
+                description: AUTO_DETAILING_DESCRIPTION,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${SITE_URL}/auto-detailing#service` },
+            },
+            {
+                "@type": "Service",
+                "@id": `${SITE_URL}/auto-detailing#service`,
+                name: "Websites and a 24/7 AI receptionist for auto detailing businesses",
+                serviceType: "Website design and AI answering service",
+                description: AUTO_DETAILING_DESCRIPTION,
+                url: `${SITE_URL}/auto-detailing`,
+                provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
+                audience: { "@type": "BusinessAudience", name: "Auto detailing businesses" },
                 offers: {
                     "@type": "Offer",
                     name: starter.name,
