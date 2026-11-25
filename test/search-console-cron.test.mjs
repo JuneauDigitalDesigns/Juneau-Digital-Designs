@@ -63,7 +63,8 @@ const profile = {
     spokes: [],
     updatedAt: "2026-11-01T00:00:00.000Z",
 };
-const site = (slug, extra = {}) => ({ slug, plan: "growth", status: "live", addedAt: 1, airtableBaseId: null, ...extra });
+// Proposals are Search Growth (the paid add-on, 2026-11-16): these sites have it. search-growth-gating.test.mjs covers sites without.
+const site = (slug, extra = {}) => ({ slug, plan: "growth", status: "live", addedAt: 1, airtableBaseId: null, searchAddon: { status: "active", since: 1 }, ...extra });
 
 let googleCalls = [];
 const realFetch = globalThis.fetch;

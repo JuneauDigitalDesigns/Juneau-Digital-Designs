@@ -7,7 +7,8 @@ import { listLeads } from "./portal-leads";
 import { querySearchAnalytics, searchConsoleConfigured } from "./search-console";
 import { sendOpsNotice } from "./ops-notice";
 import { PA } from "./page-additions";
-import { evaluateProposals, matchTowns, type PageRow, type QueryRow, type SearchProfile, type TownSignals } from "./seo-demand";
+import { evaluateProposals, matchTowns, WINDOW_DAYS, type PageRow, type QueryRow, type SearchProfile, type TownSignals } from "./seo-demand";
+import { hasSearchGrowth } from "./search-growth";
 import {
     accountScope,
     logRun,
@@ -22,6 +23,7 @@ import {
     takeRunLease,
     writeCompleted,
     writeHealth,
+    writeReadiness,
     writeRun,
     type SeoHealth,
     type SeoRun,
@@ -31,8 +33,12 @@ import {
 } from "./seo-store";
 
 /**
- * The weekly Search Console job (L11/L12/L13; weekly since 2026-11-15). For each live site whose
- * property JDD verified (the console publishes a search profile when it does):
+ * The weekly Search Console job (L11/L12/L13; weekly since 2026-11-15). Every live site is
+ * verified at go-live (D1, 2026-11-16), but the steps below run only for a site with Search Growth,
+ * the paid add-on (hasSearchGrowth). A verified site without it gets one light readiness read
+ * instead (runReadinessCheck): counts only, no stored search data, never a proposal.
+ *
+ * For each live, verified site with Search Growth:
  *
  *   1. Pull Search Analytics since the last run, query×page and page-only, final data only, and
  *      store each day. The 7 days before the cursor are re-pulled and overwritten as well, so a
@@ -156,11 +162,48 @@ export async function runSiteCycle(account: PortalAccount, site: PortalSite, pro
 
 export interface CycleResult {
     configured: boolean;
+    /** Search Growth sites: worked (done), failed, and any not reached yet. */
     sites: number;
     done: number;
     failed: number;
+    /** Verified sites without Search Growth: readiness reads made, and ones that failed. */
+    checked: number;
+    checkFailed: number;
     proposals: number;
     durationMs: number;
+}
+
+/**
+ * Health judges every Google read, the readiness reads included, so a revoked sign-in is caught
+ * even before any client has Search Growth.
+ */
+function healthView(r: CycleResult): CycleResult {
+    return { ...r, sites: r.sites + r.checked + r.checkFailed, done: r.done + r.checked, failed: r.failed + r.checkFailed };
+}
+
+/**
+ * The readiness read for a verified site without Search Growth: one Search Analytics query summed
+ * over the L12 window (90 days, or since verification if that is sooner), the L12 rules run over
+ * it, and only counts stored: how many whole days since verification, and how many new pages the
+ * rules would propose. Merge-backs (fold) are not counted: there are no stored page rows to judge
+ * them by, and they are not what a client buys. When to show the client an offer is the portal's
+ * call (D2); this records the facts either answer needs.
+ */
+async function runReadinessCheck(acct: string, site: PortalSite, profile: SearchProfile, now: Date): Promise<{ rows: number }> {
+    const end = iso(new Date(now.getTime() - LAG_DAYS * 86_400_000));
+    const windowStart = addDays(end, -(WINDOW_DAYS - 1));
+    const verified = profile.verifiedAt ? iso(new Date(profile.verifiedAt)) : null;
+    const start = verified && verified > windowStart ? verified : windowStart;
+    const days = profile.verifiedAt ? Math.floor((now.getTime() - Date.parse(profile.verifiedAt)) / 86_400_000) : 0;
+    let rows: QueryRow[] = [];
+    if (start <= end) {
+        const got = await querySearchAnalytics(profile.property as string, { startDate: start, endDate: end, dimensions: ["query", "page"] });
+        rows = got.map((r) => ({ date: end, query: r.keys[0], page: r.keys[1], clicks: r.clicks, impressions: r.impressions, position: r.position }));
+    }
+    const state = { open: [], decided: [], proposedThisMonth: 0, inFlightSpokes: 0 };
+    const wouldPropose = evaluateProposals({ profile, rows, pageRows: [], state, signals: {}, now }).filter((p) => p.kind !== "fold").length;
+    await writeReadiness(acct, site.slug, { checkedAt: now.toISOString(), dataSince: profile.verifiedAt ?? null, days, wouldPropose });
+    return { rows: rows.length };
 }
 
 /**
@@ -240,6 +283,8 @@ export async function runSearchConsoleInvocation({
         sites: run ? run.done.length + run.failed.length + left : 0,
         done: run?.done.length ?? 0,
         failed: run?.failed.length ?? 0,
+        checked: run?.checked?.length ?? 0,
+        checkFailed: run?.checkFailed?.length ?? 0,
         proposals: run?.proposals ?? 0,
         durationMs: Date.now() - started,
     });
@@ -261,6 +306,8 @@ export async function runSearchConsoleInvocation({
                 startedAt: now.toISOString(),
                 done: [],
                 failed: [],
+                checked: [],
+                checkFailed: [],
                 rows: 0,
                 proposals: 0,
                 invocations: 0,
@@ -295,14 +342,16 @@ export async function runSearchConsoleInvocation({
             sites: result.sites,
             done: result.done,
             failed: result.failed,
+            checked: result.checked,
+            checkFailed: result.checkFailed,
             proposals: result.proposals,
             invocations: run.invocations,
         });
         await logRun({ at, id: run.id, slot: run.slot, invocations: run.invocations, ...result });
-        await recordHealth({ threw: false, result, rows: run.rows, at });
+        await recordHealth({ threw: false, result: healthView(result), rows: run.rows, at });
         return { status: "complete", runId: run.id, result };
     } catch (err) {
-        await recordHealth({ threw: true, result: counts(run), rows: run?.rows ?? 0, at: now.toISOString() });
+        await recordHealth({ threw: true, result: healthView(counts(run)), rows: run?.rows ?? 0, at: now.toISOString() });
         throw err;
     } finally {
         await releaseRunLease(token).catch(() => {});
@@ -311,7 +360,9 @@ export async function runSearchConsoleInvocation({
 
 /** Works the run's remaining sites until the budget is spent. Returns how many are left. */
 async function workSites(run: SeoRun, now: Date, started: number, budgetMs: number): Promise<number> {
-    const seen = new Set([...run.done, ...run.failed]);
+    run.checked ??= [];
+    run.checkFailed ??= [];
+    const seen = new Set([...run.done, ...run.failed, ...run.checked, ...run.checkFailed]);
     let worked = 0;
     let left = 0;
     for (const account of await listAccounts()) {
@@ -327,6 +378,18 @@ async function workSites(run: SeoRun, now: Date, started: number, budgetMs: numb
                 continue;
             }
             worked++;
+            if (!hasSearchGrowth(site, now.getTime())) {
+                try {
+                    const r = await runReadinessCheck(acct, site, profile, now);
+                    run.checked.push(key);
+                    run.rows += r.rows;
+                } catch (err) {
+                    run.checkFailed.push(key);
+                    console.error("[search-console] readiness read failed", site.slug, String(err));
+                }
+                await writeRun(run);
+                continue;
+            }
             try {
                 const r = await runSiteCycle(account, site, profile, now);
                 run.done.push(key);

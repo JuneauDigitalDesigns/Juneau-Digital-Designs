@@ -19,6 +19,9 @@ const IN_FLIGHT = new Set(["waiting", "received", "building", "paused"]);
  *   jdd:seo:proposal:index:v1:{acct}:{slug}   zset of proposal ids by creation time
  *   jdd:seo:proposed:v1:{acct}:{slug}:{YYYY-MM} how many were proposed that month (L12: at most 3)
  *   jdd:seo:runs:v1                           the last 60 runs, counts only
+ *   jdd:seo:ready:v1:{acct}:{slug}            a site without Search Growth: its readiness read,
+ *                                             counts only (days since verification, pages the
+ *                                             rules would propose); no search data is stored
  *
  * Days are kept 800 days, longer than Google's 16 months, so a site's history outlives Google's.
  */
@@ -39,6 +42,26 @@ export const proposalKey = (acct: string, slug: string, id: string) => `jdd:seo:
 export const proposalIndexKey = (acct: string, slug: string) => `jdd:seo:proposal:index:v1:${acct}:${slug}`;
 export const monthKey = (acct: string, slug: string, month: string) => `jdd:seo:proposed:v1:${acct}:${slug}:${month}`;
 export const RUNS_KEY = "jdd:seo:runs:v1";
+export const readinessKey = (acct: string, slug: string) => `jdd:seo:ready:v1:${acct}:${slug}`;
+
+/** A verified site without Search Growth, as of its last weekly readiness read. Counts only. */
+export interface SeoReadiness {
+    checkedAt: string;
+    /** When JDD verified the site, so when Google's data for it starts. */
+    dataSince: string | null;
+    /** Whole days since verification. */
+    days: number;
+    /** New pages (town + service, or town) the L12 rules would propose from the last 90 days. */
+    wouldPropose: number;
+}
+
+export async function writeReadiness(acct: string, slug: string, r: SeoReadiness): Promise<void> {
+    await getRedis().set(readinessKey(acct, slug), r);
+}
+
+export async function readReadiness(acct: string, slug: string): Promise<SeoReadiness | null> {
+    return (await getRedis().get<SeoReadiness>(readinessKey(acct, slug))) ?? null;
+}
 
 export { accountScope };
 
@@ -180,6 +203,9 @@ export interface SeoRun {
     /** `{acctScope}:{slug}` of each site finished in this run, and of each that failed. */
     done: string[];
     failed: string[];
+    /** Verified sites without Search Growth given a readiness read, and those whose read failed. */
+    checked?: string[];
+    checkFailed?: string[];
     rows: number;
     proposals: number;
     invocations: number;
@@ -197,6 +223,8 @@ export interface SeoCompletedRun {
     sites: number;
     done: number;
     failed: number;
+    checked: number;
+    checkFailed: number;
     proposals: number;
     invocations: number;
 }
