@@ -93,8 +93,7 @@ export default function StarterShowcase() {
             </div>
 
             <p className="sr-only">
-                A preview of the Growth customer board: six columns from Lead through to Won and Lost,
-                each holding customer cards.
+                {"A preview of the Starter + AI Receptionist customer board: six columns from Lead through to Won and Lost, each holding customer cards."}
             </p>
 
             <div className="portal-ghost p-4" aria-hidden="true">

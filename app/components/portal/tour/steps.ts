@@ -123,6 +123,7 @@ export const TOUR_STEPS: TourStep[] = [
         tier: ["starter", "growth"],
         title: "The numbers that matter",
         body: "How fast callers got a call back, how many you caught after hours, and what's due today.",
+        as: { starter: { body: "How many calls you caught after hours, how many leads you handled, and who has waited longest." } },
         ...both("/portal", at("ov-tiles")),
     },
     {
@@ -130,7 +131,7 @@ export const TOUR_STEPS: TourStep[] = [
         section: "Home",
         tier: "starter",
         title: "What Growth adds",
-        body: "This is what happens after the call on Growth. Tap Show me what Growth does for me for a quick demo.",
+        body: "This is what Growth adds after the call: the calendar, texting and reviews. Tap Show me what Growth does for me for a quick demo.",
         ...both("/portal", at("ov-locked")),
     },
     {
@@ -313,14 +314,16 @@ export const TOUR_STEPS: TourStep[] = [
         ...tabs("nav-calendar", "tab-calendar", "/portal/customers"),
     },
 
-    /* ── Starter: Growth, from the Inbox (Xander, 19 Nov 2026) ── */
+    /* ── Starter: Growth, from the Inbox (Xander, 19 Nov 2026) ──
+       Copy batch H7 (2026-11-25): customer records come with Starter + AI now, so "further" no
+       longer offers them, and the website plan skips it (its one upsell is the receptionist). */
     {
         id: "further",
         section: "Customers",
-        tier: ["website", "starter"],
+        tier: "starter",
         title: "Want to go further?",
-        body: "Growth adds a record for each customer, a calendar for your jobs, texting from the portal, and one-click Google review requests.",
-        phone: { body: "Growth adds a record for each customer, a calendar for your jobs, texting from the portal, and one-tap Google review requests." },
+        body: "Growth adds a calendar for your jobs, texting from the portal, and one-click Google review requests.",
+        phone: { body: "Growth adds a calendar for your jobs, texting from the portal, and one-tap Google review requests." },
         ...tabs("nav-customers", "tab-customers", "/portal/calls"),
     },
     {
@@ -328,7 +331,7 @@ export const TOUR_STEPS: TourStep[] = [
         section: "Customers",
         tier: ["website", "starter"],
         title: "Want to go further?",
-        body: "The calendar comes with Growth too. Book jobs, keep track of estimates and schedule follow-ups, all from the same customer record.",
+        body: "The calendar comes with Growth. Book jobs, keep track of estimates and schedule follow-ups, all from the customer record.",
         ...tabs("nav-calendar", "tab-calendar", "/portal/calls"),
     },
     {

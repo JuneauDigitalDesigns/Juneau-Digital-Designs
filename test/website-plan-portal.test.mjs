@@ -211,11 +211,13 @@ test("the website walk drops the steps about calls, minutes and lead texts (C6)"
     const ids = (tier, device) => walkFor(tier, device).map((s) => s.id);
     for (const device of ["desktop", "mobile"]) {
         const w = ids("website", device);
-        for (const gone of ["tiles", "said", "settings", "alerts", "minutes", "growth-adds", "promote", "customers"]) {
+        // "further" too, since copy batch H7 (2026-11-25): the website plan's one upsell is the
+        // receptionist, and the card is about what Growth adds over Starter + AI.
+        for (const gone of ["tiles", "said", "settings", "alerts", "minutes", "growth-adds", "promote", "customers", "further"]) {
             assert.ok(!w.includes(gone), `${device}: ${gone}`);
         }
         assert.ok(w.includes("receptionist-adds"), device);
-        assert.ok(w.includes("further"), device);
+        assert.ok(ids("starter", device).includes("further"), device);
         assert.ok(w.includes("plan"), "the separate Your plan step stays");
         // The other tiers keep theirs.
         assert.ok(ids("starter", device).includes("minutes"));
@@ -265,7 +267,7 @@ test("the tour's sample Inbox has no calls for a website client", () => {
     assert.ok(items.some((i) => i.id.startsWith("tour-")), "the tour's own lead stays, as a form inquiry");
     // Other plans still see calls.
     assert.ok(sampleInbox("hvac", now).some((i) => i.source === "call"));
-    const answer = sampleAnswer("/api/portal/inbox", "GET", { trade: "hvac", now, growth: false, webOnly: true });
+    const answer = sampleAnswer("/api/portal/inbox", "GET", { trade: "hvac", now, crm: false, webOnly: true });
     assert.ok(answer.body.items.every((i) => i.source !== "call"));
 });
 

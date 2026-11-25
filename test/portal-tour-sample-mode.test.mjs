@@ -28,7 +28,7 @@ import {
 
 const NOW = new Date("2026-11-19T15:42:00");
 const VERTICALS = ["hvac", "roofing", "plumbing", "lawn-care", "car-detailing", "pressure-washing", "health"];
-const opts = (trade = "plumbing") => ({ trade, now: NOW, growth: true });
+const opts = (trade = "plumbing") => ({ trade, now: NOW, crm: true });
 
 test("every trade the portal sells has its own sample set, plus one for anything else", () => {
     for (const v of [...VERTICALS, "other"]) {
@@ -107,7 +107,7 @@ test("while the tour runs, the lead and customer screens read the samples", () =
     assert.equal(sampleAnswer(`/api/portal/customers/${TOUR_RECORD_ID}`, "GET", opts()).status, 200);
     assert.equal(sampleAnswer("/api/portal/appointments", "GET", opts()).body.state, "ready");
     assert.equal(sampleAnswer(`/api/portal/calls/${TOUR_LEAD_ID}/transcript`, "GET", opts()).body.turns.length > 0, true);
-    assert.equal(sampleAnswer("/api/portal/inbox", "GET", { ...opts(), growth: false }).body.canPromote, false, "Starter can't promote");
+    assert.equal(sampleAnswer("/api/portal/inbox", "GET", { ...opts(), crm: false }).body.canPromote, false, "a plan without the Customers board can't promote");
 });
 
 test("nothing a person taps during the tour is written: every lead and customer write is answered locally", () => {

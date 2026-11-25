@@ -14,8 +14,12 @@ export interface DemoStep {
     key: "inbox" | "promote" | "pipeline" | "message" | "review";
     /** The step button's label. */
     short: string;
-    /** "Every plan" or "Growth": which plan the step's feature comes with. */
-    plan: "Every plan" | "Growth";
+    /**
+     * Which plans the step's feature comes with. Promoting and the pipeline are the Customers
+     * board (`crm`), on Starter + AI and Growth since @jdd/schema v1.47.0; texting and reviews
+     * (`messaging`) stay Growth.
+     */
+    plan: "Every plan" | "Starter + AI and Growth" | "Growth";
     caption: string;
     /**
      * Customer texting and review requests run on each client's own carrier registration. The
@@ -37,14 +41,14 @@ export const DEMO_STEPS: DemoStep[] = [
     {
         key: "promote",
         short: "Promote",
-        plan: "Growth",
+        plan: "Starter + AI and Growth",
         caption: "Promote the lead to a customer. The call comes with it, summary and recording included.",
         ms: 6600,
     },
     {
         key: "pipeline",
         short: "Pipeline",
-        plan: "Growth",
+        plan: "Starter + AI and Growth",
         caption: "Move them along as the job moves: Lead, Contacted, Quoted, Scheduled.",
         ms: 8600,
     },

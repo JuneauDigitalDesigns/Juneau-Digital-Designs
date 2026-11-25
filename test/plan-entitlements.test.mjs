@@ -280,6 +280,94 @@ test("G9: the Growth panel on Starter + AI's Home", () => {
     assert.ok(src.includes(`data-tour="ov-locked"`), "the tour's growth-adds step keeps its anchor");
 });
 
+/* ── copy batch H, approved word for word (2026-11-25) ───────────────────── */
+
+const flat = (path) => readFileSync(path, "utf8").replace(/\s+/g, " ");
+
+test("H1 to H4: /crm and its meta description follow the new split", async () => {
+    const page = flat("app/crm/page.tsx");
+    assert.ok(page.includes(`title: "A calendar for every job", line: "Book job visits, estimates and follow-up calls against each customer, in one month view."`));
+    assert.ok(!page.includes("Customer pipeline"), "H1 replaced the pipeline item in Growth's list");
+    assert.equal(page.match(/On Starter \+ AI and Growth/g)?.length, 2, "H2: the room and the board caption");
+    assert.doesNotMatch(page, /"On Growth"|>On Growth</);
+    assert.ok(page.includes("With the AI receptionist, your portal becomes a pipeline you run from Lead to Won."));
+    assert.ok(!page.includes("On Growth, your portal becomes a pipeline"));
+    const { CRM_DESCRIPTION } = await import("../app/lib/site-seo.ts");
+    assert.equal(
+        CRM_DESCRIPTION,
+        "Every call and web inquiry lands in one portal, with a text the moment it arrives. With the AI receptionist, a pipeline from Lead to Won. On Growth, a calendar, customer texts and review requests.",
+    );
+});
+
+test("H5 and H6: the lead form's plan picker and the Starter + AI tagline", () => {
+    const form = readFileSync("app/components/lead/LeadForm.tsx", "utf8");
+    assert.ok(form.includes(`{ slug: "growth", label: "Growth", hint: "+ callbacks, calendar and texting" }`));
+    assert.ok(!form.includes("+ callbacks and pipeline"));
+    assert.ok(form.includes(`{ slug: "starter", label: PLAN_LABELS.starter.name,`), "the name comes from PLAN_LABELS");
+    assert.ok(!form.includes(`label: "Starter"`));
+    const pricing = readFileSync("app/components/pricing/pricingpageclient.tsx", "utf8");
+    assert.ok(pricing.includes(`tierRest: "The whole system, with the calendar and texting left to Growth."`));
+    assert.ok(!pricing.includes("with the follow-up left to you"));
+});
+
+test("H7 to H10: the tour tells Starter + AI what Growth adds, and the website plan skips 'further'", async () => {
+    const { TOUR_STEPS, walkFor, wordsFor } = await import("../app/components/portal/tour/steps.ts");
+    const byId = Object.fromEntries(TOUR_STEPS.map((s) => [s.id, s]));
+    assert.equal(wordsFor(byId.further, "desktop", "starter").body, "Growth adds a calendar for your jobs, texting from the portal, and one-click Google review requests.");
+    assert.equal(wordsFor(byId.further, "mobile", "starter").body, "Growth adds a calendar for your jobs, texting from the portal, and one-tap Google review requests.");
+    for (const device of ["desktop", "mobile"]) {
+        assert.ok(!walkFor("website", device).some((s) => s.id === "further"), `${device}: the website walk drops it`);
+        assert.ok(walkFor("starter", device).some((s) => s.id === "further"), `${device}: Starter + AI keeps it`);
+    }
+    assert.equal(
+        wordsFor(byId["further-calendar"], "desktop", "starter").body,
+        "The calendar comes with Growth. Book jobs, keep track of estimates and schedule follow-ups, all from the customer record.",
+    );
+    assert.equal(
+        wordsFor(byId["growth-adds"], "desktop", "starter").body,
+        "This is what Growth adds after the call: the calendar, texting and reviews. Tap Show me what Growth does for me for a quick demo.",
+    );
+    assert.equal(
+        wordsFor(byId.tiles, "desktop", "starter").body,
+        "How many calls you caught after hours, how many leads you handled, and who has waited longest.",
+    );
+    assert.match(wordsFor(byId.tiles, "desktop", "growth").body, /what's due today\.$/, "Growth's tiles step is unchanged");
+    for (const s of TOUR_STEPS) {
+        assert.doesNotMatch(`${s.body} ${s.phone?.body ?? ""}`, /a record for each customer|after the call on Growth|comes with Growth too/, s.id);
+    }
+});
+
+test("H11: the website plan's showcase names the Starter + AI board", () => {
+    const src = flat("app/components/portal/crm/StarterShowcase.tsx");
+    assert.ok(src.includes("A preview of the Starter + AI Receptionist customer board: six columns from Lead through to Won and Lost, each holding customer cards."));
+    assert.ok(!src.includes("A preview of the Growth customer board"));
+});
+
+test("the tour's sample Inbox offers Promote from the `crm` gate, not the Growth tier", async () => {
+    const { sampleAnswer } = await import("../app/components/portal/tour/sample-mode.ts");
+    const now = new Date("2026-11-25T15:00:00Z");
+    const inbox = (crm) => sampleAnswer("/api/portal/inbox", "GET", { trade: "hvac", now, crm }).body.canPromote;
+    assert.equal(inbox(siteFeatures(SITES.starter).crm.state !== "not-on-plan"), true, "Starter + AI can promote, so it isn't told records come with Growth");
+    assert.equal(inbox(siteFeatures(SITES.website).crm.state !== "not-on-plan"), false);
+    const chrome = code("app/components/portal/PortalChrome.tsx");
+    assert.match(chrome, /crm=\{selected\.features\.crm\.state !== "not-on-plan"\}/);
+    const controller = code("app/components/portal/tour/TourController.tsx");
+    assert.match(controller, /startSampleMode\(\{ trade, crm, webOnly: tier === "website" \}\)/);
+    assert.doesNotMatch(controller, /growth: tier === "growth"/);
+});
+
+test("portal-demo.ts labels the pipeline steps for Starter + AI and Growth", async () => {
+    const { DEMO_STEPS } = await import("../app/data/portal-demo.ts");
+    const plan = Object.fromEntries(DEMO_STEPS.map((s) => [s.key, s.plan]));
+    assert.deepEqual(plan, {
+        inbox: "Every plan",
+        promote: "Starter + AI and Growth",
+        pipeline: "Starter + AI and Growth",
+        message: "Growth",
+        review: "Growth",
+    });
+});
+
 test("G10: the Calendar's not-ready words, and no invented empty state", () => {
     const src = readFileSync("app/components/portal/ui/FeatureState.tsx", "utf8").replace(/\s+/g, " ");
     assert.ok(src.includes(`calendar: { noun: "Calendar", whatItDoes: "Book job visits, estimates and follow-up calls against each customer, and see them in one month view.", whenLive: "Your bookings and follow-ups will appear here.", },`));

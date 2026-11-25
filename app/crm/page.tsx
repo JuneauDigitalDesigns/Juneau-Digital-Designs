@@ -27,7 +27,7 @@ const SAMPLE = TRADE_SAMPLES.other;
 const [CAROL, , TAMMY] = SAMPLE.inbox;
 
 const GROWTH: { icon: SvcIconName; title: string; line: string; gated?: boolean }[] = [
-    { icon: "kanban", title: "Customer pipeline", line: "Move every lead from Lead to Won, with notes, job value and tags." },
+    { icon: "calendar", title: "A calendar for every job", line: "Book job visits, estimates and follow-up calls against each customer, in one month view." },
     { icon: "msg", title: "Customer texts", line: "Text customers back from your business number, right in your portal.", gated: true },
     { icon: "star", title: "Google reviews", line: "Ask for a Google review in one tap when the job is done.", gated: true },
     { icon: "bolt", title: "The 60-second callback", line: "Web form leads get a call back automatically, within about a minute." },
@@ -36,7 +36,7 @@ const GROWTH: { icon: SvcIconName; title: string; line: string; gated?: boolean 
 const ROOMS: { icon: SvcIconName; name: string; line: string; growth?: string }[] = [
     { icon: "tray", name: "Inbox", line: "Every call and web inquiry, newest first." },
     { icon: "phone", name: "Calls", line: "A summary of every call.", growth: "Recordings and search on Growth" },
-    { icon: "kanban", name: "Customers", line: "Your pipeline, from Lead to Won.", growth: "On Growth" },
+    { icon: "kanban", name: "Customers", line: "Your pipeline, from Lead to Won.", growth: "On Starter + AI and Growth" },
     { icon: "chart", name: "Traffic", line: "Visitors, where they came from, and your most-read pages." },
     { icon: "gauge", name: "Performance", line: "How fast your site is, in plain words." },
     { icon: "card", name: "Billing", line: "Your plan, your invoices and your call minutes." },
@@ -81,7 +81,7 @@ export default function CrmPage() {
                                 <span className="svc-eg">
                                     <span className="svc-tag">Example</span> The portal tour&apos;s sample customers.
                                 </span>
-                                <span className="svc-eg">On Growth</span>
+                                <span className="svc-eg">On Starter + AI and Growth</span>
                             </div>
                         </div>
                     </div>
@@ -153,7 +153,7 @@ export default function CrmPage() {
                         <h2 className="svc-h2">
                             Then work every lead <span className="svc-em">to Won.</span>
                         </h2>
-                        <p className="svc-lede">On Growth, your portal becomes a pipeline you run from Lead to Won.</p>
+                        <p className="svc-lede">With the AI receptionist, your portal becomes a pipeline you run from Lead to Won.</p>
                     </div>
                     <div className="svc-cust">
                         <div className="svc-ccard" role="img" aria-label="Example: one customer's record in the portal">

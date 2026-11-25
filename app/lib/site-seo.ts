@@ -74,7 +74,7 @@ export const AI_RECEPTIONIST_DESCRIPTION =
     "An AI receptionist that answers the calls you miss, 24/7, in English or Spanish. It rings you first, takes the caller's details and texts you. Month to month.";
 export const CRM_TITLE = "Lead Portal + CRM for Local Service Businesses | JDD";
 export const CRM_DESCRIPTION =
-    "Every call and web inquiry lands in one portal, with a text the moment it arrives. On Growth, a pipeline from Lead to Won, customer texts and review requests.";
+    "Every call and web inquiry lands in one portal, with a text the moment it arrives. With the AI receptionist, a pipeline from Lead to Won. On Growth, a calendar, customer texts and review requests.";
 export const ORLANDO_TITLE = "Orlando Website Design + 24/7 AI Receptionist | JDD";
 export const ORLANDO_DESCRIPTION =
     "Website design and a 24/7 AI receptionist for Orlando service businesses, from an owner who lives in Winter Garden. We write, build and host it. Month to month.";

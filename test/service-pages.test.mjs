@@ -211,8 +211,10 @@ test("/crm: the inbox, the text to your phone, and /pricing's Growth lines", () 
     says(crm, [
         "Every call and web inquiry lands in your portal, and you get a text the moment a new one arrives.",
         "The moment a new lead is added, a text goes to your phone saying it's there.",
-        "On Growth, your portal becomes a pipeline you run from Lead to Won.",
-        "Move every lead from Lead to Won, with notes, job value and tags.",
+        "With the AI receptionist, your portal becomes a pipeline you run from Lead to Won.",
+        "A calendar for every job",
+        "Book job visits, estimates and follow-up calls against each customer, in one month view.",
+        "On Starter + AI and Growth",
         "Text customers back from your business number, right in your portal.",
         "Ask for a Google review in one tap when the job is done.",
         "Web form leads get a call back automatically, within about a minute.",
