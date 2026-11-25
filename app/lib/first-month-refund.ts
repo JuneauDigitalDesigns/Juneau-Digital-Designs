@@ -76,12 +76,15 @@ export type RefundQuote =
 
 /** Does any other site on the account bill on a different subscription? Then this isn't its first payment. */
 function hasOtherBilledSite(account: PortalAccount, site: PortalSite, subscriptionId: string): boolean {
-    return account.sites.some(
-        (s) =>
-            s.slug !== site.slug &&
-            Boolean(s.stripeSubscriptionId || s.sessionId) &&
-            s.stripeSubscriptionId !== subscriptionId,
-    );
+    return account.sites.some((s) => {
+        if (s.slug === site.slug) return false;
+        if (s.stripeSubscriptionId) return s.stripeSubscriptionId !== subscriptionId;
+        // A site with only a checkout session: the same purchase when it shares this site's
+        // session, or an Enterprise bundle member billed on this same subscription.
+        if (!s.sessionId) return false;
+        if (s.sessionId === site.sessionId) return false;
+        return !(site.plan === "enterprise" && s.plan === "enterprise");
+    });
 }
 
 /** The subscription's first paid invoice: the one that opened it, else the earliest paid. */
@@ -135,8 +138,10 @@ export async function quoteFirstMonthRefund(
     nowMs = Date.now(),
 ): Promise<RefundQuote> {
     const claim = await getRefundClaim(account.email);
-    // A claim still in progress for THIS subscription is a refund to finish, not "already used".
-    const resuming = claim && claim.status !== "done" && claim.subscriptionId === subscription.id;
+    // A claim for THIS subscription is a refund to finish (or one already finished, whose cancel
+    // the route still has to record), not "already used". `refundFirstMonthAndEnd` returns the
+    // stored result for a done claim, so nothing is refunded or cancelled twice.
+    const resuming = claim && claim.subscriptionId === subscription.id;
 
     const invoice = await firstPaidInvoice(subscription.id);
     const firstPaidAtMs = invoice?.status_transitions?.paid_at ? invoice.status_transitions.paid_at * 1000 : null;
@@ -268,8 +273,9 @@ export async function refundFirstMonthAndEnd(input: {
             await saveRefundClaim(email, claim);
         } catch (e) {
             console.error("[first-month-refund] refund failed", email, subscription.id, e);
-            // Nothing was refunded, so the claim is released and the client can try again.
-            if (claim.status === "started") await getRedis().del(claimKey(email)).catch(() => {});
+            // Nothing was refunded, so the claim is released and the client can try again. Only
+            // a claim this call made: one resumed from a concurrent request is still that one's.
+            if (won && claim.status === "started") await getRedis().del(claimKey(email)).catch(() => {});
             return { ok: false, code: "refund-failed", message: "We couldn't issue the refund, and nothing has changed." };
         }
     }

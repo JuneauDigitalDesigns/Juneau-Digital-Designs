@@ -218,7 +218,13 @@ export async function notifyOwnerOfCustomerReply({
  */
 async function siteIsWebOnly(acctScope: string, slug: string): Promise<boolean> {
     try {
-        const email = (await getOwnerEmail(acctScope)) ?? (await findAccountEmailByScope(acctScope));
+        let email = await getOwnerEmail(acctScope);
+        if (!email) {
+            // The scan runs once per account: cached in the index the other alerts read, so a
+            // paused campaign (v1), which never reaches `textAccountOwner`, doesn't rescan.
+            email = await findAccountEmailByScope(acctScope);
+            if (email) await setOwnerEmail(acctScope, email).catch(() => {});
+        }
         const site = email ? (await getAccount(email))?.sites.find((s) => s.slug === slug) : undefined;
         return Boolean(site && isWebOnly(site));
     } catch (e) {

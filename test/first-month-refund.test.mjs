@@ -243,3 +243,16 @@ test("a grandfathered $197 Starter price is a plan line too", async () => {
     assert.equal(quote.eligible, true);
     assert.equal(quote.amountCents, 19700);
 });
+
+test("a retry after the refund and cancel both landed (the account write failed) still quotes the refund and repeats nothing", async () => {
+    const first = await cancelInWindow();
+    assert.equal(first.ok, true);
+    // The subscription is cancelled now; the route's account write is what failed.
+    const quote = await quoteFirstMonthRefund(account, site, { id: "sub_1", status: "canceled" });
+    assert.equal(quote.eligible, true, JSON.stringify(quote));
+    const again = await refundFirstMonthAndEnd({ account, site, subscription: { id: "sub_1", status: "canceled" }, quote });
+    assert.equal(again.ok, true);
+    assert.equal(again.refundId, first.refundId);
+    assert.equal(state.refunds.length, 1);
+    assert.equal(calls.filter((c) => c.method === "DELETE").length, 1);
+});
