@@ -114,6 +114,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       ["Late fee (invoice unpaid more than 15 days)", "$25"],
       CHARGEBACK_ROW,
       MINIMUM_TERM_ROW,
+      REFUND_ROW,
     ],
   },
 
@@ -175,7 +176,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     supportResponse: "one (1) business day",
     cancellationNoticeDays: 0,
     included: [
-      "Everything included in the Starter plan",
+      "Everything included in the Starter + AI Receptionist plan",
       "AI outbound callbacks to website form submissions, typically within sixty (60) seconds",
       "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, job value, and tags",
       "AI lead qualification, including answers to common questions drawn from the Client's intake",

@@ -27,8 +27,9 @@ const { hashTermsForPlan } = await import("../app/lib/legal/hash.ts");
 const { buildCallScript } = await import("../app/lib/legal/call-script.ts");
 
 const PLANS = [
+  ["website", {}],
   ["starter", {}],
-  ["starter", { webOnly: true }],
+  ["starter", { webOnly: true }], // the legacy website-only variant, kept for old records
   ["growth", {}],
   ["enterprise", {}],
 ];

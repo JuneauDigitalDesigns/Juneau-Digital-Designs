@@ -220,12 +220,12 @@ export function buildSections(campaign: TermsCampaign = ownerTextCampaign()): Se
     {
       id: "receptionist",
       heading: "THE AI RECEPTIONIST",
-      intro: [p("This section does not apply to a website-only plan.")],
+      intro: [p("This section does not apply to the Starter plan, which does not include the AI receptionist.")],
       subsections: [
         titled(
           "How it answers",
           p(
-            "Calls ring your own line first. The AI receptionist answers only when you do not pick up, so it takes the place of your voicemail. It can answer only once your calls reach the number we give you. At onboarding you choose either to forward your business line to that number or to publish that number as your business number. You make the change with your phone company, and we will help. On the Starter plan you may instead decline the receptionist and take the website only, at the same price.",
+            "Calls ring your own line first. The AI receptionist answers only when you do not pick up, so it takes the place of your voicemail. It can answer only once your calls reach the number we give you. At onboarding you choose either to forward your business line to that number or to publish that number as your business number. You make the change with your phone company, and we will help.",
           ),
         ),
         titled(
