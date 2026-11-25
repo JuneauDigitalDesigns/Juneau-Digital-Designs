@@ -76,11 +76,13 @@ export default function Navbar() {
                     wordmark, all transparent, no baked-in box. Below 640px the wordmark stands
                     alone. The link names the business, so both pictures are decorative. */}
                 <Link href="/" aria-label="Juneau Digital Designs, home" className="nav-brand">
-                    <Image src={MONOGRAM.src} alt="" width={MONOGRAM.width} height={MONOGRAM.height} priority className="nav-brand-mono" />
+                    <Image src={MONOGRAM.src} alt="" width={MONOGRAM.width} height={MONOGRAM.height} sizes="57px" priority className="nav-brand-mono" />
                     <span className="nav-brand-rule" aria-hidden="true" />
-                    <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} priority className="nav-brand-word" />
-                    {/* 1040-1219px only: the stacked wordmark, so the pages still fit in the bar. */}
-                    <Image src={WORDMARK_STACKED.src} alt="" width={WORDMARK_STACKED.width} height={WORDMARK_STACKED.height} priority className="nav-brand-stacked" />
+                    <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} sizes="273px" priority className="nav-brand-word" />
+                    {/* 1040-1219px only: the stacked wordmark, so the pages still fit in the bar. Not
+                        preloaded, since most screens never show it. `sizes` is each mark's drawn
+                        width, so a 44px-tall mark is not fetched at 3840px. */}
+                    <Image src={WORDMARK_STACKED.src} alt="" width={WORDMARK_STACKED.width} height={WORDMARK_STACKED.height} sizes="101px" className="nav-brand-stacked" />
                 </Link>
 
                 <nav className="nav-links" aria-label="Pages">

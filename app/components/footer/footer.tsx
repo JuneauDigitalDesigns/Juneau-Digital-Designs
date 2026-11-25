@@ -30,7 +30,7 @@ export default function Footer() {
                     <div>
                         {/* The wordmark alone, transparent (Xander, 24 Nov 2026). */}
                         <Link href="/" aria-label="Juneau Digital Designs, home" className="inline-flex items-center mb-5">
-                            <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} className="footer-brand" />
+                            <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} sizes="400px" className="footer-brand" />
                         </Link>
                         <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
                             Websites built to get you found and called, with a 24/7 AI receptionist for when you can&apos;t pick up.

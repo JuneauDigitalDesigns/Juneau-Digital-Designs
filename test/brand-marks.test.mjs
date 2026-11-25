@@ -23,6 +23,7 @@ test("both marks are real files, with their own pixel sizes", () => {
     for (const mark of [MONOGRAM, WORDMARK, WORDMARK_STACKED]) assert.ok(existsSync(root(`public${mark.src}`)), `${mark.src} is missing`);
     assert.deepEqual([MONOGRAM.width, MONOGRAM.height], [3200, 1684]);
     assert.deepEqual([WORDMARK.width, WORDMARK.height], [4800, 773]);
+    assert.deepEqual([WORDMARK_STACKED.width, WORDMARK_STACKED.height], [4800, 2100]);
 });
 
 test("the nav is monogram | hairline | wordmark; the footer is the wordmark alone", () => {
