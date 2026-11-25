@@ -7,6 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { CONTACT } from "@/app/data/contact";
 import { TRADE_PAGES } from "@/app/data/trade-pages";
 import { SERVICE_PAGES } from "@/app/data/service-pages";
+import { MONOGRAM, WORDMARK } from "@/app/data/brand-marks";
 import TradesMenu, { Chevron } from "./TradesMenu";
 import { DoorGlyph, PhoneGlyph } from "./NavIcons";
 
@@ -72,8 +73,13 @@ export default function Navbar() {
                 One filled button only. Two coral buttons meant neither was the ask; now the
                 phone is the ask and Portal is the way back in for people who already bought. */}
             <div className="nav-bar mx-auto w-full max-w-7xl px-4 sm:px-6">
-                <Link href="/" aria-label="Go to home page" className="flex items-center hover:cursor-pointer">
-                    <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} priority className="h-12 w-auto sm:h-14" />
+                {/* The brand as markup (Xander, 24 Nov 2026): monogram, a dark hairline, the
+                    wordmark, all transparent, no baked-in box. Below 640px the wordmark stands
+                    alone. The link names the business, so both pictures are decorative. */}
+                <Link href="/" aria-label="Juneau Digital Designs, home" className="nav-brand">
+                    <Image src={MONOGRAM.src} alt="" width={MONOGRAM.width} height={MONOGRAM.height} priority className="nav-brand-mono" />
+                    <span className="nav-brand-rule" aria-hidden="true" />
+                    <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} priority className="nav-brand-word" />
                 </Link>
 
                 <nav className="nav-links" aria-label="Pages">

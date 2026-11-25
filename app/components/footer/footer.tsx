@@ -3,6 +3,7 @@ import Image from "next/image"
 import { CONTACT } from "@/app/data/contact"
 import { TRADE_PAGES } from "@/app/data/trade-pages"
 import { ORLANDO_PAGE, SERVICE_PAGES } from "@/app/data/service-pages"
+import { WORDMARK } from "@/app/data/brand-marks"
 
 export default function Footer() {
     const year = new Date().getFullYear()
@@ -27,8 +28,9 @@ export default function Footer() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.25fr_0.7fr_1fr_0.7fr_0.85fr_1.45fr] gap-9">
                     {/* Col 1 — brand */}
                     <div>
-                        <Link href="/" aria-label="Go to home page" className="inline-flex items-center mb-5">
-                            <Image src="/JDD_mark.webp" alt="Juneau Digital Designs home" width={1774} height={887} className="h-18 w-auto" />
+                        {/* The wordmark alone, transparent (Xander, 24 Nov 2026). */}
+                        <Link href="/" aria-label="Juneau Digital Designs, home" className="inline-flex items-center mb-5">
+                            <Image src={WORDMARK.src} alt="" width={WORDMARK.width} height={WORDMARK.height} className="footer-brand" />
                         </Link>
                         <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
                             Websites built to get you found and called, with a 24/7 AI receptionist for when you can&apos;t pick up.
