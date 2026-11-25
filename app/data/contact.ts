@@ -19,3 +19,13 @@ export const CONTACT = {
     email: "support@juneaudigitaldesigns.com",
     emailHref: "mailto:support@juneaudigitaldesigns.com",
 };
+
+/**
+ * The agency's own business profiles, shown as icons in the footer and listed as the
+ * Organization's `sameAs` (Xander, 25 Nov 2026). Google first, as on the client templates.
+ * The logos are the ones Xander supplied, resized to 96px for a 28px icon.
+ */
+export const PROFILES = [
+    { kind: "google", name: "Google", href: "https://share.google/ZvdenHpUf72HhHG74", icon: "/profiles/google.webp", width: 94, height: 96 },
+    { kind: "facebook", name: "Facebook", href: "https://www.facebook.com/profile.php?id=61597061243520", icon: "/profiles/facebook.webp", width: 96, height: 96 },
+] as const;

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import Image from "next/image"
-import { CONTACT } from "@/app/data/contact"
+import { CONTACT, PROFILES } from "@/app/data/contact"
 import { TRADE_PAGES } from "@/app/data/trade-pages"
 import { ORLANDO_PAGE, SERVICE_PAGES } from "@/app/data/service-pages"
 import { WORDMARK } from "@/app/data/brand-marks"
@@ -35,6 +35,17 @@ export default function Footer() {
                         <p style={{ fontSize: 13, color: "var(--fg-3)", lineHeight: 1.6 }}>
                             Websites built to get you found and called, with a 24/7 AI receptionist for when you can&apos;t pick up.
                         </p>
+                        {/* The agency's Google and Facebook profiles, logos only (Xander, 25 Nov
+                            2026). rel="me": they are our own profiles, so never nofollow. */}
+                        <ul className="footer-profiles">
+                            {PROFILES.map(p => (
+                                <li key={p.kind}>
+                                    <a href={p.href} target="_blank" rel="me noopener noreferrer" className="footer-profile">
+                                        <Image src={p.icon} alt={p.name} width={p.width} height={p.height} sizes="28px" unoptimized />
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
 
                     {/* Col 2 — Pages */}
