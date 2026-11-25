@@ -99,7 +99,8 @@ test("1 · the hero: the live words, and the form on the page", () => {
     says(
         home,
         [
-            "Get found. <br /> Get called. <br />",
+            '<span>Get found.</span> <span>Get called.</span> <span className="home-em">Run like a team.</span>',
+            'Website design and AI receptionist for <span className="hp-h1-em">local service businesses.</span>',
             "We build you a website that gets you found and noticed. Then we go a step further and replace your voicemail with a 24/7 receptionist. Every lead lands in one place.",
             'Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, <Link href="/lawn-care" className="home-trade-link">lawn care</Link>, pressure washing and auto detailing businesses.',
             "<HeroForm />",
@@ -121,6 +122,14 @@ test("1 · the hero: the live words, and the form on the page", () => {
     assert.match(hero, /markLeadSent\(business\)/);
     assert.match(hero, /router\.push\("\/contact\/thank-you"\)/);
     assert.doesNotMatch(hero, /autoFocus/, "a form on a page must not steal the cursor");
+});
+
+test("1 · the h1 names the service, and is the page's only one (Xander, 24 Nov 2026, option C)", () => {
+    const h1s = [...home.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => prose(m[1].replace(/<[^>]+>/g, "")).trim());
+    assert.deepEqual(h1s, ["Website design and AI receptionist for local service businesses."]);
+    for (const f of [findOut, lands, calc, hero]) assert.doesNotMatch(f, /<h1\b/, "the homepage has exactly one h1");
+    // The three beats are the h1's eyebrow now, set above it, not a heading of their own.
+    assert.ok(home.indexOf('className="hp-beats"') < home.indexOf('className="hp-h1"'), "the beats sit above the h1");
 });
 
 test("2 · what customers are trying to find out", () => {
