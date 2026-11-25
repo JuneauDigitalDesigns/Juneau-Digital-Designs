@@ -6,10 +6,12 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { CONTACT } from "@/app/data/contact";
 import { TRADE_PAGES } from "@/app/data/trade-pages";
+import { SERVICE_PAGES } from "@/app/data/service-pages";
 import TradesMenu, { Chevron } from "./TradesMenu";
 import { DoorGlyph, PhoneGlyph } from "./NavIcons";
 
-/** The pages in the middle of the bar, left to right. Trades sits between About and Contact. */
+/** The pages in the middle of the bar, left to right. Services, then Trades, sit between About and
+    Contact (Xander, 24 Nov 2026: what you sell, then who it's for). */
 const LINKS: { href: string; label: string }[] = [
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
@@ -21,6 +23,8 @@ export default function Navbar() {
     const [showNav, setShowNav] = useState(false);
     /** The mobile menu's own Trades disclosure. The desktop one is `TradesMenu`. */
     const [showTrades, setShowTrades] = useState(false);
+    /** The mobile menu's Services disclosure, built the same way. */
+    const [showServices, setShowServices] = useState(false);
     const navRef = useRef<HTMLDivElement>(null);
     const reduceMotion = useReducedMotion();
     const pathname = usePathname();
@@ -30,6 +34,7 @@ export default function Navbar() {
     const closeNav = () => {
         setShowNav(false);
         setShowTrades(false);
+        setShowServices(false);
     };
 
     useEffect(() => {
@@ -74,9 +79,10 @@ export default function Navbar() {
                 <nav className="nav-links" aria-label="Pages">
                     {LINKS.map((link) =>
                         link.href === "/contact" ? (
-                            /* Trades belongs between About and Contact, and it is a menu rather
-                               than a link, so it is placed here instead of sitting in LINKS. */
+                            /* Services and Trades belong between About and Contact, and they are
+                               menus rather than links, so they are placed here instead of in LINKS. */
                             <span key="trades-and-contact" className="contents">
+                                <TradesMenu label="Services" items={SERVICE_PAGES} menuClassName="nav-services-menu" />
                                 <TradesMenu />
                                 <Link
                                     href={link.href}
@@ -162,6 +168,35 @@ export default function Navbar() {
                             <Link href="/about" className="nav-link-sm" onClick={closeNav}>
                                 About
                             </Link>
+                            <button
+                                type="button"
+                                className="nav-link-sm"
+                                aria-expanded={showServices}
+                                onClick={() => setShowServices((prev) => !prev)}
+                            >
+                                Services
+                                <Chevron open={showServices} />
+                            </button>
+                            <AnimatePresence initial={false}>
+                                {showServices && (
+                                    <motion.ul
+                                        key="services-mobile"
+                                        className="nav-trades-mobile"
+                                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                                        animate={reduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+                                        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+                                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                    >
+                                        {SERVICE_PAGES.map((service) => (
+                                            <li key={service.href}>
+                                                <Link href={service.href} className="nav-trades-link" onClick={closeNav}>
+                                                    {service.label}
+                                                </Link>
+                                            </li>
+                                        ))}
+                                    </motion.ul>
+                                )}
+                            </AnimatePresence>
                             <button
                                 type="button"
                                 className="nav-link-sm"
