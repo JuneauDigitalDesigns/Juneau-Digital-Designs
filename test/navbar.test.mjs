@@ -50,9 +50,11 @@ test("Portal is last, outlined, with a door glyph beside its word", () => {
   assert.match(css, /\.nav-actions \{[^}]*justify-self: end/s, "the actions are not against the right edge");
 });
 
-test("the links are centred in the bar, in their own column", () => {
+// Was "centred in the bar". Since 24 Nov 2026 (Xander, with the new brand marks) the links sit
+// right, beside the actions, so the brand can sit hard against the left edge.
+test("the links are in their own column, set right beside the actions", () => {
   assert.match(css, /\.nav-bar \{[^}]*grid-template-columns: auto 1fr auto/s, "the bar is not three zones");
-  assert.match(css, /\.nav-links \{[^}]*justify-content: center/s, "the links are not centred");
+  assert.match(css, /\.nav-links \{[^}]*justify-content: flex-end/s, "the links are not set right");
 });
 
 test("the glyphs are hidden from screen readers, since each sits beside its own word", () => {
