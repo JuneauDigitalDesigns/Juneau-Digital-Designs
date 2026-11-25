@@ -17,7 +17,8 @@ import {
 export const runtime = "nodejs";
 
 /**
- * The customer CRM. Growth and Enterprise only.
+ * The customer CRM. Every plan with the Customers board
+ * (Starter + AI, Growth and Enterprise since schema v1.47.0; never the website plan).
  *
  * Every handler re-checks the `crm` gate server-side — never relying on the UI having hidden a
  * button, because the UI is not a security boundary.

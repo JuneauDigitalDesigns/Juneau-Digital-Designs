@@ -7,7 +7,8 @@
  * - the board's value becomes the jobs total (cancelled jobs left out);
  * - notes are a list, the old single note shows as the oldest, and editing or deleting it works;
  * - notes appear on the timeline and leave it when deleted;
- * - Starter is refused, and one account cannot reach another's jobs or notes.
+ * - the website plan is refused (Starter + AI has jobs and notes since schema v1.47.0), and one
+ *   account cannot reach another's jobs or notes.
  */
 
 import { test, beforeEach } from "node:test";
@@ -32,6 +33,7 @@ globalThis.fetch = (input, init) => (redis.owns(input) ? redis.handle(input, ini
 
 const GROWTH = { slug: "your-hvac", name: "Your HVAC Co.", plan: "growth", status: "live" };
 const STARTER = { ...GROWTH, plan: "starter" };
+const WEBSITE = { ...GROWTH, plan: "website" };
 const as = (email, site = GROWTH) => {
     globalThis.__portalCrm = { email, site };
 };
@@ -175,8 +177,11 @@ test("another account cannot add to, change or delete this account's jobs", asyn
     assert.equal((await detail(dave.customerId)).jobs.length, 1);
 });
 
-test("Starter is refused", async () => {
+test("Starter + AI has jobs and notes; the website plan is refused", async () => {
     as(OWNER, STARTER);
+    assert.equal((await call(jobsRoute, "POST", { customerId: dave.customerId, service: "x" })).status, 201);
+    assert.equal((await call(notesRoute, "POST", { customerId: dave.customerId, body: "x" })).status, 201);
+    as(OWNER, WEBSITE);
     assert.equal((await call(jobsRoute, "POST", { customerId: dave.customerId, service: "x" })).status, 403);
     assert.equal((await call(notesRoute, "POST", { customerId: dave.customerId, body: "x" })).status, 403);
 });

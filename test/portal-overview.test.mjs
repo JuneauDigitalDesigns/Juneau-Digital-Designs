@@ -592,6 +592,7 @@ test("the Overview stops drawing site health, visitors and billing, and keeps it
     for (const kept of ["<PendingSiteBanner", "<GrowthProvisioning", "<BuildProgress", "Your site is being built"]) {
         assert.ok(page.includes(kept), `page.tsx should still render ${kept}`);
     }
-    // Dollars are Growth-only: the pipeline card renders only when the CRM is live.
-    assert.match(page, /site\.features\.crm\.state === "ready" \? \(\s*<Suspense[\s\S]{0,80}?<PipelineBlock/);
+    // Dollars come with the Customers board (Starter + AI, Growth and Enterprise since schema
+    // v1.47.0): the pipeline card renders only when the CRM is live.
+    assert.match(page, /site\.features\.crm\.state === "ready" && \(\s*<Suspense[\s\S]{0,80}?<PipelineBlock/);
 });

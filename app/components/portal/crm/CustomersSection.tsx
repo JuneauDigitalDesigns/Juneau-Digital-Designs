@@ -15,6 +15,7 @@ import CustomerRecord from "./CustomerRecord";
 import CustomerPanel from "./CustomerPanel";
 import { useIsMobile, useMediaQuery } from "../ui/useMediaQuery";
 import StarterShowcase from "./StarterShowcase";
+import GrowthDemoOnArrival from "./GrowthDemoOnArrival";
 import {
     COLLAPSED_BY_DEFAULT,
     STAGES,
@@ -195,7 +196,7 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
 
     // ── gating ────────────────────────────────────────────────────────────
     if (gate.state === "not-on-plan") {
-        return <StarterShowcase site={site} />;
+        return <StarterShowcase />;
     }
     if (gate.state !== "ready") {
         return (
@@ -231,6 +232,9 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
     const unreadCount = all.filter((c) => c.unread).length;
     const staleCount = all.filter((c) => c.stale).length;
     const reviewCount = all.filter((c) => c.stage === "won" && c.phone && !c.reviewSent).length;
+    // Replies and review requests are customer messaging, which Starter + AI's board doesn't have
+    // (schema v1.47.0): its "Needs reply" and "Review-ready" would only ever filter for nothing.
+    const messagingOnPlan = data.messagingState !== "not-on-plan";
 
     // "Request a review" opens under its own button inside the record now; the record only
     // needs what is the same for every customer on this board.
@@ -252,15 +256,19 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
 
     const filterChips = (
         <>
-            <Chip on={needsReply} onClick={() => setParam("unread", needsReply ? "" : "1")} count={unreadCount}>
-                Needs reply
-            </Chip>
+            {messagingOnPlan && (
+                <Chip on={needsReply} onClick={() => setParam("unread", needsReply ? "" : "1")} count={unreadCount}>
+                    Needs reply
+                </Chip>
+            )}
             <Chip on={staleOnly} onClick={() => setParam("stale", staleOnly ? "" : "1")} count={staleCount}>
                 Going stale
             </Chip>
-            <Chip on={reviewReady} onClick={() => setParam("rr", reviewReady ? "" : "1")} count={reviewCount}>
-                ★ Review-ready
-            </Chip>
+            {messagingOnPlan && (
+                <Chip on={reviewReady} onClick={() => setParam("rr", reviewReady ? "" : "1")} count={reviewCount}>
+                    ★ Review-ready
+                </Chip>
+            )}
             <Chip on={showArchived} onClick={() => setParam("archived", showArchived ? "" : "1")}>
                 Show archived
             </Chip>
@@ -279,13 +287,15 @@ export default function CustomersSection({ site }: { site: PortalSiteProps }) {
 
     return (
         <div>
+            {/* Starter + AI: Home's Growth panel and the locked Calendar link here with ?demo=growth. */}
+            <GrowthDemoOnArrival site={site} />
             {/* The board, inert while a record is over it: the dimmed strip is a way out, not a
                 second place to work, and Tab must not wander off behind the panel. */}
             <div className="space-y-5" inert={panelOpen}>
                 <div className="flex items-end justify-between gap-4 flex-wrap">
                     <SectionHeader
                         title="Customers"
-                        meta={`${all.filter((c) => !c.archived).length} active · ${unreadCount} need a reply · ${staleCount} going stale`}
+                        meta={`${all.filter((c) => !c.archived).length} active · ${messagingOnPlan ? `${unreadCount} need a reply · ` : ""}${staleCount} going stale`}
                     />
                     <div className="flex items-center gap-2.5">
                         <button

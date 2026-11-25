@@ -14,10 +14,14 @@ import type { FeatureAvailability, PortalFeature } from "@jdd/schema";
  * naming them turns our plumbing into their problem.
  */
 
-type FeatureCopy = {
+/** The words for a feature that is not ready yet: off the plan, waiting on the build, connecting. */
+type LifecycleCopy = {
     noun: string;
     whatItDoes: string;
     whenLive: string;
+};
+
+type FeatureCopy = LifecycleCopy & {
     emptyTitle: string;
     emptyBody: string;
 };
@@ -28,7 +32,14 @@ type FeatureCopy = {
  */
 type ExplainedFeature = Exclude<PortalFeature, "pastCalls">;
 
-const COPY: Record<ExplainedFeature, FeatureCopy> = {
+/**
+ * Features that never ask this component for an empty state. The Calendar draws its own month
+ * when it is ready, even an empty one, so it only comes here before it is ready and needs no
+ * empty-state words. None were approved, and none ship.
+ */
+type NoEmptyState = "calendar";
+
+const COPY: { [F in ExplainedFeature]: F extends NoEmptyState ? LifecycleCopy : FeatureCopy } = {
     calls: {
         noun: "Call tracking",
         whatItDoes:
@@ -70,6 +81,13 @@ const COPY: Record<ExplainedFeature, FeatureCopy> = {
         emptyBody:
             "Open your inbox and tap “Promote to customer” on anyone you want to keep track of.",
     },
+    // Approved word for word, copy batch G10 (2026-11-25).
+    calendar: {
+        noun: "Calendar",
+        whatItDoes:
+            "Book job visits, estimates and follow-up calls against each customer, and see them in one month view.",
+        whenLive: "Your bookings and follow-ups will appear here.",
+    },
     messaging: {
         noun: "Texting your customers",
         whatItDoes:
@@ -101,7 +119,8 @@ export function FeatureState({
     /** The website plan has no calls, so its Inbox words talk only about website inquiries (C4). */
     webOnly?: boolean;
 }) {
-    const copy = webOnly && feature === "leads" ? WEB_ONLY_LEADS : COPY[feature];
+    const copy: LifecycleCopy & Partial<FeatureCopy> =
+        webOnly && feature === "leads" ? WEB_ONLY_LEADS : COPY[feature];
 
     if (availability.state === "not-on-plan") {
         // The old "Switch it on" panel for calls is retired (copy batch C3, 24 Nov 2026): adding the
@@ -172,6 +191,8 @@ export function FeatureState({
 
     // "ready" but the upstream returned nothing — a genuinely empty log, not a fault.
     // Empty states get a large soft icon over the same words (2026-11-19, Xander Q19).
+    // A feature with no empty-state words (NoEmptyState) draws its own ready view and never gets here.
+    if (copy.emptyTitle === undefined || copy.emptyBody === undefined) return null;
     return <Panel title={copy.emptyTitle} body={copy.emptyBody} icon={EMPTY_ICON[feature]} />;
 }
 

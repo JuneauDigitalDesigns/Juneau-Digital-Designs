@@ -353,7 +353,7 @@ function ClosingSection() {
                                 <span>/mo</span>
                             </p>
                             <p>
-                                Everything in Starter, plus the AI receptionist. When you can&apos;t pick up, it answers, 24/7, and puts the lead in your portal. <strong>Starter + AI Receptionist answers every missed call.</strong>
+                                Everything in Starter, plus the AI receptionist. When you can&apos;t pick up, it answers, 24/7, and puts the lead in your portal, where you track it from Lead to Won. <strong>Starter + AI Receptionist answers every missed call.</strong>
                             </p>
                         </div>
                         {/* "Within about a minute", matching /pricing and the contract's "typically within
@@ -368,7 +368,7 @@ function ClosingSection() {
                                 <span>/mo</span>
                             </p>
                             <p>
-                                Everything in Starter + AI Receptionist, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong>Growth works them like a team would.</strong>
+                                Everything in Starter + AI Receptionist, then it goes to work. Web leads get a call back within about a minute, your calendar keeps every job booked, and you text customers and ask for reviews from your business number. <strong>Growth works them like a team would.</strong>
                             </p>
                         </div>
                         {/* "Two or three", not "up to three": Enterprise starts at two sites. */}

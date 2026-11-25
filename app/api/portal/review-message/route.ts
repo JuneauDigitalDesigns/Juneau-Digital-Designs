@@ -16,13 +16,20 @@ export const dynamic = "force-dynamic";
  * one, so a client who changes their mind is back on the standard text (and on any future
  * improvement to it) rather than a frozen copy.
  *
- * Gated on the CRM, which is where the Review button lives. It is a setting, not a send, so it
- * works before carrier approval and the More screen can be filled in ahead of time.
+ * Gated on the plan that sends review requests: `messaging` is on the plan (Growth and
+ * Enterprise). Not on `crm`, which since schema v1.47.0 reaches Starter + AI too, and that plan
+ * sends no review requests. It is a setting, not a send, so it only asks whether the plan has
+ * messaging, not whether it is ready: it works before carrier approval and the More screen can
+ * be filled in ahead of time.
  */
+function onPlan(site: Parameters<typeof siteFeature>[0]): boolean {
+    return siteFeature(site, "messaging").state !== "not-on-plan";
+}
+
 export async function GET(request: Request) {
     const ctx = await resolvePortalRequest(request);
     if (!ctx.ok) return ctx.response;
-    if (siteFeature(ctx.site, "crm").state !== "ready") {
+    if (!onPlan(ctx.site)) {
         return NextResponse.json({ error: "Review requests come with Growth." }, { status: 403 });
     }
     const fallback = defaultReviewTemplate(ctx.site.name ?? "us");
@@ -33,7 +40,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
     const ctx = await resolvePortalRequest(request);
     if (!ctx.ok) return ctx.response;
-    if (siteFeature(ctx.site, "crm").state !== "ready") {
+    if (!onPlan(ctx.site)) {
         return NextResponse.json({ error: "Review requests come with Growth." }, { status: 403 });
     }
     let body: unknown;

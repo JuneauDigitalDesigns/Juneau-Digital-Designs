@@ -27,7 +27,9 @@ interface Data {
 
 export default function ReviewMessageScreen() {
     const { selected } = usePortalChrome();
-    const crmReady = selected.features.crm.state === "ready";
+    // The plan that sends review requests (Growth, Enterprise), ready or not: it is a setting, so it can
+    // be filled in before the carriers clear texting. Not `crm`, which Starter + AI has too (v1.47.0).
+    const onPlan = selected.features.messaging.state !== "not-on-plan";
     const url = `/api/portal/review-message?site=${encodeURIComponent(selected.slug)}`;
     const [data, setData] = useState<Data | null>(null);
     const [draft, setDraft] = useState("");
@@ -35,7 +37,7 @@ export default function ReviewMessageScreen() {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!crmReady) return;
+        if (!onPlan) return;
         let live = true;
         fetch(url)
             .then((r) => (r.ok ? r.json() : null))
@@ -48,7 +50,7 @@ export default function ReviewMessageScreen() {
         return () => {
             live = false;
         };
-    }, [url, crmReady]);
+    }, [url, onPlan]);
 
     async function save(template: string) {
         setState("saving");
@@ -83,7 +85,7 @@ export default function ReviewMessageScreen() {
             </Link>
             <h1 className="m-0">Review message</h1>
 
-            {!crmReady ? (
+            {!onPlan ? (
                 <p className="m-0" style={{ color: "var(--fg-2)" }}>
                     Review requests come with Growth.
                 </p>

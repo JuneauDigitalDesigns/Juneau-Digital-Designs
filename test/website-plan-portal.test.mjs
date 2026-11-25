@@ -84,10 +84,19 @@ test("the website plan's Home panel and locked pages say the approved words and 
     }
     const customers = read("app/components/portal/crm/StarterShowcase.tsx");
     assert.match(customers, /Turn the people who contact you into repeat customers/);
-    assert.match(customers, /You already see every web inquiry in your Inbox\. Growth adds the next step: a place to track each one until the job is won, text them straight from the portal, and ask happy customers for a Google review\./);
+    // Copy batch G8 (2026-11-25): the website plan's Customers page offers Starter + AI.
+    assert.match(customers, /You already see every web inquiry in your Inbox\. Starter \+ AI Receptionist adds the next step: a place to track each one until the job is won, with an AI receptionist answering the calls you miss\./);
+    for (const bullet of [
+        '["A simple pipeline", "move each customer from Lead to Won so nothing gets forgotten."]',
+        '["Follow-ups", "set a reminder on any customer so nobody waits on you."]',
+        '["An AI receptionist", "answers the calls you miss, 24/7."]',
+    ]) {
+        assert.ok(customers.includes(bullet), bullet);
+    }
+    assert.match(customers, /This is a preview of what the\s+Customers board looks like on Starter \+ AI Receptionist\./);
     assert.match(customers, /Not included on your plan/);
     assert.doesNotMatch(customers, /Not included on Starter/);
-    assert.match(customers, /\{!site\.webOnly && \(\s*<button/, "no demo button on the website plan");
+    assert.doesNotMatch(customers, /Show me what Growth does for me|<GrowthDemo/, "no demo on the website plan");
     const calendar = read("app/components/portal/calendar/CalendarStarter.tsx");
     assert.match(calendar, /Not included on your plan/);
     assert.match(calendar, /\{!webOnly && \(\s*<Link/, "no demo button on the website plan");

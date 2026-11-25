@@ -73,9 +73,10 @@ export default function MoreScreen() {
                 })}
             </nav>
 
-            {/* Growth and Enterprise: the text the one-tap Review button sends (2026-11-19).
+            {/* Growth and Enterprise: the text the one-tap Review button sends (2026-11-19). Gated on
+                `messaging` being on the plan, not `crm`, which Starter + AI has too (v1.47.0).
                 "Review message" is DRAFT wording, awaiting Xander's approval. */}
-            {selected.features.crm.state === "ready" && (
+            {selected.features.messaging.state !== "not-on-plan" && (
                 <div className="portal-group">
                     <Link href={tabHref("more/review", selected.slug)} className="portal-cell" data-tour="more-review">
                         <span className="portal-tile" style={{ background: "#f5a623", color: "#1c1405" }}>

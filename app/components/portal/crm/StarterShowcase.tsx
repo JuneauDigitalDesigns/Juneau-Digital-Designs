@@ -1,58 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Check, PlayCircle } from "@phosphor-icons/react";
-import type { PortalSiteProps } from "@/app/portal/types";
-import { upgradeHref } from "@/app/portal/types";
+import { Check } from "@phosphor-icons/react";
 import { SectionHeader } from "../ui/Card";
 import { STAGES } from "./stages";
-import GrowthDemo from "../growth-demo/GrowthDemo";
-
-/** `/portal/customers?site=…&demo=growth` opens the demo on arrival (the Overview links here). */
-const DEMO_PARAM = "demo";
-const DEMO_GROWTH = "growth";
 
 /**
- * What a Starter client sees on Customers — mockup M6a.
+ * What a website-plan client sees on Customers — mockup M6a.
+ *
+ * Since schema v1.47.0 (2026-11-25) only the website plan reaches this page: Starter + AI
+ * Receptionist has the Customers board itself, so the offer here is Starter + AI, in the words of
+ * copy batch G8 (approved word for word). The website plan gets no demo (D5), so the Growth demo
+ * that used to open from here moved to the board (`GrowthDemoOnArrival`), where Starter + AI
+ * arrives with `?demo=growth`.
  *
  * The tab is never hidden. That follows the existing rule in `PortalChrome`: a locked tab is the
  * upsell, and hiding it means they never learn the feature exists.
  *
  * It leads with the offer rather than the lock, framed off what they already have ("you already
- * see every call in your Inbox"), and the primary action is a guided walkthrough rather than a
- * pricing page — someone who has seen the loop work is a far better-qualified upgrade than
- * someone who read a feature list.
- *
- * That walkthrough is the Growth demo (`growth-demo/GrowthDemo.tsx`), a full-screen takeover
- * that plays the loop on sample data. It replaced a driver.js popover tour over the ghost board
- * below, which could only describe the loop in words.
+ * see every web inquiry in your Inbox").
  */
-export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
-    const params = useSearchParams();
-    const [running, setRunning] = useState(false);
-    const launcher = useRef<HTMLButtonElement>(null);
-    const stop = useCallback(() => setRunning(false), []);
-
-    /*
-     * The Overview's Starter panel links to `?demo=growth`. Open on arrival, then drop the
-     * parameter, so a refresh or a shared link from here does not replay it, and Back does not
-     * land on a URL that reopens it. `history.replaceState` rather than `router.replace`: Next
-     * keeps `useSearchParams` in step with it, and it skips a server round trip for a page
-     * that has nothing new to render.
-     */
-    const autoOpen = params.get(DEMO_PARAM) === DEMO_GROWTH;
-    useEffect(() => {
-        if (!autoOpen) return;
-        if (site.webOnly) return;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- opening on arrival is the point
-        setRunning(true);
-        const url = new URL(window.location.href);
-        url.searchParams.delete(DEMO_PARAM);
-        window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    }, [autoOpen, site.webOnly]);
-
+export default function StarterShowcase() {
     return (
         <div className="space-y-6">
             <SectionHeader title="Customers" meta="Not included on your plan" />
@@ -66,20 +34,17 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         className="font-extrabold"
                         style={{ fontFamily: "var(--font-display)", fontSize: "26px", letterSpacing: "-0.02em" }}
                     >
-                        {site.webOnly
-                            ? "Turn the people who contact you into repeat customers"
-                            : "Turn the people who call you into repeat customers"}
+                        Turn the people who contact you into repeat customers
                     </h2>
                     <p className="mt-2.5 text-[14.5px] leading-relaxed max-w-[56ch]" style={{ color: "var(--fg-2)" }}>
-                        {site.webOnly
-                            ? "You already see every web inquiry in your Inbox. Growth adds the next step: a place to track each one until the job is won, text them straight from the portal, and ask happy customers for a Google review."
-                            : "You already see every call and web inquiry in your Inbox. Growth adds the next step — a place to track each one until the job is won, text them straight from the portal, and ask happy customers for a Google review."}
+                        {/* Copy batch G8, approved word for word (2026-11-25). */}
+                        You already see every web inquiry in your Inbox. Starter + AI Receptionist adds the next step: a place to track each one until the job is won, with an AI receptionist answering the calls you miss.
                     </p>
                     <ul className="mt-4 space-y-2.5 list-none p-0">
                         {[
                             ["A simple pipeline", "move each customer from Lead to Won so nothing gets forgotten."],
-                            ["Text your customers", "from your own business number, without giving out your mobile."],
-                            ["Ask for Google reviews", "in one tap — more reviews means more people calling you."],
+                            ["Follow-ups", "set a reminder on any customer so nobody waits on you."],
+                            ["An AI receptionist", "answers the calls you miss, 24/7."],
                         ].map(([strong, rest]) => (
                             <li key={strong} className="flex gap-2.5 items-start text-[13.5px]" style={{ color: "var(--fg-2)" }}>
                                 <span
@@ -98,24 +63,6 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
 
                 <div className="flex flex-col gap-2.5 w-full sm:w-auto sm:min-w-[260px]">
                     {/* The website plan gets no demo (D5): its one upsell is the receptionist. */}
-                    {!site.webOnly && (
-                    <button
-                        ref={launcher}
-                        type="button"
-                        onClick={() => setRunning(true)}
-                        aria-haspopup="dialog"
-                        data-tour="growth-demo-open"
-                        className="w-full rounded-lg px-4 py-3 text-sm font-semibold inline-flex items-center justify-center gap-2 cursor-pointer"
-                        style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                    >
-                        <PlayCircle size={16} weight="fill" />
-                        {/* Centred and balanced when it wraps on a phone (Xander, 2026-11-19: "just me is on the
-
-                            bottom line and all the way left aligned"). */}
-
-                        <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
-                    </button>
-                    )}
                     <Link
                         href="/pricing"
                         className="w-full rounded-lg border px-4 py-3 text-sm font-semibold text-center"
@@ -123,12 +70,6 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                     >
                         Compare plans
                     </Link>
-                    {!site.webOnly && (
-                    <p className="text-[11.5px] text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                        {/* "A one-minute demo" until 2026-11-12, when the demo grew to about a minute and a half. Approved by Xander word for word. */}
-                        A short demo with sample customers. Nothing changes on your account.
-                    </p>
-                    )}
                 </div>
             </div>
 
@@ -147,7 +88,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                 </span>
                 <span>
                     <b style={{ color: "var(--accent)" }}>Example only.</b> This is a preview of what the
-                    Customers board looks like on Growth. <b>None of it is your data.</b>
+                    Customers board looks like on Starter + AI Receptionist. <b>None of it is your data.</b>
                 </span>
             </div>
 
@@ -190,7 +131,6 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                 </div>
             </div>
 
-            {running && !site.webOnly && <GrowthDemo upgradeUrl={upgradeHref(site.slug, site)} onClose={stop} returnFocusTo={launcher} trade={site.sampleTrade} />}
         </div>
     );
 }

@@ -140,6 +140,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
       DOMAIN_LINE,
       ...RECEPTIONIST_INCLUDED,
       "Website contact form submissions recorded as leads in the client portal",
+      "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, follow-up reminders, job value, and tags",
       "Two (2) content edit requests per month (copy and colors only)",
       STATS_LINE,
       "Client portal access for website health, site status, and the call log",
@@ -178,7 +179,7 @@ export const SCHEDULES: Record<PlanSlug, PlanSchedule> = {
     included: [
       "Everything included in the Starter + AI Receptionist plan",
       "AI outbound callbacks to website form submissions, typically within sixty (60) seconds",
-      "A customer relationship management (CRM) pipeline in the client portal, for tracking each lead from first contact to a won or lost job, with notes, job value, and tags",
+      "A scheduling calendar in the client portal, for booking job visits, estimates, and follow-up calls with each customer",
       "AI lead qualification, including answers to common questions drawn from the Client's intake",
       "Searchable call log with call summaries and call recordings",
       "Urgency and caller-name extraction on every call",

@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 /**
  * The customer CRM.
  *
- * Gated on `crm` (growth/enterprise + live). A Starter client is not redirected or 404'd — the
- * section renders the upsell showcase instead, because a locked tab they can open is the only
+ * Gated on `crm` (Starter + AI, Growth, Enterprise + live; schema v1.47.0). A website-plan client
+ * is not redirected or 404'd — the section renders the upsell showcase instead, because a locked tab they can open is the only
  * way they learn the feature exists.
  */
 export default async function CustomersPage({
