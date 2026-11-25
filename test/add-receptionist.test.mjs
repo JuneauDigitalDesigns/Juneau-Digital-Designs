@@ -35,7 +35,8 @@ const base = {
 test("switching the receptionist on needs a real phone choice, never website-only again", () => {
   assert.equal(
     validateAgreementSubmission({ ...base, receptionistSlug: "acme", receptionistMode: "declined" }),
-    "Please choose how your phone should be handled",
+    // v1.45.0: website-only is its own plan, so `declined` is refused on any other plan first.
+    "Website only is the Starter plan, so please choose Starter instead",
   );
   assert.equal(validateAgreementSubmission({ ...base, receptionistSlug: "acme", receptionistMode: "published" }), null);
 });

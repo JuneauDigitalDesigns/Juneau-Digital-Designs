@@ -96,10 +96,29 @@ test("keeps up to 12 services, as the wizard allows", () => {
     assert.equal(s.serviceList.length, 12);
 });
 
-test("website-only is refused off Starter, allowed on Starter", () => {
-    assert.deepEqual(buildSubmission(body({ receptionistMode: "declined" }), site), { ok: false, reason: "declined-not-starter" });
-    const starter = buildSubmission(body({ receptionistMode: "declined", selectedPlan: "starter" }), { plan: "starter" });
-    assert.equal(starter.ok && starter.submission.receptionistMode, "declined");
+test("declined only via the website plan", () => {
+    const refused = { ok: false, reason: "plan-mode-mismatch" };
+    assert.deepEqual(buildSubmission(body({ receptionistMode: "declined" }), site), refused, "growth + declined");
+    // A new Starter + AI Receptionist submission never says declined.
+    assert.deepEqual(buildSubmission(body({ receptionistMode: "declined", selectedPlan: "starter" }), { plan: "starter" }), refused);
+    assert.deepEqual(
+        buildSubmission(body({ receptionistMode: "declined", selectedPlan: "starter" }), { plan: "starter", receptionistMode: "forwarded" }),
+        refused,
+    );
+    // The website plan has no receptionist to set up.
+    assert.deepEqual(buildSubmission(body({ receptionistMode: "forwarded", selectedPlan: "website" }), { plan: "website" }), refused);
+    assert.deepEqual(buildSubmission(body({ receptionistMode: "published", selectedPlan: "website" }), { plan: "website" }), refused);
+
+    const website = buildSubmission(body({ receptionistMode: "declined", selectedPlan: "website" }), { plan: "website" });
+    assert.equal(website.ok && website.submission.selectedPlan, "website");
+    assert.equal(website.ok && website.submission.receptionistMode, "declined");
+    assert.equal(zBrandIntakeSubmission.safeParse(website.submission).success, true);
+    const websiteNoMode = buildSubmission(body({ receptionistMode: undefined, selectedPlan: "website" }), { plan: "website" });
+    assert.equal(websiteNoMode.ok && websiteNoMode.submission.receptionistMode, "declined", "website with no mode is sent as declined");
+
+    // Legacy: a Starter site already signed declined before the website plan existed still goes through.
+    const legacy = buildSubmission(body({ receptionistMode: "declined", selectedPlan: "starter" }), { plan: "starter", receptionistMode: "declined" });
+    assert.equal(legacy.ok && legacy.submission.receptionistMode, "declined");
     const unknown = buildSubmission(body({ receptionistMode: "maybe" }), site);
     assert.equal(unknown.ok && "receptionistMode" in unknown.submission, false, "an unknown value is absent, never coerced");
 });

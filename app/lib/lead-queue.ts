@@ -40,7 +40,8 @@ function getRedis(): Redis {
  */
 export type LeadStage = "new" | "contacted" | "scheduled" | "client" | "lost";
 export type LeadSource = "form" | "call";
-export type PlanInterest = "starter" | "growth" | "enterprise";
+/** The plan a lead asked about: the schema's plan ids (`website` is shown as "Starter"). */
+export type PlanInterest = "website" | "starter" | "growth" | "enterprise";
 
 /** One entry in a lead's history. Written by both this site and the console. */
 export interface LeadActivity {

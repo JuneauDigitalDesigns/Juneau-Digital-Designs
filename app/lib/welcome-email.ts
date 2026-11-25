@@ -1,6 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
-import type { PortalPlan } from "@jdd/schema";
+import { isWebOnly, PLAN_LABELS, type PortalPlan } from "@jdd/schema";
+import { isPlanSlug } from "./plan-ids.mjs";
 import type { ReceptionistMode } from "./agreement-types";
 import { SCHEDULES, WEB_ONLY_SCHEDULE } from "./legal";
 import type { PlanSlug } from "./agreement-types";
@@ -38,7 +39,9 @@ export interface WelcomeEmailData {
  * price the contract has moved past. Website-only is a Starter choice with its own schedule.
  */
 function planLabel(plan: PortalPlan, webOnly: boolean): string {
-  const schedule = webOnly ? WEB_ONLY_SCHEDULE : SCHEDULES[plan as PlanSlug];
+  // The website plan has its own schedule. Only a legacy website-only Starter (starter +
+  // declined, D14) still reads the old Web-Only schedule.
+  const schedule = webOnly && plan === "starter" ? WEB_ONLY_SCHEDULE : SCHEDULES[plan as PlanSlug];
   if (!schedule) return plan;
   return `${schedule.name} — $${schedule.monthlyPrice.toLocaleString("en-US")}/mo`;
 }
@@ -84,7 +87,8 @@ function phoneSummary(mode: ReceptionistMode | undefined, forwardingNumber?: str
     case "published":
       return `<strong style="color:${EMAIL.ink};">Phone setup:</strong> Use a new number we provide<br/>`;
     case "declined":
-      return `<strong style="color:${EMAIL.ink};">Phone setup:</strong> Website only — no AI receptionist<br/>`;
+      // B1, approved word for word 2026-11-24.
+      return `<strong style="color:${EMAIL.ink};">Phone setup:</strong> None on Starter. Your phone stays as it is.<br/>`;
     default:
       return `<strong style="color:${EMAIL.ink};">Phone setup:</strong> We'll sort this out with you during onboarding<br/>`;
   }
@@ -151,6 +155,8 @@ export async function sendWelcomeEmail(data: WelcomeEmailData): Promise<void> {
  */
 function textAlertsPanel(webOnly: boolean): string {
   if (ownerTextCampaign() === "v1") return "";
+  // D9 (2026-11-24): a website-only site's owner gets no lead texts, so none is offered.
+  if (webOnly) return "";
   const raw = process.env.TWILIO_NOTIFICATION_NUMBER?.trim();
   const e164 = raw ? normalizeE164(raw) : null;
   const number = e164 ? formatUsPhone(e164) : null;
@@ -174,7 +180,8 @@ function textAlertsPanel(webOnly: boolean): string {
  * without Resend. `sendWelcomeEmail` is the only caller that mails it.
  */
 export function renderWelcomeEmail(data: WelcomeEmailData): { subject: string; html: string } {
-  const webOnly =data.plan === "starter" && data.receptionistMode === "declined";
+  // The website plan, or a legacy website-only Starter (D14): the schema's one predicate.
+  const webOnly = isWebOnly({ plan: data.plan, receptionistMode: data.receptionistMode });
   const isForwarding = data.receptionistMode === "forwarded";
   const label = planLabel(data.plan, webOnly);
 
@@ -259,7 +266,7 @@ ${stepsHtml}
 
   const html = brandedEmailHtml({
     title: `Welcome aboard, ${data.clientLegalName}.`,
-    subtitle: `Your ${webOnly ? "Starter" : SCHEDULES[data.plan as PlanSlug]?.name ?? data.plan} plan is active. Here's how to get set up.`,
+    subtitle: `Your ${webOnly ? PLAN_LABELS.website.name : isPlanSlug(data.plan) ? PLAN_LABELS[data.plan].name : data.plan} plan is active. Here's how to get set up.`,
     body: innerHtml,
   });
 

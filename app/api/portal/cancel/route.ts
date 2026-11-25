@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { upsertSite } from "@jdd/schema";
+import { isWebOnly, PLAN_LABELS, upsertSite, type PortalSite } from "@jdd/schema";
 import { Resend } from "resend";
 import { stripe } from "@/app/lib/stripe";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
@@ -8,7 +8,8 @@ import { writeCancelSignal, writeSubToSlug } from "@/app/lib/cancel-kv";
 import { releaseScheduledChange, subscriptionPeriod } from "@/app/lib/plan-billing";
 import { getPlanChange, isPendingPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { dropBillingCache } from "@/app/lib/portal-kv";
-import { CANCEL_EMAIL_ACCESS, CANCEL_EMAIL_NOTICE, cancelEmailFooter, cancelOpsEmail } from "@/app/lib/plan-change-copy";
+import { CANCEL_EMAIL_NOTICE, cancelEmailAccess, cancelEmailFooter, cancelOpsEmail } from "@/app/lib/plan-change-copy";
+import { quoteFirstMonthRefund, refundFirstMonthAndEnd, type RefundQuote } from "@/app/lib/first-month-refund";
 import { brandedEmailHtml } from "@/app/lib/email-template";
 import { EMAIL, EMAIL_FONT } from "@/app/lib/email-tokens";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
@@ -50,6 +51,82 @@ function formatDate(unixMs: number): string {
     });
 }
 
+/** Does this site's plan carry call minutes? Not the website plan, nor a legacy website-only Starter. */
+function siteHasMinutes(site: PortalSite): boolean {
+    return SCHEDULES[site.plan as PortalPlan]?.callMinutes != null && !isWebOnly(site);
+}
+
+/** The subscription behind a site, falling back to its checkout session for older records. */
+async function resolveSubscription(site: PortalSite): Promise<{ subscriptionId?: string; customerId?: string }> {
+    let subscriptionId = site.stripeSubscriptionId;
+    let customerId = site.stripeCustomerId;
+    if (!subscriptionId && site.sessionId) {
+        // First cancellation for a pre-feature record — resolve via the checkout session.
+        try {
+            const session = await stripe.checkout.sessions.retrieve(site.sessionId, {
+                expand: ["subscription"],
+            });
+            const sub = session.subscription;
+            if (sub && typeof sub === "object" && "id" in sub) {
+                subscriptionId = sub.id;
+                customerId = typeof session.customer === "string"
+                    ? session.customer
+                    : (session.customer as { id: string } | null)?.id;
+            }
+        } catch (e) {
+            console.error("[portal/cancel] failed to resolve subscription from session", site.sessionId, e);
+        }
+    }
+    return { subscriptionId, customerId };
+}
+
+type CancelMode = "refund" | "period-end";
+
+/**
+ * The cancel card's data (the contract with the portal UI, 2026-11-24):
+ *
+ *   { mode, periodEnd, periodEndText, hasMinutes, refund, reason? }
+ *
+ * `mode: "refund"` means this cancellation takes the first-month refund (Terms v7 §2.2): the
+ * plan's first monthly fee back to the card, and the service ending today. `refund` is then
+ * `{ amountCents, amountText, windowEndsAt }`, the amount being the first plan-fee line actually
+ * paid. Otherwise `refund` is null and `reason` says why. Read live from Stripe every time. The
+ * card's words come from `cancellationCardText` with these fields.
+ */
+export async function GET(request: Request) {
+    const ctx = await resolvePortalRequest(request);
+    if (!ctx.ok) return ctx.response;
+    if (ctx.site.cancelRequestedAt) {
+        return NextResponse.json(
+            { error: "Cancellation already requested", effectiveAt: ctx.site.cancelEffectiveAt },
+            { status: 409 },
+        );
+    }
+    const { subscriptionId } = await resolveSubscription(ctx.site);
+    if (!subscriptionId) {
+        return NextResponse.json({ error: "Could not find a subscription to cancel. Please contact support." }, { status: 400 });
+    }
+    try {
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
+        const period = subscriptionPeriod(sub);
+        const quote = await quoteFirstMonthRefund(ctx.account, ctx.site, sub);
+        const mode: CancelMode = quote.eligible ? "refund" : "period-end";
+        return NextResponse.json({
+            mode,
+            periodEnd: period ? new Date(period.end * 1000).toISOString() : null,
+            periodEndText: period ? formatDate(period.end * 1000) : null,
+            hasMinutes: siteHasMinutes(ctx.site),
+            refund: quote.eligible
+                ? { amountCents: quote.amountCents, amountText: quote.amountText, windowEndsAt: quote.windowEndsAt }
+                : null,
+            ...(quote.eligible ? {} : { reason: quote.reason }),
+        });
+    } catch (e) {
+        console.error("[portal/cancel] quote failed", subscriptionId, e);
+        return NextResponse.json({ error: "Could not read your billing. Please contact support." }, { status: 500 });
+    }
+}
+
 export async function POST(request: Request) {
     const ctx = await resolvePortalRequest(request);
     if (!ctx.ok) return ctx.response;
@@ -81,7 +158,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Bad request" }, { status: 400 });
     }
 
-    const { confirm } = body as Record<string, unknown>;
+    const { confirm, expect } = body as Record<string, unknown>;
     const siteName = ctx.site.name ?? ctx.site.slug;
 
     // The confirm field must match the site's business name (case-insensitive).
@@ -91,26 +168,7 @@ export async function POST(request: Request) {
 
     // ── Resolve the Stripe subscription ──────────────────────────────────────
 
-    let subscriptionId = ctx.site.stripeSubscriptionId;
-    let customerId = ctx.site.stripeCustomerId;
-
-    if (!subscriptionId && ctx.site.sessionId) {
-        // First cancellation for a pre-feature record — resolve via the checkout session.
-        try {
-            const session = await stripe.checkout.sessions.retrieve(ctx.site.sessionId, {
-                expand: ["subscription"],
-            });
-            const sub = session.subscription;
-            if (sub && typeof sub === "object" && "id" in sub) {
-                subscriptionId = sub.id;
-                customerId = typeof session.customer === "string"
-                    ? session.customer
-                    : (session.customer as { id: string } | null)?.id;
-            }
-        } catch (e) {
-            console.error("[portal/cancel] failed to resolve subscription from session", ctx.site.sessionId, e);
-        }
-    }
+    const { subscriptionId, customerId } = await resolveSubscription(ctx.site);
 
     if (!subscriptionId) {
         return NextResponse.json(
@@ -157,13 +215,53 @@ export async function POST(request: Request) {
         );
     }
 
+    // ── Which cancellation: the first-month refund, or the period end? ───────
+    //
+    // Decided here, from Stripe, and checked against what the card showed (`expect`), so the
+    // client never gets a different outcome from the one they read: a card that promised a
+    // refund, opened on day 29 and sent on day 31, is answered 409 with the mode that applies
+    // now, and the card re-reads.
+    let quote: RefundQuote;
+    try {
+        quote = await quoteFirstMonthRefund(ctx.account, ctx.site, sub);
+    } catch (e) {
+        console.error("[portal/cancel] refund quote failed", subscriptionId, e);
+        return NextResponse.json({ error: "Could not read your billing. Please contact support." }, { status: 500 });
+    }
+    const mode: CancelMode = quote.eligible ? "refund" : "period-end";
+    if ((expect === "refund" || expect === "period-end") && expect !== mode) {
+        return NextResponse.json(
+            { error: "Your cancellation terms have changed since this page loaded. Please review them again.", mode },
+            { status: 409 },
+        );
+    }
+
     const nowS = Math.floor(Date.now() / 1000);
     const target = nowS + noticeDays * DAY_S;
-    const cancelAtS = firstBoundaryAtOrAfter(period.start, period.end, target);
+    let cancelAtS = firstBoundaryAtOrAfter(period.start, period.end, target);
+    let refunded: { amountText: string; refundId: string } | null = null;
+    let refundedCents = 0;
 
-    // ── Schedule cancellation in Stripe ──────────────────────────────────────
+    // ── Refund the first monthly fee and end today (Terms v7 §2.2, §1.2) ─────
 
-    try {
+    if (quote.eligible) {
+        const result = await refundFirstMonthAndEnd({ account: ctx.account, site: ctx.site, subscription: sub, quote });
+        if (!result.ok) {
+            return NextResponse.json(
+                { error: result.message, code: result.code },
+                { status: result.code === "claimed" ? 409 : 502 },
+            );
+        }
+        cancelAtS = Math.floor(result.endedAt / 1000);
+        refunded = { amountText: result.amountText, refundId: result.refundId };
+        refundedCents = result.amountCents;
+        // A downgrade that was waiting for the period end is moot: the subscription has ended.
+        // `refundFirstMonthAndEnd` released its Stripe schedule; the request is marked withdrawn.
+        const pending = await getPlanChange(ctx.account.email, ctx.site.slug).catch(() => null);
+        if (isPendingPlanChange(pending)) await savePlanChange({ ...pending, status: "cancelled" }).catch(() => {});
+    } else try {
+        // ── Schedule cancellation in Stripe (after the 30 days) ──────────────
+        //
         // A downgrade scheduled for the period end is superseded: the subscription now ends
         // then instead. A subscription still attached to a schedule is managed by it, so it is
         // released first, and the pending change is marked withdrawn.
@@ -256,6 +354,7 @@ export async function POST(request: Request) {
             subscriptionId,
             termEnds: effectiveDateStr,
             requested: formatDate(now),
+            ...(refunded ? { refund: `${refunded.amountText} (${refunded.refundId})` } : {}),
         });
         const rowHtml = ops.rows
             .map(
@@ -268,7 +367,7 @@ export async function POST(request: Request) {
             .join("");
         const opsHtml = brandedEmailHtml({
             title: "Cancellation Request",
-            subtitle: `${siteName}, ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan`,
+            subtitle: `${siteName}, ${PLAN_LABELS[plan]?.name ?? plan} plan`,
             body: `
                 <div style="background:${EMAIL.panelInset};border-radius:8px;padding:14px 16px;margin-bottom:16px;">
                     <table cellpadding="0" cellspacing="0" style="width:100%">${rowHtml}
@@ -306,7 +405,7 @@ export async function POST(request: Request) {
                     </p>
                 </div>
                 <p style="color:${EMAIL.ink};font-size:14px;margin:0 0 12px;">
-                    ${CANCEL_EMAIL_ACCESS}
+                    ${cancelEmailAccess({ refund: refunded ? { amount: refunded.amountText } : null, hasMinutes: siteHasMinutes(ctx.site) })}
                 </p>
                 <p style="color:${EMAIL.fg3};font-size:13px;margin:0;">
                     ${CANCEL_EMAIL_NOTICE}
@@ -329,7 +428,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
         ok: true,
+        mode,
         effectiveAt: effectiveAtMs,
         effectiveDate: effectiveDateStr,
+        // `refunded` / `amountCents` are the shape the portal card reads (agreed with S5).
+        refunded: Boolean(refunded),
+        ...(refunded ? { refundedAmountText: refunded.amountText, amountCents: refundedCents } : {}),
     });
 }

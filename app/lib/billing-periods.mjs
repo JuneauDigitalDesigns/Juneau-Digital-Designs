@@ -13,8 +13,13 @@
  * charges the difference between the two plans for the rest of the current month.
  */
 
-/** Plan order, for "is this an upgrade". */
-export const PLAN_RANK = { starter: 0, growth: 1, enterprise: 2 };
+import { PLAN_RANK } from "@jdd/schema";
+
+/**
+ * Plan order, for "is this an upgrade": the schema's one shared map (v1.45.0), website 0 <
+ * starter 1 < growth 2 < enterprise 3. Re-exported so callers and tests keep one import.
+ */
+export { PLAN_RANK };
 
 /**
  * `anchorMs` moved by `n` calendar months, keeping the anchor's day and time of day, clamped to
@@ -79,16 +84,19 @@ export function meteringWindows({ periodStartMs, periodEndMs, nowMs, subscriptio
 }
 
 /**
- * Which way a plan change goes. A null `fromPlan` (a price we don't sell) is treated as an
- * upgrade, because the only safe thing to do with an unknown starting point is to charge for
- * the difference now and refuse if the card does not pay.
+ * Which way a plan change goes.
  *
- * @param {keyof typeof PLAN_RANK | null} fromPlan
- * @param {keyof typeof PLAN_RANK} toPlan
- * @returns {"upgrade" | "downgrade" | "none"}
+ * A null or unknown `fromPlan` (a price we don't sell) is `"unknown"`, and every caller refuses
+ * it. It used to count as an upgrade, so a subscription whose price had stopped matching the
+ * table (a grandfathered $197 Starter, before the legacy list) would have been charged an
+ * immediate prorated "upgrade" even for a move down to the website plan.
+ *
+ * @param {string | null | undefined} fromPlan
+ * @param {string} toPlan
+ * @returns {"upgrade" | "downgrade" | "none" | "unknown"}
  */
 export function planChangeKind(fromPlan, toPlan) {
-  if (fromPlan === null) return "upgrade";
+  if (fromPlan == null || !Object.hasOwn(PLAN_RANK, fromPlan) || !Object.hasOwn(PLAN_RANK, toPlan)) return "unknown";
   if (PLAN_RANK[toPlan] === PLAN_RANK[fromPlan]) return "none";
   return PLAN_RANK[toPlan] > PLAN_RANK[fromPlan] ? "upgrade" : "downgrade";
 }
@@ -103,6 +111,10 @@ export function planChangeKind(fromPlan, toPlan) {
  * `allow_incomplete`, applies the new price even when that invoice fails; `error_if_incomplete`
  * answers 402 and leaves the subscription exactly as it was.
  *
+ * Anything but an upgrade returns null. A move to the same plan is not a change: re-pricing a
+ * grandfathered subscription onto today's price would be a price rise nobody agreed to (D3). A
+ * move from an unknown plan is refused rather than guessed at.
+ *
  * A downgrade returns null. It takes effect at the end of the current month, with no credit, and
  * only through a subscription schedule (`downgradeSchedulePhases`). This used to return
  * `always_invoice` for a monthly downgrade, which is how the console's "Sync billing" could move
@@ -112,7 +124,7 @@ export function planChangeKind(fromPlan, toPlan) {
  * @returns {{ proration_behavior: "always_invoice", payment_behavior: "error_if_incomplete" } | null}
  */
 export function immediateChangeParams({ fromPlan, toPlan }) {
-  if (planChangeKind(fromPlan, toPlan) === "downgrade") return null;
+  if (planChangeKind(fromPlan, toPlan) !== "upgrade") return null;
   return { proration_behavior: "always_invoice", payment_behavior: "error_if_incomplete" };
 }
 
@@ -127,11 +139,11 @@ export function immediateChangeParams({ fromPlan, toPlan }) {
  *
  * @template {{ id?: string, price?: { id?: string, recurring?: unknown } | null }} T
  * @param {T[]} items
- * @param {Record<string, { monthly?: string | null }>} priceTable
+ * @param {PriceTable} priceTable
  * @returns {T | null}
  */
 export function planItemOf(items, priceTable) {
-  const planPrices = new Set(Object.values(priceTable).map((p) => p.monthly).filter(Boolean));
+  const planPrices = new Set(Object.values(priceTable).flatMap(pricesOf));
   const plans = items.filter((i) => i.price && i.price.recurring != null && planPrices.has(i.price.id));
   return plans.length === 1 ? plans[0] : null;
 }
@@ -181,17 +193,36 @@ export function downgradeSchedulePhases({ currentPhaseStart, periodEnd, currentP
  * operator's change could be silently reverted, and a downgrade scheduled for the period end
  * would never be seen. The price is what the client actually pays.
  *
+ * A grandfathered price (`legacy`, D3) maps to its plan exactly as the current one does. Without
+ * it, a subscription still on the $197 Starter price read as "no plan" the day the $297 price
+ * went in: the webhook logged it as not a plan we sell, and the billing tab showed no amount.
+ *
  * @param {{ price?: { id?: string, recurring?: unknown } | null }[]} items
- * @param {Record<string, { monthly?: string | null }>} priceTable
+ * @param {PriceTable} priceTable
  * @returns {string | null}
  */
 export function planFromItems(items, priceTable) {
   const id = planItemOf(items, priceTable)?.price?.id;
   if (!id) return null;
   for (const [plan, prices] of Object.entries(priceTable)) {
-    if (prices.monthly === id) return plan;
+    if (pricesOf(prices).includes(id)) return plan;
   }
   return null;
+}
+
+/**
+ * @typedef {Record<string, { monthly?: string | null, legacy?: string[] }>} PriceTable
+ *   Each plan's current monthly price, and the grandfathered monthly prices it still bills.
+ */
+
+/**
+ * Every monthly price a plan bills on: today's, then any grandfathered ones.
+ *
+ * @param {{ monthly?: string | null, legacy?: string[] }} prices
+ * @returns {string[]}
+ */
+function pricesOf(prices) {
+  return [prices.monthly, ...(prices.legacy ?? [])].filter((p) => typeof p === "string" && p.length > 0);
 }
 
 /**

@@ -20,6 +20,7 @@ import { getOrder } from "@/app/lib/operator-orders";
 import {
     applySignedLegalName,
     buildSubmission,
+    isLegacyWebOnlySite,
     markPaletteNotClientChosen,
     signedLegalName,
 } from "@/app/lib/onboarding-submission";
@@ -84,7 +85,11 @@ export async function POST(request: Request) {
         const { submission } = built;
         const { selectedPlan, receptionistMode, brandName, brandShort, email, phone, industry, serviceList } = submission;
 
-        const parsed = zBrandIntakeSubmission.safeParse(submission);
+        // The schema refuses `starter` + "declined" on a new submission (v1.45.0). A site that was
+        // signed that way before the `website` plan existed is the one exception (buildSubmission
+        // already checked it is), so its shape is checked with the mode set aside.
+        const legacyWebOnly = selectedPlan === "starter" && receptionistMode === "declined" && isLegacyWebOnlySite(site);
+        const parsed = zBrandIntakeSubmission.safeParse(legacyWebOnly ? { ...submission, receptionistMode: undefined } : submission);
         if (!parsed.success) {
             console.error("[portal/onboarding] schema validation failed", parsed.error.issues);
             return NextResponse.json({ message: "Your submission could not be processed. Please try again." }, { status: 400 });
@@ -122,7 +127,9 @@ export async function POST(request: Request) {
         // the wizard sends is recorded as not client-supplied.
         const intake: Intake = markPaletteNotClientChosen(
             applySignedLegalName(
-                { ...mapBrandIntakeToIntake(submission), smsAlerts: smsAlertsSnapshot(consent) },
+                // D9 (2026-11-24): a `website` site's owner gets no new-lead texts, so its intake
+                // never carries alerts, whatever the account consented to.
+                { ...mapBrandIntakeToIntake(submission), smsAlerts: selectedPlan === "website" ? null : smsAlertsSnapshot(consent) },
                 signedLegalName({ agreement, order }),
             ),
         );

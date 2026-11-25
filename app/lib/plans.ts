@@ -1,6 +1,15 @@
 import "server-only";
+import { PLAN_IDS, PLAN_LABELS } from "@jdd/schema";
+import { isPlanSlug } from "./plan-ids.mjs";
 
-export type PlanSlug = "starter" | "growth" | "enterprise";
+export { isPlanSlug };
+
+/**
+ * The plans this app sells, cheapest first. The ids, names and order come from `@jdd/schema`
+ * (v1.45.0): `website` is shown as "Starter", and `starter` as "Starter + AI Receptionist". No
+ * code here builds a plan name from the id.
+ */
+export type PlanSlug = (typeof PLAN_IDS)[number];
 
 /**
  * The billing period. Every plan is month to month (Terms of Service v6.0, 2026-11-16). Stored
@@ -20,32 +29,44 @@ export interface PlanConfig {
   onboardingPriceId?: string;
 }
 
+/** The env names that hold each plan's Stripe prices. Names only: the ids are Xander's to set. */
+const PRICE_ENV: Record<PlanSlug, { monthly: string; onboarding: string }> = {
+  website: { monthly: "STRIPE_PRICE_WEBSITE_MONTHLY", onboarding: "STRIPE_PRICE_WEBSITE_ONBOARDING" },
+  starter: { monthly: "STRIPE_PRICE_STARTER_MONTHLY", onboarding: "STRIPE_PRICE_STARTER_ONBOARDING" },
+  growth: { monthly: "STRIPE_PRICE_GROWTH_MONTHLY", onboarding: "STRIPE_PRICE_GROWTH_ONBOARDING" },
+  enterprise: { monthly: "STRIPE_PRICE_ENTERPRISE_MONTHLY", onboarding: "STRIPE_PRICE_ENTERPRISE_ONBOARDING" },
+};
+
+/**
+ * Grandfathered monthly prices, per plan: prices we no longer sell but still bill (D3,
+ * 2026-11-24). Starter + AI Receptionist moved from $197 to $297; every subscription still on the
+ * $197 price stays there, and must still read as `starter`, never as "no plan".
+ *
+ * A comma list, so a test-mode and a later legacy price can sit side by side.
+ */
+const LEGACY_PRICE_ENV: Partial<Record<PlanSlug, string>> = {
+  starter: "STRIPE_PRICE_STARTER_MONTHLY_LEGACY",
+};
+
 export function getPlan(slug: string): PlanConfig | null {
-  switch (slug) {
-    case "starter":
-      return {
-        slug: "starter",
-        name: "Starter",
-        monthlyPriceId: process.env.STRIPE_PRICE_STARTER_MONTHLY!,
-        onboardingPriceId: process.env.STRIPE_PRICE_STARTER_ONBOARDING,
-      };
-    case "growth":
-      return {
-        slug: "growth",
-        name: "Growth",
-        monthlyPriceId: process.env.STRIPE_PRICE_GROWTH_MONTHLY!,
-        onboardingPriceId: process.env.STRIPE_PRICE_GROWTH_ONBOARDING,
-      };
-    case "enterprise":
-      return {
-        slug: "enterprise",
-        name: "Enterprise",
-        monthlyPriceId: process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY!,
-        onboardingPriceId: process.env.STRIPE_PRICE_ENTERPRISE_ONBOARDING,
-      };
-    default:
-      return null;
-  }
+  if (!isPlanSlug(slug)) return null;
+  const env = PRICE_ENV[slug];
+  return {
+    slug,
+    name: PLAN_LABELS[slug].name,
+    monthlyPriceId: process.env[env.monthly] ?? "",
+    onboardingPriceId: process.env[env.onboarding] || undefined,
+  };
+}
+
+/** The plan's grandfathered monthly price ids, never sold, still billed. Empty when none. */
+export function legacyMonthlyPriceIds(slug: PlanSlug): string[] {
+  const name = LEGACY_PRICE_ENV[slug];
+  const raw = name ? process.env[name] : undefined;
+  return (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 /**

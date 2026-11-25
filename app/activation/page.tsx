@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { PLAN_LABELS } from "@jdd/schema";
 import { pageMetadata } from "@/app/lib/site-seo";
+import { SCHEDULES } from "@/app/lib/legal/schedules";
 export const metadata: Metadata = pageMetadata(
     "/activation",
     "Turning on your receptionist | Juneau Digital Designs",
@@ -168,13 +170,15 @@ export default function ActivationPage() {
                 </p>
 
                 <h2 style={{ fontSize: "var(--text-xl)", margin: "36px 0 10px" }}>
-                    If you told us no receptionist
+                    {/* B2, approved word for word (2026-11-24). Plan names from PLAN_LABELS, the price from Schedule A. */}
+                    If you&apos;re on {PLAN_LABELS.website.name}
                 </h2>
                 <p style={{ color: "var(--fg-2)", lineHeight: 1.7, fontSize: 15.5 }}>
                     Then there is nothing for you to do here, and nothing has gone wrong. We are
-                    building your website and we will not set up a phone number. Your price is the
-                    same either way. If you change your mind, tell us and we will switch the
-                    receptionist on with no extra onboarding fee.
+                    building your website and we will not set up a phone number. If you want the AI
+                    receptionist later, you can add it from your portal.{" "}
+                    {PLAN_LABELS.starter.name} is ${SCHEDULES.starter.monthlyPrice} a month, with no
+                    extra onboarding fee.
                 </p>
 
                 <h2 style={{ fontSize: "var(--text-xl)", margin: "36px 0 10px" }}>Stuck?</h2>

@@ -25,6 +25,7 @@ import {
     PROFILE_KINDS,
     customersFor,
     differentiatorsFor,
+    isWebOnly,
     joinChoices,
     mapBrandIntakeToIntake,
     menuFor,
@@ -33,6 +34,7 @@ import {
     servicePageFacts,
     type BrandIntakeSubmission,
     type ImageMeta,
+    type PortalPlan,
     type ProfileKind,
     type ServiceEntry,
     type TemplateSlots,
@@ -41,7 +43,8 @@ import { normaliseProfileLink } from "@/app/lib/profile-links";
 import { C } from "./copy-service-details";
 import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
 
-export type PlanSlug = "starter" | "growth" | "enterprise";
+/** The schema's plan ids (v1.45.0). `website` is the website-only plan; names come from PLAN_LABELS. */
+export type PlanSlug = PortalPlan;
 export type ReceptionistMode = "forwarded" | "published" | "declined";
 
 /** One Enterprise additional site. Colors are not asked here either. */
@@ -332,7 +335,9 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         S("logo", 3, "Logo", "brand"),
         S("photos", 3, "Photos", "photos", { skippable: true }),
         S("voice", 3, "Voice", "hero", { skippable: true }),
-        S("setup", 4, "Phone setup", "call", { required: true }),
+        // Website only (the `website` plan, or a legacy Starter signed "declined"): the plan already
+        // decided there is no number, so there is nothing to set up.
+        ...(webOnly(ctx) ? [] : [S("setup", 4, "Phone setup", "call", { required: true })]),
         S("hours", 4, "Hours", "hours", { skippable: true }),
         S("review", -1, "Review", "none"),
     ];
@@ -344,12 +349,23 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
 const digits = (s: string) => (s || "").replace(/\D/g, "");
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** The receptionist options this client may pick: website-only is Starter only (onboard.js rejects it elsewhere). */
+/**
+ * Whether this site has no receptionist: the `website` plan, or the legacy shape (`starter` signed
+ * "declined" before `website` existed), read so an in-flight record still works, never offered.
+ */
+export function webOnly(ctx: WizardContext): boolean {
+    return isWebOnly({ plan: ctx.plan, receptionistMode: ctx.signedMode });
+}
+
+/**
+ * The receptionist modes this client may end up with. Website only is never a choice made here
+ * (v1.45.0): it is the `website` plan, and the schema's `receptionistModeProblem` refuses
+ * "declined" on every other plan in a new submission.
+ */
 export function modesFor(ctx: WizardContext): ReceptionistMode[] {
-    // The signed choice sets the website-only boundary; crossing it is a terms change, not an edit.
-    if (ctx.signedMode === "declined") return ["declined"];
-    if (ctx.signedMode) return ["forwarded", "published"];
-    return ctx.plan === "starter" ? ["forwarded", "published", "declined"] : ["forwarded", "published"];
+    // The plan, or the legacy signed choice, decided it; crossing it is a plan change, not an edit.
+    if (webOnly(ctx)) return ["declined"];
+    return ["forwarded", "published"];
 }
 
 /**
@@ -809,7 +825,13 @@ export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date =
         selectedPlan: ctx.plan,
         // Absent when skipped, so the mapper flags brand.tagline as missing (F-C2a).
         ...(tagline ? { tagline } : {}),
-        ...(state.receptionistMode ? { receptionistMode: state.receptionistMode } : {}),
+        // Website only always sends "declined", whatever an old draft says, so a reader on either
+        // schema version sees no receptionist. Elsewhere "declined" is never sent (it is refused).
+        ...(webOnly(ctx)
+            ? { receptionistMode: "declined" as const }
+            : state.receptionistMode && state.receptionistMode !== "declined"
+              ? { receptionistMode: state.receptionistMode }
+              : {}),
         brandName: state.name.trim(),
         email: state.email.trim(),
         phone: state.phone.trim(),

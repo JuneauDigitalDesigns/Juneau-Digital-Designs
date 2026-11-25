@@ -3,12 +3,12 @@ import { authorizeOps } from "@/app/lib/ops-auth";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
 import { writeSubToSlug } from "@/app/lib/cancel-kv";
 import { changeSubscriptionPlan, inspectSubscriptionPlan } from "@/app/lib/plan-billing";
-import { upsertSite, type PortalAccount, type PortalPlan, type PortalSite } from "@jdd/schema";
+import { PLAN_IDS, upsertSite, type PortalAccount, type PortalPlan, type PortalSite } from "@jdd/schema";
 import { getPlanChange, isPendingPlanChange } from "@/app/lib/plan-change";
 
 export const runtime = "nodejs";
 
-const VALID_PLANS: PortalPlan[] = ["starter", "growth", "enterprise"];
+const VALID_PLANS: readonly PortalPlan[] = PLAN_IDS;
 
 /**
  * GET — diagnose without touching anything.

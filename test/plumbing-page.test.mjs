@@ -265,7 +265,8 @@ test("the close is the shared two asks, at Schedule A's price", () => {
         ],
         "the close",
     );
-    assert.equal(SCHEDULES.starter.monthlyPrice, 197);
+    // Starter + AI Receptionist, $297 since 2026-11-24 (D1–D3); the receptionist is never paired with $97.
+    assert.equal(SCHEDULES.starter.monthlyPrice, 297);
 });
 
 test("nothing on the page names a region, or a place the agency does not work in", () => {
@@ -278,7 +279,7 @@ test("the page has its approved title, description, sitemap entry and Trades lis
     assert.equal(PLUMBING_TITLE, "Plumber Website Design + 24/7 AI Receptionist | JDD");
     assert.equal(
         PLUMBING_DESCRIPTION,
-        "We write, build and host your plumbing website, and an AI receptionist answers the calls you miss, 24/7, from burst pipes to water heaters. From $197 a month, no contract.",
+        "We write, build and host your plumbing website, and an AI receptionist answers the calls you miss, 24/7, from burst pipes to water heaters. From $297 a month, no contract.",
     );
     assert.match(read("app/plumbing/page.tsx"), /pageMetadata\("\/plumbing", PLUMBING_TITLE, PLUMBING_DESCRIPTION\)/);
     assert.ok(PUBLIC_PATHS.includes("/plumbing"), "/plumbing is not a public path");

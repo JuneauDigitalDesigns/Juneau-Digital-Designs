@@ -12,6 +12,7 @@ import { upgradeBlockReason } from "../../lib/plan-billing";
 import { getPlanChange } from "../../lib/plan-change";
 import { planConsolidation } from "../../lib/consolidation";
 import type { PlanSlug } from "../../lib/agreement-types";
+import { isPlanSlug } from "../../lib/plan-ids.mjs";
 import { smsConsentCopy } from "../../lib/sms-consent-text";
 
 const SIGNING_METADATA: Metadata = {
@@ -30,15 +31,14 @@ export async function generateMetadata({
 }: {
     searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string; receptionist?: string }>;
 }): Promise<Metadata> {
-    const { upgrade } = await searchParams;
+    const { upgrade, plan } = await searchParams;
     const slug = upgrade?.trim();
-    if (slug && !(await canUpgrade(slug))) {
+    if (slug && !(await canUpgrade(slug, isPlanSlug(plan) ? plan : "growth"))) {
         return { title: "Upgrade | Juneau Digital Designs", robots: { index: false } };
     }
     return SIGNING_METADATA;
 }
 
-const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 
 export default async function AgreementPage({
     searchParams,
@@ -48,9 +48,11 @@ export default async function AgreementPage({
     const { plan, upgrade, kind, consolidate, downgrade, receptionist } = await searchParams;
     const downgradeSlug = downgrade?.trim() || null;
     const receptionistSlug = receptionist?.trim() || null;
-    let selectedPlan: PlanSlug = VALID_PLANS.includes(plan as PlanSlug)
-        ? (plan as PlanSlug)
-        : "starter";
+    // An unknown plan goes back to /pricing to be chosen, never defaulted. It used to become
+    // Starter, which since v1.45.0 is the receptionist plan. An upgrade link without a plan is an
+    // old Growth link, the only upgrade there was.
+    if (!isPlanSlug(plan) && !(upgrade?.trim() && plan === undefined)) redirect("/pricing");
+    let selectedPlan: PlanSlug = isPlanSlug(plan) ? plan : "growth";
     // Every plan is month to month, so the cover always states the monthly price.
     const billingPeriod = "monthly" as const;
 
@@ -75,7 +77,7 @@ export default async function AgreementPage({
         // in and bring them straight back instead.
         if (upgradeSlug || downgradeSlug || receptionistSlug) {
             const back = upgradeSlug
-                ? `/terms/accept?plan=growth&upgrade=${encodeURIComponent(upgradeSlug)}`
+                ? `/terms/accept?plan=${selectedPlan}&upgrade=${encodeURIComponent(upgradeSlug)}`
                 : downgradeSlug
                   ? `/terms/accept?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug)}`
                   : `/terms/accept?plan=starter&receptionist=${encodeURIComponent(receptionistSlug!)}`;
@@ -103,12 +105,17 @@ export default async function AgreementPage({
         selectedPlan = change.toPlan;
     }
 
-    // A website-only site switching the receptionist on: the standard Starter terms. Any other
-    // site has nothing to switch on here.
+    // Switching the receptionist on. On the website plan it is a paid upgrade to Starter + AI
+    // Receptionist ($97 → $297, prorated now, no new onboarding fee: D6), so an old
+    // `?receptionist=` link is forwarded into the upgrade. Only a legacy website-only Starter
+    // (`starter` + `declined`, D14) still switches it on here, free: it already pays Starter.
     if (receptionistSlug) {
         const owner = await resolveAccountForUser(userId);
         const site = owner?.sites.find((s) => s.slug === receptionistSlug);
         if (!site || !isWebOnly(site)) redirect("/portal");
+        if (site.plan === "website") {
+            redirect(`/terms/accept?plan=starter&upgrade=${encodeURIComponent(receptionistSlug)}`);
+        }
         selectedPlan = "starter";
     }
 
@@ -139,21 +146,8 @@ export default async function AgreementPage({
         ? getAddendumForPlan(getSchedule(selectedPlan))
         : getTermsForPlan(selectedPlan);
 
-    /**
-     * The Website-Only variant, resolved alongside the standard terms for a Starter master.
-     *
-     * A Starter client can choose "website only, no receptionist" on the signing page, which is
-     * a different contract — it drops the receptionist clauses and call-volume terms. Rather
-     * than round-trip to the server when they pick it, both documents are sent down and the
-     * client swaps which one the reader shows. Only Starter has this variant, and only a master
-     * can be signed web-only, so every other path sends `undefined`.
-     */
-    // Not offered on a downgrade (the client keeps the receptionist they have) or when switching
-    // the receptionist on: the document is the standard Starter terms.
-    const webOnly =
-        selectedPlan === "starter" && !isAddendum && !downgradeSlug && !receptionistSlug
-            ? getTermsForPlan("starter", { webOnly: true })
-            : null;
+    // No "website only" toggle any more: since v1.45.0 website-only is its own plan, chosen
+    // before signing (`?plan=website`), with its own plan summary in `SCHEDULES.website`.
 
     // `?upgrade=<slug>` marks this as an existing client moving up a tier rather than a first
     // purchase. Same terms, same signature, different ending: the upgrade endpoint modifies
@@ -172,7 +166,7 @@ export default async function AgreementPage({
     // Growth with the receptionist still "declined", which onboard.js can't provision.
     let askPhoneChoice = Boolean(receptionistSlug);
     if (upgradeSlug) {
-        const site = await upgradableSite(upgradeSlug);
+        const site = await upgradableSite(upgradeSlug, selectedPlan);
         if (!site) return <UpgradeUnavailable />;
         askPhoneChoice = isWebOnly(site);
     }
@@ -184,8 +178,6 @@ export default async function AgreementPage({
             sections={sections}
             version={version}
             smsConsentCopy={smsConsentCopy()}
-            webOnlySections={webOnly?.sections}
-            webOnlyVersion={webOnly?.version}
             upgradeSlug={upgradeSlug}
             downgradeSlug={downgradeSlug}
             receptionistSlug={receptionistSlug}
@@ -243,12 +235,12 @@ async function masterPrefill(agreementId: string | null | undefined) {
  * same lookup the portal routes use, so "not theirs" is decided by the account record rather
  * than by the URL.
  */
-const canUpgrade = cache(async function canUpgrade(slug: string): Promise<boolean> {
-    return (await upgradableSite(slug)) !== null;
+const canUpgrade = cache(async function canUpgrade(slug: string, targetPlan: PlanSlug): Promise<boolean> {
+    return (await upgradableSite(slug, targetPlan)) !== null;
 });
 
 /** The site behind `canUpgrade`, or null. Cached, so the metadata and the page share one read. */
-const upgradableSite = cache(async function upgradableSite(slug: string) {
+const upgradableSite = cache(async function upgradableSite(slug: string, targetPlan: PlanSlug) {
     const { userId } = await auth();
     if (!userId) return null;
 
@@ -258,11 +250,11 @@ const upgradableSite = cache(async function upgradableSite(slug: string) {
 
     // Same predicate the CTA and the upgrade route use, so a link can never reach a signature
     // the endpoint would then refuse.
-    const block = upgradeBlockReason(site);
+    const block = upgradeBlockReason(site, targetPlan);
     if (block === "no-billing-link") {
         // A client with no subscription on file is a data problem, not a plan state.
         console.error(
-            `[agreement] upgrade blocked: ${slug} is on starter with no stripeSubscriptionId ` +
+            `[agreement] upgrade blocked: ${slug} is on ${site.plan} with no stripeSubscriptionId ` +
                 `or sessionId. Client cannot self-serve upgrade.`,
         );
     }

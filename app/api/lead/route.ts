@@ -32,7 +32,7 @@ function clean(v: unknown, max = MAX_FIELD): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
 }
 
-const PLANS: PlanInterest[] = ["starter", "growth", "enterprise"];
+const PLANS: PlanInterest[] = ["website", "starter", "growth", "enterprise"];
 function coercePlan(v: unknown): PlanInterest | null {
   return typeof v === "string" && (PLANS as string[]).includes(v)
     ? (v as PlanInterest)

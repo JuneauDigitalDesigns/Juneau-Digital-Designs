@@ -81,15 +81,17 @@ export function agreementSubmissionError(body, expectedTermsHash) {
  * left unticked and the number box blank.
  *
  * @param {{ smsConsent?: unknown, alertPhone?: unknown }} body
- * @param {{ receptionistMode?: string }} order
+ * @param {{ plan?: string, receptionistMode?: string }} order
  */
 export function agreementConsentError(body, order) {
+  // D9 (2026-11-24): the website plan's owners get no texts, like a legacy website-only order.
+  const noTexts = order?.plan === "website" || order?.receptionistMode === "declined";
   // The two-card choice (`text-alerts-choice.mjs`). A website-only order has no cards and nothing
   // to text about, so only a claim of consent is refused there, as before.
-  if (body?.smsChoice !== undefined && order?.receptionistMode !== "declined") {
+  if (body?.smsChoice !== undefined && !noTexts) {
     return textAlertsChoiceError({ choice: body.smsChoice, smsConsent: body.smsConsent, alertPhone: body.alertPhone });
   }
-  if (order?.receptionistMode === "declined" && (body?.smsChoice === "yes" || body?.smsConsent === true)) {
+  if (noTexts && (body?.smsChoice === "yes" || body?.smsConsent === true)) {
     return "Text alerts require a receptionist";
   }
   // A page loaded before the cards shipped sends no choice: its box and number are checked as they
@@ -99,7 +101,7 @@ export function agreementConsentError(body, order) {
   // Blank and unticked always passes.
   const problem = alertPhoneProblem(body?.smsConsent === true, body?.alertPhone);
   if (body?.smsConsent !== true) return problem === "invalid-unticked" ? ALERT_PHONE_UNTICKED_ERROR : null;
-  if (order?.receptionistMode === "declined") return "Text alerts require a receptionist";
+  if (noTexts) return "Text alerts require a receptionist";
   if (problem) return "A valid mobile number is required to enable text alerts";
   return null;
 }

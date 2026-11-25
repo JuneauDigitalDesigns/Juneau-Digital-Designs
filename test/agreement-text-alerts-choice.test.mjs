@@ -196,11 +196,21 @@ test("/terms/accept: the choice is checked by the same rule", () => {
     assert.equal(validateAgreementSubmission(submission({ smsChoice: "yes", smsConsent: true, alertPhone: CELL })), null);
     assert.equal(validateAgreementSubmission(submission({ smsChoice: "no" })), null);
     assert.equal(validateAgreementSubmission(submission({ smsChoice: "no", alertPhone: CELL })), CHOOSE);
-    // Website-only: no cards, nothing to choose; consent is still refused.
-    assert.equal(validateAgreementSubmission(submission({ plan: "starter", receptionistMode: "declined" })), null);
+    // The website plan (D9): no cards, nothing to choose; consent is still refused.
+    assert.equal(validateAgreementSubmission(submission({ plan: "website", receptionistMode: undefined })), null);
     assert.equal(
-        validateAgreementSubmission(submission({ plan: "starter", receptionistMode: "declined", smsChoice: "yes", smsConsent: true, alertPhone: CELL })),
+        validateAgreementSubmission(submission({ plan: "website", receptionistMode: undefined, smsChoice: "yes", smsConsent: true, alertPhone: CELL })),
         "Text alerts require a receptionist",
+    );
+    // Website-only as a Starter variant is refused outright since v1.45.0 (D14).
+    assert.equal(
+        validateAgreementSubmission(submission({ plan: "starter", receptionistMode: "declined" })),
+        "Website only is the Starter plan, so please choose Starter instead",
+    );
+    // And the website plan takes no phone setup.
+    assert.equal(
+        validateAgreementSubmission(submission({ plan: "website", receptionistMode: "published" })),
+        "The Starter plan doesn't include a phone setup",
     );
 });
 

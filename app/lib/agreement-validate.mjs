@@ -1,6 +1,7 @@
 import { normalizeUsPhone } from "./phone.mjs";
 import { ALERT_PHONE_UNTICKED_ERROR, alertPhoneProblem } from "./agreement-phone.mjs";
 import { textAlertsChoiceError } from "./text-alerts-choice.mjs";
+import { isPlanSlug } from "./plan-ids.mjs";
 
 /**
  * The rules a self-serve agreement submission must pass before anything is stored.
@@ -19,7 +20,6 @@ import { textAlertsChoiceError } from "./text-alerts-choice.mjs";
  * implied by the terms box, and refused only when it would record consent pointing at nothing.
  */
 
-const VALID_PLANS = ["starter", "growth", "enterprise"];
 const VALID_RECEPTIONIST_MODES = ["forwarded", "published", "declined"];
 
 /** @param {unknown} s @returns {s is string} */
@@ -61,7 +61,7 @@ export function acceptanceMethod(body) {
  * @returns {string | null}
  */
 export function validateAgreementSubmission(body) {
-  if (!VALID_PLANS.includes(body.plan)) return "Invalid plan";
+  if (!isPlanSlug(body.plan)) return "Invalid plan";
   if (body.kind && body.kind !== "master" && body.kind !== "addendum") {
     return "Invalid document kind";
   }
@@ -111,10 +111,15 @@ export function validateAgreementSubmission(body) {
   if (needsPhoneChoice && !body.receptionistMode) {
     return "Please choose how your phone should be handled";
   }
-  // Website-only is a Starter concession, not a Growth or Enterprise option: those are
-  // receptionist plans with no web-only schedule to sign against.
-  if (body.receptionistMode === "declined" && body.plan !== "starter") {
-    return "Website-only is only available on the Starter plan";
+  // The website plan has no phone to set up (D4): no number is bought and nothing is
+  // forwarded, so a phone choice on it is a page that offered the wrong form.
+  if (body.plan === "website" && body.receptionistMode && body.receptionistMode !== "declined") {
+    return "The Starter plan doesn't include a phone setup";
+  }
+  // Website-only is its own plan since v1.45.0 (D14). A new signing can't choose it as a
+  // variant of a receptionist plan; records already made that way are still read.
+  if (body.receptionistMode === "declined" && body.plan !== "website") {
+    return "Website only is the Starter plan, so please choose Starter instead";
   }
   // Switching the receptionist on is, by definition, not choosing website-only again.
   if (body.receptionistSlug && body.receptionistMode === "declined") {
@@ -130,13 +135,15 @@ export function validateAgreementSubmission(body) {
   // A website-only site produces no calls, so there is nothing to text a summary about.
   // Replaces the old Starter-wide block: since the 2026-10-12 reprice every plan includes the
   // receptionist, and the one case with no calls is the website-only choice, not the tier.
-  if ((body.smsConsent || body.smsChoice === "yes") && body.receptionistMode === "declined") {
+  // D9 (2026-11-24): the website plan's owners get no lead texts at all.
+  const noTexts = body.plan === "website" || body.receptionistMode === "declined";
+  if ((body.smsConsent || body.smsChoice === "yes") && noTexts) {
     return "Text alerts require a receptionist";
   }
   // The two-card choice (`text-alerts-choice.mjs`): Yes needs a complete US number and the
   // registered box ticked; No carries neither. A page loaded before the cards shipped sends no
   // choice, and falls through to the box-and-number rules below, as it was checked before (#137).
-  if (body.smsChoice !== undefined && body.receptionistMode !== "declined") {
+  if (body.smsChoice !== undefined && !noTexts) {
     const choiceProblem = textAlertsChoiceError({ choice: body.smsChoice, smsConsent: body.smsConsent, alertPhone: body.alertPhone });
     if (choiceProblem) return choiceProblem;
   }

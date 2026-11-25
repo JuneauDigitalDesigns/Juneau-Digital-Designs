@@ -37,7 +37,7 @@ export default async function AgreePage({ params }: { params: Promise<{ code: st
                         signerLine={`Signer: ${view.order.client.contactName}, ${view.order.client.contactTitle}, ${view.order.client.legalName}`}
                         email={view.order.client.email}
                         smsConsentCopy={smsConsentCopy()}
-                        hasReceptionist={view.order.receptionistMode !== "declined"}
+                        hasReceptionist={view.order.plan !== "website" && view.order.receptionistMode !== "declined"}
                     />
                 )}
             </article>

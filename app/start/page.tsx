@@ -17,6 +17,7 @@ import UpsellEnterprise from "@/app/components/pricing/UpsellEnterprise";
 import VerifyEmailNotice from "@/app/components/pricing/VerifyEmailNotice";
 import EnterpriseContactUs from "@/app/components/pricing/EnterpriseContactUs";
 import type { PlanSlug } from "@/app/lib/agreement-types";
+import { isPlanSlug } from "@/app/lib/plan-ids.mjs";
 
 export const metadata: Metadata = {
     title: "Start your plan | Juneau Digital Designs",
@@ -25,7 +26,6 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const VALID_PLANS: PlanSlug[] = ["starter", "growth", "enterprise"];
 
 /**
  * The purchase gate. Everything on /pricing routes here, and nothing gets past it unsigned-in.
@@ -53,9 +53,11 @@ export default async function StartPage({
     searchParams: Promise<{ plan?: string }>;
 }) {
     const { plan: rawPlan } = await searchParams;
-    const plan: PlanSlug = VALID_PLANS.includes(rawPlan as PlanSlug)
-        ? (rawPlan as PlanSlug)
-        : "starter";
+    // An unknown plan is sent back to choose one, never defaulted. It used to become Starter,
+    // which since v1.45.0 is the receptionist plan: a link meant for the website plan, read by
+    // an older list, would have sold the $297 plan and bought it a number.
+    if (!isPlanSlug(rawPlan)) redirect("/pricing");
+    const plan: PlanSlug = rawPlan;
 
     const { userId } = await auth();
     if (!userId) {
@@ -93,7 +95,10 @@ export default async function StartPage({
     // would open a second subscription beside the Starter one, which keeps billing, and leave
     // the Starter site out of the bundle. Checked before the Growth case, so an account holding
     // both is not half-moved by consolidation.
-    if (plan === "enterprise" && account.sites.some((s) => s.plan === "starter" && isActiveSite(s))) {
+    if (
+        plan === "enterprise" &&
+        account.sites.some((s) => (s.plan === "starter" || s.plan === "website") && isActiveSite(s))
+    ) {
         return <EnterpriseContactUs />;
     }
 

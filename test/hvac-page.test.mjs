@@ -241,7 +241,8 @@ test("the close is the same two asks every page ends on, at Schedule A's price",
         ],
         "the close",
     );
-    assert.equal(SCHEDULES.starter.monthlyPrice, 197);
+    // Starter + AI Receptionist, $297 since 2026-11-24 (D1–D3); the receptionist is never paired with $97.
+    assert.equal(SCHEDULES.starter.monthlyPrice, 297);
 });
 
 test("nothing on the page names a region the agency does not work in", () => {
@@ -254,7 +255,7 @@ test("the page has its approved title and description, a sitemap entry and links
     assert.equal(HVAC_TITLE, "HVAC Website Design + 24/7 AI Receptionist | JDD");
     assert.equal(
         HVAC_DESCRIPTION,
-        "We write, build and host your HVAC website, and an AI receptionist answers the heating and cooling calls you miss, 24/7. From $197 a month, no contract.",
+        "We write, build and host your HVAC website, and an AI receptionist answers the heating and cooling calls you miss, 24/7. From $297 a month, no contract.",
     );
     assert.match(page, /pageMetadata\("\/hvac", HVAC_TITLE, HVAC_DESCRIPTION\)/);
     assert.ok(PUBLIC_PATHS.includes("/hvac"), "/hvac is not a public path");
