@@ -106,16 +106,16 @@ test("the cancel card has four versions: inside or after 30 days, with or withou
     );
     // After 30 days, Starter: the same without the overage clause (B5).
     assert.equal(
-        cancellationCardText({ periodEnd, minutes: false }),
+        cancellationCardText({ periodEnd, hasMinutes: false }),
         "You can cancel at any time. There's no notice period and no fee. You won't be charged again. Your service stays on until the end of the month you've already paid for, on December 24, 2026.",
     );
     // Inside 30 days, with minutes (E5).
     assert.equal(
-        cancellationCardText({ periodEnd, refundAmount: "$297" }),
+        cancellationCardText({ periodEnd, refund: { amount: "$297" } }),
         "You can cancel at any time. Because you're cancelling within 30 days of your first payment, we'll refund your first monthly fee of $297 to your card, and your service ends today. The onboarding fee isn't refunded, and any call-minute overage you've already used is still billed.",
     );
     // Inside 30 days, Starter: ends at "isn't refunded." with no overage.
-    const starter = cancellationCardText({ periodEnd, minutes: false, refundAmount: "$97" });
+    const starter = cancellationCardText({ periodEnd, hasMinutes: false, refund: { amount: "$97" } });
     assert.equal(
         starter,
         "You can cancel at any time. Because you're cancelling within 30 days of your first payment, we'll refund your first monthly fee of $97 to your card, and your service ends today. The onboarding fee isn't refunded.",
@@ -128,13 +128,17 @@ test("the website plan never mentions overage on the billing tab (B6)", () => {
     assert.equal(BILLING_COPY.nextPaymentNoneHintNoMinutes, undefined);
     const src = read("app/components/portal/BillingSection.tsx");
     assert.match(src, /minutes=\{!site\.webOnly\}/);
-    assert.match(src, /minutes: !site\.webOnly/);
+    assert.match(src, /hasMinutes: terms\?\.hasMinutes \?\? !site\.webOnly/);
 });
 
-test("the cancel dialog asks the server nothing new and treats a refund as an ended service", () => {
+test("the cancel card reads the live terms, promises only that, and re-reads on a 409", () => {
     const src = read("app/components/portal/BillingSection.tsx");
-    assert.match(src, /refundAmount=\{data\.refund \? money\(data\.refund\.amount, data\.refund\.currency\) : null\}/);
+    assert.match(src, /fetch\(`\/api\/portal\/cancel\?site=/);
+    assert.match(src, /expect: terms\?\.mode \?\? "period-end"/);
+    assert.match(src, /res\.status === 409/);
     assert.match(src, /onCancelled\(typeof data\.effectiveDate === "string" \? data\.effectiveDate : null\)/);
+    assert.equal(BILLING_COPY.confirmAfterRefund, "We'll email you a confirmation, and your service ends today.");
+    assert.equal(BILLING_COPY.confirmAfter, "We'll email you a confirmation, and this page will show the date your service ends.");
 });
 
 /* ── the Inbox ─────────────────────────────────────────────────────────────── */

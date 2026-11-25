@@ -90,6 +90,8 @@ export const BILLING_COPY = {
     // §5.3 confirm step.
     confirmHeading: "Cancel your subscription?",
     confirmAfter: "We'll email you a confirmation, and this page will show the date your service ends.",
+    /** E8, approved 24 Nov 2026: the confirm line when the cancel is inside the 30-day refund window. */
+    confirmAfterRefund: "We'll email you a confirmation, and your service ends today.",
     confirmField: (name: string) => `Type "${name}" to confirm`,
     keepButton: "Keep my subscription",
     cancelButton: "Request cancellation",

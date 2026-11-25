@@ -47,11 +47,6 @@ interface BillingData {
     canUpdateCard?: boolean;
     /** A downgrade the client accepted, waiting for the end of the paid period. */
     pendingPlanChange?: { fromPlan: string; toPlan: string; effectiveAt: number } | null;
-    /**
-     * Set by the server only while the first payment is under 30 days old (Terms v7): the first
-     * monthly fee that cancelling now refunds. The card never works this out itself.
-     */
-    refund?: { amount: number; currency: string } | null;
     paymentMethod?: { brand: string; last4: string; expMonth: number; expYear: number } | null;
     invoices?: Invoice[];
     error?: string;
@@ -70,6 +65,23 @@ function date(ms: number | null | undefined): string {
 }
 
 const CONTACT = "hello@juneaudigitaldesigns.com";
+
+/** `GET /api/portal/cancel`: what cancelling this site would do right now. */
+interface CancelTerms {
+    mode: "refund" | "period-end";
+    periodEndText?: string;
+    hasMinutes?: boolean;
+    refund?: { amountCents: number; amountText: string; windowEndsAt: number } | null;
+}
+
+/** The cancel card's words (E5, B5): one of four versions, from what the server says. */
+function cardText(terms: CancelTerms | null, periodEnd: number | null, site: PortalSiteProps): string {
+    return cancellationCardText({
+        periodEnd: terms?.periodEndText ?? date(periodEnd),
+        refund: terms?.mode === "refund" && terms.refund ? { amount: terms.refund.amountText } : null,
+        hasMinutes: terms?.hasMinutes ?? !site.webOnly,
+    });
+}
 
 /**
  * Settings › Plan & billing.
@@ -304,7 +316,6 @@ export default function BillingSection({
                 <CancellationCard
                     site={site}
                     periodEnd={data.currentPeriodEnd ?? null}
-                    refundAmount={data.refund ? money(data.refund.amount, data.refund.currency) : null}
                     endsAt={status.kind === "cancelling" ? (status.endsAt ?? null) : null}
                 />
             )}
@@ -480,20 +491,33 @@ function PaymentMethodCard({
 function CancellationCard({
     site,
     periodEnd,
-    refundAmount,
     endsAt,
 }: {
     site: PortalSiteProps;
     /** When the month already paid for ends (epoch ms). */
     periodEnd: number | null;
-    /** The first monthly fee a cancel today refunds, as shown ("$97"), or null after the 30 days. */
-    refundAmount: string | null;
     /** Set when the subscription is already cancelling. */
     endsAt: number | null;
 }) {
     const invalidate = useInvalidate();
     const [open, setOpen] = useState(false);
     const [requestedEnd, setRequestedEnd] = useState<string | null>(null);
+    // What cancelling would do, read live from Stripe by the server (never from the cached billing
+    // payload, never worked out here): the refund version of the card inside 30 days, else the
+    // period-end one. Until it answers, or if it fails, the card says the period-end words.
+    const [terms, setTerms] = useState<CancelTerms | null>(null);
+    const needsTerms = !(endsAt || requestedEnd);
+    useEffect(() => {
+        if (!needsTerms) return;
+        let live = true;
+        void fetch(`/api/portal/cancel?site=${encodeURIComponent(site.slug)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((t) => live && t && typeof t.mode === "string" && setTerms(t as CancelTerms))
+            .catch(() => {});
+        return () => {
+            live = false;
+        };
+    }, [site.slug, needsTerms]);
 
     const endDate = endsAt ? date(endsAt) : requestedEnd;
     if (endDate) {
@@ -521,7 +545,7 @@ function CancellationCard({
     return (
         <SectionCard title="Cancellation">
             <p className="text-sm mb-4" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                {cancellationCardText({ periodEnd: date(periodEnd), minutes: !site.webOnly, refundAmount: refundAmount ?? undefined })}
+                {cardText(terms, periodEnd, site)}
             </p>
 
             {site.plan === "enterprise" && (
@@ -547,7 +571,8 @@ function CancellationCard({
                 <CancelDialog
                     site={site}
                     periodEnd={periodEnd}
-                    refundAmount={refundAmount}
+                    terms={terms}
+                    onTerms={setTerms}
                     onClose={() => setOpen(false)}
                     onCancelled={(effectiveDate) => {
                         setOpen(false);
@@ -565,13 +590,15 @@ function CancellationCard({
 function CancelDialog({
     site,
     periodEnd,
-    refundAmount,
+    terms,
+    onTerms,
     onClose,
     onCancelled,
 }: {
     site: PortalSiteProps;
     periodEnd: number | null;
-    refundAmount: string | null;
+    terms: CancelTerms | null;
+    onTerms: (t: CancelTerms) => void;
     onClose: () => void;
     onCancelled: (effectiveDate: string | null) => void;
 }) {
@@ -597,9 +624,16 @@ function CancelDialog({
             const res = await fetch(`/api/portal/cancel?site=${encodeURIComponent(site.slug)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ confirm }),
+                // `expect` is what the card promised. If the window closed since, the server answers
+                // 409 with the real mode and nothing is cancelled or refunded.
+                body: JSON.stringify({ confirm, expect: terms?.mode ?? "period-end" }),
             });
             const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+            if (res.status === 409 && (data.mode === "refund" || data.mode === "period-end") && data.mode !== (terms?.mode ?? "period-end")) {
+                // The card is re-read, so the client sees the new promise before confirming again.
+                const next = await fetch(`/api/portal/cancel?site=${encodeURIComponent(site.slug)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+                if (next && typeof next.mode === "string") onTerms(next as CancelTerms);
+            }
             if (!res.ok) throw new Error((data.error as string) ?? "Cancellation failed");
             // A cancel inside the 30-day window ends the service today and answers `refunded`
             // with no end date: the refreshed tab then shows the Cancelled banner.
@@ -629,10 +663,10 @@ function CancelDialog({
                     {C.confirmHeading}
                 </h2>
                 <p className="text-sm mb-2.5" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                    {cancellationCardText({ periodEnd: date(periodEnd), minutes: !site.webOnly, refundAmount: refundAmount ?? undefined })}
+                    {cardText(terms, periodEnd, site)}
                 </p>
                 <p className="text-sm mb-3" style={{ color: "var(--fg-2)" }}>
-                    {C.confirmAfter}
+                    {terms?.mode === "refund" ? C.confirmAfterRefund : C.confirmAfter}
                 </p>
                 <FieldRow label={C.confirmField(site.name)}>
                     <input
