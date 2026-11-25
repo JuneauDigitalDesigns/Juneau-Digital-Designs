@@ -19,4 +19,5 @@ export const TRADE_PAGES: readonly TradePage[] = [
     { label: "HVAC", href: "/hvac" },
     { label: "Plumbing", href: "/plumbing" },
     { label: "Lawn Care", href: "/lawn-care" },
+    { label: "Auto Detailing", href: "/auto-detailing" },
 ];
