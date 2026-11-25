@@ -240,6 +240,7 @@ export async function POST(request: Request) {
     const target = nowS + noticeDays * DAY_S;
     let cancelAtS = firstBoundaryAtOrAfter(period.start, period.end, target);
     let refunded: { amountText: string; refundId: string } | null = null;
+    let refundedCents = 0;
 
     // ── Refund the first monthly fee and end today (Terms v7 §2.2, §1.2) ─────
 
@@ -253,6 +254,7 @@ export async function POST(request: Request) {
         }
         cancelAtS = Math.floor(result.endedAt / 1000);
         refunded = { amountText: result.amountText, refundId: result.refundId };
+        refundedCents = result.amountCents;
         // A downgrade that was waiting for the period end is moot: the subscription has ended.
         // `refundFirstMonthAndEnd` released its Stripe schedule; the request is marked withdrawn.
         const pending = await getPlanChange(ctx.account.email, ctx.site.slug).catch(() => null);
@@ -429,6 +431,8 @@ export async function POST(request: Request) {
         mode,
         effectiveAt: effectiveAtMs,
         effectiveDate: effectiveDateStr,
-        ...(refunded ? { refundedAmountText: refunded.amountText } : {}),
+        // `refunded` / `amountCents` are the shape the portal card reads (agreed with S5).
+        refunded: Boolean(refunded),
+        ...(refunded ? { refundedAmountText: refunded.amountText, amountCents: refundedCents } : {}),
     });
 }
