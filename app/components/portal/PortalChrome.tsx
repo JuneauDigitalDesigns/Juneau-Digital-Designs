@@ -278,14 +278,7 @@ export default function PortalChrome({
                                     <span className="truncate">{host}</span>
                                     <ArrowSquareOut size={11} weight="bold" className="shrink-0" />
                                 </a>
-                            ) : (
-                                <span
-                                    className="mt-0.5 block text-xs"
-                                    style={{ color: "var(--fg-3)", fontFamily: "var(--font-mono)" }}
-                                >
-                                    {selected.slug}
-                                </span>
-                            )}
+                            ) : null}
                         </div>
                     </div>
 
