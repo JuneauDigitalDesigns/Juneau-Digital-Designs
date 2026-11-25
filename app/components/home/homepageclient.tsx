@@ -9,6 +9,8 @@ import HomeIcon, { RingArcs, Wave, type HomeIconName } from "./HomeIcon";
 import LeadLands from "./LeadLands";
 import YearCalculator from "./YearCalculator";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
+import { EVERY_PLAN } from "@/app/data/every-plan";
+import { WEBSITE_PLAN } from "@/app/data/website-plan";
 import { DEMO_SITE_URL } from "@/app/data/demo-site";
 import { DEMO_TEL, DEMO_TEL_DISPLAY } from "@/app/data/demo-line";
 
@@ -35,6 +37,7 @@ import { DEMO_TEL, DEMO_TEL_DISPLAY } from "@/app/data/demo-line";
 
 /* Prices come from Schedule A, never typed in by hand: a number written into marketing copy is a
    number that can eventually contradict the signed agreement. */
+const WEBSITE_PRICE = WEBSITE_PLAN.monthlyPrice;
 const STARTER_PRICE = SCHEDULES.starter.monthlyPrice;
 const GROWTH_PRICE = SCHEDULES.growth.monthlyPrice;
 const ENTERPRISE_PRICE = SCHEDULES.enterprise.monthlyPrice;
@@ -297,28 +300,13 @@ function ReceptionistSection() {
 }
 
 /* ── 9 · Every plan starts here, the plans, the ask ────────────────────────── */
-/* The two bolded lines are the tier line, and /pricing carries the same pair in its taglines.
-   Change one, change both. */
-const EVERY_PLAN: { icon: HomeIconName; label: string; title: string; detail: string }[] = [
-    {
-        icon: "browser",
-        label: "Your website",
-        title: "A custom 4+ page site",
-        detail: "Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month.",
-    },
-    {
-        icon: "phone",
-        label: "Your phone",
-        title: "It rings you first",
-        detail: "If you don’t pick up, the AI receptionist answers, 24/7, in English or Spanish. You get a summary of every call.",
-    },
-    {
-        icon: "tray",
-        label: "Your leads",
-        title: "One inbox for every lead",
-        detail: "Every call and web inquiry lands in your portal, and you get a text the moment a new one arrives.",
-    },
-];
+/* The three points are /pricing's "On every plan" (app/data/every-plan.ts, row F9 of the
+   website-plan copy batch): the receptionist and the lead texts aren't on the $97 Starter, so
+   they moved onto the plan rows below. Icons follow the list's order.
+
+   The bolded lines in the plans panel are the tier lines, and /pricing carries the same ones on
+   its cards (rows F10–F12). Change one, change both. */
+const EVERY_PLAN_ICONS: HomeIconName[] = ["browser", "shield", "calendar"];
 
 function ClosingSection() {
     return (
@@ -331,9 +319,9 @@ function ClosingSection() {
                 </div>
                 <div className="hp-closing">
                     <div>
-                        {EVERY_PLAN.map((b) => (
+                        {EVERY_PLAN.map((b, i) => (
                             <div key={b.label} className="hp-base-item">
-                                <HomeIcon name={b.icon} className="hp-base-ic" />
+                                <HomeIcon name={EVERY_PLAN_ICONS[i] ?? "check"} className="hp-base-ic" />
                                 <div>
                                     <p className="kicker">{b.label}</p>
                                     <h3>{b.title}</h3>
@@ -345,14 +333,26 @@ function ClosingSection() {
                     </div>
 
                     <div className="hp-plans-panel">
+                        {/* F10: the website plan. No receptionist next to its price (D11). */}
                         <div className="hp-cplan">
                             <p className="kicker">Starter</p>
+                            <p className="hp-price">
+                                ${WEBSITE_PRICE}
+                                <span>/mo</span>
+                            </p>
+                            <p>
+                                Your website, written, built and hosted for you, with every web inquiry in your portal. <strong>Starter catches every web lead.</strong>
+                            </p>
+                        </div>
+                        {/* F11: today's Starter, renamed. */}
+                        <div className="hp-cplan">
+                            <p className="kicker">Starter + AI Receptionist</p>
                             <p className="hp-price">
                                 ${STARTER_PRICE}
                                 <span>/mo</span>
                             </p>
                             <p>
-                                Everything every plan gets. This is where it starts. <strong>Starter reports every lead.</strong>
+                                Everything in Starter, plus the AI receptionist. When you can&apos;t pick up, it answers, 24/7, and puts the lead in your portal. <strong>Starter + AI Receptionist answers every missed call.</strong>
                             </p>
                         </div>
                         {/* "Within about a minute", matching /pricing and the contract's "typically within
@@ -367,7 +367,7 @@ function ClosingSection() {
                                 <span>/mo</span>
                             </p>
                             <p>
-                                Everything in Starter, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong>Growth works them like a team would.</strong>
+                                Everything in Starter + AI Receptionist, then it goes to work. Web leads get a call back within about a minute, and your portal becomes a pipeline you run from Lead to Won. <strong>Growth works them like a team would.</strong>
                             </p>
                         </div>
                         {/* "Two or three", not "up to three": Enterprise starts at two sites. */}

@@ -130,12 +130,15 @@ test("the 2026-11-16 decisions read as approved", () => {
   assert.match(d, /we add it to our own Google Search Console account; that is for our use and is not a service to you/);
   assert.match(d, /search engine optimization services, such as ongoing search optimization, keyword research and new pages proposed from search data/);
   // The homepage and pricing site lines say the same as the plan summary, and never name Search Console (T5).
-  // /pricing's three "On every plan" points live in app/data/every-plan.ts since the four-plan
-  // redesign (rows F1–F2 of the website-plan copy batch, 24 Nov 2026), which split the site line in two.
+  // Both pages' three "On every plan" points live in app/data/every-plan.ts since the four-plan
+  // redesign (rows F1–F2 and F9 of the website-plan copy batch, 24 Nov 2026), which split the site
+  // line in two. The homepage prints that list rather than its own copy.
+  assert.match(
+    readFileSync(fileURLToPath(new URL("../app/components/home/homepageclient.tsx", import.meta.url)), "utf8"),
+    /import \{ EVERY_PLAN \} from "@\/app\/data\/every-plan"/,
+  );
   const siteLines = {
-    "app/components/home/homepageclient.tsx": [
-      '"Home, Services, About and Contact, plus pages for your services and the towns you work in, built from the details you give us. Hosting, SSL, daily backups and uptime monitoring included, plus 2 content edits a month."',
-    ],
+    "app/components/home/homepageclient.tsx": [],
     "app/data/every-plan.ts": [
       '"Written and built for you, with pages for your services and the towns you work in."',
       '"Hosting, SSL, daily backups and uptime monitoring, plus 2 content edits a month."',
