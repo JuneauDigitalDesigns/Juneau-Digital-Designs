@@ -4063,29 +4063,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: 18px;
   height: 68px;
 }
-/* The brand: monogram | dark hairline | wordmark, all transparent (Xander, 24 Nov 2026), hard
-   against the bar's left edge. Sizes are his approved ones.
-   - 1220px and up: the wide wordmark (about 273px), with the page links in the bar.
-   - 1040-1219px: the stacked wordmark, so the page links still fit in the bar (his option B).
-   - 640-1039px: the wide wordmark again, with the page links in the menu.
-   - Under 640px: the wide wordmark alone.
-   `max-width: none` because the site's image reset would otherwise squash a wide mark. */
-.nav-brand { display: flex; align-items: center; gap: 14px; flex: none; text-decoration: none; }
-.nav-brand-mono { display: block; height: 30px; width: auto; max-width: none; }
-.nav-brand-rule { display: block; width: 1px; height: 36px; background: rgba(20, 18, 12, 0.28); }
-.nav-brand-word { display: block; height: 44px; width: auto; max-width: none; }
-.nav-brand-stacked { display: none; height: 44px; width: auto; max-width: none; }
-@media (min-width: 1040px) and (max-width: 1219px) {
-  .nav-brand-word { display: none; }
-  .nav-brand-stacked { display: block; }
-}
-@media (max-width: 639px) {
-  .nav-brand-mono,
-  .nav-brand-rule { display: none; }
-  /* 40px tall (248px wide) where it fits; on a narrower phone it shrinks, in proportion, to the
-     room left by the bar's side padding (32px), its gap (18px) and the call and menu buttons (88px). */
-  .nav-brand-word { height: auto; width: min(248px, calc(100vw - 138px)); }
-}
+/* The brand: the monogram alone, transparent, hard against the bar's left edge, at every width
+   (Xander, 25 Nov 2026; the wordmark is the footer's). 40px tall, about 76px wide.
+   `max-width: none` because the site's image reset would otherwise squash it. */
+.nav-brand { display: flex; align-items: center; flex: none; text-decoration: none; }
+.nav-brand-mono { display: block; height: 40px; width: auto; max-width: none; }
 /* The footer's wordmark keeps its shape: 64px tall where the column has room, smaller (never
    squashed) where it doesn't. */
 .footer-brand { display: block; width: auto; height: auto; max-height: 64px; max-width: 100%; }
