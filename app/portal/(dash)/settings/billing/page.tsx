@@ -31,10 +31,13 @@ export default async function PlanAndBillingPage({
             key={site.slug}
             site={site}
             accountEmail={account.email}
+            // The website plan has no call minutes, so there is no meter to stream.
             usage={
-                <Suspense fallback={<Skeleton height={74} rounded={8} />}>
-                    <UsageBlock raw={raw} account={account} />
-                </Suspense>
+                site.webOnly ? undefined : (
+                    <Suspense fallback={<Skeleton height={74} rounded={8} />}>
+                        <UsageBlock raw={raw} account={account} />
+                    </Suspense>
+                )
             }
         />
     );

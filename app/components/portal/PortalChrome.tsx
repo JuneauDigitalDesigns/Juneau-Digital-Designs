@@ -40,19 +40,15 @@ import {
     MOBILE_BAR_TABS,
     MOBILE_MORE_TABS,
     SETTINGS_TABS,
+    planName,
     selectSite,
     settingsTabFor,
+    tourTierFor,
     tabAvailability,
     tabHref,
     type PortalSiteProps,
     type PortalTabId,
 } from "@/app/portal/types";
-
-const planLabel: Record<string, string> = {
-    starter: "Starter",
-    growth: "Growth",
-    enterprise: "Enterprise",
-};
 
 /**
  * One icon per tab id. `satisfies Record<PortalTabId, …>` is load-bearing: this map is indexed
@@ -179,7 +175,7 @@ export default function PortalChrome({
                 // The tour teaches a different product per tier, so it follows what the site on
                 // screen actually has. This read `sites[0]` until 2026-11-12, so a client looking
                 // at their Growth site got the Starter tour if their first site was Starter.
-                tier={selected.features.crm.state === "ready" ? "growth" : "starter"}
+                tier={tourTierFor(selected)}
                 siteStatus={selected.status}
                 siteSlug={selected.slug}
                 trade={selected.sampleTrade ?? "other"}
@@ -302,7 +298,7 @@ export default function PortalChrome({
                                 fontFamily: "var(--font-mono)",
                             }}
                         >
-                            {planLabel[selected.plan] ?? selected.plan}
+                            {planName(selected, true)}
                         </span>
                         {selected.status === "building" && (
                             <span

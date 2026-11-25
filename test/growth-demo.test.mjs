@@ -464,7 +464,7 @@ test("consecutive title cards keep the dark screen and swap only their words", (
 
 test("Upgrade goes where the old walkthrough went, the demo follows the site's trade, and ?demo=growth opens it once", () => {
     const src = read("app/components/portal/crm/StarterShowcase.tsx");
-    assert.match(src, /<GrowthDemo upgradeUrl=\{upgradeHref\(site\.slug\)\}[^>]*trade=\{site\.sampleTrade\}/);
+    assert.match(src, /<GrowthDemo upgradeUrl=\{upgradeHref\(site\.slug, site\)\}[^>]*trade=\{site\.sampleTrade\}/);
     assert.match(src, /DEMO_PARAM = "demo"/);
     assert.match(src, /DEMO_GROWTH = "growth"/);
     assert.match(src, /searchParams\.delete\(DEMO_PARAM\)/, "the parameter is dropped after opening");

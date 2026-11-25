@@ -3,6 +3,7 @@ import { cache } from "react";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import {
     accountFromLegacyMetadata,
+    isWebOnly,
     siteFeatures,
     type LegacyPortalMetadata,
     type PortalAccount,
@@ -122,6 +123,7 @@ export const resolveDashboard = cache(async (): Promise<{
         canonical: s.canonical?.trim() || null,
         billingLinked: hasBillingLink(s),
         plan: s.plan,
+        webOnly: isWebOnly(s),
         status: s.status,
         features: siteFeatures(s),
         featured: s.featured ?? null,

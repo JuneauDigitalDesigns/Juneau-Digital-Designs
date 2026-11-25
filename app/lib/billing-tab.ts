@@ -90,6 +90,8 @@ export const BILLING_COPY = {
     // §5.3 confirm step.
     confirmHeading: "Cancel your subscription?",
     confirmAfter: "We'll email you a confirmation, and this page will show the date your service ends.",
+    /** E8, approved 24 Nov 2026: the confirm line when the cancel is inside the 30-day refund window. */
+    confirmAfterRefund: "We'll email you a confirmation, and your service ends today.",
     confirmField: (name: string) => `Type "${name}" to confirm`,
     keepButton: "Keep my subscription",
     cancelButton: "Request cancellation",
@@ -99,6 +101,8 @@ export const BILLING_COPY = {
     cancellingBannerAfter: "You keep full access until then, and a confirmation was sent to your account email.",
     nextPaymentNone: "None",
     nextPaymentNoneHint: "apart from any call-minute overage from this month",
+    /** B6 (24 Nov 2026): the website plan has no minutes, so its hint says nothing about overage. */
+    nextPaymentNoneHintNoMinutes: undefined as string | undefined,
     renewsEnding: (date: string) => `Your service ends on ${date}.`,
 
     // §5.5 other states.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { PortalSiteProps } from "@/app/portal/types";
+import { planName, planNameOf, type PortalSiteProps } from "@/app/portal/types";
 import { StatTile } from "./ui/StatTile";
 import { FeatureError } from "./ui/FeatureState";
 import { SectionCard, FieldRow, StaticField, inputStyle } from "./ui/FormPrimitives";
@@ -64,13 +64,24 @@ function date(ms: number | null | undefined): string {
     return billingDate(ms) || "—";
 }
 
-const planLabel: Record<string, string> = {
-    starter: "Starter",
-    growth: "Growth",
-    enterprise: "Enterprise",
-};
-
 const CONTACT = "hello@juneaudigitaldesigns.com";
+
+/** `GET /api/portal/cancel`: what cancelling this site would do right now. */
+interface CancelTerms {
+    mode: "refund" | "period-end";
+    periodEndText?: string;
+    hasMinutes?: boolean;
+    refund?: { amountCents: number; amountText: string; windowEndsAt: number } | null;
+}
+
+/** The cancel card's words (E5, B5): one of four versions, from what the server says. */
+function cardText(terms: CancelTerms | null, periodEnd: number | null, site: PortalSiteProps): string {
+    return cancellationCardText({
+        periodEnd: terms?.periodEndText ?? date(periodEnd),
+        refund: terms?.mode === "refund" && terms.refund ? { amount: terms.refund.amountText } : null,
+        hasMinutes: terms?.hasMinutes ?? !site.webOnly,
+    });
+}
 
 /**
  * Settings › Plan & billing.
@@ -132,7 +143,7 @@ export default function BillingSection({
         return (
             <div className="space-y-8">
                 <SectionCard title="Plan" dataTour="billing-plan">
-                    <StaticField label="Plan" value={planLabel[site.plan] ?? site.plan} />
+                    <StaticField label="Plan" value={planName(site)} />
                     <StaticField label="Billing account" value={accountEmail} />
                     <p className="text-sm" style={{ color: "var(--fg-2)" }}>
                         {body}
@@ -172,12 +183,12 @@ export default function BillingSection({
             <div data-tour="billing-plan" className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatTile
                     label="Plan"
-                    value={planLabel[site.plan] ?? site.plan}
+                    value={planName(site)}
                     hint={amount && data.interval ? `${amount} per ${data.interval}` : undefined}
                     size="sm"
                 />
                 <StatTile label={C.statusLabel} value={statusText(status)} tone={statusTone(status.kind)} size="sm" />
-                <NextPaymentTile data={data} kind={status.kind} />
+                <NextPaymentTile data={data} kind={status.kind} minutes={!site.webOnly} />
             </div>
 
             {usage && <div data-tour="billing-minutes">{usage}</div>}
@@ -188,8 +199,8 @@ export default function BillingSection({
                     style={{ color: "var(--fg-2)", background: "var(--surface)", borderColor: "var(--rule)" }}
                 >
                     {downgradeTile({
-                        toName: planLabel[data.pendingPlanChange.toPlan] ?? data.pendingPlanChange.toPlan,
-                        fromName: planLabel[data.pendingPlanChange.fromPlan] ?? data.pendingPlanChange.fromPlan,
+                        toName: planNameOf(data.pendingPlanChange.toPlan),
+                        fromName: planNameOf(data.pendingPlanChange.fromPlan),
                         date: date(data.pendingPlanChange.effectiveAt),
                     })}
                 </p>
@@ -319,7 +330,7 @@ function statusTone(kind: BillingStatusKind): "default" | "positive" | "negative
     return "default";
 }
 
-function NextPaymentTile({ data, kind }: { data: BillingData; kind: BillingStatusKind }) {
+function NextPaymentTile({ data, kind, minutes }: { data: BillingData; kind: BillingStatusKind; minutes: boolean }) {
     const next = data.nextPayment ?? null;
     if (kind === "active") {
         // The real next invoice (overage included); the plan price only if Stripe's preview failed.
@@ -332,7 +343,7 @@ function NextPaymentTile({ data, kind }: { data: BillingData; kind: BillingStatu
         return <StatTile label={C.nextPaymentLabel} value={value} hint={C.overdueHint} tone="negative" size="sm" />;
     }
     if (kind === "cancelling") {
-        return <StatTile label={C.nextPaymentLabel} value={C.nextPaymentNone} hint={C.nextPaymentNoneHint} size="sm" />;
+        return <StatTile label={C.nextPaymentLabel} value={C.nextPaymentNone} hint={minutes ? C.nextPaymentNoneHint : C.nextPaymentNoneHintNoMinutes} size="sm" />;
     }
     return <StatTile label={C.nextPaymentLabel} value={C.nextPaymentNone} size="sm" />;
 }
@@ -491,6 +502,22 @@ function CancellationCard({
     const invalidate = useInvalidate();
     const [open, setOpen] = useState(false);
     const [requestedEnd, setRequestedEnd] = useState<string | null>(null);
+    // What cancelling would do, read live from Stripe by the server (never from the cached billing
+    // payload, never worked out here): the refund version of the card inside 30 days, else the
+    // period-end one. Until it answers, or if it fails, the card says the period-end words.
+    const [terms, setTerms] = useState<CancelTerms | null>(null);
+    const needsTerms = !(endsAt || requestedEnd);
+    useEffect(() => {
+        if (!needsTerms) return;
+        let live = true;
+        void fetch(`/api/portal/cancel?site=${encodeURIComponent(site.slug)}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((t) => live && t && typeof t.mode === "string" && setTerms(t as CancelTerms))
+            .catch(() => {});
+        return () => {
+            live = false;
+        };
+    }, [site.slug, needsTerms]);
 
     const endDate = endsAt ? date(endsAt) : requestedEnd;
     if (endDate) {
@@ -518,7 +545,7 @@ function CancellationCard({
     return (
         <SectionCard title="Cancellation">
             <p className="text-sm mb-4" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                {cancellationCardText({ periodEnd: date(periodEnd) })}
+                {cardText(terms, periodEnd, site)}
             </p>
 
             {site.plan === "enterprise" && (
@@ -544,6 +571,8 @@ function CancellationCard({
                 <CancelDialog
                     site={site}
                     periodEnd={periodEnd}
+                    terms={terms}
+                    onTerms={setTerms}
                     onClose={() => setOpen(false)}
                     onCancelled={(effectiveDate) => {
                         setOpen(false);
@@ -561,13 +590,17 @@ function CancellationCard({
 function CancelDialog({
     site,
     periodEnd,
+    terms,
+    onTerms,
     onClose,
     onCancelled,
 }: {
     site: PortalSiteProps;
     periodEnd: number | null;
+    terms: CancelTerms | null;
+    onTerms: (t: CancelTerms) => void;
     onClose: () => void;
-    onCancelled: (effectiveDate: string) => void;
+    onCancelled: (effectiveDate: string | null) => void;
 }) {
     const [confirm, setConfirm] = useState("");
     const [submitting, setSubmitting] = useState(false);
@@ -591,11 +624,20 @@ function CancelDialog({
             const res = await fetch(`/api/portal/cancel?site=${encodeURIComponent(site.slug)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ confirm }),
+                // `expect` is what the card promised. If the window closed since, the server answers
+                // 409 with the real mode and nothing is cancelled or refunded.
+                body: JSON.stringify({ confirm, expect: terms?.mode ?? "period-end" }),
             });
             const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+            if (res.status === 409 && (data.mode === "refund" || data.mode === "period-end") && data.mode !== (terms?.mode ?? "period-end")) {
+                // The card is re-read, so the client sees the new promise before confirming again.
+                const next = await fetch(`/api/portal/cancel?site=${encodeURIComponent(site.slug)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+                if (next && typeof next.mode === "string") onTerms(next as CancelTerms);
+            }
             if (!res.ok) throw new Error((data.error as string) ?? "Cancellation failed");
-            onCancelled(data.effectiveDate as string);
+            // A cancel inside the 30-day window ends the service today and answers `refunded`
+            // with no end date: the refreshed tab then shows the Cancelled banner.
+            onCancelled(typeof data.effectiveDate === "string" ? data.effectiveDate : null);
         } catch (e) {
             setError(e instanceof Error ? e.message : "Cancellation failed. Please contact support.");
             setSubmitting(false);
@@ -621,10 +663,10 @@ function CancelDialog({
                     {C.confirmHeading}
                 </h2>
                 <p className="text-sm mb-2.5" style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}>
-                    {cancellationCardText({ periodEnd: date(periodEnd) })}
+                    {cardText(terms, periodEnd, site)}
                 </p>
                 <p className="text-sm mb-3" style={{ color: "var(--fg-2)" }}>
-                    {C.confirmAfter}
+                    {terms?.mode === "refund" ? C.confirmAfterRefund : C.confirmAfter}
                 </p>
                 <FieldRow label={C.confirmField(site.name)}>
                     <input

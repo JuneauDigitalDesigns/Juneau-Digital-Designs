@@ -209,7 +209,7 @@ export default function CalendarSection({ site }: { site: PortalSiteProps }) {
     }
 
     // ── gating ──────────────────────────────────────────────────────────────
-    if (gate.state === "not-on-plan") return <CalendarStarter siteSlug={site.slug} />;
+    if (gate.state === "not-on-plan") return <CalendarStarter siteSlug={site.slug} webOnly={site.webOnly} />;
     if (gate.state !== "ready") {
         return (
             <div className="space-y-6">

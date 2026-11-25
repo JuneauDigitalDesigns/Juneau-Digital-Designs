@@ -63,6 +63,7 @@ test("the transcript route shares the recording's guards", () => {
     const route = read("app/api/portal/calls/[id]/transcript/route.ts");
     assert.match(route, /resolvePortalRequest\(request, getRecordingRatelimit\(\)\)/);
     assert.match(route, /AIRTABLE_RECORD_ID\.test\(id\)/);
-    assert.match(route, /siteFeature\(ctx\.site, "calls"\)\.state !== "ready"/);
+    // Live calls, or the past calls a website-plan site kept (B4): one helper decides which.
+    assert.match(route, /callSource\(ctx\.site\)/);
     assert.match(route, /scopeToSite:/);
 });

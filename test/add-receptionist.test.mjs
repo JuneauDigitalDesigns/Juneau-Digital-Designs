@@ -41,18 +41,21 @@ test("switching the receptionist on needs a real phone choice, never website-onl
   assert.equal(validateAgreementSubmission({ ...base, receptionistSlug: "acme", receptionistMode: "published" }), null);
 });
 
-test("the Call Log panel offers the switch-on, with the approved wording", () => {
+test("adding the receptionist is the website plan's paid upgrade, not a free switch-on", () => {
+  // The old free panel and its "no extra cost" words are retired (copy batch C3, 24 Nov 2026).
   const panel = read("app/components/portal/ui/FeatureState.tsx");
-  assert.ok(
-    panel.includes(
-      "Your plan includes an AI receptionist on a dedicated business number — it answers when you can't, and every call is logged here with who rang and what they wanted. You started website-only, and you can switch it on here at no extra cost.",
-    ),
-  );
-  assert.match(panel, /href=\{addReceptionistHref\(siteSlug\)\}/);
-  assert.match(panel, />\s*Switch it on\s*</);
-  assert.doesNotMatch(panel, /Add%20my%20AI%20receptionist/);
-  const strip = read("app/components/portal/HealthStrip.tsx");
-  assert.match(strip, /href=\{addReceptionistHref\(slug\)\}/);
+  assert.doesNotMatch(panel, /at no extra cost/);
+  assert.doesNotMatch(panel, />\s*Switch it on\s*</);
+  assert.doesNotMatch(panel, /addReceptionistHref/);
+  // Every "Add the AI receptionist" link goes to the Starter + AI Receptionist agreement, which
+  // finishes at the upgrade endpoint.
+  const types = read("app/portal/types.ts");
+  assert.match(types, /\/terms\/accept\?plan=starter&upgrade=/);
+  assert.doesNotMatch(types, /receptionist=\$\{/);
+  const health = read("app/components/portal/analytics/SiteHealth.tsx");
+  assert.match(health, /href=\{addReceptionistHref\(slug\)\}/);
+  assert.match(health, /Add the AI receptionist/);
+  assert.doesNotMatch(health, /Add your receptionist/);
 });
 
 test("the switch-on errors say exactly what Xander approved", async () => {
