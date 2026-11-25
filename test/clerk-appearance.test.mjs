@@ -20,7 +20,7 @@ import { readFileSync } from "node:fs";
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 const appearance = await import("../app/portal/clerkAppearance.ts");
-const { AGENCY_HEX, clerkAppearance, clerkAuthAppearance, clerkLocalization } = appearance;
+const { AGENCY_HEX, AGENCY_HEX_DARK, CLERK_VAR, clerkAppearance, clerkAuthAppearance, clerkLocalization } = appearance;
 
 // ── WCAG 2 relative luminance / contrast ────────────────────────────────────────────────────
 function luminance(hex) {
@@ -54,6 +54,49 @@ test("Clerk's CSS sits in the `clerk` layer, ordered below components and utilit
     assert.ok(order < tw, "the @layer order must come before Tailwind declares its own layers");
 });
 
+// The --clerk-* custom properties Clerk reads, light (:root) and dark (prefers-color-scheme).
+function clerkCssVars() {
+    const css = read("app/globals.css");
+    const at = css.indexOf("--clerk-bg:");
+    assert.ok(at >= 0, "the --clerk-* block is missing from globals.css");
+    const light = css.slice(at, css.indexOf("}", at));
+    const darkAt = css.indexOf("--clerk-bg:", at + 1);
+    assert.ok(darkAt >= 0, "the dark --clerk-* block is missing");
+    const dark = css.slice(darkAt, css.indexOf("}", darkAt));
+    const parse = (block) => Object.fromEntries([...block.matchAll(/--clerk-([a-z0-9-]+):s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
+    return { light: parse(light), dark: parse(dark) };
+}
+const CSS_NAME = {
+    bg: "bg", panelHeader: "panel-header", card: "card", fg: "fg", fg2: "fg2", coral: "coral",
+    coralDeep: "coral-deep", onCoral: "on-coral", teal: "teal", danger: "danger", success: "success",
+    warning: "warning", white: "input",
+};
+
+test("the --clerk-* properties in globals.css are exactly AGENCY_HEX and AGENCY_HEX_DARK", () => {
+    const { light, dark } = clerkCssVars();
+    for (const [key, name] of Object.entries(CSS_NAME)) {
+        assert.equal(light[name], AGENCY_HEX[key], `light --clerk-${name}`);
+        assert.equal(dark[name], AGENCY_HEX_DARK[key], `dark --clerk-${name}`);
+        assert.equal(CLERK_VAR[key], `var(--clerk-${name})`, `CLERK_VAR.${key}`);
+    }
+});
+
+test("dark: every text colour Clerk renders clears WCAG AA on every surface it sits on", () => {
+    const H = AGENCY_HEX_DARK;
+    for (const fg of ["fg", "fg2"]) {
+        for (const [name, bg] of Object.entries({ card: H.card, bg: H.bg, panelHeader: H.panelHeader, input: H.white })) {
+            assert.ok(contrast(H[fg], bg) >= 4.5, `dark ${fg} on ${name}: ${contrast(H[fg], bg).toFixed(2)}`);
+        }
+    }
+    for (const bg of [H.card, H.panelHeader]) assert.ok(contrast(H.teal, bg) >= 4.5, `dark teal on ${bg}`);
+    for (const c of ["danger", "success", "warning"]) {
+        assert.ok(contrast(H[c], H.card) >= 4.5, `dark ${c}: ${contrast(H[c], H.card).toFixed(2)}`);
+    }
+    // Dark ink on the brighter coral is AA at any size, unlike cream on coral in light.
+    assert.ok(contrast(H.onCoral, H.coral) >= 4.5, `dark onCoral on coral: ${contrast(H.onCoral, H.coral).toFixed(2)}`);
+    assert.ok(contrast(H.onCoral, H.coralDeep) >= 4.5, "dark onCoral on coralDeep");
+});
+
 test("every text colour Clerk renders clears WCAG AA on every surface it sits on", () => {
     const surfaces = { card: AGENCY_HEX.card, bg: AGENCY_HEX.bg, panelHeader: AGENCY_HEX.panelHeader };
     // Body-size text: 4.5:1 everywhere.
@@ -72,9 +115,9 @@ test("every text colour Clerk renders clears WCAG AA on every surface it sits on
     }
     // The variables actually point at those values.
     const v = clerkAppearance.variables;
-    assert.equal(v.colorForeground, AGENCY_HEX.fg);
-    assert.equal(v.colorMutedForeground, AGENCY_HEX.fg2);
-    assert.equal(v.colorBackground, AGENCY_HEX.card);
+    assert.equal(v.colorForeground, CLERK_VAR.fg);
+    assert.equal(v.colorMutedForeground, CLERK_VAR.fg2);
+    assert.equal(v.colorBackground, CLERK_VAR.card);
     // The agency body face, not the portal's Inter: sign-in matches the agency site.
     assert.match(v.fontFamily, /^var\(--font-hanken\)/);
     assert.match(read("app/portal/sign-in/_auth/AuthShell.module.css"), /font-family: var\(--font-hanken\)/);
@@ -93,7 +136,7 @@ test("cream on coral is large-text only, so the coral button label stays large a
     assert.ok(sizes.length > 0, "the primary button must set its own size");
     for (const px of sizes) assert.ok(px >= 18.66, `primary button label at ${px}px is too small for cream on coral`);
     assert.match(btn, /\bfont-(bold|extrabold|black)\b/);
-    assert.match(btn, /hover:bg-\[#b8441f\]/);
+    assert.match(btn, /hover:bg-\[var\(--clerk-coral-deep\)\]/);
 });
 
 test("approved card wording, through Clerk localization", () => {
@@ -110,7 +153,7 @@ test("sign-in and sign-up wear the agency brand, not the portal scope", () => {
         const src = read(page);
         // The import and the JSX, not the word: the pages' comments explain why it's gone.
         assert.doesNotMatch(src, /components\/portal\/PortalScope"|^\s*<PortalScope>/m, page);
-        assert.match(src, /<AuthShell>/, page);
+        assert.match(src, /<AuthShell( launch)?>/, page);
         assert.match(src, /appearance=\{clerkAuthAppearance\}/, page);
     }
     const chrome = read("app/components/MarketingChrome.tsx");
@@ -136,5 +179,10 @@ test("the account menu: Manage account, Help & support, Replay the tour, Sign ou
     // Every UserButton in the portal chrome is ours, so none renders without the two items.
     const chrome = read("app/components/portal/PortalChrome.tsx");
     assert.doesNotMatch(chrome, /<UserButton\b/);
+    // The top bar's (twice: on the Calendar it moves to the left, 2026-11-19) and the rail's; the
+    // old More sheet's moved to the More screen.
     assert.equal((chrome.match(/<PortalUserButton\b/g) ?? []).length, 3);
+    const more = read("app/components/portal/MoreScreen.tsx");
+    assert.doesNotMatch(more, /<UserButton\b/);
+    assert.equal((more.match(/<PortalUserButton\b/g) ?? []).length, 1);
 });

@@ -5,6 +5,8 @@
  *
  * No `server-only`: the portal's Billing tile (a client component) renders `downgradeTile`.
  */
+import { PLAN_LABELS } from "@jdd/schema";
+import { isPlanSlug } from "./plan-ids.mjs";
 
 export const CONTACT_EMAIL = "hello@juneaudigitaldesigns.com";
 
@@ -44,7 +46,7 @@ export function consolidationParagraph(input: {
     return (
         `${hostName}'s Growth plan becomes Enterprise as soon as you accept, and you pay only the difference between the two plans for the rest of your current ${interval}, which ends on ${periodEnd}.` +
         otherSentence +
-        ` You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Enterprise service agreement on the next screen before anything is charged.`
+        ` You stay on monthly billing. There's no onboarding fee for moving your existing sites. You'll review and accept the Terms of Service for the Enterprise plan on the next screen before anything is charged.`
     );
 }
 
@@ -90,24 +92,96 @@ export function consolidationRefusal(code: string, cancelDate?: string): string 
  * overage clause is deliberate: a final month's call-minute overage is still billed after a
  * cancellation, as `CANCEL_EMAIL_ACCESS` already says.
  */
-export function cancellationCardText(input: { periodEnd: string }): string {
-    return `You can cancel at any time. There's no notice period and no fee. You won't be charged again, apart from any call-minute overage from your final month. Your service stays on until the end of the month you've already paid for, on ${input.periodEnd}.`;
+export function cancellationCardText(input: {
+    periodEnd: string;
+    /**
+     * Set when this cancellation takes the first-month refund (Terms v7 §2.2): the amount, as
+     * `GET /api/portal/cancel` states it ("$97"). The service then ends today, not at `periodEnd`.
+     */
+    refund?: { amount: string } | null;
+    /**
+     * Whether the plan has call minutes. False on the website plan (and a legacy website-only
+     * Starter), which has no overage to mention (B5). Defaults to true, as before.
+     */
+    hasMinutes?: boolean;
+}): string {
+    const minutes = input.hasMinutes ?? true;
+    // E5 (Terms session, approved 2026-11-24), within 30 days of the first payment.
+    if (input.refund) {
+        return minutes
+            ? `You can cancel at any time. Because you're cancelling within 30 days of your first payment, we'll refund your first monthly fee of ${input.refund.amount} to your card, and your service ends today. The onboarding fee isn't refunded, and any call-minute overage you've already used is still billed.`
+            : `You can cancel at any time. Because you're cancelling within 30 days of your first payment, we'll refund your first monthly fee of ${input.refund.amount} to your card, and your service ends today. The onboarding fee isn't refunded.`;
+    }
+    // After the 30 days: unchanged, except that Starter drops the overage clause (B5).
+    return minutes
+        ? `You can cancel at any time. There's no notice period and no fee. You won't be charged again, apart from any call-minute overage from your final month. Your service stays on until the end of the month you've already paid for, on ${input.periodEnd}.`
+        : `You can cancel at any time. There's no notice period and no fee. You won't be charged again. Your service stays on until the end of the month you've already paid for, on ${input.periodEnd}.`;
 }
 
-/** The cancellation confirmation email. */
+/** The cancellation confirmation email. The plan-with-minutes, after-30-days version. */
 export const CANCEL_EMAIL_ACCESS =
     "You keep full access until that date, and you won't be charged again for this site apart from any call-minute overage from your final month.";
+
+/**
+ * The cancellation email's access line, in all four versions: within the first 30 days (E6, the
+ * refund) or after, and with call minutes or without (B5, the website plan).
+ */
+export function cancelEmailAccess(input: { refund?: { amount: string } | null; hasMinutes?: boolean }): string {
+    const minutes = input.hasMinutes ?? true;
+    if (input.refund) {
+        return minutes
+            ? `We've refunded your first monthly fee of ${input.refund.amount} to your card. Your service ended today. The onboarding fee isn't refunded, and any call-minute overage you've already used is still billed.`
+            : `We've refunded your first monthly fee of ${input.refund.amount} to your card. Your service ended today. The onboarding fee isn't refunded.`;
+    }
+    return minutes ? CANCEL_EMAIL_ACCESS : "You keep full access until that date, and you won't be charged again for this site.";
+}
 export const CANCEL_EMAIL_NOTICE =
-    "This email is your written confirmation of cancellation under your service agreement. No notice period applies. If you have questions, reply to this email.";
+    "This email is your written confirmation of cancellation under our Terms of Service. No notice period applies. If you have questions, reply to this email.";
 export function cancelEmailFooter(submittedOn: string): string {
-    return `This email confirms cancellation under the Juneau Digital Designs Master Services Agreement. Cancellation request submitted ${submittedOn}.`;
+    return `This email confirms cancellation under the Juneau Digital Designs Terms of Service. Cancellation request submitted ${submittedOn}.`;
+}
+
+/**
+ * The email to JDD when a client cancels (§5.8, approved 2026-11-16). Internal; the subject is
+ * unchanged. The rows replace the old Slug / Plan / Subscription / Effective date table, so the
+ * email names every site the subscription pays for and says when Stripe stops billing.
+ */
+export function cancelOpsEmail(input: {
+    business: string;
+    accountEmail: string;
+    sites: string[];
+    plan: string;
+    subscriptionId: string;
+    termEnds: string;
+    requested: string;
+    /** The first-month refund, when this cancellation took it: "$97 (re_…)". */
+    refund?: string;
+}): { subject: string; rows: [string, string][]; footer: string } {
+    // From the one label map, never the id: the id `starter` is "Starter + AI Receptionist".
+    const plan = isPlanSlug(input.plan) ? PLAN_LABELS[input.plan].name : input.plan;
+    return {
+        subject: `[JDD] Cancellation request: ${input.business}`,
+        rows: [
+            ["Client", input.business],
+            ["Account", input.accountEmail],
+            ["Sites", input.sites.join(", ")],
+            ["Plan", plan],
+            ["Subscription", input.subscriptionId],
+            ["Term ends", input.termEnds],
+            ["Requested", input.requested],
+            ...(input.refund ? ([["First-month refund", input.refund]] as [string, string][]) : []),
+        ],
+        footer: input.refund
+            ? `First-month refund issued and the subscription ended today (${input.termEnds}). The service ends today: run the teardown from the console now.`
+            : `Stripe stops billing on ${input.termEnds}. Run the teardown from the console once that date passes.`,
+    };
 }
 
 /* ── Website-only → receptionist (D7) ─────────────────────────────────────────────────── */
 
 export const RECEPTIONIST_FAILED = `We couldn't switch on your receptionist, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;
 export const RECEPTIONIST_SESSION_EXPIRED =
-    "Your session expired while signing. Your agreement is saved. Please sign in and try again.";
+    "Your session expired before you finished. Your acceptance is saved. Please sign in and try again.";
 
 /** A downgrade the client accepted that could not be scheduled, or a stale accept link. */
 export const DOWNGRADE_FAILED = `We couldn't schedule your plan change, and nothing has changed. Email ${CONTACT_EMAIL} and we'll sort it out.`;

@@ -37,6 +37,10 @@ export default async function SettingsPage({
             /* Read here, on the server: the browser has no OWNER_TEXT_CAMPAIGN. */
             smsCampaign={ownerTextCampaign()}
             smsConsentCopy={smsConsentCopy()}
+            /* D9: a website-plan site never texts the owner, so an account of only those has no card. */
+            textAlertSites={
+                ctx.sites.every((s) => s.webOnly) ? "none" : ctx.sites.some((s) => s.webOnly) ? "mixed" : "all"
+            }
             accountProfile={
                 ctx.account.profile
                     ? {

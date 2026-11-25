@@ -11,17 +11,28 @@ import s from "./GrowthDemo.module.css";
  * Driven by the demo's own clock (`cursorAt`), so Pause, Back and Next hold and move it exactly
  * as they do the scene. Its stops are selectors, resolved against the replica on every tick, so
  * it lands on the real element wherever the real layout put it. A stop that is off screen in a
- * scrolling panel is scrolled into view first, as a person would.
+ * scrolling panel is scrolled into view first, as a person would, and only inside the replica.
  *
- * On a phone it is a tap: a dot that appears where the finger lands, rather than an arrow.
+ * On a phone it is a tap: a dot that appears where the finger lands, rather than an arrow, on
+ * the phone's own stops (`PHONE_CURSOR`): the new app is tapped and pressed, not dragged.
  */
 
-/** Where a desktop selector lives on the phone's layout, when it differs. */
-const PHONE_ALIAS: Record<string, string> = {
-    'section[aria-label="Contacted column"]': '[data-customer-id="demo-dave"] select',
-    'section[aria-label="Quoted column"]': '[data-customer-id="demo-dave"] select',
-    'section[aria-label="Scheduled column"]': '[data-customer-id="demo-dave"] select',
-};
+/**
+ * Scrolls `target` into view inside the replica only: each scrolling box between it and
+ * `container` is moved, and nothing above the container ever is. `scrollIntoView` also scrolls
+ * the page, which on the homepage pulled a visitor back up to the demo while they read on
+ * (2026-11-18); the Growth demo's locked page had hidden that.
+ */
+export function revealWithin(target: HTMLElement, container: HTMLElement) {
+    for (let el = target.parentElement; el && el !== container.parentElement; el = el.parentElement) {
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy !== "auto" && oy !== "scroll") || el.scrollHeight <= el.clientHeight) continue;
+        const box = el.getBoundingClientRect();
+        const r = target.getBoundingClientRect();
+        if (r.top < box.top) el.scrollTop -= box.top - r.top + 12;
+        else if (r.bottom > box.bottom) el.scrollTop += r.bottom - box.bottom + 12;
+    }
+}
 
 const ease = (p: number) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
 
@@ -41,7 +52,7 @@ export default function DemoCursor({
 }) {
     const ref = useRef<HTMLDivElement>(null);
     const lastTo = useRef<string | null>(null);
-    const c = cursorAt(scene, t);
+    const c = cursorAt(scene, t, false, tap);
 
     useLayoutEffect(() => {
         const box = container.current;
@@ -49,11 +60,11 @@ export default function DemoCursor({
         if (!box || !el) return;
         const find = (sel: string | null) => {
             if (!sel) return null;
-            return box.querySelector<HTMLElement>(sel) ?? (tap && PHONE_ALIAS[sel] ? box.querySelector<HTMLElement>(PHONE_ALIAS[sel]) : null);
+            return box.querySelector<HTMLElement>(sel);
         };
         const target = find(c.to);
         // A new stop in a scrolling panel: bring it into view, as a person would scroll to it.
-        if (target && c.to !== lastTo.current) target.scrollIntoView({ block: "nearest", inline: "nearest" });
+        if (target && c.to !== lastTo.current) revealWithin(target, box);
         lastTo.current = c.to;
         const b = box.getBoundingClientRect();
         const point = (n: HTMLElement | null) => {

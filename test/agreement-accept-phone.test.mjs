@@ -9,7 +9,7 @@
  * What it holds both agreement pages to, browser and server:
  *  - the number box, if anything is typed in it, holds a complete US number, ticked or not;
  *  - blank with the box unticked still agrees: the number and the texts stay optional;
- *  - the forwarding number on `/agreement` is a complete US number too.
+ *  - the forwarding number on `/terms/accept` is a complete US number too.
  *
  * The browser check is `alertPhoneProblem`, the same function the routes call; the last test
  * holds both pages to calling it before they submit.
@@ -87,7 +87,7 @@ test("the number box: ticked needs a valid number; unticked allows blank, and no
     assert.equal(alertPhoneProblem(true, "(407) 555-0143"), null);
 });
 
-/* ── /agreement (self-serve) ──────────────────────────────────────────────── */
+/* ── /terms/accept (self-serve) ──────────────────────────────────────────────── */
 
 const NOW = "2026-11-15T15:00:00.000Z";
 const submission = (o = {}) => ({
@@ -106,7 +106,7 @@ const submission = (o = {}) => ({
     ...o,
 });
 
-test("/agreement refuses '555' in the number box, ticked or not, and still agrees with it blank", () => {
+test("/terms/accept refuses '555' in the number box, ticked or not, and still agrees with it blank", () => {
     assert.equal(validateAgreementSubmission(submission({ alertPhone: "555" })), ALERT_PHONE_UNTICKED_ERROR);
     assert.equal(validateAgreementSubmission(submission({ smsConsent: false, alertPhone: "555" })), ALERT_PHONE_UNTICKED_ERROR);
     assert.equal(
@@ -122,7 +122,7 @@ test("/agreement refuses '555' in the number box, ticked or not, and still agree
     assert.equal(validateAgreementSubmission(submission({ smsConsent: true, alertPhone: "(407) 555-0143" })), null);
 });
 
-test("/agreement refuses a partial or foreign forwarding number", () => {
+test("/terms/accept refuses a partial or foreign forwarding number", () => {
     for (const bad of ["555", "407555014", "+44 7911 123456"]) {
         assert.equal(
             validateAgreementSubmission(submission({ receptionistMode: "forwarded", forwardingNumber: bad })),
@@ -133,16 +133,16 @@ test("/agreement refuses a partial or foreign forwarding number", () => {
     assert.equal(validateAgreementSubmission(submission({ receptionistMode: "forwarded", forwardingNumber: "+14075550123" })), null);
 });
 
-test("/agreement refuses blank-after-trim names and a malformed email", () => {
-    assert.equal(validateAgreementSubmission(submission({ signerName: "   " })), "Missing signer name");
+test("/terms/accept refuses blank-after-trim names and a malformed email", () => {
+    assert.equal(validateAgreementSubmission(submission({ signerName: "   " })), "Missing your name");
     assert.equal(validateAgreementSubmission(submission({ clientLegalName: " " })), "Missing client legal name");
     for (const bad of ["marisol", "marisol@", "marisol@riverapd", " ", "a b@c.d"]) {
-        assert.equal(validateAgreementSubmission(submission({ signerEmail: bad })), "Invalid signer email", bad);
+        assert.equal(validateAgreementSubmission(submission({ signerEmail: bad })), "Invalid email", bad);
     }
     assert.equal(validateAgreementSubmission(submission({ termsAccepted: false })), "Please tick the box to agree to the Terms of Service");
 });
 
-/* ── /agree/[code] (the close wizard's link) ──────────────────────────────── */
+/* ── /terms/[code] (the close wizard's link) ──────────────────────────────── */
 
 const order = (o = {}) => ({
     id: "ord_agree",

@@ -1,5 +1,5 @@
 import type { FeatureAvailability } from "@jdd/schema";
-import type { PortalSiteProps } from "@/app/portal/types";
+import { planName, type PortalSiteProps } from "@/app/portal/types";
 import { Card, CardLabel } from "./ui/Card";
 import { StatusDot } from "./ui/StatusDot";
 
@@ -34,7 +34,8 @@ export function GrowthProvisioning({
      */
     justUpgraded?: boolean;
 }) {
-    const planLabel = site.plan.charAt(0).toUpperCase() + site.plan.slice(1);
+    // From the label map: the id `starter` is shown as "Starter + AI Receptionist", never "Starter".
+    const planLabel = planName(site);
 
     return (
         <Card elevation={2} density="roomy" className="space-y-5">
@@ -45,7 +46,7 @@ export function GrowthProvisioning({
                     style={{ color: "var(--fg-2)", lineHeight: "var(--leading-relaxed)" }}
                 >
                     {justUpgraded
-                        ? `Thanks. Your agreement is signed and your billing is updated. `
+                        ? `Thanks. Your acceptance is recorded and your billing is updated. `
                         : `You're on ${planLabel} and your billing is updated. `}
                     We&rsquo;re putting your AI receptionist together now, and that&rsquo;s a
                     dedicated business number, an agent trained on your services, and the call log

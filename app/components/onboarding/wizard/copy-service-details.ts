@@ -104,6 +104,13 @@ export const C = {
     qPhotos: "Photos of you doing this work", // S1 (2026-11-11; was #32 "Photos of this job")
     hPhotos: "Up to 3. The first one becomes this service's picture across your site. The rest show on its page.", // #37
     photosCap: "Up to 3 photos per service.", // #37
+    // A job's before photo (2026-11-18), on trades whose site shows the pair (app/lib/before-after.ts).
+    // BA1 to BA5, approved word for word by Xander on 2026-11-18. Don't reword without his sign-off.
+    beforeAdd: "+ Before photo", // BA1
+    beforeHelp: "Have a photo of the same spot before you cleaned it? Add it to that job photo and your site shows the two side by side.", // BA2
+    beforeTag: "Before", // BA3
+    beforeRemove: "Remove before photo", // BA4
+    beforeAlt: (service: string, n: number) => `${service} photo ${n}, before`, // BA5, the form only
     listCap: (n: number) => `Up to ${n} for each service.`, // #37
     qBrands: "Brands you use for this", // #32
     hBrands: "Tap any that apply. They're added to your Brands list too.", // #38
@@ -154,6 +161,29 @@ export const C = {
     workCap: "Up to 10 photos.", // P3's limit, shown when a drop holds more photos than fit
     welcomePhotos: "Your logo and some photos of your work or your business. No logo or photos yet? That's fine, we'll sort it.", // P7
 
+    // Two logos (W2 to W14), approved word for word by Xander, 2026-11-19 ("The mockup for asking
+    // clients for both logos looks good", mockup https://claude.ai/artifact/Lmg7cMwAiivdPsPsNKaiB9,
+    // the Wording board). The square logo is the nav's monogram (`images.monogram`), the wide logo
+    // the footer's wordmark (`images.logo`), @jdd/schema v1.42.0. W1, W9 and W11 are unchanged.
+    logoHelp: "Your site shows your logo in two spots, so there are two boxes. Only have one? Put it in the box it looks most like. PNG, JPG or WebP, up to 10 MB.", // W2
+    logoSquare: "Square logo", // W3
+    logoSquareWhat: "Your initials or a symbol. It sits in the bar at the top of every page.", // W4
+    logoWide: "Wide logo", // W5
+    logoWideWhat: "Your business name written out as a logo. It sits at the bottom of every page.", // W6
+    logoUploadSquare: "Upload your square logo", // W7
+    logoUploadWide: "Upload your wide logo", // W7
+    logoLikeThis: "Like this", // W8
+    logoSummaryBoth: "Square and wide logos", // W10
+    logoSummarySquare: "Square logo only", // W10
+    logoSummaryWide: "Wide logo only", // W10
+    logoShownTop: "Shown at the top of every page", // W12
+    logoShownBottom: "Shown at the bottom of every page", // W12
+    logoNoWide: "No wide logo? That's fine. The bottom of each page shows your square logo next to your business name.", // W13
+    logoNoSquare: "No square logo? That's fine. The top of each page shows your business name on its own.", // W13
+    logoLooksWide: "This one looks wide. Move it to the wide logo box?", // W14
+    logoLooksSquare: "This one looks square. Move it to the square logo box?", // W14
+    logoMove: "Move it", // W14
+
     // The tagline question (T2 to T6), approved word for word by Xander, 2026-11-11 ("Approve as
     // drafted", mockup https://claude.ai/artifact/BaoLxNU2Gd9JPLhh4yW3CA). T6 is the first of the
     // two skip lines drafted.
@@ -187,6 +217,10 @@ export const PROFILE_SHORT: Record<ProfileKind, string> = {
     angi: "Angi",
     nextdoor: "Nextdoor",
     instagram: "Instagram",
+    linkedin: "LinkedIn",
+    youtube: "YouTube",
+    tiktok: "TikTok",
+    x: "X",
     other: "Other",
 };
 
@@ -199,5 +233,16 @@ export const PROFILE_HOWTO: Record<ProfileKind, string> = {
     angi: "Open your Angi page and copy the link.",
     nextdoor: "Open your Nextdoor page and copy the link.",
     instagram: "Open your Instagram profile and copy the link.",
+    // @jdd/schema v1.39.0 kinds. The wizard doesn't offer them (WIZARD_PROFILE_KINDS) until their
+    // how-to lines are approved, so they have none, like "other".
+    linkedin: "",
+    youtube: "",
+    tiktok: "",
+    x: "",
     other: "",
 };
+
+/** The profiles the wizard offers, in the schema's order: every kind with an approved how-to line,
+ *  plus "other". It used to be PROFILE_KINDS itself, so @jdd/schema v1.39.0 (LinkedIn, YouTube,
+ *  TikTok, X) would have shown four new chips with no approved copy. A kind joins with its line. */
+export const WIZARD_PROFILE_KINDS = ["google", "facebook", "yelp", "bbb", "angi", "nextdoor", "instagram", "other"] as const satisfies readonly ProfileKind[];

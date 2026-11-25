@@ -210,6 +210,16 @@ export function useCachedFetch<T>(
 }
 
 /** Drop cached entries so the next read refetches. Call after any mutation. */
+/**
+ * Forget everything cached. The tour calls it when its sample data goes on and again when it
+ * comes off (`tour/sample-mode.ts`), so sample rows never outlive the tour and real rows never
+ * show inside it.
+ */
+export function useClearPortalCache(): () => void {
+    const { store } = useCtx();
+    return useCallback(() => store.clear(), [store]);
+}
+
 export function useInvalidate(): (prefix: string) => void {
     const { store } = useCtx();
     return useCallback((prefix: string) => store.invalidate(prefix), [store]);

@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import MarketingChrome from "./components/MarketingChrome";
+import SiteAnalytics from "./components/SiteAnalytics";
+import { HOME_DESCRIPTION, HOME_TITLE, SITE_URL } from "./lib/site-seo";
 
 /**
  * Self-hosted rather than fetched from Google at build time.
@@ -106,9 +108,16 @@ const cabinet = localFont({
   preload: false,
 });
 
+/**
+ * Site-wide defaults. `metadataBase` turns every page's relative canonical and preview-image
+ * path into a full www address. The title and description are the homepage's, so a page that
+ * sets none of its own (a 404, for one) no longer shows the old "Innovative Web Design and
+ * UI/UX Solutions". Public pages set their own through `pageMetadata` in `app/lib/site-seo.ts`.
+ */
 export const metadata: Metadata = {
-  title: "Juneau Digital Designs LLC",
-  description: "Innovative Web Design and UI/UX Solutions",
+  metadataBase: new URL(SITE_URL),
+  title: HOME_TITLE,
+  description: HOME_DESCRIPTION,
 };
 
 /**
@@ -152,6 +161,8 @@ export default function RootLayout({
               over the portal too — MarketingChrome now owns it and keeps it off the
               product routes while leaving it on /portal/onboarding. */}
           <MarketingChrome>{children}</MarketingChrome>
+          {/* Vercel Web Analytics. Off on the portal and private links; see SiteAnalytics. */}
+          <SiteAnalytics />
       </body>
     </html>
   );

@@ -293,10 +293,12 @@ export class PdfDoc {
 
 /* ── section rendering ── */
 
-export function renderBlock(doc: PdfDoc, block: Block): void {
+/** `lead` is a clause number printed at the start of the text, for clauses with no heading. */
+export function renderBlock(doc: PdfDoc, block: Block, lead?: string): void {
+  const withLead = (text: string) => (lead ? `${lead} ${text}` : text);
   switch (block.kind) {
     case "para":
-      doc.text(block.text, { size: 9.5, after: 7 });
+      doc.text(withLead(block.text), { size: 9.5, after: 7 });
       break;
     case "bullets":
       doc.bullets(block.items);
@@ -310,14 +312,21 @@ export function renderBlock(doc: PdfDoc, block: Block): void {
       doc.callout(block.text);
       break;
     case "allcaps":
-      doc.text(block.text, { size: 9, bold: true, after: 8 });
+      doc.text(withLead(block.text), { size: 9, bold: true, after: 8 });
       break;
   }
 }
 
 export function renderSections(doc: PdfDoc, sections: Section[]): void {
   for (const section of sections) {
-    // Schedule A (num 0) starts its own page and prints unnumbered.
+    // A section 0 with no heading is the preamble: just its text, on the current page.
+    if (section.num === 0 && !section.heading) {
+      doc.space(10);
+      for (const block of section.intro) renderBlock(doc, block);
+      continue;
+    }
+
+    // The plan summary (num 0) starts its own page and prints unnumbered.
     if (section.num === 0) doc.newPage();
 
     doc.space(10);
@@ -329,9 +338,11 @@ export function renderSections(doc: PdfDoc, sections: Section[]): void {
 
     for (const sub of section.subsections) {
       doc.space(4);
-      const subHeading = sub.num ? `${sub.num} ${sub.heading}` : sub.heading;
-      doc.text(subHeading, { size: 9.75, bold: true, after: 4 });
-      for (const block of sub.blocks) renderBlock(doc, block);
+      if (sub.heading) {
+        const subHeading = sub.num ? `${sub.num} ${sub.heading}` : sub.heading;
+        doc.text(subHeading, { size: 9.75, bold: true, after: 4 });
+      }
+      sub.blocks.forEach((block, i) => renderBlock(doc, block, !sub.heading && i === 0 ? sub.num : undefined));
     }
   }
 }

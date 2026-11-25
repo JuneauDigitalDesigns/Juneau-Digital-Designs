@@ -11,7 +11,15 @@ import { acceptedBy, masterRefFor } from "@/app/lib/held-agreement";
 export const runtime = "nodejs";
 
 /**
- * A website-only Starter client switches the AI receptionist on (D7, approved 2026-11-04).
+ * LEGACY ONLY since v1.45.0. A website-only Starter on the old shape (`starter` + `declined`,
+ * D14) switches the AI receptionist on, free, because it already pays the Starter price.
+ *
+ * A site on the `website` plan never comes through here: adding the receptionist there is a paid
+ * upgrade to Starter + AI Receptionist (D6), through `/api/portal/upgrade`. `/terms/accept`
+ * forwards an old `?receptionist=` link for a website site into that upgrade, and this route
+ * refuses one that arrives anyway, so the receptionist is never switched on for free on $97.
+ *
+ * The original note (D7, approved 2026-11-04):
  *
  * Website-only is Starter at the same price with the receptionist declined, accepted against the
  * Web-Only schedule. Switching it on is accepting the standard Starter terms with a phone choice.
@@ -31,6 +39,12 @@ export async function POST(request: Request) {
         // Already on, or not a Starter site. Nothing to switch on here.
         return NextResponse.json({ error: RECEPTIONIST_FAILED }, { status: 409 });
     }
+    if (site.plan === "website") {
+        return NextResponse.json(
+            { error: RECEPTIONIST_FAILED, upgrade: `/terms/accept?plan=starter&upgrade=${encodeURIComponent(site.slug)}` },
+            { status: 409 },
+        );
+    }
 
     let body: { agreement_id?: string };
     try {
@@ -39,7 +53,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid request." }, { status: 400 });
     }
     const agreementId = body.agreement_id?.trim();
-    if (!agreementId) return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
+    if (!agreementId) return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
 
     // The standard Starter master, accepted by this account (it is held, so it isn't the
     // account's master yet), with a receptionist chosen.

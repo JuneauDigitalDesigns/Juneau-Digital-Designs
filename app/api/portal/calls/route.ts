@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { callSource } from "@/app/lib/call-source";
 import { siteFeature } from "@jdd/schema";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { fetchCalls, type CallsFailure } from "@/app/lib/airtable-calls";
@@ -28,9 +29,10 @@ export async function GET(request: Request) {
 
     // Lifecycle first: an unbuilt or unwired site costs zero upstream calls, and the client
     // gets a truthful reason rather than an empty list that looks like "no one called you".
-    const availability = siteFeature(ctx.site, "calls");
-    if (availability.state !== "ready") {
-        return NextResponse.json({ state: availability.state, calls: [], fields: [] });
+    // Live calls, or the past calls a website-plan site kept after its receptionist ended (B4).
+    const source = callSource(ctx.site);
+    if (!source) {
+        return NextResponse.json({ state: siteFeature(ctx.site, "calls").state, calls: [], fields: [] });
     }
 
     const apiKey = process.env.AIRTABLE_API_KEY;
@@ -44,7 +46,7 @@ export async function GET(request: Request) {
 
     // Only separate rows by site when another site on this account shares the base. That is
     // exactly the enterprise case, and exactly when onboard.js provisions a `Site` column.
-    const baseId = ctx.site.airtableBaseId as string;
+    const baseId = source.baseId;
     const scopeToSite = ctx.account.sites.some(
         (s) => s.slug !== ctx.site.slug && s.airtableBaseId === baseId,
     );

@@ -17,7 +17,7 @@ export default async function PortalSignInPage({
     // Agency brand, not `<PortalScope>`: see AuthShell. The card's title and subtitle come from
     // `clerkLocalization` on the provider in app/portal/layout.tsx.
     return (
-        <AuthShell>
+        <AuthShell launch>
             <SignIn
                 path="/portal/sign-in"
                 routing="path"

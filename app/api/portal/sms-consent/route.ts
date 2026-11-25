@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isWebOnly } from "@jdd/schema";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import {
   consentRequestContext,
@@ -87,7 +88,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Not available.", code: "opt-in-closed" }, { status: 403 });
   }
 
-  // No plan gate, on purpose. There used to be one — `ctx.site.plan === "starter"` refused
+  // D9 (2026-11-24): website-only sites get no owner texts. Consent is account-wide, so the opt-in
+  // is refused only when NO site on the account could ever text the owner: every site is
+  // website-only. A mixed account may opt in; each text is then gated per site where it is sent.
+  // Turning texts OFF stays open to everyone, above.
+  if (ctx.account.sites.length > 0 && ctx.account.sites.every((s) => isWebOnly(s))) {
+    return NextResponse.json({ error: "Not available.", code: "not-on-plan" }, { status: 403 });
+  }
+
+  // No per-site plan gate, on purpose (the all-website-only refusal above is account-wide). There used to be one — `ctx.site.plan === "starter"` refused
   // the grant — and it was wrong twice over:
   //  - Since the 2026-10-12 reprice every tier has the receptionist, and the new-lead text
   //    goes to every tier, web-only included. A Starter owner had no way to turn on the

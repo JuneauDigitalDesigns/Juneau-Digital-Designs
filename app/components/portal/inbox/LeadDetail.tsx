@@ -4,6 +4,7 @@ import {
     ArrowCounterClockwise,
     CaretLeft,
     Check,
+    ChatCircle,
     Clock,
     EnvelopeSimple,
     Phone,
@@ -17,6 +18,8 @@ import { Chip, StatusChip, kindLabel } from "./chips";
 import { callbackGap, fullWhen, type InboxRow } from "./model";
 import { RemindPopover, RemindSheet } from "./RemindMenu";
 import { dialNumber } from "./InboxList";
+import CallPlayer from "./CallPlayer";
+import CallTranscript, { transcriptUrlFor } from "./CallTranscript";
 
 /**
  * One lead: the right-hand pane on desktop, the full screen that slides in on a phone.
@@ -26,9 +29,14 @@ import { dialNumber } from "./InboxList";
  * (the research note's first gap). Promote now sits at the end of the row; Remind me and Done
  * sit between.
  *
- * There is deliberately no Text here, on any plan. Texting is a Growth/Enterprise feature
- * reached only from the customer card once A2P registration has completed (Xander,
- * 2026-11-09) — to text a lead, promote them first.
+ * Texting from the business number is a Growth/Enterprise feature reached only from the customer
+ * card once A2P registration has completed (Xander, 2026-11-09). The phone's Text button here is
+ * something else (Xander, 2026-11-19): it opens the phone's own Messages app addressed to the
+ * caller, on every plan, so nothing goes out from the business number.
+ *
+ * Phone layout (2026-11-19 mockup, Q7/Q8): the lead scrolls under a fixed action bar — Call back
+ * (green, widest), Text, Remind me, Done — so the main action never scrolls away. The recording
+ * gets a thumb-sized player and the Retell transcript sits under it.
  *
  * "What they want" carries the preview the payload already has — the call summary or the form
  * message. There is no separate AI one-line intent in the data, so the card does not invent
@@ -57,6 +65,7 @@ export default function LeadDetail({
     now,
     isDesktop,
     canPromote,
+    webOnly = false,
     remindSupported,
     promoting,
     remindOpen,
@@ -69,6 +78,8 @@ export default function LeadDetail({
     now: Date;
     isDesktop: boolean;
     canPromote: boolean;
+    /** The website plan names no other plan inside the Inbox: its one upsell is on Home. */
+    webOnly?: boolean;
     remindSupported: boolean;
     promoting: boolean;
     remindOpen: boolean;
@@ -96,6 +107,7 @@ export default function LeadDetail({
         </h2>
     );
     const meta = `${item.phoneDisplay} · ${kindLabel(item)} · ${fullWhen(item.at, now)}`;
+    const transcriptUrl = item.source === "web-form" ? null : transcriptUrlFor(item.recordingUrl);
 
     const header = isDesktop ? (
         <div className="flex items-start gap-3">
@@ -204,32 +216,44 @@ export default function LeadDetail({
         </div>
     );
 
-    const phoneActions = (
-        <div className="flex flex-col gap-2">
+    const phoneBar = (
+        <div
+            className="shrink-0 flex items-stretch gap-2 px-3.5 pt-2.5 border-t"
+            style={{
+                paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
+                background: "color-mix(in srgb, var(--elev-1) 94%, transparent)",
+                backdropFilter: "blur(18px)",
+                WebkitBackdropFilter: "blur(18px)",
+                borderColor: "var(--rule-strong)",
+            }}
+        >
             <a
                 href={callHref}
                 aria-disabled={!callHref}
-                className="h-[52px] w-full rounded-[10px] text-base font-bold inline-flex items-center justify-center gap-2"
-                style={{ background: "var(--accent)", color: "var(--on-accent)", opacity: callHref ? 1 : 0.6 }}
+                className="portal-btn-call flex-1 h-14 text-[17px] rounded-[14px]"
+                style={{ opacity: callHref ? 1 : 0.6 }}
             >
-                <Phone size={18} weight="bold" /> Call back
+                <Phone size={21} weight="bold" /> Call back
             </a>
-            <div className="grid grid-flow-col auto-cols-fr gap-2">
-                {canRemind && (
-                    <TileButton onClick={() => setRemindOpen(true)}>
-                        <Clock size={18} /> Remind me
-                    </TileButton>
-                )}
-                {canDone ? (
-                    <TileButton onClick={actions.onDone}>
-                        <Check size={18} weight="bold" /> Done
-                    </TileButton>
-                ) : status === "done" ? (
-                    <TileButton onClick={actions.onRestore}>
-                        <ArrowCounterClockwise size={18} /> Restore to inbox
-                    </TileButton>
-                ) : null}
-            </div>
+            {dial && (
+                <BarButton href={`sms:${dial}`}>
+                    <ChatCircle size={21} /> Text
+                </BarButton>
+            )}
+            {canRemind && (
+                <BarButton onClick={() => setRemindOpen(true)}>
+                    <Clock size={21} /> Remind me
+                </BarButton>
+            )}
+            {canDone ? (
+                <BarButton onClick={actions.onDone} muted>
+                    <Check size={21} weight="bold" /> Done
+                </BarButton>
+            ) : status === "done" ? (
+                <BarButton onClick={actions.onRestore} muted>
+                    <ArrowCounterClockwise size={21} /> Restore to inbox
+                </BarButton>
+            ) : null}
         </div>
     );
 
@@ -238,14 +262,22 @@ export default function LeadDetail({
     return (
         <div className="flex flex-col min-h-0 h-full">
             {!isDesktop && (
-                <div className="shrink-0 h-14 flex items-center justify-between px-1.5 border-b" style={{ background: "var(--elev-1)", borderColor: "var(--rule)" }}>
+                <div
+                    className="shrink-0 flex items-center justify-between px-1.5 border-b"
+                    style={{
+                        paddingTop: "env(safe-area-inset-top, 0px)",
+                        minHeight: "calc(56px + env(safe-area-inset-top, 0px))",
+                        background: "var(--elev-1)",
+                        borderColor: "var(--rule)",
+                    }}
+                >
                     <button
                         type="button"
                         onClick={actions.onBack}
-                        className="inline-flex items-center gap-1 h-11 px-2.5 text-[15px] font-semibold cursor-pointer"
+                        className="inline-flex items-center gap-1 h-11 px-2.5 text-[17px] font-semibold cursor-pointer"
                         style={{ color: "var(--accent)" }}
                     >
-                        <CaretLeft size={18} weight="bold" /> Inbox
+                        <CaretLeft size={20} weight="bold" /> Inbox
                     </button>
                     {canMarkUnread && (
                         <button
@@ -260,17 +292,29 @@ export default function LeadDetail({
                 </div>
             )}
 
-            <div className={isDesktop ? "shrink-0 px-6 pt-[18px] pb-3.5 border-b flex flex-col gap-2.5" : "px-4 pt-4 flex flex-col gap-3"} style={{ borderColor: "var(--rule)" }}>
-                {header}
-                {isDesktop ? desktopActions : phoneActions}
-                {!canPromote && (
-                    <p className="text-xs leading-relaxed" style={{ color: "var(--fg-3)" }}>
-                        Customer records and follow-up texting come with Growth.
-                    </p>
-                )}
-            </div>
+            {isDesktop && (
+                <div className="shrink-0 px-6 pt-[18px] pb-3.5 border-b flex flex-col gap-2.5" style={{ borderColor: "var(--rule)" }}>
+                    {header}
+                    {desktopActions}
+                    {!canPromote && !webOnly && (
+                        <p className="text-xs leading-relaxed" style={{ color: "var(--fg-3)" }}>
+                            Customer records and follow-up texting come with Growth.
+                        </p>
+                    )}
+                </div>
+            )}
 
-            <div className={`flex-1 min-h-0 overflow-y-auto flex flex-col gap-3.5 ${isDesktop ? "px-6 py-[18px]" : "px-4 py-3 pb-8"}`}>
+            <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-3.5 ${isDesktop ? "px-6 py-[18px]" : "px-4 pt-4 pb-8"}`}>
+                {!isDesktop && (
+                    <div className="flex flex-col gap-2">
+                        {header}
+                        {!canPromote && !webOnly && (
+                            <p className="text-[13px] leading-relaxed" style={{ color: "var(--fg-3)" }}>
+                                Customer records and follow-up texting come with Growth.
+                            </p>
+                        )}
+                    </div>
+                )}
                 {error && (
                     <p className="text-sm" style={{ color: "var(--chart-neg)" }}>
                         {error}
@@ -279,7 +323,7 @@ export default function LeadDetail({
 
                 <Card data-tour="inbox-detail">
                     <Label>What they want</Label>
-                    <p className="text-sm leading-relaxed" style={{ color: item.preview ? "var(--fg)" : "var(--fg-3)" }}>
+                    <p className="text-[17px] lg:text-sm leading-relaxed" style={{ color: item.preview ? "var(--fg)" : "var(--fg-3)" }}>
                         {item.preview ?? "No message"}
                     </p>
                 </Card>
@@ -290,7 +334,20 @@ export default function LeadDetail({
                 {item.recordingUrl && !item.callback && (
                     <Card>
                         <Label>Recording</Label>
-                        <audio controls preload="none" src={item.recordingUrl} className="w-full" />
+                        {isDesktop ? (
+                            <audio controls preload="none" src={item.recordingUrl} className="w-full" />
+                        ) : (
+                            <CallPlayer src={item.recordingUrl} label={`recording of ${name}`} />
+                        )}
+                        {transcriptUrl && (
+                            <CallTranscript
+                                url={transcriptUrl}
+                                name={item.name}
+                                phoneDisplay={item.phoneDisplay}
+                                subtitle={meta}
+                                isDesktop={isDesktop}
+                            />
+                        )}
                     </Card>
                 )}
 
@@ -374,7 +431,7 @@ export default function LeadDetail({
                     <Fact label="Came in">{fullWhen(item.at, now)}</Fact>
                 </div>
 
-                {!isDesktop && promoteButton}
+                {!isDesktop && promoteButton && <div className="portal-elev">{promoteButton}</div>}
 
                 {/* The one destructive path in the inbox, behind the confirmation the parent
                     owns. Only a web inquiry is ours to destroy (a call is a row in the client's
@@ -390,6 +447,8 @@ export default function LeadDetail({
                     </button>
                 )}
             </div>
+
+            {!isDesktop && phoneBar}
 
             {!isDesktop && remindOpen && canRemind && (
                 <RemindSheet
@@ -444,14 +503,29 @@ function ActionButton({
     );
 }
 
-function TileButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="h-14 rounded-[10px] border flex flex-col items-center justify-center gap-[3px] text-[12.5px] font-semibold cursor-pointer"
-            style={{ background: "var(--elev-1)", borderColor: "var(--rule-strong)", color: "var(--fg)" }}
-        >
+/** One of the phone action bar's narrow buttons: icon over label, a link (sms:) or a button. */
+function BarButton({
+    onClick,
+    href,
+    muted,
+    children,
+}: {
+    onClick?: () => void;
+    href?: string;
+    muted?: boolean;
+    children: React.ReactNode;
+}) {
+    const className =
+        "w-[66px] h-14 shrink-0 rounded-[14px] flex flex-col items-center justify-center gap-[2px] text-[11.5px] font-semibold leading-tight text-center cursor-pointer active:scale-95 transition-transform";
+    const style = muted
+        ? { background: "color-mix(in srgb, var(--chart-neutral) 14%, var(--elev-1))", color: "var(--fg-2)" }
+        : { background: "color-mix(in srgb, var(--accent) 12%, var(--elev-1))", color: "var(--accent)" };
+    return href ? (
+        <a href={href} className={className} style={style}>
+            {children}
+        </a>
+    ) : (
+        <button type="button" onClick={onClick} className={className} style={style}>
             {children}
         </button>
     );

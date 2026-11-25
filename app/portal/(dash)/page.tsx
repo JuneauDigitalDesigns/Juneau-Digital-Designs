@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
-import type { PortalAccount, PortalSite } from "@jdd/schema";
+import { isWebOnly, type PortalAccount, type PortalSite } from "@jdd/schema";
 import { BuildProgress } from "@/app/components/portal/BuildProgress";
 import {
     GrowthProvisioning,
@@ -18,6 +18,7 @@ import {
 import { ActivityFeed } from "@/app/components/portal/overview/ActivityFeed";
 import { LeadsWeekCard } from "@/app/components/portal/overview/LeadsWeekCard";
 import { NeedsYouCard } from "@/app/components/portal/overview/NeedsYouCard";
+import InstallCard from "@/app/components/portal/overview/InstallCard";
 import {
     OverviewHeader,
     StatusLine,
@@ -33,7 +34,7 @@ import {
     reviewsTile,
     type TileSpec,
 } from "@/app/components/portal/overview/OverviewTiles";
-import { GrowthLockedPanel, PipelineCard } from "@/app/components/portal/overview/PipelineCard";
+import { GrowthLockedPanel, PipelineCard, ReceptionistUpsellPanel } from "@/app/components/portal/overview/PipelineCard";
 import { currentSiteContext } from "@/app/lib/portal-dashboard";
 import { getInfraSnapshot } from "@/app/lib/portal-infra";
 import { getCachedScore } from "@/app/lib/portal-overview";
@@ -56,6 +57,8 @@ import {
     getOverviewCrm,
     getOverviewInbox,
     overviewClock,
+    type OverviewCrm,
+    type OverviewInbox,
 } from "@/app/lib/portal-overview-sources";
 import { overviewStatus } from "@/app/lib/portal-overview-status";
 import {
@@ -65,7 +68,9 @@ import {
     sinceLabel,
     spanLabel,
 } from "@/app/lib/portal-overview-time";
-import { tabHref, type PortalSiteProps } from "@/app/portal/types";
+import { addReceptionistHref, tabHref, type PortalSiteProps } from "@/app/portal/types";
+import { sampleInbox, samplePipeline } from "@/app/components/portal/tour/sample-data";
+import type { SampleTrade } from "@/app/data/trade-samples";
 
 export const dynamic = "force-dynamic";
 
@@ -86,13 +91,17 @@ export const dynamic = "force-dynamic";
 export default async function OverviewPage({
     searchParams,
 }: {
-    searchParams: Promise<{ site?: string; upgraded?: string }>;
+    searchParams: Promise<{ site?: string; upgraded?: string; tour?: string }>;
 }) {
     const ctx = await currentSiteContext(searchParams);
     if (!ctx) notFound();
 
-    const { upgraded } = await searchParams;
+    const { upgraded, tour } = await searchParams;
     const { props: site, raw, account } = ctx;
+
+    // While the tour runs (`?tour=1`), Home shows the trade's sample leads and customers, the
+    // same ones the tour's other screens show (`tour/sample-mode.ts`), never the client's own.
+    const sample: SampleTrade | null = tour === "1" ? (site.sampleTrade ?? "other") : null;
 
     /**
      * A site that has been paid for but never described. There is no dashboard to draw for
@@ -150,6 +159,9 @@ export default async function OverviewPage({
               */}
             <PendingSiteBanner sites={account.sites} currentSlug={site.slug} />
 
+            {/* Phones only, once, until installed or dismissed (2026-11-19). */}
+            <InstallCard />
+
             {/* Page additions from Search Console (2026-11-14): renders nothing when there are none. */}
             {!building && (
                 <Suspense fallback={null}>
@@ -172,26 +184,31 @@ export default async function OverviewPage({
             ) : (
                 <>
                     <Suspense fallback={<LeadsSkeleton />}>
-                        <LeadsBlock site={site} raw={raw} account={account} />
+                        <LeadsBlock site={site} raw={raw} account={account} sample={sample} />
                     </Suspense>
 
                     <Suspense fallback={<StatRowSkeleton count={3} />}>
-                        <TilesBlock site={site} raw={raw} account={account} />
+                        <TilesBlock site={site} raw={raw} account={account} sample={sample} />
                     </Suspense>
 
                     {site.features.crm.state === "ready" ? (
                         <Suspense fallback={<CardSkeleton rows={2} />}>
-                            <PipelineBlock site={site} raw={raw} account={account} />
+                            <PipelineBlock site={site} raw={raw} account={account} sample={sample} />
                         </Suspense>
                     ) : site.features.crm.state === "not-on-plan" ? (
                         // PR C makes `demo=growth` open the Growth demo on arrival.
-                        <GrowthLockedPanel
-                            demoHref={`${tabHref("customers", site.slug)}&demo=growth`}
-                        />
+                        site.webOnly ? (
+                            // Website plan: the one upsell is the AI receptionist, never Growth (D5).
+                            <ReceptionistUpsellPanel href={addReceptionistHref(site.slug)} />
+                        ) : (
+                            <GrowthLockedPanel
+                                demoHref={`${tabHref("customers", site.slug)}&demo=growth`}
+                            />
+                        )
                     ) : null}
 
                     <Suspense fallback={<CardSkeleton rows={4} />}>
-                        <ActivityBlock site={site} raw={raw} account={account} />
+                        <ActivityBlock site={site} raw={raw} account={account} sample={sample} />
                     </Suspense>
                 </>
             )}
@@ -203,6 +220,23 @@ interface BlockProps {
     site: PortalSiteProps;
     raw: PortalSite;
     account: PortalAccount;
+    /** The tour's sample trade while the tour runs: the blocks then read samples, not the client's data. */
+    sample?: SampleTrade | null;
+}
+
+/** The Inbox the blocks read: the client's, or the tour's samples. */
+async function inboxFor(account: PortalAccount, raw: PortalSite, sample: SampleTrade | null | undefined): Promise<OverviewInbox> {
+    if (!sample) return getOverviewInbox(account, raw);
+    return {
+        state: "ready",
+        items: sampleInbox(sample, new Date(overviewClock().nowMs), { webOnly: isWebOnly(raw) }),
+        truncated: false,
+    };
+}
+
+async function crmFor(account: PortalAccount, raw: PortalSite, sample: SampleTrade | null | undefined): Promise<OverviewCrm> {
+    if (!sample) return getOverviewCrm(account, raw);
+    return { state: "ready", ...samplePipeline(sample, new Date(overviewClock().nowMs)) };
 }
 
 /** The header's status line, from the same infra snapshot and receptionist state the
@@ -229,11 +263,11 @@ async function BuildBlock({ site, raw, account }: BlockProps) {
 }
 
 /** Needs you, beside New leads this week. */
-async function LeadsBlock({ site, raw, account }: BlockProps) {
-    const inbox = await getOverviewInbox(account, raw);
+async function LeadsBlock({ site, raw, account, sample }: BlockProps) {
+    const inbox = await inboxFor(account, raw, sample);
     if (inbox.state === "error") return <FeatureError message={inbox.error} />;
     if (inbox.state !== "ready") {
-        return <FeatureState feature="leads" availability={{ state: inbox.state }} siteSlug={site.slug} />;
+        return <FeatureState feature="leads" availability={{ state: inbox.state }} webOnly={site.webOnly} />;
     }
 
     const { nowMs, timeZone, week } = overviewClock();
@@ -251,6 +285,7 @@ async function LeadsBlock({ site, raw, account }: BlockProps) {
                 timeZone={timeZone}
             />
             <LeadsWeekCard
+                webOnly={site.webOnly}
                 week={thisWeek}
                 todayIndex={week.todayIndex}
                 chart={site.features.crm.state === "ready"}
@@ -264,16 +299,17 @@ async function LeadsBlock({ site, raw, account }: BlockProps) {
  * Reviews asked for. Starter: Caught after hours, Handled this week, Longest wait. Each hides
  * when it has nothing true to show — see `OverviewTiles`.
  */
-async function TilesBlock({ site, raw, account }: BlockProps) {
+async function TilesBlock({ site, raw, account, sample }: BlockProps) {
     const growth = site.features.crm.state === "ready";
     const [inbox, crm] = await Promise.all([
-        getOverviewInbox(account, raw),
-        growth ? getOverviewCrm(account, raw) : null,
+        inboxFor(account, raw, sample),
+        growth ? crmFor(account, raw, sample) : null,
     ]);
     const items = inbox.state === "ready" ? inbox.items : [];
     const { nowMs, timeZone, week } = overviewClock();
     const hours = clientHours(raw);
-    const caught = caughtAfterHours(items, week, { hours, timeZone });
+    // Calls caught after hours: the website plan has no calls, so there is no tile.
+    const caught = site.webOnly ? null : caughtAfterHours(items, week, { hours, timeZone });
 
     const tiles: TileSpec[] = [];
     if (growth) {
@@ -315,8 +351,8 @@ async function TilesBlock({ site, raw, account }: BlockProps) {
     return <OverviewTiles tiles={tiles} />;
 }
 
-async function PipelineBlock({ site, raw, account }: BlockProps) {
-    const crm = await getOverviewCrm(account, raw);
+async function PipelineBlock({ site, raw, account, sample }: BlockProps) {
+    const crm = await crmFor(account, raw, sample);
     if (crm.state === "error") return <FeatureError message="We couldn't load your pipeline just now." />;
     if (crm.state !== "ready") return null;
     const { week } = overviewClock();
@@ -328,16 +364,17 @@ async function PipelineBlock({ site, raw, account }: BlockProps) {
     );
 }
 
-async function ActivityBlock({ site, raw, account }: BlockProps) {
+async function ActivityBlock({ site, raw, account, sample }: BlockProps) {
     const growth = site.features.crm.state === "ready";
     const [inbox, crm] = await Promise.all([
-        getOverviewInbox(account, raw),
-        growth ? getOverviewCrm(account, raw) : null,
+        inboxFor(account, raw, sample),
+        growth ? crmFor(account, raw, sample) : null,
     ]);
     const items = inbox.state === "ready" ? inbox.items : [];
     const customers = crm?.state === "ready" ? crm.customers : [];
 
-    const [done, texts] = await Promise.all([
+    // Sample rows have no done records or texts behind them.
+    const [done, texts] = sample ? [[], []] : await Promise.all([
         getDoneRecords(
             account,
             raw,

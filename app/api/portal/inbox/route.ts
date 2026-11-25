@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { siteFeature } from "@jdd/schema";
+import { callSource } from "@/app/lib/call-source";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { fetchCalls, type CallsFailure } from "@/app/lib/airtable-calls";
 import { accountScope } from "@/app/lib/portal-kv";
@@ -74,6 +75,37 @@ export async function GET(request: Request) {
         }
     }
 
+    // A website-plan site that used to have the receptionist keeps its past calls, read-only (B4).
+    // They are a separate list, never mixed into the worklist: nothing about them needs you, and
+    // they carry no actions. Failing to read them costs only that chip, never the inbox.
+    const past = callSource(ctx.site);
+    let pastCalls: ReturnType<typeof buildInbox> = [];
+    if (past?.kind === "past") {
+        const apiKey = process.env.AIRTABLE_API_KEY;
+        if (apiKey) {
+            const result = await fetchCalls({
+                baseId: past.baseId,
+                apiKey,
+                siteSlug: ctx.site.slug,
+                scopeToSite: ctx.account.sites.some(
+                    (s) => s.slug !== ctx.site.slug && s.airtableBaseId === past.baseId,
+                ),
+                acctScope: acct,
+            });
+            if (result.ok) {
+                pastCalls = buildInbox({
+                    calls: result.calls,
+                    leads: [],
+                    promoted: new Set(),
+                    archived: new Set(),
+                    readIds: new Set(),
+                }).map((i) => ({ ...i, read: true }));
+            } else {
+                console.error(`[portal/inbox] ${ctx.site.slug} past calls ${result.failure}: ${result.detail}`);
+            }
+        }
+    }
+
     const [promoted, archived, readIds, leads] = await Promise.all([
         promotedRefs(acct, ctx.site.slug),
         archivedRefs(acct, ctx.site.slug),
@@ -104,5 +136,7 @@ export async function GET(request: Request) {
         items,
         canPromote,
         truncated: calls?.ok ? calls.truncated : false,
+        // Only present for a site with past calls, so the Inbox draws the chip only then.
+        ...(past?.kind === "past" ? { pastCalls } : {}),
     });
 }

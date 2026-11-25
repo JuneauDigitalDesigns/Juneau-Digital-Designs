@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server";
+import { isVerticalId } from "@jdd/schema";
 import {
     mapBrandIntakeToIntake,
     uniqueSlug,
@@ -11,6 +12,7 @@ import { enqueueIntake, slugifyBrand } from "@/app/lib/intake-queue";
 import { intakeOriginIds } from "@/app/lib/intake-origin";
 import { completeSiteOnboarding } from "@/app/lib/account-store";
 import { deleteDraft } from "@/app/lib/onboarding-draft-store";
+import { setSiteTrade } from "@/app/lib/portal-kv";
 import { resolvePortalRequest } from "@/app/lib/portal-account";
 import { getConsentStateForAccount, smsAlertsSnapshot } from "@/app/lib/sms-consent";
 import { getAgreement } from "@/app/lib/kv";
@@ -18,9 +20,12 @@ import { getOrder } from "@/app/lib/operator-orders";
 import {
     applySignedLegalName,
     buildSubmission,
+    isLegacyWebOnlySite,
     markPaletteNotClientChosen,
     signedLegalName,
 } from "@/app/lib/onboarding-submission";
+import { verifyAgencyHuman } from "@/app/lib/agency-lead-gate";
+import { requestHost } from "@/app/lib/turnstile-verify";
 
 /** Deep-clone replacing every empty string with null. */
 function normalizeEmpties(value: unknown): unknown {
@@ -47,6 +52,26 @@ export async function POST(request: Request) {
 
         const body = (await request.json()) as Partial<Record<string, unknown>>;
 
+        // A person sent it (2026-11-19; the privacy policy has always said the onboarding form
+        // uses Turnstile): the Get started form's widget and check. A token Cloudflare rejects is
+        // refused, and the wizard lets the client send again with a fresh one. A check that can't
+        // run (Cloudflare down, the widget blocked in their browser) never locks a paying client
+        // out: the intake goes through, marked unverified.
+        const human = await verifyAgencyHuman(
+            {
+                token: typeof body.turnstileToken === "string" ? body.turnstileToken.slice(0, 2048) : null,
+                status: typeof body.turnstileStatus === "string" ? body.turnstileStatus : null,
+                ip: clientIp(request),
+                host: requestHost(request),
+            },
+            "portal/onboarding",
+        );
+        if (human.kind === "failed") {
+            return NextResponse.json({ error: "not-verified" }, { status: 403 });
+        }
+        const humanCheck = human.kind === "passed" ? "passed" : "unverified";
+        if (humanCheck === "unverified") console.warn("[portal/onboarding] human check couldn't run; let through, unverified", account.email);
+
         // Field by field in app/lib/onboarding-submission.ts, which is tested. It used to be inline
         // here and dropped nine answers the wizard collected.
         const built = buildSubmission(body, site);
@@ -60,7 +85,11 @@ export async function POST(request: Request) {
         const { submission } = built;
         const { selectedPlan, receptionistMode, brandName, brandShort, email, phone, industry, serviceList } = submission;
 
-        const parsed = zBrandIntakeSubmission.safeParse(submission);
+        // The schema refuses `starter` + "declined" on a new submission (v1.45.0). A site that was
+        // signed that way before the `website` plan existed is the one exception (buildSubmission
+        // already checked it is), so its shape is checked with the mode set aside.
+        const legacyWebOnly = selectedPlan === "starter" && receptionistMode === "declined" && isLegacyWebOnlySite(site);
+        const parsed = zBrandIntakeSubmission.safeParse(legacyWebOnly ? { ...submission, receptionistMode: undefined } : submission);
         if (!parsed.success) {
             console.error("[portal/onboarding] schema validation failed", parsed.error.issues);
             return NextResponse.json({ message: "Your submission could not be processed. Please try again." }, { status: 400 });
@@ -98,7 +127,9 @@ export async function POST(request: Request) {
         // the wizard sends is recorded as not client-supplied.
         const intake: Intake = markPaletteNotClientChosen(
             applySignedLegalName(
-                { ...mapBrandIntakeToIntake(submission), smsAlerts: smsAlertsSnapshot(consent) },
+                // D9 (2026-11-24): a `website` site's owner gets no new-lead texts, so its intake
+                // never carries alerts, whatever the account consented to.
+                { ...mapBrandIntakeToIntake(submission), smsAlerts: selectedPlan === "website" ? null : smsAlertsSnapshot(consent) },
                 signedLegalName({ agreement, order }),
             ),
         );
@@ -125,6 +156,7 @@ export async function POST(request: Request) {
                     slugGuess: newSlug,
                     sessionId,
                     intake: normalizeEmpties(intake) as Intake,
+                    humanCheck,
                     // The order (sales-call close) or purchase (self-serve) this site came from.
                     ...intakeOriginIds(site),
                 });
@@ -167,6 +199,10 @@ export async function POST(request: Request) {
         // just filled in — an unscoped delete would wipe a sibling site's unfinished draft.
         deleteDraft(userId, site.slug).catch(() => {});
 
+        // Which trade's sample data the portal tour and the Growth preview show this site.
+        // Under the slug the site now has: the rename above has already happened.
+        await setSiteTrade(newSlug, isVerticalId(industry) ? industry : "other");
+
         after(async () => {
             // What they paid and what they signed, resolved from the site's checkout session.
             // This route used to send all three as null, which was survivable while the
@@ -198,4 +234,10 @@ export async function POST(request: Request) {
     } catch {
         return NextResponse.json({ message: "Unexpected server error." }, { status: 500 });
     }
+}
+
+/** The client's IP, as Vercel reports it: the first hop of x-forwarded-for. */
+function clientIp(req: Request): string | null {
+    const fwd = req.headers.get("x-forwarded-for");
+    return (fwd ? fwd.split(",")[0].trim() : req.headers.get("x-real-ip")) || null;
 }

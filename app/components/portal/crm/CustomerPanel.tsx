@@ -43,12 +43,12 @@ const SLIDE_EASE = [0.22, 0.8, 0.24, 1] as const;
 /**
  * Is the first-run tour on screen?
  *
- * driver.js puts `driver-active` on `<body>` for as long as a tour runs. While it does, the tour
- * owns the keyboard: it traps Tab inside its own popover and closes on Esc, and this panel
- * trapping Tab too would leave the two fighting over focus.
+ * The tour puts `portal-touring` on `<body>` for as long as it runs (`TourController`'s
+ * `TOURING_CLASS`). While it does, the tour owns the keyboard: its card takes focus and closes
+ * on Esc, and this panel trapping Tab too would leave the two fighting over focus.
  */
 function tourRunning(): boolean {
-    return typeof document !== "undefined" && document.body.classList.contains("driver-active");
+    return typeof document !== "undefined" && document.body.classList.contains("portal-touring");
 }
 
 export default function CustomerPanel({
@@ -153,8 +153,8 @@ export default function CustomerPanel({
         /* `inert` while closed covers the exit animation: the panel is still on screen for
            340ms after it has been dismissed, and must not take a click or a Tab in that time.
            z-[35]: over the phone/tablet bars (topbar z-20, tab bar z-30), under every `Drawer`
-           (z-40/50) so "Request a review" opens on top of it, and far under driver.js (overlay
-           10000, popover 1e9) so the tour's popovers are never behind it. */
+           (z-40/50) so its sheets open on top of it, and under the tour's layer (z-1000,
+           `tour-theme.css`) so the tour's card is never behind it. */
         <div
             className={`fixed top-0 bottom-0 right-0 ${CONTENT_LEFT} z-[35] pointer-events-none`}
             inert={!open}
@@ -181,11 +181,9 @@ function Sheet({
     reduceMotion: boolean;
     children: React.ReactNode;
 }) {
-    // Decided once, as it opens. The tour opens a record and spotlights its header on the next
-    // frame; driver.js measures that header once, halfway through its own transition, and
-    // pins its popover there. Mid-slide the header is still travelling, so the popover would
-    // land beside where it was going to be. Appearing in place under the tour avoids that
-    // without touching the tour.
+    // Decided once, as it opens. The tour opens a record and outlines its header straight away;
+    // mid-slide the header is still travelling, so the outline would land beside where it was
+    // going to be. Appearing in place under the tour avoids that.
     const [instant] = useState(tourRunning);
 
     const slide = instant

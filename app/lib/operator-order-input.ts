@@ -55,7 +55,7 @@ export function parseOrderFields(body: unknown): { fields: OrderFields } | { err
     // v1 (PLAN §1, D3): Starter and Growth only. Enterprise carries consolidation and
     // multi-site rules that the call flow does not handle yet.
     if (plan === "enterprise") return { error: "Enterprise isn't available on a call yet." };
-    if (plan !== "starter" && plan !== "growth") return { error: "Pick a plan." };
+    if (plan !== "website" && plan !== "starter" && plan !== "growth") return { error: "Pick a plan." };
 
     // Every plan is month to month; whatever the console sends, the order is monthly.
     const period = "monthly" as const;
@@ -87,10 +87,19 @@ export function parseOrderFields(body: unknown): { fields: OrderFields } | { err
     if (!vertical) return { error: "Trade is required." };
 
     // Phone handling must be stated, never guessed (CLAUDE.md): the wrong guess either buys a
-    // number for a client who declined or withholds one a client paid for.
+    // number for a client who declined or withholds one a client paid for. The website plan
+    // states it by being the plan (D4: no number), so its order carries no receptionistMode
+    // (`zOperatorOrder`, schema v1.45.0); every other plan must state forwarded or published.
     const mode = b.receptionistMode;
-    if (!isReceptionistMode(mode)) return { error: "Choose a phone setup." };
-    if (mode === "declined" && plan !== "starter") return { error: "Website only is Starter only." };
+    if (plan === "website") {
+        if (mode !== undefined && mode !== null && mode !== "" && mode !== "declined") {
+            return { error: "The Starter plan has no phone setup." };
+        }
+    } else {
+        if (!isReceptionistMode(mode)) return { error: "Choose a phone setup." };
+        // Website-only is its own plan now (D14): refused as a variant of a receptionist plan.
+        if (mode === "declined") return { error: "Website only is the Starter plan. Pick Starter instead." };
+    }
     const forwardingNumber = str(b.forwardingNumber);
     if (mode === "forwarded" && !normalizeE164(forwardingNumber)) {
         return { error: "Enter the business number customers call today." };
@@ -104,8 +113,8 @@ export function parseOrderFields(body: unknown): { fields: OrderFields } | { err
             period,
             vertical,
             operator,
-            receptionistMode: mode,
-            ...(mode === "forwarded" ? { forwardingNumber } : {}),
+            ...(plan !== "website" && isReceptionistMode(mode) ? { receptionistMode: mode } : {}),
+            ...(plan !== "website" && mode === "forwarded" ? { forwardingNumber } : {}),
             client: {
                 legalName: str(c.legalName),
                 ...(str(c.dba) ? { dba: str(c.dba) } : {}),

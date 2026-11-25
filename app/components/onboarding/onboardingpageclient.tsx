@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { upload } from "@vercel/blob/client";
 import { SignOutButton } from "@clerk/nextjs";
+import { LEAD_FORM_NOT_VERIFIED, turnstileSiteKey, useTurnstile } from "@jdd/ui/turnstile";
 import { FINISH_LATER, SIGNED_OUT_URL } from "./wizard/finish-later";
 import { PrepError, precheck, prepareImage, type PrepKind } from "@/app/lib/image-prep";
 import { guessPhotoTown } from "@/app/lib/town-match";
@@ -127,6 +128,8 @@ export default function OnboardingPageClient({
     const [sheetOpen, setSheetOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState("");
+    /** The human check the privacy policy promises (2026-11-19): the Get started form's widget. */
+    const turnstile = useTurnstile(turnstileSiteKey());
     const [done, setDone] = useState<{ slug: string | null } | null>(null);
     /** "Finish later" with no other site to go to: the "Saved" screen is showing. */
     const [paused, setPaused] = useState(false);
@@ -368,8 +371,9 @@ export default function OnboardingPageClient({
         }
         setUploadError(slot, null);
         markBusy(slot, true);
-        const kind: PrepKind = slot === "logo" ? "logo" : "photo";
-        // Job photos only (general and per-service), never the logo or the team photo.
+        // Both logos keep their transparency (WebP or PNG, never JPEG).
+        const kind: PrepKind = slot === "logo" || slot === "monogram" ? "logo" : "photo";
+        // Job photos only (general and per-service), never a logo or the team photo.
         const isJobPhoto = slot === "hero" || slot.startsWith("svc:");
         const guess = isJobPhoto ? (f: File) => guessPhotoTown(f, state.towns, state.address) : undefined;
         try {
@@ -385,6 +389,8 @@ export default function OnboardingPageClient({
         errors: uploadErrors,
         logo: (files: File[]) =>
             void runUpload("logo", files.slice(0, 1), ([meta]) => setState((p) => ({ ...p, logoChoice: "", images: { ...p.images, logo: meta } }))),
+        monogram: (files: File[]) =>
+            void runUpload("monogram", files.slice(0, 1), ([meta]) => setState((p) => ({ ...p, logoChoice: "", images: { ...p.images, monogram: meta } }))),
         work: (files: File[]) =>
             void runUpload("hero", files.slice(0, MAX_WORK_PHOTOS - state.images.heroSlides.length), (metas) =>
                 setState((p) => ({ ...p, images: { ...p.images, heroSlides: [...p.images.heroSlides, ...metas].slice(0, MAX_WORK_PHOTOS) } })),
@@ -398,6 +404,15 @@ export default function OnboardingPageClient({
                     return { ...p, serviceFacts: { ...p.serviceFacts, [name]: { ...f, photos: [...f.photos, ...metas].slice(0, SERVICE_CAPS.photos) } } };
                 }),
             ),
+        /** A job photo's before photo (v1.41.0): the same upload and prep as the job photo itself. */
+        before: (name: string, index: number, files: File[]) =>
+            void runUpload(`svc:${name}:before:${index}`, files.slice(0, 1), ([meta]) =>
+                setState((p) => {
+                    const f = p.serviceFacts[name] ?? emptyFacts();
+                    const photos = f.photos.map((x, j) => (j === index ? { ...x, before: { url: meta.url, filename: meta.filename, alt: "" } } : x));
+                    return { ...p, serviceFacts: { ...p.serviceFacts, [name]: { ...f, photos } } };
+                }),
+            ),
     };
 
     // ── Sending ──
@@ -406,13 +421,25 @@ export default function OnboardingPageClient({
         setSubmitting(true);
         setSubmitError("");
         try {
+            // No token in time, or a widget that couldn't run, still sends: a signed-in client is
+            // never locked out of onboarding, and the server records it unverified.
+            const { token: turnstileToken, widgetError } = await turnstile.takeToken();
             const res = await fetch(`/api/portal/onboarding${siteRef ? `?site=${encodeURIComponent(siteRef)}` : ""}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(buildPayload(state, ctx)),
+                body: JSON.stringify({
+                    ...buildPayload(state, ctx),
+                    ...(turnstileToken ? { turnstileToken } : {}),
+                    ...(!turnstileToken && (widgetError || !turnstileSiteKey()) ? { turnstileStatus: "error" } : {}),
+                }),
             });
-            const data = (await res.json().catch(() => ({}))) as { message?: string; slug?: string };
-            if (!res.ok) throw new Error(data.message || "Unable to submit your onboarding form right now.");
+            const data = (await res.json().catch(() => ({}))) as { message?: string; slug?: string; error?: string };
+            if (!res.ok) {
+                // Cloudflare accepts each token once: a second try needs a fresh one.
+                turnstile.reset();
+                if (res.status === 403 && data.error === "not-verified") throw new Error(LEAD_FORM_NOT_VERIFIED);
+                throw new Error(data.message || "Unable to submit your onboarding form right now.");
+            }
             if (storageKey) localStorage.removeItem(storageKey);
             setDone({ slug: data.slug ?? null });
         } catch (err) {
@@ -554,6 +581,11 @@ export default function OnboardingPageClient({
                         </div>
                     )}
                 </div>
+
+                {/* The human check. Empty, and no height, for nearly everyone; a client Cloudflare is
+                    unsure of sees one checkbox here, worded by Cloudflare. Mounted on every screen,
+                    because the widget renders once, when the wizard opens. */}
+                <div ref={turnstile.containerRef} className={s.humanCheck} />
 
                 <div className={s.bar}>
                     {done ? (

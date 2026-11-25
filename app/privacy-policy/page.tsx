@@ -1,7 +1,10 @@
-export const metadata = {
-    title: "Privacy Policy | Juneau Digital Designs",
-    description: "How Juneau Digital Designs collects, uses, and protects information submitted through contact forms, agreement signing, and onboarding.",
-};
+import type { Metadata } from "next";
+import { pageMetadata } from "@/app/lib/site-seo";
+export const metadata: Metadata = pageMetadata(
+    "/privacy-policy",
+    "Privacy Policy | Juneau Digital Designs",
+    "How Juneau Digital Designs collects, uses, and protects information submitted through contact forms, accepting our Terms of Service, and onboarding.",
+);
 
 export default function PrivacyPolicyPage() {
     return (
@@ -39,7 +42,7 @@ export default function PrivacyPolicyPage() {
                     Privacy Policy
                 </h1>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--fg-3)", marginBottom: 40 }}>
-                    Effective date: November 9, 2026
+                    Effective date: November 19, 2026
                 </p>
 
                 {[
@@ -57,16 +60,15 @@ export default function PrivacyPolicyPage() {
                                     timeline.
                                 </p>
 
-                                <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Agreement signing</p>
+                                <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Accepting our Terms of Service</p>
                                 <p style={{ marginBottom: 10 }}>
-                                    When you sign a Service Agreement, we collect your legal business name, entity type, business
-                                    address, signer name, signer title, and email address. We also capture your hand-drawn digital signature
-                                    (stored as an image).
+                                    When you accept our Terms of Service, we collect your legal business name, entity type and business
+                                    address, and the name, title and email address of the person accepting.
                                 </p>
                                 <p style={{ marginBottom: 14 }}>
                                     For fraud prevention and ESIGN Act compliance, we automatically record your IP address, browser user
-                                    agent string, the date and time of signing (UTC), and a SHA-256 hash of the submitted agreement data.
-                                    This information is embedded in a tamper-evident audit trail appended to your signed contract PDF.
+                                    agent string, the date and time of acceptance (UTC), and a SHA-256 hash of the exact terms you were
+                                    shown. This record is kept with a PDF copy of the terms you accepted.
                                 </p>
 
                                 <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Call alert texts (optional)</p>
@@ -80,7 +82,7 @@ export default function PrivacyPolicyPage() {
                                 <p style={{ fontWeight: 600, color: "var(--fg)", marginBottom: 6 }}>Onboarding form</p>
                                 <p>
                                     After payment, we collect detailed information needed to build your website, including brand names,
-                                    business description, address, phone, colors, logo and image files, SEO metadata, Google Analytics ID,
+                                    business description, address, phone, colors, logo and image files, SEO metadata,
                                     Facebook Pixel ID, social media profile URLs, services, testimonials, FAQs, and other site content you
                                     provide.
                                 </p>
@@ -94,7 +96,7 @@ export default function PrivacyPolicyPage() {
                                 <p>Your information is used to:</p>
                                 <ul style={{ paddingLeft: 20, marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                                     <li>Respond to quote and contact requests.</li>
-                                    <li>Generate, deliver, and archive your signed Service Agreement.</li>
+                                    <li>Generate, deliver, and archive a copy of the Terms of Service you accepted.</li>
                                     <li>Verify your identity and intent for electronic signature purposes under the ESIGN Act (15 U.S.C. § 7001 et seq.).</li>
                                     <li>Process your subscription payment through Stripe.</li>
                                     <li>Build and configure your website using the content you provide.</li>
@@ -107,15 +109,14 @@ export default function PrivacyPolicyPage() {
                         ),
                     },
                     {
-                        heading: "Electronic signatures & audit trail",
+                        heading: "Electronic acceptance & audit trail",
                         content: (
                             <p>
-                                Our agreement signing flow complies with the Electronic Signatures in Global and National Commerce Act (ESIGN
-                                Act, 15 U.S.C. § 7001 et seq.). To create a legally valid audit record, we capture your IP address, browser
-                                user agent, signing timestamp, and a SHA-256 integrity hash of your submitted agreement data at the moment of
-                                signing. This information is stored in the signed PDF and retained for the duration of the service
-                                relationship and as required by applicable law. Your drawn signature is embedded directly into the contract
-                                PDF and is not stored separately after the document is generated.
+                                When you accept our Terms of Service online, we record your IP address, browser user agent, the time of
+                                acceptance, and a SHA-256 hash of the exact terms you were shown, as the record of your acceptance under the
+                                Electronic Signatures in Global and National Commerce Act (ESIGN Act, 15 U.S.C. § 7001 et seq.). This record
+                                is stored with the PDF copy of your terms and kept for the duration of the service relationship and as
+                                required by applicable law.
                             </p>
                         ),
                     },
@@ -130,7 +131,7 @@ export default function PrivacyPolicyPage() {
                                 <ul style={{ paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                                     <li>
                                         <span style={{ fontWeight: 600, color: "var(--fg)" }}>Resend.</span> Email delivery. Used to
-                                        transmit quote inquiries and to send signed contract PDFs to you and to our team.
+                                        transmit quote inquiries and to send copies of accepted Terms of Service to you and to our team.
                                     </li>
                                     <li>
                                         <span style={{ fontWeight: 600, color: "var(--fg)" }}>Stripe.</span> Payment processing. Your
@@ -155,14 +156,23 @@ export default function PrivacyPolicyPage() {
                                         populate the client portal.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Blob.</span> File storage. Signed
-                                        contract PDFs and onboarding image uploads are stored in Vercel Blob and accessible via a secure
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Blob.</span> File storage. Copies
+                                        of accepted Terms of Service and onboarding image uploads are stored in Vercel Blob and accessible via a secure
                                         URL.
                                     </li>
                                     <li>
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Vercel Web Analytics.</span> Website
+                                        traffic statistics. When you visit our public pages, Vercel records the page you viewed, the
+                                        website that referred you, your approximate location (country, region and city), and your
+                                        browser, operating system and device type, so we can see how many people visit and which pages
+                                        they read. It does not use cookies, and visits are counted with an anonymous identifier that is
+                                        discarded after 24 hours. It is not used in the client portal or on the private links we send
+                                        you.
+                                    </li>
+                                    <li>
                                         <span style={{ fontWeight: 600, color: "var(--fg)" }}>Upstash Redis.</span> Data store.
-                                        Agreement records are held for up to 30 days to link your signed contract to your checkout session,
-                                        then automatically deleted. Text messaging consent records are stored here without expiry, because
+                                        A record of terms accepted but never paid for is deleted after 30 days. A record of paid terms is
+                                        kept for the life of your account and as required by law. Text messaging consent records are stored here without expiry, because
                                         we are required to be able to demonstrate that you asked to receive those messages.
                                     </li>
                                     <li>
@@ -216,11 +226,11 @@ export default function PrivacyPolicyPage() {
                                         Retained only as long as needed to respond to your inquiry and manage initial communications.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Agreement KV records.</span> Automatically
-                                        deleted after 30 days; used solely to link your signed agreement to your checkout session.
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Acceptance records.</span> Deleted after
+                                        30 days if never paid for; otherwise kept for the life of your account.
                                     </li>
                                     <li>
-                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Signed contract PDFs &amp; audit trail.</span>{" "}
+                                        <span style={{ fontWeight: 600, color: "var(--fg)" }}>Copies of accepted Terms of Service &amp; audit trail.</span>{" "}
                                         Retained for the duration of the service relationship and as required by applicable law.
                                     </li>
                                     <li>
@@ -241,8 +251,8 @@ export default function PrivacyPolicyPage() {
                         content: (
                             <p>
                                 You may request correction or deletion of your submitted personal information by contacting us directly. We
-                                will honor valid requests where required by law. Note that signed agreement records and associated audit
-                                trails may need to be retained to satisfy legal obligations even after a deletion request.
+                                will honor valid requests where required by law. Note that records of accepted Terms of Service and their
+                                audit trails may need to be retained to satisfy legal obligations even after a deletion request.
                             </p>
                         ),
                     },

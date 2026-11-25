@@ -44,6 +44,8 @@ export default function InboxToolbar({
     onBulkClear,
     searchRef,
     isDesktop,
+    webOnly = false,
+    pastCalls,
 }: {
     filter: InboxFilter;
     counts: InboxCounts;
@@ -57,6 +59,10 @@ export default function InboxToolbar({
     onBulkClear: () => void;
     searchRef: RefObject<HTMLInputElement | null>;
     isDesktop: boolean;
+    /** The website plan has no calls, so it has no Calls or Forms chip: every item is a form. */
+    webOnly?: boolean;
+    /** Draws the Past calls chip (B4). Absent for a site with none. */
+    pastCalls?: { active: boolean; onOpen: () => void };
 }) {
     /**
      * The views beyond the four everyday ones. Reminders only once the backend is live, and
@@ -136,22 +142,25 @@ export default function InboxToolbar({
                     aria-label="Filter"
                     className="flex items-center gap-1.5 min-h-11 lg:min-h-9 overflow-x-auto lg:overflow-visible -mx-3.5 px-3.5 lg:mx-0 lg:px-0 [scrollbar-width:none]"
                 >
-                    {(["needs", "all", "calls", "forms"] as const).map((f) => (
+                    {(webOnly ? (["needs", "all"] as const) : (["needs", "all", "calls", "forms"] as const)).map((f) => (
                         <FilterChip
                             key={f}
-                            active={filter === f}
+                            active={filter === f && !pastCalls?.active}
                             onClick={() => onFilter(f)}
                             label={LABEL[f]}
                             count={count(f)}
                             phoneJoin={f === "needs"}
                         />
                     ))}
+                    {pastCalls && (
+                        <FilterChip active={pastCalls.active} onClick={pastCalls.onOpen} label="Past calls" count={null} />
+                    )}
                     {/* Desktop: the rest as chips. */}
                     <span className="hidden lg:contents">
                         {extras.map((f) => (
                             <FilterChip
                                 key={f}
-                                active={filter === f}
+                                active={filter === f && !pastCalls?.active}
                                 onClick={() => onFilter(f)}
                                 label={LABEL[f]}
                                 count={count(f)}

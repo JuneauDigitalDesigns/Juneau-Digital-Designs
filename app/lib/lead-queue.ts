@@ -40,7 +40,8 @@ function getRedis(): Redis {
  */
 export type LeadStage = "new" | "contacted" | "scheduled" | "client" | "lost";
 export type LeadSource = "form" | "call";
-export type PlanInterest = "starter" | "growth" | "enterprise";
+/** The plan a lead asked about: the schema's plan ids (`website` is shown as "Starter"). */
+export type PlanInterest = "website" | "starter" | "growth" | "enterprise";
 
 /** One entry in a lead's history. Written by both this site and the console. */
 export interface LeadActivity {
@@ -67,6 +68,12 @@ export interface QueuedLead {
   trade?: string;
   /** → jdd:democall:item:{callId}, for source: "call". */
   callId?: string;
+  /**
+   * The form's human check (`agency-lead-gate.ts`), for source: "form" since 2026-11-19.
+   * "unverified": Cloudflare couldn't be asked, or the widget couldn't run, and the lead was kept
+   * anyway. Absent on calls and on forms sent before the check existed.
+   */
+  verification?: "passed" | "unverified";
   notes?: string;
   activity: LeadActivity[];
   lostReason?: string;

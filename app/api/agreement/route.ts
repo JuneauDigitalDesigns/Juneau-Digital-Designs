@@ -48,7 +48,7 @@ export async function POST(req: Request) {
    *
    * Everything below renders a branded agreement, stores it, and emails it to whatever address
    * the body names. Without this, a signed-out caller could make JDD do all three for anyone.
-   * `/start` and `/agreement` already turn signed-out visitors away; this closes the API behind
+   * `/start` and `/terms/accept` already turn signed-out visitors away; this closes the API behind
    * them. `/start` creates the account before sending anyone to sign, so a login with no
    * account skipped the funnel and is refused here the same way `/api/checkout` refuses it.
    */
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   const consentCopy = body.smsConsent ? smsConsentCopyForVersion(body.smsConsentVersion) : null;
   if (body.smsConsent && !consentCopy) {
     return NextResponse.json(
-      { error: "This agreement has changed. Reload the page to read the current version." },
+      { error: "These terms have changed. Reload the page to read the current version." },
       { status: 400 },
     );
   }
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
     prior = (await unpaidMasterRepeated(account, body)) ?? (await priorAcceptance(idempotencyKey, id));
   } catch (e) {
     console.error("[/api/agreement] idempotency check failed", e);
-    return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
+    return NextResponse.json({ error: "Could not save your acceptance" }, { status: 500 });
   }
   if (prior) {
     console.log(`[/api/agreement] repeat acceptance, returning ${prior.id} (${account.email}, ${prior.plan})`);
@@ -227,7 +227,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("[/api/agreement] KV save failed", e);
     await releaseSlot();
-    return NextResponse.json({ error: "Could not save agreement record" }, { status: 500 });
+    return NextResponse.json({ error: "Could not save your acceptance" }, { status: 500 });
   }
 
   /**

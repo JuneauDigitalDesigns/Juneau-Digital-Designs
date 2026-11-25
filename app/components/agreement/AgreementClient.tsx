@@ -31,8 +31,6 @@ interface Props {
      * they scroll through matches the one the server hashes and the PDF renders. Absent on every
      * other plan and on addenda.
      */
-    webOnlySections?: Section[];
-    webOnlyVersion?: string;
     /**
      * Set when an existing client is moving up a tier. Signing is identical; only the step
      * after it differs — an upgrade modifies the subscription they already have rather than
@@ -92,8 +90,9 @@ const ENTITY_TYPES = ["LLC", "Corporation", "Sole Proprietor", "Partnership", "O
 
 /**
  * The phone-handling options, worded to match the portal onboarding form so a client who sees
- * both never meets two different explanations of the same choice. `declined` is Starter-only and
- * filtered out below for Growth — those tiers have no website-only variant.
+ * both never meets two different explanations of the same choice. There is no "website only"
+ * option any more: since v1.45.0 that is the `website` plan (shown as "Starter"), chosen before
+ * signing, and it has no phone section at all.
  */
 const RECEPTIONIST_OPTIONS: {
     id: ReceptionistMode;
@@ -115,13 +114,6 @@ const RECEPTIONIST_OPTIONS: {
         detail:
             "We give you a number and you start using it: cards, truck, Google listing. Calls ring your phone first, and reach the receptionist only if you miss them.",
     },
-    {
-        id: "declined",
-        pill: "Website only",
-        heading: "Website only, no receptionist",
-        detail:
-            "We build the site and skip the phone side entirely. Same price as Starter, and you can switch the receptionist on later with no extra onboarding fee.",
-    },
 ];
 
 export default function AgreementClient({
@@ -130,8 +122,6 @@ export default function AgreementClient({
     sections,
     version,
     smsConsentCopy,
-    webOnlySections,
-    webOnlyVersion,
     upgradeSlug = null,
     downgradeSlug = null,
     receptionistSlug = null,
@@ -168,10 +158,10 @@ export default function AgreementClient({
     // A downgrade keeps the phone setup the client already has, like an upgrade, unless there
     // is none to keep (`askPhoneChoice`: switching the receptionist on, or a website-only
     // upgrade). Website-only is never offered when the point is to switch the receptionist on.
-    const showPhoneSection = !isEnterprise && (askPhoneChoice || (!isUpgrade && !isDowngrade));
-    const phoneOptions = RECEPTIONIST_OPTIONS.filter(
-        (o) => (plan === "starter" && !isAddingReceptionist) || o.id !== "declined",
-    );
+    // The website plan has no phone to set up (D4), whatever the path.
+    const isWebsitePlan = plan === "website";
+    const showPhoneSection = !isEnterprise && !isWebsitePlan && (askPhoneChoice || (!isUpgrade && !isDowngrade));
+    const phoneOptions = RECEPTIONIST_OPTIONS;
     const [receptionistMode, setReceptionistMode] = useState<ReceptionistMode | "">("");
     const [forwardingNumber, setForwardingNumber] = useState("");
 
@@ -181,14 +171,8 @@ export default function AgreementClient({
     const [scrollCompletedAt, setScrollCompletedAt] = useState<string | null>(null);
     const hasReadTerms = scrollCompletedAt !== null;
 
-    /**
-     * Website-only swaps the whole document. The reader shows the Web-Only terms, the submit
-     * sends `declined`, and the server hashes and renders that variant — so the three can never
-     * describe different things. Guarded on `webOnlySections` being present (Starter master only).
-     */
-    const isWebOnly = plan === "starter" && receptionistMode === "declined" && !!webOnlySections;
-    const activeSections = isWebOnly && webOnlySections ? webOnlySections : sections;
-    const activeVersion = isWebOnly && webOnlyVersion ? webOnlyVersion : version;
+    const activeSections = sections;
+    const activeVersion = version;
 
     /**
      * A receptionist exists to text about when the client did not decline it. Enterprise and
@@ -196,19 +180,14 @@ export default function AgreementClient({
      * through to `true`. This gates the optional call-alert SMS opt-in, replacing the stale
      * pre-reprice check that hid it on all of Starter.
      */
-    const hasReceptionist = showPhoneSection
-        ? receptionistMode === "forwarded" || receptionistMode === "published"
-        : true;
+    // D9 (2026-11-24): the website plan's owners get no lead texts, so it never offers them.
+    const hasReceptionist = isWebsitePlan
+        ? false
+        : showPhoneSection
+          ? receptionistMode === "forwarded" || receptionistMode === "published"
+          : true;
 
-    /**
-     * Switching into or out of website-only changes the terms on screen, so the client must read
-     * the document that now applies. Resetting the scroll gate re-locks the signature until they
-     * reach the end of it.
-     */
     function chooseReceptionistMode(id: ReceptionistMode) {
-        const wasWebOnly = isWebOnly;
-        const willBeWebOnly = plan === "starter" && id === "declined" && !!webOnlySections;
-        if (wasWebOnly !== willBeWebOnly) setScrollCompletedAt(null);
         setReceptionistMode(id);
     }
 
@@ -262,7 +241,7 @@ export default function AgreementClient({
         setError(null);
 
         if (!hasReadTerms) {
-            setError("Please scroll to the end of the agreement before agreeing.");
+            setError("Please scroll to the end of the Terms of Service before accepting.");
             return;
         }
         // The ticked box IS the acceptance (no signature since 2026-11-03), so it is required.
@@ -371,7 +350,7 @@ export default function AgreementClient({
             });
             const sigData = (await sigRes.json()) as { agreement_id?: string; error?: string };
             if (!sigRes.ok || !sigData.agreement_id) {
-                throw new Error(sigData.error || `Signing failed (${sigRes.status})`);
+                throw new Error(sigData.error || `Your acceptance could not be recorded (${sigRes.status})`);
             }
 
             // 2. Charge. The endings differ, and picking the wrong one costs the client money:
@@ -390,7 +369,7 @@ export default function AgreementClient({
                 // seconds after they signed.
                 if (!conRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved. Please sign in and start the move again.",
+                        "Your session expired before you finished. Your acceptance is saved. Please sign in and start the move again.",
                     );
                 }
                 const conData = (await conRes.json()) as { ok?: boolean; error?: string };
@@ -434,7 +413,7 @@ export default function AgreementClient({
                 );
                 if (!dnRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved. Please sign in and open the link again.",
+                        "Your session expired before you finished. Your acceptance is saved. Please sign in and open the link again.",
                     );
                 }
                 const dnData = (await dnRes.json()) as { ok?: boolean; error?: string };
@@ -465,7 +444,7 @@ export default function AgreementClient({
                 // moments after they signed, so check what came back before trusting it.
                 if (!upRes.headers.get("content-type")?.includes("application/json")) {
                     throw new Error(
-                        "Your session expired while signing. Your agreement is saved. Please sign in and try the upgrade again.",
+                        "Your session expired before you finished. Your acceptance is saved. Please sign in and try the upgrade again.",
                     );
                 }
                 const upData = (await upRes.json()) as { ok?: boolean; error?: string };
@@ -501,21 +480,20 @@ export default function AgreementClient({
                 </div>
 
                 <h1 style={{ fontSize: "var(--text-3xl)", marginBottom: 10 }}>
-                    Service Agreement.
+                    Terms of Service.
                 </h1>
                 <p style={{ color: "var(--fg-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 28 }}>
-                    Read the agreement in full, fill in your details, then sign below to continue to
+                    Read the Terms of Service in full, fill in your details, then accept below to continue to
                     payment. You&apos;ll receive a copy by email.
                 </p>
 
                 <form onSubmit={handleSubmit}>
-                    {/* Agreement — must be read to the end before the acceptance box unlocks */}
+                    {/* The terms must be read to the end before the acceptance box unlocks. */}
                     <span id="terms" />
-                    <Section title={`Agreement, ${activeVersion}`}>
+                    <Section title={`Terms of Service, ${activeVersion}`}>
                         {/* Keyed on the variant so switching to/from website-only remounts the
                             reader, resetting its internal scroll tracking along with the gate. */}
                         <TermsReader
-                            key={isWebOnly ? "web-only" : "standard"}
                             sections={activeSections}
                             onComplete={handleTermsComplete}
                         />
@@ -548,14 +526,14 @@ export default function AgreementClient({
                             />
                             <FieldRow>
                                 <Field
-                                    label="Signer name"
+                                    label="Your name"
                                     placeholder="Jane Smith"
                                     value={form.signerName}
                                     onChange={(v) => update("signerName", v)}
                                     required
                                 />
                                 <Field
-                                    label="Signer title"
+                                    label="Your title"
                                     placeholder="Owner"
                                     value={form.signerTitle}
                                     onChange={(v) => update("signerTitle", v)}
@@ -563,13 +541,13 @@ export default function AgreementClient({
                                 />
                             </FieldRow>
                             <Field
-                                label="Signer email"
+                                label="Your email"
                                 type="email"
                                 placeholder="jane@acme.com"
                                 value={form.signerEmail}
                                 onChange={(v) => update("signerEmail", v)}
                                 required
-                                hint="The agreement copy is sent here."
+                                hint="We send your copy here."
                             />
                             {isEnterprise && (
                                 <div
@@ -610,8 +588,8 @@ export default function AgreementClient({
                     </Section>
 
                     {/*
-                        Your phone — the required choice. Three pills on Starter (forward / new
-                        number / website only), two on Growth (no website-only). The shared box
+                        Your phone — the required choice. Two pills (forward / new number) on
+                        Starter + AI Receptionist and Growth; none on the website plan. The shared box
                         below restates the selected option, and picking "forward" reveals the
                         line to forward. Hidden for Enterprise (deferred to onboarding) and
                         upgrades (phone already set up).
@@ -738,7 +716,7 @@ export default function AgreementClient({
                                 <>
                                     I have read and agree to the{" "}
                                     <a href="#terms" style={{ color: "var(--fg)", fontWeight: 600 }}>Terms of Service</a>,
-                                    including the plan details in Schedule A.
+                                    including my plan summary.
                                 </>
                             )}
                         </span>
@@ -748,7 +726,7 @@ export default function AgreementClient({
                     {/*
                         Optional SMS opt-in. Sits below the binding acceptance, in its own
                         visually distinct card, and is never gated on `hasReadTerms` — a
-                        consent that unlocks only by working through the service agreement
+                        consent that unlocks only by working through the Terms of Service
                         reads as bundled into it, which is exactly what "not a condition of
                         purchase" rules out. Nothing here touches the submit button.
                     */}
@@ -800,10 +778,10 @@ export default function AgreementClient({
                         }}
                     >
                         {submitting
-                            ? "Signing and preparing payment…"
+                            ? "Recording your acceptance and preparing payment…"
                             : hasReadTerms
-                              ? "Sign & continue to payment →"
-                              : "Scroll to the end of the agreement"}
+                              ? "Accept & continue to payment →"
+                              : "Scroll to the end of the terms"}
                     </button>
 
                     <p
@@ -816,7 +794,7 @@ export default function AgreementClient({
                             letterSpacing: "0.05em",
                         }}
                     >
-                        Signed PDF emailed to you · ESIGN Act & UETA compliant
+                        A PDF copy is emailed to you · ESIGN Act & UETA compliant
                     </p>
                 </form>
             </div>
@@ -838,7 +816,7 @@ function LockNote() {
                 letterSpacing: "0.04em",
             }}
         >
-            ━ THE BOX UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL AGREEMENT ABOVE
+            ━ THE BOX UNLOCKS ONCE YOU&apos;VE SCROLLED THROUGH THE FULL TERMS ABOVE
         </p>
     );
 }

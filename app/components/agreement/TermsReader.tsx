@@ -83,7 +83,7 @@ export default function TermsReader({ sections, onComplete, height = 520 }: Prop
                 onScroll={handleScroll}
                 tabIndex={0}
                 role="region"
-                aria-label="Services Agreement terms"
+                aria-label="Terms of Service"
                 style={{
                     height,
                     overflowY: "auto",
@@ -95,24 +95,29 @@ export default function TermsReader({ sections, onComplete, height = 520 }: Prop
             >
                 {sections.map((section) => (
                     <section key={`${section.num}-${section.heading}`} style={{ marginBottom: 26 }}>
-                        <h2
-                            style={{
-                                fontSize: 13.5,
-                                fontWeight: 600,
-                                color: "var(--fg)",
-                                margin: "0 0 4px",
-                                letterSpacing: "0.01em",
-                            }}
-                        >
-                            {section.num === 0 ? section.heading : `${section.num}. ${section.heading}`}
-                        </h2>
-                        <div
-                            style={{
-                                height: 1,
-                                background: "var(--rule)",
-                                margin: "0 0 12px",
-                            }}
-                        />
+                        {/* Section 0 with no heading is the preamble: no title, no rule. */}
+                        {section.heading && (
+                            <>
+                                <h2
+                                    style={{
+                                        fontSize: 13.5,
+                                        fontWeight: 600,
+                                        color: "var(--fg)",
+                                        margin: "0 0 4px",
+                                        letterSpacing: "0.01em",
+                                    }}
+                                >
+                                    {section.num === 0 ? section.heading : `${section.num}. ${section.heading}`}
+                                </h2>
+                                <div
+                                    style={{
+                                        height: 1,
+                                        background: "var(--rule)",
+                                        margin: "0 0 12px",
+                                    }}
+                                />
+                            </>
+                        )}
 
                         {section.intro.map((block, i) => (
                             <BlockView key={i} block={block} />
@@ -120,18 +125,21 @@ export default function TermsReader({ sections, onComplete, height = 520 }: Prop
 
                         {section.subsections.map((sub) => (
                             <div key={sub.num + sub.heading} style={{ marginTop: 14 }}>
-                                <h3
-                                    style={{
-                                        fontSize: 12.5,
-                                        fontWeight: 600,
-                                        color: "var(--fg)",
-                                        margin: "0 0 5px",
-                                    }}
-                                >
-                                    {sub.num ? `${sub.num} ${sub.heading}` : sub.heading}
-                                </h3>
+                                {sub.heading ? (
+                                    <h3
+                                        style={{
+                                            fontSize: 12.5,
+                                            fontWeight: 600,
+                                            color: "var(--fg)",
+                                            margin: "0 0 5px",
+                                        }}
+                                    >
+                                        {sub.num ? `${sub.num} ${sub.heading}` : sub.heading}
+                                    </h3>
+                                ) : null}
                                 {sub.blocks.map((block, i) => (
-                                    <BlockView key={i} block={block} />
+                                    // A clause with no heading prints its number at the start of its text.
+                                    <BlockView key={i} block={block} lead={!sub.heading && i === 0 ? sub.num : undefined} />
                                 ))}
                             </div>
                         ))}
@@ -149,7 +157,7 @@ export default function TermsReader({ sections, onComplete, height = 520 }: Prop
                         color: "var(--fg-3)",
                     }}
                 >
-                    — END OF AGREEMENT —
+                    END OF THE TERMS OF SERVICE
                 </div>
             </div>
 
@@ -165,17 +173,23 @@ export default function TermsReader({ sections, onComplete, height = 520 }: Prop
                 aria-live="polite"
             >
                 {done
-                    ? "✓ AGREEMENT READ IN FULL"
+                    ? "✓ TERMS READ IN FULL"
                     : `SCROLL TO THE END TO CONTINUE — ${Math.round(progress * 100)}%`}
             </div>
         </div>
     );
 }
 
-function BlockView({ block }: { block: Block }) {
+/** `lead` is a clause number printed at the start of the text, for clauses with no heading. */
+function BlockView({ block, lead }: { block: Block; lead?: string }) {
     switch (block.kind) {
         case "para":
-            return <p style={{ margin: "0 0 9px" }}>{block.text}</p>;
+            return (
+                <p style={{ margin: "0 0 9px" }}>
+                    {lead && <strong style={{ color: "var(--fg)", fontWeight: 600 }}>{lead} </strong>}
+                    {block.text}
+                </p>
+            );
 
         case "bullets":
             return (
@@ -242,6 +256,7 @@ function BlockView({ block }: { block: Block }) {
                         lineHeight: 1.55,
                     }}
                 >
+                    {lead && <>{lead} </>}
                     {block.text}
                 </p>
             );

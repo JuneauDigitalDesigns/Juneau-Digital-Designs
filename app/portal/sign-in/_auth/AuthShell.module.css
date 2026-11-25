@@ -11,9 +11,11 @@
    because the global input rule reads it for placeholders, which sit on white (4.84). */
 
 .shell {
-    /* The light agency tokens, restated so a visitor whose OS is in dark mode still gets the
-       cream page. Mirrors the light `:root` block at the top of globals.css; a row in the
-       PORTAL-DESIGN.md mirror table. */
+    /* The agency tokens, restated here because `:root` no longer carries a dark agency theme.
+       Light mirrors the light `:root` block at the top of globals.css; the dark block below
+       mirrors AGENCY_HEX_DARK (clerkAppearance.ts). Since 2026-11-19 the page follows the OS
+       into dark (Xander: "Sign in can turn dark with the phone"). A row in the PORTAL-DESIGN.md
+       mirror table. */
     --bg: #f4ecd8;
     --fg: #14120c;
     --fg-2: #43402c;
@@ -56,20 +58,49 @@
 
 /* ── Brand: a band on phones, the left panel from 1024px ─────────────────────────────── */
 
+/* Phones (approved app mockup, 2026-11-19): a launch screen. The lockup and "Client Portal"
+   sit centred in the upper part of the screen with room around them, the form sits in the
+   middle within thumb reach, and Help · Privacy · Terms are pinned to the bottom. It replaced a
+   sand band with the lockup and the big headline jammed against the top edge. */
 .brand {
+    flex: 1 0 auto;
+    min-height: 30vh;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
     gap: 12px;
-    padding: 26px 22px 28px;
-    background: var(--panel-header);
-    border-bottom: 1px solid rgba(20, 18, 12, 0.1);
+    padding: calc(40px + env(safe-area-inset-top, 0px)) 24px 26px;
+    text-align: center;
 }
 
 /* 10:3, the asset's own ratio. Light grounds only: the art is near-black. */
 .lockup {
     display: block;
-    width: 170px;
+}
+.lockup img {
+    display: block;
+    width: 190px;
     height: auto;
+}
+
+/* "Client Portal" and Clerk's approved subtitle, phones only. On the first sign-in step Clerk's
+   own title is hidden on phones (see below), so the page does not say it twice. */
+.launchTitle {
+    margin: 6px 0 0;
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 40px;
+    line-height: 0.95;
+    text-transform: uppercase;
+    color: var(--fg);
+}
+.launchSub {
+    margin: 0;
+    max-width: 26ch;
+    font-size: 16px;
+    line-height: 1.4;
+    color: var(--fg-2);
 }
 
 /* Big Shoulders 900, uppercase: the agency display voice, as on the homepage. */
@@ -84,6 +115,7 @@
     color: var(--fg);
 }
 
+.headline,
 .sub,
 .peek,
 .foot {
@@ -91,25 +123,26 @@
 }
 
 .side {
-    flex: 1;
+    flex: 1 0 auto;
     display: flex;
     justify-content: center;
-    /* Tucks the card up over the band's bottom edge, as in the phone mockup. */
-    padding: 0 14px;
-    margin-top: -12px;
+    padding: 0 20px;
 }
 
 .stack {
     width: 100%;
     max-width: 404px;
+    display: flex;
+    flex-direction: column;
 }
 
 .links {
     display: flex;
     justify-content: center;
-    gap: 16px;
-    padding: 18px;
-    font-size: 12.5px;
+    gap: 18px;
+    margin-top: auto;
+    padding: 28px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+    font-size: 14px;
 }
 .links a {
     color: var(--fg-2);
@@ -125,6 +158,10 @@
 
     .brand {
         flex: none;
+        align-items: stretch;
+        justify-content: flex-start;
+        text-align: left;
+        background: var(--panel-header);
         width: clamp(420px, 43vw, 620px);
         box-sizing: border-box;
         min-height: 100vh;
@@ -135,13 +172,19 @@
         border-right: 1px solid rgba(20, 18, 12, 0.1);
     }
 
-    .lockup {
+    .lockup img {
         width: 220px;
+    }
+
+    .launchTitle,
+    .launchSub {
+        display: none;
     }
 
     /* `margin-top: auto` drops the headline and everything after it to the bottom of the
        panel, leaving the lockup alone at the top. */
     .headline {
+        display: block;
         margin-top: auto;
         font-size: clamp(56px, 5.3vw, 76px);
     }
@@ -241,4 +284,44 @@
 .shell :global(.btn.primary:not(:hover)) {
     background: #b8441f;
     border-color: #b8441f;
+}
+
+/* ── Phones: the first sign-in step's Clerk title ────────────────────────────────────────
+   On a phone the page shows "Client Portal" with the approved subtitle above the form, so Clerk's
+   own "Sign in to your client portal" header is hidden there on the start step only. Later steps
+   (password, code) keep their header, which names the step. Clerk marks the step on the card as
+   `cl-signIn-start`; `appearance.elements` has no per-step key, so this is the one rule that
+   reaches into a `cl-` class, deliberately and only for visibility. */
+@media (max-width: 1023px) {
+    .shell :global(.cl-signIn-start .cl-header) {
+        display: none;
+    }
+}
+
+/* ── Dark (2026-11-19) ──────────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    .shell {
+        --bg: #14120c;
+        --fg: #f0e7d2;
+        --fg-2: #d6ccb2;
+        --fg-3: #9a9075;
+        --accent: #3fa9b3;
+        --accent-2: #ff6b4a;
+        --accent-glow: rgba(255, 107, 74, 0.26);
+        --on-accent-2: #14120c;
+        --panel: #0e0d08;
+        --panel-header: #1a1810;
+        --elev-2: #221f15;
+        --rule: rgba(240, 231, 210, 0.16);
+        --rule-weak: rgba(240, 231, 210, 0.06);
+        --rule-strong: rgba(240, 231, 210, 0.28);
+        --surface: rgba(240, 231, 210, 0.05);
+        color-scheme: dark;
+    }
+    .foot a:hover { color: #6cc3cb; }
+    .eyebrow { color: #ff8466; }
+    .why { background: rgba(255, 107, 74, 0.16); color: #ff9b80; }
+    .callBack { background: #ff6b4a; color: #14120c; }
+    .brand { border-color: rgba(240, 231, 210, 0.1); }
+    .shell :global(.btn.primary:not(:hover)) { background: #ff6b4a; border-color: #ff6b4a; color: #14120c; }
 }

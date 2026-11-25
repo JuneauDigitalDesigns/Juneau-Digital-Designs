@@ -8,7 +8,7 @@ import { typePhone } from "@/app/lib/phone-typing";
 
 /**
  * The owner text-alerts choice: two cards, neither chosen when the page opens. One component for
- * both agreement pages, the self-serve `/agreement` and an order's private link (`/agree/[code]`),
+ * both agreement pages, the self-serve `/terms/accept` and an order's private link (`/terms/[code]`),
  * so the two can never show different words. Rules: `app/lib/text-alerts-choice.mjs`.
  *
  *  - **Yes** reveals the mobile number field and, directly beside it, the registered unchecked

@@ -108,6 +108,9 @@ test("no customer-facing copy promises when the carriers will approve", () => {
             // deadline mentions carriers and thirty days while promising nothing about what
             // the carriers will decide, so "carrier" alone is too loose a trigger.
             if (!/approv|registration/i.test(line)) continue;
+            // A domain's 60-day registrar lock (Terms of Service §9.5) is ICANN's rule about domain
+            // registration, not a carrier deciding anything.
+            if (/registrar/i.test(line)) continue;
             if (/\b(\d+|one|two|three|four|a few|couple)\b[^.]{0,24}\b(day|week)s?\b/i.test(line)) {
                 offenders.push(`${file}:${i + 1}`);
             }

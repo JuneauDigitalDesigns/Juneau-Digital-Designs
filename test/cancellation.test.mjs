@@ -33,11 +33,11 @@ test("the cancellation wording is exactly what Xander approved", async () => {
   );
   assert.equal(
     copy.CANCEL_EMAIL_NOTICE,
-    "This email is your written confirmation of cancellation under your service agreement. No notice period applies. If you have questions, reply to this email.",
+    "This email is your written confirmation of cancellation under our Terms of Service. No notice period applies. If you have questions, reply to this email.",
   );
   assert.equal(
     copy.cancelEmailFooter("2026-11-04"),
-    "This email confirms cancellation under the Juneau Digital Designs Master Services Agreement. Cancellation request submitted 2026-11-04.",
+    "This email confirms cancellation under the Juneau Digital Designs Terms of Service. Cancellation request submitted 2026-11-04.",
   );
 });
 

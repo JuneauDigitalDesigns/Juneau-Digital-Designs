@@ -1,30 +1,20 @@
 import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { getPortalRatelimit } from "@/app/lib/portal-kv";
-import { nextSeen } from "@/app/lib/portal-tour-seen";
+import { isTourDevice, nextTour } from "@/app/lib/portal-tour-seen";
 
 export const runtime = "nodejs";
 
 /**
- * Persist first-run tutorial progress on the Clerk user.
+ * Remember how far a person got with the portal tour, on a computer or on a phone.
  *
- * State lives in `publicMetadata.tour` — client-readable (so the layout can decide whether to
- * auto-launch) but server-only-writable (so the browser can't forge "completed"). Per user, not
- * per account: each person who signs in gets taught once.
+ * Stored in Clerk `publicMetadata.tour` (`app/lib/portal-tour-seen.ts`): readable by the layout,
+ * which decides on the server whether the tour starts by itself, but writable only here, so a
+ * browser can't forge "seen". One flag per device, per person: the tour plays once on a computer
+ * and once on a phone, for everyone who signs in (Xander, 19 Nov 2026).
  *
- * Tours v2 (2026-11-12): `completed` is the welcome tour; `seen` lists the tab tours this person
- * has had (`portal-tour-seen.ts`). "Replay all tours" sends `resetSeen`, which clears `seen` so
- * every tab teaches again, and never touches `completed`: the welcome tour it replays is started
- * by hand, not by auto-launch.
+ * Body: `{ device: "desktop" | "mobile", completed?: true, step?: number }`.
  */
-
-interface TourMeta {
-    completed?: boolean;
-    lastStepIndex?: number;
-    seen?: string[];
-    updatedAt?: string;
-}
-
 export async function POST(request: Request) {
     const { userId } = await auth();
     if (!userId) {
@@ -36,31 +26,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-        completed?: unknown;
-        lastStepIndex?: unknown;
-        seen?: unknown;
-        resetSeen?: unknown;
-    };
+    const body = (await request.json().catch(() => ({}))) as { device?: unknown; completed?: unknown; step?: unknown };
+    if (!isTourDevice(body.device)) {
+        return NextResponse.json({ error: "Unknown device" }, { status: 400 });
+    }
 
     const client = await clerkClient();
     const user = await client.users.getUser(userId);
-    const prev = (user.publicMetadata?.tour ?? {}) as TourMeta;
+    const tour = nextTour(user.publicMetadata?.tour, { device: body.device, completed: body.completed, step: body.step }, new Date().toISOString());
 
-    // "Seen" only ever goes one way. Nothing in the portal un-sees the tour (the Help button
-    // replays it without re-arming auto-launch), so a stray `completed: false`, or a write that
-    // raced past this one, must not bring it back on every visit.
-    const tour: TourMeta = {
-        completed: body.completed === true || prev.completed === true,
-        lastStepIndex:
-            typeof body.lastStepIndex === "number"
-                ? body.lastStepIndex
-                : (prev.lastStepIndex ?? 0),
-        seen: nextSeen(prev.seen, body.seen, body.resetSeen === true),
-        updatedAt: new Date().toISOString(),
-    };
-
-    // Spread existing publicMetadata so other keys (if any) survive this write.
+    // Spread existing publicMetadata so other keys survive this write.
     await client.users.updateUserMetadata(userId, {
         publicMetadata: { ...user.publicMetadata, tour },
     });

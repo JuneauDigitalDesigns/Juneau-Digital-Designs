@@ -63,26 +63,14 @@ export interface PlanSchedule {
   slug: PlanSlug;
   name: string;
   monthlyPrice: number;
-  /**
-   * Annual prepay price. Always `monthlyPrice * ANNUAL_MONTHS_CHARGED`, never written by hand.
-   *
-   * Derived so the "two months free" promise cannot drift from the monthly price it discounts.
-   * A literal here would let someone change `monthlyPrice` and quietly turn the annual deal
-   * into something other than two months free.
-   */
-  annualPrice: number;
   onboardingFee: number;
   /** Prose form used inside the terms, e.g. "up to three (3) websites". */
   siteLabel: string;
   maxSites: number;
   /**
-   * **Do not inline this, even though every sold plan sets it to `true`.**
-   *
-   * Since the 2026-10-12 reprice all three tiers include the AI receptionist, which makes the
-   * roughly fifteen `s.hasVoiceAgent` branches in the terms look like dead code. They are not:
-   * `WEB_ONLY_SCHEDULE` sets this `false`, and it is the only schedule where those branches
-   * render. Flattening them to the has-agent text would quietly destroy the ability to issue a
-   * receptionist-free agreement, which is the one document a client who refuses AI can sign.
+   * False only on `WEB_ONLY_SCHEDULE`. Since Terms v6.0 the body is the same for every plan
+   * (§4 says it does not apply to a website-only plan), so this now drives the plan summary,
+   * the read-aloud script's minutes line and the addendum, not the Terms text.
    */
   hasVoiceAgent: boolean;
   /** Null when the plan includes no voice agent, i.e. web-only only. */
@@ -109,6 +97,7 @@ export interface PlanSchedule {
 export interface ResolvedTerms {
   version: string;
   plan: PlanSlug;
+  /** Section 0 with an empty heading is the preamble; the last section 0 is the plan summary. */
   sections: Section[];
   schedule: PlanSchedule;
 }

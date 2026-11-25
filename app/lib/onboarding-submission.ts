@@ -11,12 +11,24 @@
  * Everything is sanitized and length-capped; nothing is defaulted that the client didn't give.
  */
 
-import { PROFILE_KINDS, TOP_TOWNS_MAX, type BrandIntakeSubmission, type Intake, type OperatorOrder, type PalettePick, type ProfileKind, type ServiceEntry } from "@jdd/schema";
+import {
+    PROFILE_KINDS,
+    TOP_TOWNS_MAX,
+    receptionistModeProblem,
+    type BrandIntakeSubmission,
+    type Intake,
+    type OperatorOrder,
+    type PalettePick,
+    type PortalPlan,
+    type ProfileKind,
+    type ReceptionistMode,
+    type ServiceEntry,
+} from "@jdd/schema";
 import type { AgreementRecord } from "./agreement-types";
 import { isValidBlobUrl } from "./blob-url";
 import { normaliseProfileLink } from "./profile-links";
 
-type PlanSlug = "starter" | "growth" | "enterprise";
+type PlanSlug = PortalPlan;
 type Body = Partial<Record<string, unknown>>;
 
 const MAX_FIELD = 2000;
@@ -204,31 +216,54 @@ export function isValidEmail(email: string): boolean {
 
 export type SubmissionResult =
     | { ok: true; submission: BrandIntakeSubmission }
-    | { ok: false; reason: "invalid-email" | "declined-not-starter" };
+    | { ok: false; reason: "invalid-email" | "plan-mode-mismatch" };
+
+/**
+ * Whether this site is the legacy web-only shape: `starter` already signed "declined" before the
+ * `website` plan existed (v1.45.0). Read so an in-flight record can still finish onboarding; a new
+ * one is never made.
+ */
+export function isLegacyWebOnlySite(site: { plan: PlanSlug; receptionistMode?: ReceptionistMode }): boolean {
+    return site.plan === "starter" && site.receptionistMode === "declined";
+}
 
 /**
  * Build the submission from the POST body and the site it is for.
  *
  * `site.plan` is the fallback plan and `site.signerEmail` the fallback email, as before.
+ * `site.receptionistMode` is the choice made at signing, read only to recognise the legacy shape.
  */
-export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?: string }): SubmissionResult {
-    const validPlans: PlanSlug[] = ["starter", "growth", "enterprise"];
-    const rawPlan = sanitize(body.selectedPlan, 20);
-    const selectedPlan: PlanSlug = validPlans.includes(rawPlan as PlanSlug) ? (rawPlan as PlanSlug) : site.plan;
+export function buildSubmission(
+    body: Body,
+    site: { plan: PlanSlug; signerEmail?: string; receptionistMode?: ReceptionistMode },
+): SubmissionResult {
+    // The plan is the one the site is billed on, never the browser's. The form's `selectedPlan`
+    // used to win, and the route writes it back to the site, so a client could relabel their own
+    // plan: with `website` at $97 beside `starter` at $297, that is the difference between a
+    // number being bought or not. `body.selectedPlan` is ignored.
+    const selectedPlan: PlanSlug = site.plan;
 
     /**
      * The activation choice, narrowed against the three valid values. Anything unrecognised is
      * `undefined` ("not asked") rather than coerced: provisioning refuses to run without a stated
      * choice, so a bad value stalls a build and gets noticed instead of buying, or withholding, a
-     * phone number. Website-only off Starter is refused outright: onboard.js rejects it too, and
-     * catching it here means the client hears about it instead of the build stalling later.
+     * phone number.
+     *
+     * "Declined" only via the website plan (v1.45.0, the schema's `receptionistModeProblem`): it
+     * is accepted on `website`, or on a legacy Starter site already signed "declined", and refused
+     * everywhere else. `website` with a receptionist mode is refused too. onboard.js refuses the
+     * same pairs, and catching them here means the client hears about it instead of the build
+     * stalling later. A `website` submission with no mode is sent as "declined", so a reader on
+     * either schema version treats it as web-only.
      */
     const rawReceptionist = sanitize(body.receptionistMode, 20);
-    const receptionistMode =
+    const sentMode =
         rawReceptionist === "forwarded" || rawReceptionist === "published" || rawReceptionist === "declined"
             ? rawReceptionist
             : undefined;
-    if (receptionistMode === "declined" && selectedPlan !== "starter") return { ok: false, reason: "declined-not-starter" };
+    const receptionistMode = selectedPlan === "website" && !sentMode ? "declined" : sentMode;
+    const legacy = selectedPlan === "starter" && isLegacyWebOnlySite(site);
+    if (receptionistModeProblem(selectedPlan, receptionistMode, { legacy })) return { ok: false, reason: "plan-mode-mismatch" };
 
     const email = sanitize(body.email, 160) || site.signerEmail || "";
     if (email && !isValidEmail(email)) return { ok: false, reason: "invalid-email" };
@@ -238,7 +273,9 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
     const heroSlides = Array.isArray(rawImages.heroSlides)
         ? rawImages.heroSlides.slice(0, 10).map(sanitizeImageMeta).filter((x): x is { url: string; filename: string; alt: string } => x !== null)
         : [];
+    // v1.42.0: `logo` is the wide logo (the footer's wordmark), `monogram` the square one (the nav's).
     const logo = rawImages.logo ? sanitizeImageMeta(rawImages.logo) ?? undefined : undefined;
+    const monogram = rawImages.monogram ? sanitizeImageMeta(rawImages.monogram) ?? undefined : undefined;
     const aboutFeature = rawImages.aboutFeature ? sanitizeImageMeta(rawImages.aboutFeature) ?? undefined : undefined;
 
     const additionalSites = Array.isArray(body.additionalSites)
@@ -312,7 +349,7 @@ export function buildSubmission(body: Body, site: { plan: PlanSlug; signerEmail?
         },
         palette: sanitizePalette(body.palette),
         hasLogo: Boolean(body.hasLogo),
-        images: { logo, heroSlides, aboutFeature },
+        images: { logo, ...(monogram ? { monogram } : {}), heroSlides, aboutFeature },
         existingWebsiteUrl: sanitize(body.existingWebsiteUrl, 500),
         announcement: sanitize(body.announcement, 300),
         stats: sanitizeStats(body.stats),

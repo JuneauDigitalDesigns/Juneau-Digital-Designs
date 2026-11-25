@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   if (!agreement_id) {
-    return NextResponse.json({ error: "Missing signed agreement" }, { status: 400 });
+    return NextResponse.json({ error: "Missing Terms of Service acceptance" }, { status: 400 });
   }
 
   const account = await resolveAccountForUser(userId);
@@ -56,12 +56,12 @@ export async function POST(req: Request) {
     agreement = await getAgreement(agreement_id);
   } catch (e) {
     console.error("[/api/checkout] KV lookup failed", e);
-    return NextResponse.json({ error: "Could not retrieve agreement" }, { status: 500 });
+    return NextResponse.json({ error: "Could not find your acceptance" }, { status: 500 });
   }
 
   if (!agreement || agreement.plan !== cfg.slug) {
     return NextResponse.json(
-      { error: "Agreement not found or does not match selected plan" },
+      { error: "Acceptance not found, or not for the selected plan" },
       { status: 400 },
     );
   }
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
         agreement.id,
         agreement.parentAgreementId,
       );
-      return NextResponse.json({ error: "Agreement does not belong to this account" }, { status: 403 });
+      return NextResponse.json({ error: "That acceptance isn't for this account" }, { status: 403 });
     }
   }
 

@@ -3,7 +3,7 @@ import { stripe } from "@/app/lib/stripe";
 import { fulfilOperatorPayment, provisionPaidSession } from "@/app/lib/checkout-fulfillment";
 import { motoInvoiceOrder, motoRef } from "@/app/lib/moto-charge.mjs";
 import { getAccount, saveAccount } from "@/app/lib/account-store";
-import { upsertSite } from "@jdd/schema";
+import { PLAN_IDS, upsertSite } from "@jdd/schema";
 import { getSlugBySubscription, removePublishedFeaturedSite } from "@/app/lib/cancel-kv";
 import { claimWelcomeEmailSend, clearWelcomeEmailMark, getAgreement } from "@/app/lib/kv";
 import { masterRefFor } from "@/app/lib/held-agreement";
@@ -13,12 +13,13 @@ import { handleOrderSessionExpired } from "@/app/lib/order-link-expiry";
 import { planOfSubscription } from "@/app/lib/plan-billing";
 import { getPlanChange, savePlanChange } from "@/app/lib/plan-change";
 import { dropBillingCache } from "@/app/lib/portal-kv";
+import { syncCardToSubscriptions } from "@/app/lib/billing-portal";
 import type Stripe from "stripe";
 import type { PortalPlan } from "@jdd/schema";
 
 export const runtime = "nodejs";
 
-const VALID_PLANS: PortalPlan[] = ["starter", "growth", "enterprise"];
+const VALID_PLANS: readonly PortalPlan[] = PLAN_IDS;
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
@@ -35,6 +36,25 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "bad signature";
     return NextResponse.json({ error: msg }, { status: 400 });
+  }
+
+  // The client changed their card on Stripe's page (Q4), which sets the Customer's default.
+  // A subscription with its own card is charged to that one first, so each one still billing is
+  // moved onto the new card. The portal's return route does the same the moment the client comes
+  // back; this covers a client who closed the tab instead. Idempotent, so both running is fine.
+  // Needs `customer.updated` among the endpoint's events in the Stripe Dashboard.
+  if (event.type === "customer.updated") {
+    const customer = event.data.object as Stripe.Customer;
+    const before = event.data.previous_attributes as { invoice_settings?: unknown } | undefined;
+    if (before && "invoice_settings" in before) {
+      try {
+        const moved = await syncCardToSubscriptions(customer.id);
+        if (moved.length) console.log("[stripe webhook] moved subscriptions onto the new card", customer.id, moved);
+      } catch (e) {
+        console.error("[stripe webhook] card sync failed", customer.id, e);
+        return NextResponse.json({ error: "card sync failed" }, { status: 500 });
+      }
+    }
   }
 
   // An operator order's payment link lapsed unpaid (Checkout Sessions live 24 hours). The order
@@ -123,7 +143,15 @@ export async function POST(req: Request) {
         const current = account?.sites.find((s) => s.slug === slug);
 
         if (!plan || !VALID_PLANS.includes(plan)) {
-          console.warn("[stripe webhook] subscription price is not a plan we sell", slug, sub.id);
+          // Loud: a site whose price stopped mapping (a grandfathered price missing from
+          // STRIPE_PRICE_STARTER_MONTHLY_LEGACY, a price made by hand) keeps its stored plan,
+          // and someone has to look. Never mapped to a default plan.
+          console.error(
+            "[stripe webhook] subscription price is not a plan we sell; plan left as it was",
+            slug,
+            sub.id,
+            sub.items?.data?.map((i) => i.price?.id),
+          );
         } else if (!account || !current) {
           console.warn("[stripe webhook] no site for plan change", email, slug, sub.id);
         } else if (
@@ -140,7 +168,13 @@ export async function POST(req: Request) {
           // every subscription edit, including cancellations.
           console.log("[stripe webhook] plan already current, nothing to do", slug, plan);
         } else {
-          await saveAccount(upsertSite(account, { slug, plan }, Date.now()));
+          // A site that lands on the website plan (a scheduled downgrade, D7) is stamped
+          // `declined`, as a new website site is at fulfilment, so no reader takes its old
+          // phone mode as a receptionist still to wire. Its past calls are kept apart in
+          // `callHistory`, which the console's downgrade writes first (B4).
+          await saveAccount(
+            upsertSite(account, { slug, plan, ...(plan === "website" ? { receptionistMode: "declined" as const } : {}) }, Date.now()),
+          );
           await dropBillingCache(account.email, slug);
           console.log("[stripe webhook] plan changed", email, slug, current.plan, "→", plan);
         }
@@ -216,7 +250,11 @@ export async function POST(req: Request) {
         // Operator orders send their own welcome email, carrying the portal invite, from inside
         // fulfilment (see `provisionOperatorOrder`).
         if (fulfilled && !fulfilled.welcomeSent) {
-          const canSend =fulfilled.receptionistMode != null || fulfilled.plan === "enterprise";
+          // The website plan has no phone choice by design and is stamped `declined` at
+          // fulfilment, so it passes the first test; the explicit check keeps it sent even if
+          // that stamp ever moved.
+          const canSend =
+            fulfilled.receptionistMode != null || fulfilled.plan === "enterprise" || fulfilled.plan === "website";
           if (canSend) {
             after(async () => {
               if (!(await claimWelcomeEmailSend(session.id))) return;

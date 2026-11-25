@@ -30,12 +30,36 @@ register("./server-only-hook.mjs", import.meta.url);
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
 
-test("plan changes are classified by tier, and an unknown starting price is treated as an upgrade", () => {
+test("plan changes are classified by tier, and an unknown starting price is refused, not upgraded", () => {
   assert.equal(planChangeKind("starter", "growth"), "upgrade");
   assert.equal(planChangeKind("growth", "enterprise"), "upgrade");
   assert.equal(planChangeKind("growth", "starter"), "downgrade");
   assert.equal(planChangeKind("growth", "growth"), "none");
-  assert.equal(planChangeKind(null, "starter"), "upgrade");
+  // v1.45.0: website 0 < starter 1 < growth 2 < enterprise 3.
+  assert.equal(planChangeKind("website", "starter"), "upgrade");
+  assert.equal(planChangeKind("website", "growth"), "upgrade");
+  assert.equal(planChangeKind("starter", "website"), "downgrade");
+  // Trap 4: a price we don't sell used to read as an upgrade. Every caller refuses "unknown".
+  assert.equal(planChangeKind(null, "starter"), "unknown");
+  assert.equal(planChangeKind(undefined, "website"), "unknown");
+  assert.equal(planChangeKind("mystery", "growth"), "unknown");
+  assert.equal(planChangeKind("starter", "mystery"), "unknown");
+});
+
+test("a grandfathered price still maps to its plan, and an add-on never does", () => {
+  const table = {
+    website: { monthly: "price_web" },
+    starter: { monthly: "price_starter_297", legacy: ["price_starter_197", "price_starter_197_test"] },
+    growth: { monthly: "price_growth" },
+    enterprise: { monthly: null },
+  };
+  const item = (id) => ({ price: { id, recurring: { interval: "month" } } });
+  assert.equal(planFromItems([item("price_starter_197")], table), "starter");
+  assert.equal(planFromItems([item("price_starter_197_test")], table), "starter");
+  assert.equal(planFromItems([item("price_starter_297")], table), "starter");
+  assert.equal(planFromItems([item("price_web")], table), "website");
+  assert.equal(planFromItems([item("price_search_addon")], table), null);
+  assert.equal(planFromItems([item("price_starter_197"), item("price_search_addon")], table), "starter");
 });
 
 test("an immediate change refuses to apply when the card does not pay", () => {
@@ -118,7 +142,7 @@ test("an upgrade keeps its agreement, binds it to the account, and words a decli
 });
 
 test("the signing page states the monthly price on every plan change", () => {
-  const src = read("app/agreement/page.tsx");
+  const src = read("app/terms/accept/page.tsx");
   assert.match(src, /const billingPeriod = "monthly" as const;/);
   // Nothing later reassigns it (it used to be re-read from the subscription or the query string).
   assert.doesNotMatch(src, /\bbillingPeriod = (?!"monthly")/);
@@ -151,10 +175,11 @@ test("the downgrade emails say exactly what Xander approved", async () => {
     interval: "month",
   };
   const accept = email.downgradeAcceptEmail({ ...base, acceptUrl: "https://x.test/agreement" });
-  assert.equal(accept.subject, "Your move to Starter: please accept the terms");
+  // B4 (2026-11-24): the same sentences, with the plan's new name and price.
+  assert.equal(accept.subject, "Your move to Starter + AI Receptionist: please accept the terms");
   assert.ok(
     accept.html.includes(
-      "You asked to move Acme Plumbing from Growth to Starter. Before we make the change, please read and accept the Starter service agreement.",
+      "You asked to move Acme Plumbing from Growth to Starter + AI Receptionist. Before we make the change, please read and accept the Terms of Service for the Starter + AI Receptionist plan.",
     ),
   );
   assert.ok(accept.html.includes(">Review and accept</a>"));
@@ -165,13 +190,23 @@ test("the downgrade emails say exactly what Xander approved", async () => {
   );
 
   const done = email.downgradeConfirmedEmail(base);
-  assert.equal(done.subject, "Your plan change to Starter");
+  assert.equal(done.subject, "Your plan change to Starter + AI Receptionist");
   assert.ok(
     done.html.includes(
-      "Your plan changes from Growth to Starter on December 1, 2026, at the end of the month you've already paid for. Until then nothing changes. From December 1, 2026 you're billed $197 a month. Your number, receptionist and call history all stay. Questions? Reply to this email.",
+      "Your plan changes from Growth to Starter + AI Receptionist on December 1, 2026, at the end of the month you've already paid for. Until then nothing changes. From December 1, 2026 you're billed $297 a month. Your number, receptionist and call history all stay. Questions? Reply to this email.",
     ),
   );
-  assert.equal(email.pricePerPeriod("starter", "month"), "$197 a month");
+  assert.equal(email.pricePerPeriod("starter", "month"), "$297 a month");
+
+  // B4: Starter + AI Receptionist → Starter (the website plan, operator-initiated only, D7).
+  const toWebsite = email.downgradeConfirmedEmail({ ...base, fromPlan: "starter", toPlan: "website" });
+  assert.equal(toWebsite.subject, "Your plan change to Starter");
+  assert.ok(
+    toWebsite.html.includes(
+      "Your plan changes from Starter + AI Receptionist to Starter on December 1, 2026, at the end of the month you've already paid for. Until then nothing changes. From December 1, 2026 you're billed $97 a month and your AI receptionist stops answering calls. The number it used is released 30 days later, unless you ask us to port it out. Your website and your web inquiries stay as they are, and your past calls stay readable in your portal. Questions? Reply to this email.",
+    ),
+  );
+  assert.ok(!toWebsite.html.includes("call history all stay"));
 });
 
 /**

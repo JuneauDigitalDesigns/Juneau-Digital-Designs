@@ -29,7 +29,7 @@ test("four tabs, in the approved words and order", () => {
     const labels = [...tabs.matchAll(/\{ id: "(\w+)", label: "([^"]+)" \}/g)].map((m) => [m[1], m[2]]);
     assert.deepEqual(labels, [
         ["timeline", "Timeline"],
-        ["contact", "Contact info"],
+        ["contact", "Contact"],
         ["jobs", "Jobs"],
         ["notes", "Notes"],
     ]);

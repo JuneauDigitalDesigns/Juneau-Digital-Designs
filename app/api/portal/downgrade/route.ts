@@ -1,3 +1,4 @@
+import { PLAN_LABELS } from "@jdd/schema";
 import { NextResponse, after } from "next/server";
 import { getAgreement, persistAgreement, saveAgreement } from "@/app/lib/kv";
 import { sendStoredAgreementEmail } from "@/app/lib/agreement-email";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Invalid request." }, { status: 400 });
     }
     const agreementId = body.agreement_id?.trim();
-    if (!agreementId) return NextResponse.json({ error: "Missing agreement." }, { status: 400 });
+    if (!agreementId) return NextResponse.json({ error: "Missing acceptance." }, { status: 400 });
 
     // The agreement has to be for the plan being moved to, and has to be this account's own
     // (accepted while it was signed in). Without that check an agreement id is a bearer token
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
         agreement.kind === "addendum" ||
         !acceptedBy(agreement, account)
     ) {
-        return NextResponse.json({ error: "That agreement isn't for this change." }, { status: 400 });
+        return NextResponse.json({ error: "That acceptance isn't for this change." }, { status: 400 });
     }
 
     const result = await scheduleDowngrade({
@@ -101,9 +102,13 @@ export async function POST(request: Request) {
             effectiveAt: result.effectiveAt,
             interval: result.interval,
         });
-        await sendOpsNotice(`[JDD] Downgrade scheduled: ${site.name ?? site.slug} → Starter`, [
-            `${account.email} accepted the Starter terms for <strong>${site.slug}</strong>.`,
-            `Stripe moves the price on ${new Date(result.effectiveAt).toISOString().slice(0, 10)}, and the portal record follows by webhook. On or after that date, run the console downgrade to turn LEAD_CALLBACK off and move site.ts to starter.`,
+        const toName = PLAN_LABELS[pending.toPlan].name;
+        const onDate = new Date(result.effectiveAt).toISOString().slice(0, 10);
+        await sendOpsNotice(`[JDD] Downgrade scheduled: ${site.name ?? site.slug} → ${toName}`, [
+            `${account.email} accepted the ${toName} terms for <strong>${site.slug}</strong>.`,
+            pending.toPlan === "website"
+                ? `Stripe moves the price on ${onDate}, and the portal record follows by webhook. On or after that date, run the console downgrade to the website plan: it records the call history first, tears down the voice stack, and releases the number after the 30-day port-out window.`
+                : `Stripe moves the price on ${onDate}, and the portal record follows by webhook. On or after that date, run the console downgrade to turn LEAD_CALLBACK off and move site.ts to starter.`,
         ]);
     });
 

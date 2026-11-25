@@ -66,30 +66,32 @@ export function agreementLinkState({ link, order, fingerprint, nowMs }) {
  */
 export function agreementSubmissionError(body, expectedTermsHash) {
   if (body?.accepted !== true) return "Please tick the box to agree to the Terms of Service.";
-  if (body.termsHash !== expectedTermsHash) return "This agreement has changed. Reload the page to read the current version.";
+  if (body.termsHash !== expectedTermsHash) return "These terms have changed. Reload the page to read the current version.";
   const valid = (v) => typeof v === "string" && !Number.isNaN(Date.parse(v));
   if (!valid(body.pageOpenedAt)) return "Missing page open timestamp.";
-  if (!valid(body.scrollCompletedAt)) return "Agreement was not read to the end.";
+  if (!valid(body.scrollCompletedAt)) return "The terms were not read to the end.";
   return null;
 }
 
 /**
  * Why the optional SMS opt-in can't be recorded, or null when it can (or wasn't given). The same
- * rules, and the same words, as the `/agreement` page's (`agreement-validate.mjs`): consent
+ * rules, and the same words, as the `/terms/accept` page's (`agreement-validate.mjs`): consent
  * needs a receptionist to text about, and a number to text, and anything typed in the number
  * box is a complete US number. Never a reason to refuse the agreement itself when the box is
  * left unticked and the number box blank.
  *
  * @param {{ smsConsent?: unknown, alertPhone?: unknown }} body
- * @param {{ receptionistMode?: string }} order
+ * @param {{ plan?: string, receptionistMode?: string }} order
  */
 export function agreementConsentError(body, order) {
+  // D9 (2026-11-24): the website plan's owners get no texts, like a legacy website-only order.
+  const noTexts = order?.plan === "website" || order?.receptionistMode === "declined";
   // The two-card choice (`text-alerts-choice.mjs`). A website-only order has no cards and nothing
   // to text about, so only a claim of consent is refused there, as before.
-  if (body?.smsChoice !== undefined && order?.receptionistMode !== "declined") {
+  if (body?.smsChoice !== undefined && !noTexts) {
     return textAlertsChoiceError({ choice: body.smsChoice, smsConsent: body.smsConsent, alertPhone: body.alertPhone });
   }
-  if (order?.receptionistMode === "declined" && (body?.smsChoice === "yes" || body?.smsConsent === true)) {
+  if (noTexts && (body?.smsChoice === "yes" || body?.smsConsent === true)) {
     return "Text alerts require a receptionist";
   }
   // A page loaded before the cards shipped sends no choice: its box and number are checked as they
@@ -99,7 +101,7 @@ export function agreementConsentError(body, order) {
   // Blank and unticked always passes.
   const problem = alertPhoneProblem(body?.smsConsent === true, body?.alertPhone);
   if (body?.smsConsent !== true) return problem === "invalid-unticked" ? ALERT_PHONE_UNTICKED_ERROR : null;
-  if (order?.receptionistMode === "declined") return "Text alerts require a receptionist";
+  if (noTexts) return "Text alerts require a receptionist";
   if (problem) return "A valid mobile number is required to enable text alerts";
   return null;
 }

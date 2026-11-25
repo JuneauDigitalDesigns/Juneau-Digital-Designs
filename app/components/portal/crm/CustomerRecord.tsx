@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
     ArrowLeft,
     CalendarPlus,
@@ -12,6 +13,8 @@ import {
     PhoneCall,
     Plus,
     Star,
+    CaretDown,
+    Check,
 } from "@phosphor-icons/react";
 import { tabHref } from "@/app/portal/types";
 import { duration } from "@/app/lib/duration";
@@ -26,7 +29,8 @@ import {
     type TimelineEvent,
 } from "./stages";
 import QuickReplies from "./QuickReplies";
-import ReviewRequestDialog from "../ReviewRequestDialog";
+import TextThread from "./TextThread";
+import Sheet from "../inbox/Sheet";
 import type { CustomerNote, Job } from "@/app/lib/crm-jobs";
 import {
     APPT_KIND_LABEL,
@@ -84,6 +88,8 @@ export interface DetailResponse {
     notes: CustomerNote[];
     appointments: Appointment[];
     messagingState: "ready" | "not-on-plan" | "pending-build" | "connecting";
+    /** The site's texting number, for the phone texting screen's note. Null before provisioning. */
+    businessNumber?: string | null;
 }
 
 type TimelineFilter = "all" | "messages" | "calls" | "notes";
@@ -92,14 +98,14 @@ type TimelineFilter = "all" | "messages" | "calls" | "notes";
  * The record with no network: the Growth demo's sample file, driven by its script (2026-11-12).
  *
  * The demo shows this very component so it can never drift from the product. With `demo` set,
- * nothing is fetched or saved: the data, the open tab, the text in the box and whether the review
- * window is open all come from here, and every action is a no-op. The real portal never passes it.
+ * nothing is fetched or saved: the data, the open tab and the text in the box come from here, and
+ * every action is a no-op. Review is the one tap it is live, minus the request: see `ReviewAnchor`.
+ * The real portal never passes it.
  */
 export interface RecordDemo {
     data: DetailResponse;
     tab: RecordTab;
     draft: string;
-    reviewOpen: boolean;
 }
 
 /** Words, not lowercase mono. The filters are read by someone who does not work here. */
@@ -173,6 +179,8 @@ export default function CustomerRecord({
     const [draft, setDraft] = useState("");
     const [sending, setSending] = useState(false);
     const [fieldError, setFieldError] = useState<string | null>(null);
+    /** The phone's texting screen (2026-11-19). Never opens on the desktop panel. */
+    const [threadOpen, setThreadOpen] = useState(false);
 
     // The open tab belongs to the customer it was picked on: opening another one starts back on
     // `initialTab`. Derived during render rather than reset in an effect, so the new customer
@@ -200,13 +208,18 @@ export default function CustomerRecord({
      * click's state update is committed before the next frame, so the box exists by then.
      */
     const goText = useCallback(() => {
+        // On a phone, Text opens the texting screen when texting is live (2026-11-19, Xander).
+        if (variant === "sheet" && fetched?.messagingState === "ready" && !demo) {
+            setThreadOpen(true);
+            return;
+        }
         setTab("timeline");
         requestAnimationFrame(() => {
             const target = document.getElementById("crm-sms") ?? document.getElementById("crm-composer");
             target?.scrollIntoView({ block: "nearest" });
             target?.focus({ preventScroll: true });
         });
-    }, [setTab]);
+    }, [setTab, variant, fetched?.messagingState, demo]);
 
     const reload = useCallback(async () => {
         if (!customerId || isDemo) return;
@@ -344,7 +357,7 @@ export default function CustomerRecord({
         customer,
         siteSlug,
         messagingState: data?.messagingState ?? "ready",
-        forceOpen: demo?.reviewOpen,
+        demo: isDemo,
         // A sent request locks the button, so the record re-reads to show "Review requested".
         onSent: () => {
             onChanged();
@@ -588,7 +601,19 @@ export default function CustomerRecord({
                     boxShadow: "0 -10px 22px -16px rgba(13,17,23,0.28)",
                 }}
             >
-                {data?.messagingState === "ready" ? (
+                {data?.messagingState === "ready" && !page ? (
+                    // Phone: a tap-to-open bar. The conversation itself is the texting screen.
+                    // The Growth demo shows the bar too, and draws its own texting screen.
+                    <button
+                        type="button"
+                        onClick={() => !demo && setThreadOpen(true)}
+                        disabled={!customer.phone}
+                        className="w-full h-11 rounded-full border px-4 text-left text-[16px] cursor-pointer disabled:opacity-50"
+                        style={{ background: "var(--bg)", borderColor: "var(--rule-strong)", color: "var(--fg-3)" }}
+                    >
+                        Text {customer.name ?? "them"}…
+                    </button>
+                ) : data?.messagingState === "ready" ? (
                     <>
                     {/* Inside this gate only: quick replies are a texting tool, and texting is
                         Growth/Enterprise with A2P verified. Draws nothing until the
@@ -781,6 +806,19 @@ export default function CustomerRecord({
                 <SheetHeader customer={customer} patch={patch} review={reviewProps} onText={goText} />
             )}
             {body}
+            {threadOpen && !page && data && (
+                <TextThread
+                    customer={customer}
+                    siteSlug={siteSlug}
+                    events={data.timeline}
+                    businessNumber={data.businessNumber ?? null}
+                    draft={draft}
+                    setDraft={setDraft}
+                    sending={sending}
+                    onSend={() => void sendMessage()}
+                    onClose={() => setThreadOpen(false)}
+                />
+            )}
             {booking && (
                 <AppointmentForm
                     initial={booking.values}
@@ -967,7 +1005,7 @@ function RecordHeader({
                             <ChatCircle size={14} /> Text
                         </a>
                     )}
-                    <ReviewAnchor {...review} align="end" />
+                    <ReviewAnchor {...review} />
                 </div>
             </div>
 
@@ -1053,64 +1091,119 @@ function SheetHeader({
     review: ReviewAnchorProps;
     onText: () => void;
 }) {
-    const button =
-        "portal-hit inline-flex items-center justify-center gap-1.5 rounded-lg border text-[13px] font-medium";
+    // Contact-card layout (2026-11-19 mockup, Q10): initials, name, "Customer since", the stage as
+    // one tappable pill, then round Call · Text · Review buttons like a phone's Contacts app.
+    const words = (customer.name ?? "").trim().split(/\s+/).filter(Boolean);
+    const initials = words.length ? ((words[0][0] ?? "") + (words.length > 1 ? words[words.length - 1][0] : "")).toUpperCase() : "?";
     return (
-        <header className="px-5 pt-4">
+        <header className="px-5 pt-6 pb-2 flex flex-col items-center text-center">
+            <span
+                aria-hidden="true"
+                className="w-[76px] h-[76px] rounded-full grid place-items-center text-[26px] font-bold"
+                style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--elev-1))", color: "var(--accent)" }}
+            >
+                {initials}
+            </span>
             <h2
-                className="m-0 text-[20px] font-bold leading-tight break-words"
+                className="m-0 mt-3 text-[27px] font-extrabold leading-tight break-words"
                 style={{ fontFamily: "var(--font-display)", color: "var(--fg)" }}
             >
                 {customer.name ?? "Customer"}
             </h2>
-            <p className="m-0 mt-1 text-[13px]" style={{ color: "var(--fg-2)" }}>
-                {customer.phone && (
-                    <>
-                        <a href={`tel:${customer.phone}`} style={{ color: "var(--accent)" }}>
-                            {formatPhone(customer.phone)}
-                        </a>
-                        {" · "}
-                    </>
-                )}
+            <p className="m-0 mt-1 text-[14px]" style={{ color: "var(--fg-3)" }}>
                 Customer since {dayLabel(customer.firstContactAt ?? customer.createdAt)}
             </p>
+            <div className="mt-3" data-tour="crm-drawer-stage">
+                <StagePill customer={customer} patch={patch} />
+            </div>
 
-            <div className="relative grid grid-cols-[76px_76px_minmax(0,1fr)] gap-2 mt-3">
-                {customer.phone ? (
-                    <a href={`tel:${customer.phone}`} className={button} style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}>
-                        <PhoneCall size={14} /> Call
+            <div className="relative flex justify-center gap-6 mt-4 mb-2">
+                {customer.phone && (
+                    <a href={`tel:${customer.phone}`} className="portal-round" aria-label={`Call ${customer.name ?? ""}`.trim()}>
+                        <span className="portal-round-dot" style={{ background: "var(--call)", color: "#ffffff" }}>
+                            <PhoneCall size={24} />
+                        </span>
+                        Call
                     </a>
-                ) : (
-                    <span />
                 )}
-                {customer.phone ? (
+                {customer.phone && (
                     <a
                         href="#crm-sms"
                         onClick={(e) => {
                             e.preventDefault();
                             onText();
                         }}
-                        className={button}
-                        style={{ minHeight: 44, borderColor: "var(--rule-strong)", color: "var(--fg)" }}
+                        className="portal-round"
                     >
-                        <ChatCircle size={14} /> Text
+                        <span className="portal-round-dot" style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--elev-1))", color: "var(--accent)" }}>
+                            <ChatCircle size={24} />
+                        </span>
+                        Text
                     </a>
-                ) : (
-                    <span />
                 )}
-                <ReviewAnchor {...review} align="stretch" wide />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 mt-3.5 pb-3" data-tour="crm-drawer-stage">
-                <span
-                    className="text-[10px] uppercase tracking-wider"
-                    style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }}
-                >
-                    Stage
-                </span>
-                <StagePicker customer={customer} patch={patch} />
+                <ReviewAnchor {...review} round />
             </div>
         </header>
+    );
+}
+
+/**
+ * The stage as one pill that opens the Stage sheet: the phone's way to move a customer, beside
+ * the list's long press. The desktop panel keeps its row of stage buttons (`StagePicker`).
+ */
+function StagePill({
+    customer,
+    patch,
+}: {
+    customer: CustomerRow;
+    patch: (body: Record<string, unknown>) => Promise<boolean>;
+}) {
+    const [open, setOpen] = useState(false);
+    const stage = STAGES.find((s) => s.key === customer.stage) ?? STAGES[0];
+    const color = STAGE_COLOR[stage.key];
+    return (
+        <>
+            <button
+                type="button"
+                onClick={() => setOpen(true)}
+                aria-haspopup="dialog"
+                aria-label={`Stage: ${stage.label}`}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-[15px] font-semibold cursor-pointer"
+                style={{ color, background: `color-mix(in srgb, ${color} 14%, var(--elev-1))` }}
+            >
+                {stage.label}
+                <CaretDown size={14} weight="bold" />
+            </button>
+            {open && (
+                <Sheet label="Stage" onClose={() => setOpen(false)}>
+                    <h2 className="m-0 px-1 text-[19px] font-bold text-left" style={{ fontFamily: "var(--font-display)" }}>
+                        Stage
+                    </h2>
+                    <p className="m-0 px-1 mb-1 text-[14.5px] text-left" style={{ color: "var(--fg-2)" }}>
+                        {customer.name ?? "Customer"}
+                    </p>
+                    {STAGES.map((s) => (
+                        <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => {
+                                setOpen(false);
+                                if (s.key !== customer.stage) void patch({ stage: s.key });
+                            }}
+                            aria-current={s.key === customer.stage ? "true" : undefined}
+                            className="flex items-center justify-between min-h-[52px] px-1 border-t text-[16.5px] cursor-pointer"
+                            style={{ borderColor: "var(--rule)", color: "var(--fg)" }}
+                        >
+                            <span className="inline-flex items-center gap-2">
+                                <span className="rounded-full" style={{ width: 10, height: 10, background: STAGE_COLOR[s.key] }} />
+                                {s.label}
+                            </span>
+                            {s.key === customer.stage && <Check size={20} weight="bold" style={{ color: "var(--accent)" }} />}
+                        </button>
+                    ))}
+                </Sheet>
+            )}
+        </>
     );
 }
 
@@ -1127,70 +1220,176 @@ interface ReviewAnchorProps extends ReviewContext {
     siteSlug: string;
     messagingState: DetailResponse["messagingState"];
     onSent: () => void;
-    /** The Growth demo holds the window open or shut; the real record leaves it to the button. */
-    forceOpen?: boolean;
+    /** The Growth demo's record: a tap shows the note and sends nothing (`reviewTap`). */
+    demo?: boolean;
 }
 
 /**
- * The "Request a review" button and the window that opens right below it.
+ * What a tap on Review does: the live record sends the request; the Growth demo's sample record
+ * only shows the note, so a demo can never reach `/api/portal/review-request` (2026-11-19).
+ * The demo used to hold a review window open instead (`forceOpen`); that window is gone.
+ */
+export function reviewTap(demo: boolean): "toast" | "send" {
+    return demo ? "toast" : "send";
+}
+
+/**
+ * The "Request a review" button: one tap (Xander, 2026-11-19).
  *
- * It used to call up to the board, which slid a full-height drawer in from the right over the
- * record for a three-line message. Now the window hangs off the button (Xander, 2026-11-12).
- *
- * Placement is the caller's `relative` wrapper, which is all `ui/Popover` needs: the row of Call /
- * Text / Request a review in both headers. On the panel the window's right edge lines up under
- * the row's (`end`); on a phone it spans the row (`stretch`), the full width of the sheet.
+ * It used to open a window under the button with the message to edit, and before that a drawer
+ * from the right. Now the message is the site's own (More › Review message) and a tap sends it.
  */
 function ReviewAnchor({
-    align,
-    wide = false,
     customer,
     siteSlug,
-    businessName,
-    reviewLinkConfigured,
-    messagingState,
     onSent,
-    forceOpen,
-}: ReviewAnchorProps & { align: "end" | "stretch"; wide?: boolean }) {
-    const [openState, setOpen] = useState(false);
-    const open = forceOpen ?? openState;
-    const buttonRef = useRef<HTMLButtonElement>(null);
+    demo = false,
+    round = false,
+}: ReviewAnchorProps & {
+    /** The phone record's round button, labelled "Review" (approved 2026-11-19, string 6). */
+    round?: boolean;
+}) {
+    const [sending, setSending] = useState(false);
+    const [toast, setToast] = useState<{ ok: boolean; text: string } | null>(null);
+
+    /**
+     * One tap (Xander, 2026-11-19): "it'll just send their review text to that customer".
+     *
+     * The text is the site's review message from More › Review message, or the default, which
+     * the server composes and makes out to this customer; nothing is typed here. The answer is a
+     * toast at the bottom: "Review request sent!" (his words) in the review button's colour, or
+     * the server's own reason when it can't send (not on the plan, waiting on carrier approval,
+     * already asked, no consent, no review link).
+     */
+    async function sendNow() {
+        if (sending || !customer.phone) return;
+        setSending(true);
+        try {
+            const res = await fetch(`/api/portal/review-request?site=${encodeURIComponent(siteSlug)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone: customer.phone }),
+            });
+            if (res.ok) {
+                setToast({ ok: true, text: "Review request sent!" });
+                onSent();
+            } else {
+                const j = (await res.json().catch(() => null)) as { error?: string } | null;
+                setToast({ ok: false, text: j?.error ?? "We couldn't send that just now. Please try again in a moment." });
+            }
+        } catch {
+            setToast({ ok: false, text: "We couldn't send that just now. Please try again in a moment." });
+        } finally {
+            setSending(false);
+        }
+    }
+
+    function onClick() {
+        if (reviewTap(demo) === "toast") {
+            // The demo's sample customer: the note, and no request.
+            setToast({ ok: true, text: "Review request sent!" });
+            return;
+        }
+        void sendNow();
+    }
 
     return (
         <>
-            <button
-                ref={buttonRef}
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                disabled={!customer.phone}
-                aria-expanded={open}
-                aria-haspopup="dialog"
-                data-tour="crm-drawer-review"
-                className={`${wide ? "w-full justify-center px-2" : "px-3.5"} rounded-lg inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
-                style={{ minHeight: 44, background: "var(--accent)", color: "var(--on-accent)" }}
-            >
-                <Star size={14} weight="fill" />
-                {customer.reviewSent ? "Review requested" : "Request a review"}
-            </button>
-            <ReviewRequestDialog
-                open={open}
-                onClose={() => setOpen(false)}
-                triggerRef={buttonRef}
-                align={align}
-                contact={{
-                    contactId: customer.customerId,
-                    displayName: customer.name,
-                    phone: customer.phone,
-                    phoneDisplay: formatPhone(customer.phone),
-                    reviewSent: customer.reviewSent,
-                }}
-                businessName={businessName}
-                reviewLinkConfigured={reviewLinkConfigured}
-                messagingState={messagingState}
-                siteSlug={siteSlug}
-                onSent={onSent}
-            />
+            {round ? (
+                <button
+                    type="button"
+                    onClick={onClick}
+                    disabled={!customer.phone || sending}
+                    aria-label={customer.reviewSent ? "Review requested" : "Request a review"}
+                    data-tour="crm-drawer-review"
+                    className="portal-round disabled:opacity-50"
+                >
+                    <span className="portal-round-dot" style={{ background: REVIEW_FILL, color: REVIEW_INK }}>
+                        <Star size={24} weight={customer.reviewSent ? "fill" : "regular"} />
+                    </span>
+                    {/* Once asked it says so, as the desktop button does. */}
+                    {customer.reviewSent ? "Review requested" : "Review"}
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    onClick={onClick}
+                    disabled={!customer.phone || sending}
+                    data-tour="crm-drawer-review"
+                    className="px-3.5 rounded-lg inline-flex items-center gap-1.5 text-[13px] font-semibold whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    style={{ minHeight: 44, background: REVIEW_FILL, color: REVIEW_INK }}
+                >
+                    <Star size={14} weight="fill" />
+                    {customer.reviewSent ? "Review requested" : "Request a review"}
+                </button>
+            )}
+            {toast && <ReviewToast ok={toast.ok} text={toast.text} onDone={() => setToast(null)} />}
         </>
+    );
+}
+
+/**
+ * The review button's orange-yellow, in both themes (Xander, 2026-11-19: the toast is "in the
+ * same orange-yellow color as the review button"). Dark ink on it is 10.6:1.
+ */
+const REVIEW_FILL = "#f5a623";
+const REVIEW_INK = "#1c1405";
+
+/**
+ * The one-tap result, along the bottom of the screen for four seconds. Portalled into <body> so
+ * no transformed ancestor (the sliding record) can trap its `fixed` position; its colours are
+ * literal for the same reason.
+ *
+ * `inline` draws the same note in place, for the Growth demo, which positions it over its own
+ * replica (above its step box) and decides itself how long it shows.
+ */
+export function ReviewToast({
+    ok,
+    text,
+    onDone,
+    inline = false,
+}: {
+    ok: boolean;
+    text: string;
+    onDone: () => void;
+    inline?: boolean;
+}) {
+    const done = useRef(onDone);
+    useEffect(() => {
+        done.current = onDone;
+    }, [onDone]);
+    useEffect(() => {
+        const t = window.setTimeout(() => done.current(), 4000);
+        return () => window.clearTimeout(t);
+    }, []);
+    const look = {
+        background: ok ? REVIEW_FILL : "#1b1f27",
+        color: ok ? REVIEW_INK : "#f4f6f9",
+        boxShadow: "0 14px 30px -10px rgba(0,0,0,0.45)",
+    };
+    const body = (
+        <>
+            {ok && <Star size={18} weight="fill" aria-hidden="true" />}
+            <span>{text}</span>
+        </>
+    );
+    if (inline) {
+        return (
+            <div className="flex items-center gap-2.5 rounded-[14px] px-4 py-3.5 text-[15px] font-semibold" style={look}>
+                {body}
+            </div>
+        );
+    }
+    if (typeof document === "undefined") return null;
+    return createPortal(
+        <div
+            role="status"
+            className="fixed z-[90] left-3 right-3 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 flex items-center gap-2.5 rounded-[14px] px-4 py-3.5 text-[15px] font-semibold"
+            style={{ bottom: "calc(24px + env(safe-area-inset-bottom, 0px))", ...look }}
+        >
+            {body}
+        </div>,
+        document.body,
     );
 }
 
@@ -1300,7 +1499,7 @@ function Marker({ entry }: { entry: TimelineEntry }) {
                 borderWidth: 1.5,
                 borderStyle: "solid",
                 borderColor: filled ? hue : hue === "var(--fg-3)" ? "var(--rule-strong)" : hue,
-                color: filled ? "#ffffff" : hue,
+                color: filled ? "var(--elev-1)" : hue,
             }}
         >
             <Icon size={13} weight={filled ? "fill" : "regular"} />

@@ -1,9 +1,9 @@
 import "server-only";
 import type Stripe from "stripe";
-import type { PortalAccount } from "@jdd/schema";
+import { PLAN_IDS, type PortalAccount } from "@jdd/schema";
 import { stripe } from "./stripe";
 import { saveAccount } from "./account-store";
-import { getPlan, monthlyPriceIdFor, type PlanSlug } from "./plans";
+import { getPlan, legacyMonthlyPriceIds, monthlyPriceIdFor, type PlanSlug } from "./plans";
 import {
     downgradeSchedulePhases,
     immediateChangeParams,
@@ -13,7 +13,7 @@ import {
     planItemOf,
 } from "./billing-periods.mjs";
 
-const PLAN_SLUGS: PlanSlug[] = ["starter", "growth", "enterprise"];
+const PLAN_SLUGS: readonly PlanSlug[] = PLAN_IDS;
 
 /** The monthly price a plan bills at, or null when that price isn't configured. */
 function expectedPriceIdFor(plan: PlanSlug): string | null {
@@ -21,11 +21,16 @@ function expectedPriceIdFor(plan: PlanSlug): string | null {
     return cfg ? monthlyPriceIdFor(cfg) : null;
 }
 
-/** Every recurring price this app sells, by plan. Every plan is month to month. */
-export function planPriceTable(): Record<PlanSlug, { monthly?: string | null }> {
-    const table = {} as Record<PlanSlug, { monthly?: string | null }>;
+/**
+ * Every recurring price this app bills, by plan: today's monthly price, plus the grandfathered
+ * ones it still bills (D3: the $197 Starter price, in `STRIPE_PRICE_STARTER_MONTHLY_LEGACY`).
+ * Every plan is month to month.
+ */
+export function planPriceTable(): Record<PlanSlug, { monthly?: string | null; legacy: string[] }> {
+    const table = {} as Record<PlanSlug, { monthly?: string | null; legacy: string[] }>;
     for (const slug of PLAN_SLUGS) {
-        table[slug] = { monthly: getPlan(slug)?.monthlyPriceId ?? null };
+        const cfg = getPlan(slug);
+        table[slug] = { monthly: cfg ? monthlyPriceIdFor(cfg) : null, legacy: legacyMonthlyPriceIds(slug) };
     }
     return table;
 }
@@ -109,6 +114,7 @@ export type PlanChangeFailure =
     | "scheduled-change"
     | "downgrade"
     | "not-monthly"
+    | "unknown-plan"
     | "stripe-error";
 
 /**
@@ -134,7 +140,27 @@ export function hasBillingLink(site: {
     return Boolean(site.stripeSubscriptionId || site.sessionId);
 }
 
-export type UpgradeBlock = "not-starter" | "pending-onboarding" | "no-billing-link";
+export type UpgradeBlock = "not-upgradable" | "pending-onboarding" | "no-billing-link";
+
+/**
+ * The plans a site may move up to by itself, from the portal, by the plan it is on now.
+ *
+ *   - website → Starter + AI Receptionist (D6) or Growth (D8), prorated now, no new setup fee;
+ *   - Starter + AI Receptionist → Growth, as before.
+ *
+ * Growth and Enterprise have nothing self-serve above them: Growth → Enterprise is the
+ * consolidation, which has its own route. Nothing here moves a plan down; a downgrade is
+ * scheduled for the period end and, to the website plan, is operator-initiated only (D7).
+ */
+const SELF_SERVE_UPGRADES: Partial<Record<PlanSlug, readonly PlanSlug[]>> = {
+    website: ["starter", "growth"],
+    starter: ["growth"],
+};
+
+/** The plans this site may upgrade to by itself, cheapest first. Empty when none. */
+export function upgradeTargets(plan: string): readonly PlanSlug[] {
+    return SELF_SERVE_UPGRADES[plan as PlanSlug] ?? [];
+}
 
 /**
  * May this client upgrade this site themselves, right now?
@@ -149,13 +175,16 @@ export type UpgradeBlock = "not-starter" | "pending-onboarding" | "no-billing-li
  * is genuinely nothing yet to attach a receptionist to, and the fix is theirs (finish the
  * form) rather than ours.
  */
-export function upgradeBlockReason(site: {
-    plan: string;
-    status: string;
-    stripeSubscriptionId?: string;
-    sessionId?: string;
-}): UpgradeBlock | null {
-    if (site.plan !== "starter") return "not-starter";
+export function upgradeBlockReason(
+    site: {
+        plan: string;
+        status: string;
+        stripeSubscriptionId?: string;
+        sessionId?: string;
+    },
+    targetPlan: PlanSlug = "growth",
+): UpgradeBlock | null {
+    if (!upgradeTargets(site.plan).includes(targetPlan)) return "not-upgradable";
     if (site.status === "pending-onboarding") return "pending-onboarding";
     if (!hasBillingLink(site)) return "no-billing-link";
     return null;
@@ -342,7 +371,12 @@ export async function inspectSubscriptionPlan(
             currentAmount: price?.unit_amount ?? null,
             currentInterval: price?.recurring?.interval ?? null,
             expectedPriceId,
-            matches: Boolean(price && expectedPriceId && price.id === expectedPriceId),
+            // A grandfathered price (D3) is the right price for its plan, not drift.
+            matches: Boolean(
+                price &&
+                    ((expectedPriceId && price.id === expectedPriceId) ||
+                        legacyMonthlyPriceIds(recordPlan).includes(price.id)),
+            ),
         };
     } catch (e) {
         console.error("[plan-billing] inspect failed", subscriptionId, e);
@@ -413,13 +447,29 @@ export async function changeSubscriptionPlan(input: PlanChangeInput): Promise<Pl
 
         // Already there. Report success without touching Stripe, so a retry, a double click or
         // an operator syncing an already-correct subscription cannot raise a second invoice.
-        if (planItem.price.id === targetPriceId) {
+        //
+        // "There" is the plan, not the price: a subscription on a grandfathered price (D3, the
+        // $197 Starter) is on its plan already. Swapping it onto today's price would raise what
+        // the client pays with no agreement behind it, which is what "Sync billing" used to do.
+        const fromPlan = planForPriceId(planItem.price.id);
+        if (planItem.price.id === targetPriceId || fromPlan === targetPlan) {
             return { ok: true, subscriptionId, changed: false };
+        }
+
+        // A price we don't sell: refused rather than guessed at. It used to count as an upgrade.
+        if (!fromPlan) {
+            console.error("[plan-billing] subscription is on a price we don't sell", subscriptionId, planItem.price.id);
+            return {
+                ok: false,
+                code: "unknown-plan",
+                message:
+                    "This subscription is on a price that isn't one of our plans, so it needs changing by hand in Stripe.",
+            };
         }
 
         // Only an upgrade takes effect now. A downgrade waits for the end of the current month,
         // with no credit, through `scheduleDowngrade`; prorating it now would credit the client.
-        const params = immediateChangeParams({ fromPlan: planForPriceId(planItem.price.id), toPlan: targetPlan });
+        const params = immediateChangeParams({ fromPlan, toPlan: targetPlan });
         if (!params) {
             return {
                 ok: false,

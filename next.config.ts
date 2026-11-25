@@ -7,6 +7,9 @@ import { assertOwnNodeModules } from "./scripts/node-modules-guard.cjs";
 assertOwnNodeModules(typeof __dirname === "string" ? __dirname : process.cwd());
 
 const nextConfig: NextConfig = {
+  // @jdd/ui ships TypeScript source (the Turnstile hook the Get started form shares with the
+  // client sites' lead forms), so Next compiles it like our own code.
+  transpilePackages: ["@jdd/ui"],
   images: {
     // Default is 60 seconds, which meant every optimized image variant was re-processed by
     // the image function roughly once a minute regardless of traffic. Featured site images
@@ -56,6 +59,23 @@ const nextConfig: NextConfig = {
     return [
       { source: "/api/portal/:path*", headers: noStore },
       { source: "/portal/:path*", headers: noStore },
+    ];
+  },
+
+  /**
+   * The acceptance pages moved with the Terms of Service (v6.0, 2026-11-16): the self-serve page
+   * from `/agreement` to `/terms/accept`, and an order's private link from `/agree/[code]` to
+   * `/terms/[code]`. These stay for good:
+   *   - links already sent to clients (emails, close-wizard links, portal bookmarks) keep working;
+   *   - the approved SMS campaign registers `/agreement` as its opt-in page, so a carrier reviewer
+   *     following the registered URL lands on the opt-in.
+   * Next carries the query string (`?plan=…&upgrade=…`) across a redirect. The API routes
+   * (`/api/agreement`, `/api/agree/[code]`) did not move.
+   */
+  async redirects() {
+    return [
+      { source: "/agreement", destination: "/terms/accept", permanent: true },
+      { source: "/agree/:code", destination: "/terms/:code", permanent: true },
     ];
   },
 };

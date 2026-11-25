@@ -2,7 +2,8 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import type { PortalSiteProps } from "@/app/portal/types";
+import { tabHref, type PortalSiteProps } from "@/app/portal/types";
+import { CaretRight, Star } from "@phosphor-icons/react";
 import { splitConsentText, type SmsConsentCopy } from "@/app/lib/sms-consent-text";
 import type { OwnerTextCampaign } from "@/app/lib/owner-text-campaign";
 import type { AccountAgreement } from "@/app/lib/portal-agreements";
@@ -23,7 +24,17 @@ interface SettingsSectionProps {
     /** The consent wording a v2 opt-in here shows and records (`smsConsentCopy()`). */
     smsConsentCopy: SmsConsentCopy;
     agreements: AccountAgreement[];
+    /**
+     * Which of the account's sites can text the owner (D9: a website-plan site never does, because
+     * its leads live in the portal only). `none`: every site is on the website plan, so there is no
+     * Text alerts card at all. `mixed`: some are, so the card stays and says which sites it covers.
+     */
+    textAlertSites?: "all" | "mixed" | "none";
 }
+
+/** Copy batch C7, word for word: shown only on an account holding both kinds of site. */
+const MIXED_ALERTS_NOTE =
+    "Lead texts cover your sites with the AI receptionist. Leads from Starter sites stay in your Inbox.";
 
 // ── Profile ──────────────────────────────────────────────────────────────────
 
@@ -452,6 +463,14 @@ function FeaturedSection({
     );
 }
 
+function MixedAlertsNote() {
+    return (
+        <p style={{ fontSize: 14, color: "var(--fg-2)", margin: "0 0 18px", lineHeight: "var(--leading-relaxed, 1.6)" }}>
+            {MIXED_ALERTS_NOTE}
+        </p>
+    );
+}
+
 // ── Call alert texts ──────────────────────────────────────────────────────────
 
 /**
@@ -466,10 +485,12 @@ function SmsAlertsSection({
     consent,
     campaign,
     consentCopy,
+    mixed,
 }: {
     consent: SmsConsentProps | null;
     campaign: OwnerTextCampaign;
     consentCopy: SmsConsentCopy;
+    mixed: boolean;
 }) {
     // Shown on every plan. It used to return null for Starter, on the pre-reprice belief that
     // Starter had no receptionist and so nothing would ever text. Since 2026-10-12 every tier
@@ -480,9 +501,9 @@ function SmsAlertsSection({
     // the agreement page as the only place consent is collected, so under v1 an owner can turn
     // texts off here and nothing else (Xander, 2026-11-11). The API refuses the rest too.
     return campaign === "v1" ? (
-        <SmsAlertsOffOnly consent={consent} />
+        <SmsAlertsOffOnly consent={consent} mixed={mixed} />
     ) : (
-        <SmsAlertsControls consent={consent} consentCopy={consentCopy} />
+        <SmsAlertsControls consent={consent} consentCopy={consentCopy} mixed={mixed} />
     );
 }
 
@@ -491,7 +512,7 @@ function SmsAlertsSection({
  * change, no consent box, and no new wording: every string here is one the v2 controls already
  * show. An owner with no active texts has nothing to turn off, so sees no card.
  */
-function SmsAlertsOffOnly({ consent }: { consent: SmsConsentProps | null }) {
+function SmsAlertsOffOnly({ consent, mixed }: { consent: SmsConsentProps | null; mixed: boolean }) {
     const active = consent?.status === "granted" || consent?.status === "pending-confirmation";
     const [enabled, setEnabled] = useState(active);
     const [saving, setSaving] = useState(false);
@@ -522,6 +543,7 @@ function SmsAlertsOffOnly({ consent }: { consent: SmsConsentProps | null }) {
 
     return (
         <SectionCard title="Text alerts" dataTour="settings-alerts">
+            {mixed && <MixedAlertsNote />}
             <div
                 style={{
                     background: "color-mix(in srgb, var(--accent) 8%, transparent)",
@@ -572,7 +594,15 @@ function SmsAlertsOffOnly({ consent }: { consent: SmsConsentProps | null }) {
     );
 }
 
-function SmsAlertsControls({ consent, consentCopy }: { consent: SmsConsentProps | null; consentCopy: SmsConsentCopy }) {
+function SmsAlertsControls({
+    consent,
+    consentCopy,
+    mixed,
+}: {
+    consent: SmsConsentProps | null;
+    consentCopy: SmsConsentCopy;
+    mixed: boolean;
+}) {
     const active = consent?.status === "granted" || consent?.status === "pending-confirmation";
     const [enabled, setEnabled] = useState(active);
     const [phone, setPhone] = useState(consent?.phone ?? "");
@@ -607,6 +637,7 @@ function SmsAlertsControls({ consent, consentCopy }: { consent: SmsConsentProps 
 
     return (
         <SectionCard title="Text alerts" dataTour="settings-alerts">
+            {mixed && <MixedAlertsNote />}
             <p
                 style={{
                     fontSize: 14,
@@ -756,15 +787,17 @@ function SmsAlertsControls({ consent, consentCopy }: { consent: SmsConsentProps 
  */
 function agreementTitle(a: AccountAgreement): string {
     if (a.kind === "addendum") return "Addendum";
-    return a.current ? "Master agreement" : "Earlier master agreement";
+    // A master accepted before v6.0 keeps the name it was accepted under (item O2).
+    if (a.legacyAgreement) return "Service Agreement";
+    return a.current ? "Terms of Service" : "Earlier Terms of Service";
 }
 
 function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
     return (
-        <SectionCard title="Agreements">
+        <SectionCard title="Your terms">
             {agreements.length === 0 ? (
                 <p className="px-5 py-4 text-sm" style={{ color: "var(--fg-2)" }}>
-                    No signed agreements yet.
+                    No accepted terms yet.
                 </p>
             ) : (
                 <ul>
@@ -780,7 +813,7 @@ function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
                                     {a.siteName ? `: ${a.siteName}` : ""}
                                 </p>
                                 <p className="text-xs mt-0.5" style={{ color: "var(--fg-3)" }}>
-                                    Signed {SIGNED_DATE.format(new Date(a.signedAt))}
+                                    Accepted {SIGNED_DATE.format(new Date(a.signedAt))}
                                 </p>
                             </div>
                             <a
@@ -801,6 +834,34 @@ function AgreementsSection({ agreements }: { agreements: AccountAgreement[] }) {
 
 const SIGNED_DATE = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
+/**
+ * The way to More › Review message from Settings (Xander, 2026-11-19: "Settings › Account"),
+ * for desktop, which has no More tab. Growth and Enterprise only, like the Review button it sets
+ * the text for. The approved label is the only text.
+ */
+function ReviewMessageLink({ site }: { site: PortalSiteProps }) {
+    if (site.features?.crm?.state !== "ready") return null;
+    return (
+        <Link
+            href={tabHref("more/review", site.slug)}
+            data-tour="settings-review"
+            // Same box as the SectionCards around it.
+            className="rounded-lg border mb-6 flex items-center gap-3 px-5 py-4 min-h-[56px] hover:bg-[var(--surface)]"
+            style={{ borderColor: "var(--rule)", color: "var(--fg)", textDecoration: "none" }}
+        >
+            <span
+                aria-hidden="true"
+                className="grid place-items-center w-8 h-8 rounded-lg shrink-0"
+                style={{ background: "#f5a623", color: "#1c1405" }}
+            >
+                <Star size={17} weight="fill" />
+            </span>
+            <span className="flex-1 font-semibold">Review message</span>
+            <CaretRight size={16} style={{ color: "var(--fg-3)" }} />
+        </Link>
+    );
+}
+
 export default function SettingsSection({
     site,
     accountEmail,
@@ -809,6 +870,7 @@ export default function SettingsSection({
     smsCampaign,
     smsConsentCopy,
     agreements,
+    textAlertSites = "all",
 }: SettingsSectionProps) {
     // Settings › Account. The order is the approved mockup's: the two things a client
     // changes (who we contact, and whether we text them) first, then the opt-in, then the
@@ -816,7 +878,15 @@ export default function SettingsSection({
     return (
         <div>
             <ProfileSection accountEmail={accountEmail} profile={accountProfile} />
-            <SmsAlertsSection consent={smsConsent} campaign={smsCampaign} consentCopy={smsConsentCopy} />
+            {textAlertSites !== "none" && (
+                <SmsAlertsSection
+                    consent={smsConsent}
+                    campaign={smsCampaign}
+                    consentCopy={smsConsentCopy}
+                    mixed={textAlertSites === "mixed"}
+                />
+            )}
+            <ReviewMessageLink site={site} />
             <FeaturedSection site={site} />
             <AgreementsSection agreements={agreements} />
         </div>

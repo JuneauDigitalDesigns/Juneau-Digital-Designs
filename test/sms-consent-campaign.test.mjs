@@ -59,6 +59,10 @@ const V2_TEXT =
     "Yes, text me call summaries, new-lead alerts, and service alerts about my own Juneau Digital Designs account at the mobile number above. Consent is not a condition of purchase. Message and data rates may apply. Message frequency varies based on call and lead volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.";
 /** The hash every `sms-consent-v2` record stored since 2026-10-31 carries. */
 const V2_HASH = "8f05b3bedd688820a666c740e7dcf2720a6161a319742ade984836ea3666c460";
+/** The v2 campaign's text since 2026-11-18 (`sms-consent-v3`, adds customer-reply alerts). */
+const V3_TEXT =
+    "Yes, text me call summaries, new-lead alerts, customer-reply alerts, and service alerts about my own Juneau Digital Designs account at the mobile number above. Consent is not a condition of purchase. Message and data rates may apply. Message frequency varies based on call and lead volume. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy.";
+const V3_HASH = "205f4816e59d07e22c0107565971630c4df4d6b8678b1e12d593bcf96c5f842c";
 
 const strip = (html) => html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
 
@@ -80,7 +84,9 @@ test("the switch: unset or anything but v2 shows v1; exactly v2 shows v2", () =>
     assert.equal(consentText.smsConsentCopy({}), consentText.SMS_CONSENT_V1);
     assert.equal(consentText.smsConsentCopy({ OWNER_TEXT_CAMPAIGN: "V2" }), consentText.SMS_CONSENT_V1);
     assert.equal(consentText.smsConsentCopy({ OWNER_TEXT_CAMPAIGN: "v3" }), consentText.SMS_CONSENT_V1);
-    assert.equal(consentText.smsConsentCopy({ OWNER_TEXT_CAMPAIGN: "v2" }), consentText.SMS_CONSENT_V2);
+    assert.equal(consentText.smsConsentCopy({ OWNER_TEXT_CAMPAIGN: "v2" }), consentText.SMS_CONSENT_V3);
+    assert.equal(consentText.SMS_CONSENT_V3.text, V3_TEXT);
+    assert.equal(hashConsentText(consentText.SMS_CONSENT_V3.text), V3_HASH);
 });
 
 test("a submission's version names the words it showed; none means a page from before, which showed v2", () => {
@@ -132,7 +138,8 @@ test("the validation messages say text alerts", () => {
     };
     assert.equal(validateAgreementSubmission({ ...base, smsConsent: true, alertPhone: "12" }), "A valid mobile number is required to enable text alerts");
     assert.equal(
-        validateAgreementSubmission({ ...base, receptionistMode: "declined", smsConsent: true, alertPhone: "(407) 555-0143" }),
+        // The website plan (D9) has no texts; website-only as a Starter variant is refused outright.
+        validateAgreementSubmission({ ...base, plan: "website", receptionistMode: undefined, smsConsent: true, alertPhone: "(407) 555-0143" }),
         "Text alerts require a receptionist",
     );
 });
@@ -145,8 +152,8 @@ test("both agreement pages render the one shared opt-in, with the wording the se
         assert.match(src, /smsConsentVersion: smsConsentCopy\.version/, `${p} sends the version it showed`);
         assert.doesNotMatch(src, /splitConsentText\(/, `${p} renders the consent text only through SmsOptIn`);
     }
-    assert.match(read("app/agreement/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
-    assert.match(read("app/agree/[code]/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
+    assert.match(read("app/terms/accept/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
+    assert.match(read("app/terms/[code]/page.tsx"), /smsConsentCopy=\{smsConsentCopy\(\)\}/);
 });
 
 /* ── /api/agreement records the words shown ───────────────────────────────── */
@@ -207,7 +214,7 @@ const pendingFor = (id) => {
     return v === undefined ? null : JSON.parse(v);
 };
 
-test("v1: a ticked box on /agreement is held with the registered version and hash", async () => {
+test("v1: a ticked box on /terms/accept is held with the registered version and hash", async () => {
     const out = await sign({ smsConsent: true, alertPhone: "+14075550143", smsConsentVersion: "sms-consent-v1" });
     assert.equal(out.status, 200);
     const pending = pendingFor(out.agreement_id);
@@ -218,7 +225,7 @@ test("v1: a ticked box on /agreement is held with the registered version and has
     assert.equal(pending.userAgent, "laptop-browser");
 });
 
-test("v2: a ticked box on /agreement is held with today's version and hash", async () => {
+test("v2: a ticked box on /terms/accept is held with today's version and hash", async () => {
     process.env.OWNER_TEXT_CAMPAIGN = "v2";
     const out = await sign({ smsConsent: true, alertPhone: "+14075550143", smsConsentVersion: "sms-consent-v2" });
     const pending = pendingFor(out.agreement_id);
@@ -265,5 +272,5 @@ test("v1: the welcome email doesn't send the client to opt in from Settings; v2 
 test("/sms-terms quotes the wording the agreement pages show", () => {
     assert.ok(strip(renderToStaticMarkup(SmsTermsPage())).includes(V1_TEXT));
     process.env.OWNER_TEXT_CAMPAIGN = "v2";
-    assert.ok(strip(renderToStaticMarkup(SmsTermsPage())).includes(V2_TEXT));
+    assert.ok(strip(renderToStaticMarkup(SmsTermsPage())).includes(V3_TEXT));
 });

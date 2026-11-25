@@ -173,9 +173,10 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
             <div className={s.sc} ref={scRef}>
                 <div className={s.sNav}>
                     <span className={`${s.sLogo} ${hl("brand")}`}>
-                        {state.images.logo ? (
+                        {/* The square logo is the nav's (v1.42.0); the wide one goes in the footer. */}
+                        {state.images.monogram ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={state.images.logo.url} alt="" />
+                            <img src={state.images.monogram.url} alt="" />
                         ) : (
                             <span className={s.sMk} />
                         )}
@@ -186,7 +187,7 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
                                 <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 400, opacity: 0.75 }}>{state.tagline.trim()}</small>
                             ) : null}
                         </span>
-                        {state.logoChoice === "design" && !state.images.logo ? <span className={s.sTbd}>logo by JDD</span> : null}
+                        {state.logoChoice === "design" && !state.images.logo && !state.images.monogram ? <span className={s.sTbd}>logo by JDD</span> : null}
                     </span>
                     <span className={s.sLinks}><span>Services</span><span>About</span><span>Reviews</span></span>
                     <span className={`${s.sCall} ${hl("call")} ${hl("contact")}`}>{previewCallLabel(state)}</span>
@@ -252,6 +253,20 @@ export default function SiteWireframe({ state, focus }: { state: WizardState; fo
                 </div>
 
                 <div className={s.sFoot}>
+                    {/* As the templates do (v1.42.0): the wide logo replaces the name; with only a
+                        square logo, it sits beside the name. */}
+                    {state.images.logo ? (
+                        <span className={`${s.sFootLogo} ${hl("brand")}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={state.images.logo.url} alt="" />
+                        </span>
+                    ) : state.images.monogram ? (
+                        <span className={`${s.sFootLogo} ${hl("brand")}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={state.images.monogram.url} alt="" />
+                            <b>{name}</b>
+                        </span>
+                    ) : null}
                     <span className={hl("contact")}>{shownAddress(state) || "Your address"}</span>
                     <span className={hl("hours")}>{(state.hours === "custom" ? state.customHours.trim() : state.hours) || "Your hours"}</span>
                     {profileNames.length || focus === "profiles" ? (

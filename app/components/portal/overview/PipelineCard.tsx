@@ -176,6 +176,68 @@ function Dot({ color }: { color: string }) {
  * arrival. The button label is the existing approved "Show me what Growth does for me".
  * The hatched columns are decoration (`aria-hidden`), echoing the board it unlocks.
  */
+/**
+ * Website plan: the one upsell on Home, the AI receptionist (D5), in the wording Xander approved
+ * on 24 Nov 2026 (copy batch C2). It takes the place of the Growth panel, keeps its `ov-locked`
+ * anchor so the tour still points at it, and names no other plan and offers no demo.
+ */
+export function ReceptionistUpsellPanel({ href }: { href: string }) {
+    return (
+        <Card density="none" className="p-4 lg:p-[22px] flex flex-col lg:flex-row gap-5 lg:gap-7 lg:items-center">
+            <section aria-labelledby="ov-locked" data-tour="ov-locked" className="flex-1 flex flex-col gap-2">
+                <MonoLabel>When you can&apos;t pick up</MonoLabel>
+                <h2
+                    id="ov-locked"
+                    style={{
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 800,
+                        fontSize: "22px",
+                        letterSpacing: "normal",
+                        lineHeight: 1.2,
+                        margin: 0,
+                    }}
+                >
+                    Add the AI receptionist
+                </h2>
+                <p style={{ fontSize: "13.5px", color: "var(--fg-2)", lineHeight: 1.4, margin: 0 }}>
+                    It answers your calls 24/7 when you miss them, takes the caller&apos;s name, number and what
+                    the job is, and puts the lead in your Inbox. Starter + AI Receptionist is $297 a month,
+                    with no new onboarding fee.
+                </p>
+                <div className="flex gap-2.5 mt-1.5">
+                    <Link
+                        href={href}
+                        className="inline-flex items-center justify-center gap-2 min-h-[42px] py-2 px-4 rounded-lg hover:opacity-90"
+                        style={{
+                            background: "var(--accent)",
+                            color: "var(--on-accent)",
+                            fontWeight: 600,
+                            fontSize: "14px",
+                        }}
+                    >
+                        <span className="text-center" style={{ textWrap: "balance" }}>Add the AI receptionist</span>
+                    </Link>
+                </div>
+            </section>
+            <div aria-hidden="true" className="hidden lg:flex gap-2" style={{ width: 420 }}>
+                {[0, 1, 2].map((i) => (
+                    <span
+                        key={i}
+                        className="flex-1"
+                        style={{
+                            height: 120,
+                            borderRadius: 8,
+                            border: "1.5px dashed var(--rule-strong)",
+                            background:
+                                "repeating-linear-gradient(135deg, var(--surface) 0 8px, transparent 8px 16px)",
+                        }}
+                    />
+                ))}
+            </div>
+        </Card>
+    );
+}
+
 export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
     return (
         <Card density="none" className="p-4 lg:p-[22px] flex flex-col lg:flex-row gap-5 lg:gap-7 lg:items-center">
@@ -201,7 +263,7 @@ export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
                 <div className="flex gap-2.5 mt-1.5">
                     <Link
                         href={demoHref}
-                        className="inline-flex items-center gap-2 h-[42px] px-4 rounded-lg hover:opacity-90"
+                        className="inline-flex items-center justify-center gap-2 min-h-[42px] py-2 px-4 rounded-lg hover:opacity-90"
                         style={{
                             background: "var(--accent)",
                             color: "var(--on-accent)",
@@ -210,7 +272,11 @@ export function GrowthLockedPanel({ demoHref }: { demoHref: string }) {
                         }}
                     >
                         <PlayIcon />
-                        Show me what Growth does for me
+                        {/* Centred and balanced when it wraps on a phone (Xander, 2026-11-19: "just me is on the
+
+                            bottom line and all the way left aligned"). */}
+
+                        <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
                     </Link>
                 </div>
             </section>

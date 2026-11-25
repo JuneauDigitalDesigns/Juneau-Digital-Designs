@@ -18,7 +18,7 @@ const PROVIDER_SIG_PATH = resolve(process.cwd(), "public", "signature.png");
 
 /**
  * Builds the executed agreement from the structured terms — the same content
- * the client scrolled through on /agreement — then appends an audit-trail page.
+ * the client scrolled through on /terms/accept — then appends an audit-trail page.
  *
  * This replaces the previous approach of stamping a static PDF at fixed x/y
  * coordinates: the terms now have exactly one source, so the document a client
@@ -69,7 +69,7 @@ export async function generateSignedPdf(
   });
 
   /* ── Cover ── */
-  doc.text(isAddendum ? "SITE ADDENDUM" : "SERVICE AGREEMENT", { size: 18, bold: true, after: 2 });
+  doc.text(isAddendum ? "SITE ADDENDUM" : "TERMS OF SERVICE", { size: 18, bold: true, after: 2 });
   doc.text(`${schedule.name.toUpperCase()} PLAN — ${version.toUpperCase()}`, {
     size: 11,
     bold: true,
@@ -84,7 +84,7 @@ export async function generateSignedPdf(
   doc.text(
     isAddendum
       ? 'This Site Addendum ("Addendum") is entered into between:'
-      : 'This Service Agreement ("Agreement") is entered into between:',
+      : 'These Terms of Service are between:',
     { size: 9.5, after: 10 },
   );
 
@@ -99,9 +99,9 @@ export async function generateSignedPdf(
   doc.text(`Effective Date: ${today}`, { size: 9.5, bold: true, after: 14 });
 
   doc.callout(
-    `PLAN SELECTED: ${schedule.name.toUpperCase()} — ${coverPrice(schedule, submission.billingPeriod)}. ` +
-      `THIS ${isAddendum ? "ADDENDUM" : "AGREEMENT"} COVERS ${schedule.siteLabel.toUpperCase()}. ` +
-      `IF YOU INTENDED TO SIGN UP FOR A DIFFERENT PLAN, DO NOT SIGN THIS DOCUMENT — CONTACT PROVIDER FOR THE CORRECT ONE.`,
+    `PLAN SELECTED: ${schedule.name.toUpperCase()} — ${coverPrice(schedule)}. ` +
+      `THIS DOCUMENT COVERS ${schedule.siteLabel.toUpperCase()}. ` +
+      `IF YOU MEANT TO SIGN UP FOR A DIFFERENT PLAN, DO NOT ACCEPT IT. CONTACT US FOR THE RIGHT ONE.`,
   );
 
   /* ── Body + Schedule A ── */
@@ -109,13 +109,13 @@ export async function generateSignedPdf(
 
   /* ── Signatures ── */
   doc.newPage();
-  doc.text("SIGNATURES", { size: 13, bold: true, after: 3 });
+  doc.text("ACCEPTANCE", { size: 13, bold: true, after: 3 });
   doc.rule();
   doc.text(
-    "By signing below, each party acknowledges that they have read this Agreement in full, understand its terms " +
-      "(including the arbitration and class-action waiver), and agree to be bound by it." +
+    "By accepting, the client confirms they have read these Terms of Service in full, understand them " +
+      "(including the arbitration and class-action waiver), and agree to be bound by them." +
       (submission.plan === "enterprise"
-        ? " Client further represents that they have full authority to bind all businesses or entities listed as sites in Schedule A."
+        ? " The client also confirms they have authority to bind every business listed in the plan summary."
         : ""),
     { size: 9.5, after: 18 },
   );
@@ -153,9 +153,9 @@ export async function generateSignedPdf(
   doc.rule();
   doc.text(
     verbal
-      ? `Verbal acceptance record for Service Agreement ${version}`
+      ? `Verbal acceptance record for Terms of Service ${version}`
       : clickwrap
-        ? `Electronic acceptance record for Service Agreement ${version}`
+        ? `Electronic acceptance record for Terms of Service ${version}`
         : `Electronic signature record for Service Agreement ${version}`,
     { size: 9.5, after: 16 },
   );
@@ -181,14 +181,14 @@ export async function generateSignedPdf(
       ];
 
   const rows: [string, string][] = [
-    ["Agreement ID", agreementId],
+    ["Acceptance ID", agreementId],
     ["Plan selected", schedule.name.toUpperCase()],
     ["Terms version", version],
     ["Terms hash (SHA-256)", audit.termsHash],
     ["", ""],
-    ["Signer name", submission.signerName],
-    ["Signer title", submission.signerTitle],
-    ["Signer email", submission.signerEmail],
+    ["Name", submission.signerName],
+    ["Title", submission.signerTitle],
+    ["Email", submission.signerEmail],
     ["Client business", submission.clientLegalName],
     ["Client entity type", submission.clientEntityType],
     ["Client address", submission.clientAddress],
@@ -215,12 +215,12 @@ export async function generateSignedPdf(
           "hash above, were emailed to the client at the address shown immediately afterwards."
       : clickwrap
         ? "This electronic acceptance complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
-          "The client affirmed intent to be bound by the agreement above by scrolling through the full terms and checking " +
-          `the box stating they had read and agree to the Terms of Service on ${clickwrap.via ?? "juneaudigitaldesigns.com/agreement"}. ` +
+          "The client affirmed intent to be bound by the terms above by scrolling through the full terms and checking " +
+          `the box stating they had read and agree to the Terms of Service on ${clickwrap.via ?? "juneaudigitaldesigns.com/terms/accept"}. ` +
           "The terms hash above identifies the exact text presented to the client at the time of acceptance."
         : "This electronic signature complies with the ESIGN Act of 2000 and the Uniform Electronic Transactions Act (UETA). " +
           "The signer affirmed intent to be bound by the agreement above by scrolling through the full terms, drawing their " +
-          "signature on a touch or pointer interface, and checking the acceptance box on juneaudigitaldesigns.com/agreement. " +
+          "signature on a touch or pointer interface, and checking the acceptance box on juneaudigitaldesigns.com/terms/accept. " +
           "The terms hash above identifies the exact text presented to the signer at the time of signing.",
     { size: 8.5, after: 0 },
   );

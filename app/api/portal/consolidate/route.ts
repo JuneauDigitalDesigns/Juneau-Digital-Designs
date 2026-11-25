@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
   if (!agreementId) {
-    return NextResponse.json({ error: "Missing signed agreement" }, { status: 400 });
+    return NextResponse.json({ error: "Missing Terms of Service acceptance" }, { status: 400 });
   }
 
   // The agreement has to be for Enterprise and has to be this account's own. A plan change is
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
   // is accepted. Without the check an agreement id is a bearer token for a plan change.
   const agreement = await getAgreement(agreementId);
   if (!agreement || agreement.plan !== "enterprise") {
-    return NextResponse.json({ error: "Agreement not found or not for Enterprise" }, { status: 400 });
+    return NextResponse.json({ error: "Acceptance not found, or not for Enterprise" }, { status: 400 });
   }
   // A master is bound by who accepted it (it is held, so it isn't the account's master until the
   // move succeeds below); an addendum by the master it hangs off.
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       ? Boolean(account.masterAgreement?.agreementId) && agreement.parentAgreementId === account.masterAgreement?.agreementId
       : acceptedBy(agreement, account);
   if (!belongs) {
-    return NextResponse.json({ error: "Agreement does not belong to this account" }, { status: 403 });
+    return NextResponse.json({ error: "That acceptance isn't for this account" }, { status: 403 });
   }
 
   const plan = await planConsolidation(account);

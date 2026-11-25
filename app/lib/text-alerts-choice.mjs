@@ -1,8 +1,8 @@
 import { normalizeUsPhone } from "./phone.mjs";
 
 /**
- * The text-alerts choice on both agreement pages (`/agree/[code]` from the close wizard, and the
- * self-serve `/agreement`), as Xander decided on 2026-11-15: "two cards, one that revealed the phone
+ * The text-alerts choice on both agreement pages (`/terms/[code]` from the close wizard, and the
+ * self-serve `/terms/accept`), as Xander decided on 2026-11-15: "two cards, one that revealed the phone
  * number input and the opt in message with the check box to record their consent, and the other
  * for them to bypass it, if we dont collect their consent, we dont send messages."
  *
@@ -57,7 +57,8 @@ export const TEXT_ALERTS_HEADING = "TEXT ALERTS · CHOOSE ONE";
  * @returns {TextAlertsCards}
  */
 export function textAlertsCards(consentVersion) {
-  if (consentVersion === "sms-consent-v2") {
+  // v3 is the v2 campaign's text since 2026-11-18; v2 its first. Both get the v2 cards.
+  if (consentVersion === "sms-consent-v2" || consentVersion === "sms-consent-v3") {
     return {
       heading: TEXT_ALERTS_HEADING,
       yes: {

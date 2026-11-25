@@ -31,7 +31,7 @@ export default function MiniMonth({
 
     return (
         <div className="rounded-2xl border p-2" style={{ background: "var(--elev-1)", borderColor: "var(--elev-border)" }}>
-            <div className="grid grid-cols-7 text-center text-[10px] pb-1" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }} aria-hidden="true">
+            <div className="grid grid-cols-7 text-center text-[12px] pb-1" style={{ fontFamily: "var(--font-mono)", color: "var(--fg-2)" }} aria-hidden="true">
                 {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                     <span key={i}>{d}</span>
                 ))}
@@ -55,7 +55,7 @@ export default function MiniMonth({
                                 month: "long",
                                 day: "numeric",
                             })}
-                            className="h-11 rounded-[10px] flex flex-col items-center justify-center gap-[3px] cursor-pointer text-[14px]"
+                            className="h-11 rounded-[12px] flex flex-col items-center justify-center gap-[3px] cursor-pointer text-[16px] tabular-nums"
                             style={{
                                 background: isSel ? "var(--accent)" : "transparent",
                                 boxShadow: isToday && !isSel ? "inset 0 0 0 1.5px var(--accent)" : undefined,

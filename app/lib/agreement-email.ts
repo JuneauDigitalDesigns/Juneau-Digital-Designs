@@ -63,10 +63,11 @@ export async function sendClientAgreementEmail(
   // Accepted by voice on a sales call: nothing was signed, and payment happens on the call or
   // from a link we send, so the self-serve wording ("you should have been redirected") is wrong.
   const verbal = record.acceptance?.method === "verbal-operator";
+  const viaLink = record.acceptance?.method === "clickwrap-self" && Boolean(record.acceptance.via);
   // No em-dash: this is a subject line a client reads.
   const subject = verbal
-    ? `Your agreement with Juneau Digital Designs: ${record.clientLegalName}`
-    : `Signed MSA: ${record.clientLegalName}`;
+    ? `Your Terms of Service with Juneau Digital Designs: ${record.clientLegalName}`
+    : `Terms of Service accepted: ${record.clientLegalName}`;
   const innerHtml = verbal
     ? `
     <p style="margin:0 0 18px;">Thanks for joining Juneau Digital Designs. You agreed to these terms with us by phone, and a copy is attached to this email for your records.</p>
@@ -81,26 +82,32 @@ export async function sendClientAgreementEmail(
     <p style="margin:0;">If anything here doesn't match what we discussed, just reply to this email.</p>
   `
     : `
-    <p style="margin:0 0 18px;">Thanks for signing your agreement with Juneau Digital Designs. A copy of your signed PDF is attached to this email.</p>
+    <p style="margin:0 0 18px;">Thanks for accepting the Juneau Digital Designs Terms of Service. A copy is attached to this email for your records.</p>
     <div style="background:${EMAIL.panelInset};border-left:3px solid ${EMAIL.accent};border-radius:8px;padding:14px 16px;margin:0 0 18px;">
       <div style="font-size:13px;line-height:1.7;">
         <strong>Plan:</strong> ${label}<br/>
-        <strong>Signer:</strong> ${record.signerName} (${record.signerTitle})<br/>
+        <strong>Accepted by:</strong> ${record.signerName} (${record.signerTitle})<br/>
         <strong>Business:</strong> ${record.clientLegalName}<br/>
-        <strong>Signed at:</strong> ${record.audit.signedAt}
+        <strong>Accepted at:</strong> ${record.audit.signedAt}
       </div>
     </div>
-    <p style="margin:0;">Next step: complete payment through Stripe Checkout (you should have been redirected automatically). If you weren't, return to <a href="https://juneaudigitaldesigns.com/pricing" style="color:${EMAIL.accent};font-weight:500;text-decoration:underline;">juneaudigitaldesigns.com/pricing</a>.</p>
+    ${
+      // A private link (`via` set) is paid through the operator's payment link, not Stripe
+      // Checkout, so the self-serve "next step" would be wrong there (item E5).
+      viaLink
+        ? ""
+        : `<p style="margin:0;">Next step: complete payment through Stripe Checkout (you should have been redirected automatically). If you weren't, return to <a href="https://juneaudigitaldesigns.com/pricing" style="color:${EMAIL.accent};font-weight:500;text-decoration:underline;">juneaudigitaldesigns.com/pricing</a>.</p>`
+    }
   `;
   const html = brandedEmailHtml({
-    title: verbal ? "Service Agreement: Accepted" : "Service Agreement: Signed",
+    title: "Terms of Service: Accepted",
     body: innerHtml,
     footerNote: verbal
-      ? `Agreement ID: ${record.id} · Terms SHA-256: ${record.audit.termsHash} · Accepted verbally by telephone.`
-      : `Agreement ID: ${record.id} · SHA-256: ${record.audit.payloadHash} · Signed via electronic signature in compliance with ESIGN Act / UETA.`,
+      ? `Acceptance ID: ${record.id} · Terms SHA-256: ${record.audit.termsHash} · Accepted verbally by telephone.`
+      : `Acceptance ID: ${record.id} · SHA-256: ${record.audit.payloadHash} · Accepted electronically in compliance with the ESIGN Act and UETA.`,
   });
 
-  const filename = `MSA-${record.clientLegalName.replace(/\W+/g, "_")}.pdf`;
+  const filename = `Terms-of-Service-${record.clientLegalName.replace(/\W+/g, "_")}.pdf`;
 
   // Client email — no audit trail
   try {

@@ -120,7 +120,8 @@ test("changed details are a new agreement, sent to the address now given", async
 
 test("a different plan or receptionist choice is a different agreement", async () => {
   const base = await accept(submission());
-  for (const change of [{ plan: "growth" }, { receptionistMode: "declined" }]) {
+  // The website plan has no phone choice (v1.45.0), so it is the receptionist-choice variant now.
+  for (const change of [{ plan: "growth" }, { plan: "website", receptionistMode: undefined, forwardingNumber: undefined }]) {
     const other = await accept(submission(change));
     assert.equal(other.status, 200, JSON.stringify(change));
     assert.notEqual(other.agreement_id, base.agreement_id, JSON.stringify(change));
@@ -177,7 +178,7 @@ test("a failed acceptance does not block the retry: it signs afresh and is saved
  */
 async function signMasterThenReturn() {
   const master = await accept(submission({}, "2026-11-04T18:00:00.000Z"));
-  // What /start and /agreement see next time: the account with that master on it.
+  // What /start and /terms/accept see next time: the account with that master on it.
   state.accounts.user_rivera = state.savedAccounts.at(-1);
   assert.equal(state.accounts.user_rivera.masterAgreement.agreementId, master.agreement_id);
   return master;

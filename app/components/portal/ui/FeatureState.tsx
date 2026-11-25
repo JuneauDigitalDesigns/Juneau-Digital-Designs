@@ -1,8 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { ChartLineUp, ChatCircle, Gauge, Tray, UsersThree } from "@phosphor-icons/react";
 import type { FeatureAvailability, PortalFeature } from "@jdd/schema";
-import { addReceptionistHref } from "@/app/portal/types";
 
 /**
  * Explains why a panel has nothing to show.
@@ -22,7 +22,13 @@ type FeatureCopy = {
     emptyBody: string;
 };
 
-const COPY: Record<PortalFeature, FeatureCopy> = {
+/**
+ * `pastCalls` has no panel of its own: the Inbox draws it as a chip with its own list (B4), so
+ * nothing ever asks this component to explain it.
+ */
+type ExplainedFeature = Exclude<PortalFeature, "pastCalls">;
+
+const COPY: Record<ExplainedFeature, FeatureCopy> = {
     calls: {
         noun: "Call tracking",
         whatItDoes:
@@ -74,52 +80,33 @@ const COPY: Record<PortalFeature, FeatureCopy> = {
     },
 };
 
+/** The Inbox on the website plan: only the form. Approved word for word, copy batch C4. */
+const WEB_ONLY_LEADS: FeatureCopy = {
+    ...COPY.leads,
+    whatItDoes: "Every inquiry from your website, in one place.",
+    whenLive: "Website inquiries will land here as they come in.",
+    emptyBody: "When someone fills in your website form, they'll show up here straight away.",
+};
+
 export function FeatureState({
     feature,
     availability,
     ghost,
-    siteSlug,
+    webOnly = false,
 }: {
-    feature: PortalFeature;
+    feature: ExplainedFeature;
     availability: FeatureAvailability;
     /** Ghost preview to show under the message, when one fits the panel. */
     ghost?: ReactNode;
-    /** The site on screen. The web-only "Switch it on" action needs it. */
-    siteSlug?: string;
+    /** The website plan has no calls, so its Inbox words talk only about website inquiries (C4). */
+    webOnly?: boolean;
 }) {
-    const copy = COPY[feature];
+    const copy = webOnly && feature === "leads" ? WEB_ONLY_LEADS : COPY[feature];
 
     if (availability.state === "not-on-plan") {
-        // Only a web-only site reaches this today — a Starter client who declined the
-        // receptionist at signing. Every plan has included the receptionist since the
-        // 2026-10-12 reprice, so this is "switch on a feature you skipped", not a paid tier
-        // upgrade: no plan name, no price, and not the Starter→Growth flow, which would sell
-        // them a pricier plan to get something their own already includes. Switching it on is
-        // accepting the standard Starter terms with a phone choice, at no charge (D7,
-        // 2026-11-04; wording approved by Xander). traffic/performance ship on every tier and
-        // must never land here.
-        if (feature === "calls") {
-            return (
-                <div className="space-y-6">
-                    <Panel
-                        title="Add your AI receptionist"
-                        body="Your plan includes an AI receptionist on a dedicated business number — it answers when you can't, and every call is logged here with who rang and what they wanted. You started website-only, and you can switch it on here at no extra cost."
-                        action={
-                            siteSlug ? (
-                                <a
-                                    href={addReceptionistHref(siteSlug)}
-                                    className="text-sm font-medium px-4 py-2.5 rounded-md transition-opacity hover:opacity-90"
-                                    style={{ background: "var(--accent)", color: "var(--on-accent)" }}
-                                >
-                                    Switch it on
-                                </a>
-                            ) : undefined
-                        }
-                    />
-                    {ghost}
-                </div>
-            );
-        }
+        // The old "Switch it on" panel for calls is retired (copy batch C3, 24 Nov 2026): adding the
+        // receptionist is a paid upgrade now, and a website-plan client is offered it on Home, in
+        // Analytics' site health and nowhere else. This panel is only ever reached by mistake.
         // Defensive: traffic/performance have no plan that excludes them, so reaching this is
         // a bug. Render the honest generic panel rather than an invented pitch.
         return (
@@ -184,7 +171,8 @@ export function FeatureState({
     }
 
     // "ready" but the upstream returned nothing — a genuinely empty log, not a fault.
-    return <Panel title={copy.emptyTitle} body={copy.emptyBody} />;
+    // Empty states get a large soft icon over the same words (2026-11-19, Xander Q19).
+    return <Panel title={copy.emptyTitle} body={copy.emptyBody} icon={EMPTY_ICON[feature]} />;
 }
 
 /** Wired up, but the request failed. Distinct from every lifecycle state above. */
@@ -218,17 +206,37 @@ export function FeatureError({
     );
 }
 
+const EMPTY_ICON: Partial<Record<ExplainedFeature, typeof Tray>> = {
+    leads: Tray,
+    calls: Tray,
+    crm: UsersThree,
+    messaging: ChatCircle,
+    traffic: ChartLineUp,
+    performance: Gauge,
+};
+
 function Panel({
     title,
     body,
     action,
+    icon: Icon,
 }: {
     title: string;
     body: string;
     action?: ReactNode;
+    icon?: typeof Tray;
 }) {
     return (
         <div className="portal-elev px-6 py-10 flex flex-col items-center text-center gap-3">
+            {Icon && (
+                <span
+                    aria-hidden="true"
+                    className="grid place-items-center rounded-full w-24 h-24 lg:w-16 lg:h-16 mb-1"
+                    style={{ background: "color-mix(in srgb, var(--accent) 12%, var(--elev-1))", color: "var(--accent)" }}
+                >
+                    <Icon size={44} />
+                </span>
+            )}
             <h2
                 className="font-bold"
                 style={{ fontFamily: "var(--font-display)", fontSize: "var(--text-xl)" }}

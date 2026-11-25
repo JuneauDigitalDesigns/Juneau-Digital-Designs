@@ -25,6 +25,7 @@ import {
     PROFILE_KINDS,
     customersFor,
     differentiatorsFor,
+    isWebOnly,
     joinChoices,
     mapBrandIntakeToIntake,
     menuFor,
@@ -33,6 +34,7 @@ import {
     servicePageFacts,
     type BrandIntakeSubmission,
     type ImageMeta,
+    type PortalPlan,
     type ProfileKind,
     type ServiceEntry,
     type TemplateSlots,
@@ -41,7 +43,8 @@ import { normaliseProfileLink } from "@/app/lib/profile-links";
 import { C } from "./copy-service-details";
 import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
 
-export type PlanSlug = "starter" | "growth" | "enterprise";
+/** The schema's plan ids (v1.45.0). `website` is the website-only plan; names come from PLAN_LABELS. */
+export type PlanSlug = PortalPlan;
 export type ReceptionistMode = "forwarded" | "published" | "declined";
 
 /** One Enterprise additional site. Colors are not asked here either. */
@@ -138,9 +141,12 @@ export type WizardState = {
 
     /** The line under the business name in the site's nav and footer (F-C2a, 2026-11-11). */
     tagline: string;
-    /** "design" = "Not yet. Design one for me." An uploaded logo lives in `images.logo`. */
+    /**
+     * "design" = "Not yet. Design one for me." Uploads live in `images`: `monogram` is the square
+     * logo (the nav's), `logo` the wide one (the footer's wordmark), @jdd/schema v1.42.0.
+     */
     logoChoice: "" | "design";
-    images: { logo?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
+    images: { logo?: ImageMeta; monogram?: ImageMeta; heroSlides: ImageMeta[]; aboutFeature?: ImageMeta };
     voice: string[];
     avoid: string;
 
@@ -201,8 +207,17 @@ function townIn(towns: string[], raw: string | undefined): string {
 function sentPhoto(img: ImageMeta, towns: string[]): ImageMeta {
     const rest: ImageMeta = { ...img };
     delete rest.town;
+    // A before photo (v1.41.0) only when it is a real upload: a blank one is never sent.
+    if (!rest.before?.url?.trim()) delete rest.before;
     const t = townIn(towns, img.town);
     return t ? { ...rest, town: t } : rest;
+}
+
+/** A job photo without its before photo (the remove button under a before thumbnail). */
+export function withoutBefore(img: ImageMeta): ImageMeta {
+    const rest: ImageMeta = { ...img };
+    delete rest.before;
+    return rest;
 }
 
 /** Q2: the picked top towns that are still among the client's towns, at most 3, in order. */
@@ -230,6 +245,8 @@ export const CERT_SUGGESTIONS: Record<string, string[]> = {
     roofing: ["GAF Certified Contractor", "Owens Corning Preferred Contractor", "BBB accredited"],
     "lawn-care": ["Licensed pesticide applicator", "BBB accredited"],
     "car-detailing": ["IDA certified", "Ceramic Pro certified installer", "XPEL certified installer"],
+    // W61, approved by Xander on 2026-11-18. Pressure washing has no BRAND_SUGGESTIONS entry: no brands screen.
+    "pressure-washing": ["Licensed", "Insured", "PWNA member", "UAMCC member", "BBB accredited"],
 };
 
 /** Stat keys worked out from other answers rather than asked. */
@@ -318,7 +335,9 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
         S("logo", 3, "Logo", "brand"),
         S("photos", 3, "Photos", "photos", { skippable: true }),
         S("voice", 3, "Voice", "hero", { skippable: true }),
-        S("setup", 4, "Phone setup", "call", { required: true }),
+        // Website only (the `website` plan, or a legacy Starter signed "declined"): the plan already
+        // decided there is no number, so there is nothing to set up.
+        ...(webOnly(ctx) ? [] : [S("setup", 4, "Phone setup", "call", { required: true })]),
         S("hours", 4, "Hours", "hours", { skippable: true }),
         S("review", -1, "Review", "none"),
     ];
@@ -330,12 +349,23 @@ export function screensFor(state: Pick<WizardState, "trade" | "hours" | "emergen
 const digits = (s: string) => (s || "").replace(/\D/g, "");
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** The receptionist options this client may pick: website-only is Starter only (onboard.js rejects it elsewhere). */
+/**
+ * Whether this site has no receptionist: the `website` plan, or the legacy shape (`starter` signed
+ * "declined" before `website` existed), read so an in-flight record still works, never offered.
+ */
+export function webOnly(ctx: WizardContext): boolean {
+    return isWebOnly({ plan: ctx.plan, receptionistMode: ctx.signedMode });
+}
+
+/**
+ * The receptionist modes this client may end up with. Website only is never a choice made here
+ * (v1.45.0): it is the `website` plan, and the schema's `receptionistModeProblem` refuses
+ * "declined" on every other plan in a new submission.
+ */
 export function modesFor(ctx: WizardContext): ReceptionistMode[] {
-    // The signed choice sets the website-only boundary; crossing it is a terms change, not an edit.
-    if (ctx.signedMode === "declined") return ["declined"];
-    if (ctx.signedMode) return ["forwarded", "published"];
-    return ctx.plan === "starter" ? ["forwarded", "published", "declined"] : ["forwarded", "published"];
+    // The plan, or the legacy signed choice, decided it; crossing it is a plan change, not an edit.
+    if (webOnly(ctx)) return ["declined"];
+    return ["forwarded", "published"];
 }
 
 /**
@@ -391,13 +421,58 @@ export function isAnswered(id: string, state: WizardState): boolean {
         case "radius": return !!state.serviceRadiusMiles.trim();
         case "offer": return !!state.offerBadge.trim();
         case "tagline": return state.tagline.trim().length > 0;
-        case "logo": return !!state.images.logo || state.logoChoice === "design";
+        case "logo": return !!state.images.logo || !!state.images.monogram || state.logoChoice === "design";
         case "photos": return state.images.heroSlides.length > 0 || !!state.images.aboutFeature;
         case "voice": return state.voice.length > 0;
         case "setup": return !!state.receptionistMode;
         case "hours": return !!(state.hours && (state.hours !== CUSTOM_HOURS || state.customHours.trim())) || !!state.agentName.trim();
         default: return true;
     }
+}
+
+// ── Logos ────────────────────────────────────────────────────────────────────
+
+/** The two logo boxes: `monogram` is the square logo (nav), `logo` the wide one (footer). */
+export type LogoSlot = "monogram" | "logo";
+
+/** The Review line for the Logo screen (W10), or "" when nothing was given. */
+export function logoSummary(st: Pick<WizardState, "images" | "logoChoice">): string {
+    const { monogram, logo } = st.images;
+    if (monogram && logo) return C.logoSummaryBoth;
+    if (monogram) return C.logoSummarySquare;
+    if (logo) return C.logoSummaryWide;
+    return st.logoChoice === "design" ? "We'll design one" : "";
+}
+
+/**
+ * The shape nudge (W14, D2): a file that is clearly wide in the square box, or clearly square in
+ * the wide box, gets an offer to move it. `ratio` is width over height. A stacked logo (a symbol
+ * over the name) is near square, so it is offered the square box; the client may ignore it.
+ */
+export function logoShapeNudge(slot: LogoSlot, ratio: number): string | null {
+    if (!Number.isFinite(ratio) || ratio <= 0) return null;
+    if (slot === "monogram" && ratio >= 1.8) return C.logoLooksWide;
+    if (slot === "logo" && ratio <= 1.25) return C.logoLooksSquare;
+    return null;
+}
+
+/** Moves a logo to the other box, swapping with whatever is there. */
+export function moveLogo(images: WizardState["images"], from: LogoSlot): WizardState["images"] {
+    const to: LogoSlot = from === "monogram" ? "logo" : "monogram";
+    const next = { ...images, [to]: images[from], [from]: images[to] };
+    if (!next.logo) delete next.logo;
+    if (!next.monogram) delete next.monogram;
+    return next;
+}
+
+/** Initials for the square example (W8): the first letters of the first two words, "&" skipped. */
+export function exampleInitials(name: string): string {
+    return name
+        .split(/\s+/)
+        .filter((w) => /[A-Za-z0-9]/.test(w))
+        .slice(0, 2)
+        .map((w) => (w.match(/[A-Za-z0-9]/)?.[0] ?? "").toUpperCase())
+        .join("");
 }
 
 // ── Derived values ───────────────────────────────────────────────────────────
@@ -455,6 +530,7 @@ export const TAGLINE_EXAMPLES: Record<string, string> = {
     plumbing: "Fast fixes, honest prices",
     "lawn-care": "A lawn you'll love, all season long",
     "car-detailing": "Showroom quality, delivered to you",
+    "pressure-washing": "The right pressure for every surface",
     health: "Care that meets you where you are",
 };
 
@@ -512,6 +588,9 @@ export const STAT_LABELS: Record<string, string> = {
     vehiclesDetailed: "Vehicles detailed",
     coatingDurability: "Coating durability",
     mobileCoverage: "Mobile coverage",
+    // W62, approved by Xander on 2026-11-18.
+    propertiesCleaned: "Properties cleaned",
+    quoteTurnaround: "Quote turnaround",
 };
 
 /** The palette the build starts from. The client never chooses; JDD sets the real one in the console. */
@@ -746,7 +825,13 @@ export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date =
         selectedPlan: ctx.plan,
         // Absent when skipped, so the mapper flags brand.tagline as missing (F-C2a).
         ...(tagline ? { tagline } : {}),
-        ...(state.receptionistMode ? { receptionistMode: state.receptionistMode } : {}),
+        // Website only always sends "declined", whatever an old draft says, so a reader on either
+        // schema version sees no receptionist. Elsewhere "declined" is never sent (it is refused).
+        ...(webOnly(ctx)
+            ? { receptionistMode: "declined" as const }
+            : state.receptionistMode && state.receptionistMode !== "declined"
+              ? { receptionistMode: state.receptionistMode }
+              : {}),
         brandName: state.name.trim(),
         email: state.email.trim(),
         phone: state.phone.trim(),
@@ -779,7 +864,7 @@ export function buildPayload(typed: WizardState, ctx: WizardContext, now: Date =
             forbidden: state.avoid.trim(),
         },
         palette: { mode: "preset", presetId: defaultPaletteId(state.trade) },
-        hasLogo: !!state.images.logo,
+        hasLogo: !!(state.images.logo || state.images.monogram),
         // Q1: each general photo carries its town only when it's one of the client's towns.
         images: { ...state.images, heroSlides: state.images.heroSlides.map((img) => sentPhoto(img, towns)) },
         existingWebsiteUrl: state.website.trim(),
@@ -855,7 +940,12 @@ const isKind = (v: unknown): v is ProfileKind => typeof v === "string" && KINDS.
 function readImages(v: unknown, max: number): ImageMeta[] {
     return (Array.isArray(v) ? v : [])
         .filter((x): x is ImageMeta => !!x && typeof x === "object" && typeof (x as ImageMeta).url === "string")
-        .map((x) => ({ url: x.url, filename: str(x.filename), alt: str(x.alt), ...(typeof x.town === "string" ? { town: str(x.town) } : {}) }))
+        .map((x) => ({
+            url: x.url, filename: str(x.filename), alt: str(x.alt),
+            ...(typeof x.town === "string" ? { town: str(x.town) } : {}),
+            // A job's before photo (v1.41.0) survives a saved draft.
+            ...(x.before && typeof x.before.url === "string" && x.before.url ? { before: { url: x.before.url, filename: str(x.before.filename), alt: str(x.before.alt) } } : {}),
+        }))
         .slice(0, max);
 }
 
@@ -913,7 +1003,9 @@ export function restoreDraft(raw: unknown, base: WizardState): WizardState {
     const d = raw as Record<string, unknown>;
     const images = d.images && typeof d.images === "object" ? (d.images as WizardState["images"]) : base.images;
     const safeImages: WizardState["images"] = {
+        // A draft saved before 2026-11-19 has one `logo`, which now means the wide logo (D3).
         ...(images.logo ? { logo: images.logo } : {}),
+        ...(images.monogram ? { monogram: images.monogram } : {}),
         heroSlides: Array.isArray(images.heroSlides) ? images.heroSlides.slice(0, MAX_WORK_PHOTOS) : [],
         ...(images.aboutFeature ? { aboutFeature: images.aboutFeature } : {}),
     };

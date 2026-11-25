@@ -3,6 +3,7 @@ import { cache } from "react";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import {
     accountFromLegacyMetadata,
+    isWebOnly,
     siteFeatures,
     type LegacyPortalMetadata,
     type PortalAccount,
@@ -17,6 +18,8 @@ import {
 import { verifiedEmailOf } from "./portal-account";
 import { selectSite, type PortalSiteProps } from "@/app/portal/types";
 import { hasBillingLink } from "./plan-billing";
+import { getSiteTrades } from "./portal-kv";
+import { sampleTradeFor } from "@/app/data/trade-samples";
 
 /**
  * Resolve the signed-in client's dashboard context.
@@ -112,17 +115,21 @@ export const resolveDashboard = cache(async (): Promise<{
         account = await linkClerkUser(account, userId);
     }
 
-    const sites: PortalSiteProps[] = account.sites.map((s) => ({
+    // One read for every site's stored trade (the tour's and the Growth preview's sample data).
+    const trades = await getSiteTrades(account.sites.map((s) => s.slug));
+    const sites: PortalSiteProps[] = account.sites.map((s, i) => ({
         slug: s.slug,
         name: displayName(s.slug, s.name, s.canonical),
         canonical: s.canonical?.trim() || null,
         billingLinked: hasBillingLink(s),
         plan: s.plan,
+        webOnly: isWebOnly(s),
         status: s.status,
         features: siteFeatures(s),
         featured: s.featured ?? null,
         cancelRequestedAt: s.cancelRequestedAt ?? null,
         cancelEffectiveAt: s.cancelEffectiveAt ?? null,
+        sampleTrade: sampleTradeFor(trades[i], s.name ?? s.slug),
     }));
 
     return { account, sites };

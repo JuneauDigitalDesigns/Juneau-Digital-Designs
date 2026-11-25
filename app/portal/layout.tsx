@@ -1,10 +1,27 @@
 import { ClerkProvider } from "@clerk/nextjs";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { clerkAppearance, clerkLocalization } from "./clerkAppearance";
 
 export const metadata: Metadata = {
     title: "Client Portal | Juneau Digital Designs",
     description: "View your site analytics, call logs, and performance metrics.",
+    // Every portal page, sign-in and sign-up included, stays out of search results. The pages
+    // behind the login redirect crawlers to sign-in, so sign-in is the one they would list.
+    robots: { index: false, follow: false },
+    // Installable as an app (2026-11-19, Xander Q18): "JDD Portal" (approved string 13) on the
+    // home screen, full screen, no browser bars. Portal routes only, so the agency site is not
+    // installable. No service worker and no push: Xander chose no push alerts.
+    manifest: "/portal.webmanifest",
+    appleWebApp: { capable: true, title: "JDD Portal", statusBarStyle: "default" },
+    icons: { apple: "/portal-icons/apple-touch-icon.png" },
+};
+
+/** The browser and status-bar colour, matching the portal's page colour in each theme. */
+export const viewport: Viewport = {
+    themeColor: [
+        { media: "(prefers-color-scheme: light)", color: "#f6f7f9" },
+        { media: "(prefers-color-scheme: dark)", color: "#0b0d11" },
+    ],
 };
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {

@@ -1,0 +1,278 @@
+import type { Metadata } from "next";
+import { cache } from "react";
+import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
+import AgreementClient from "../../components/agreement/AgreementClient";
+import UpgradeUnavailable from "../../components/agreement/UpgradeUnavailable";
+import { getAddendumForPlan, getSchedule, getTermsForPlan } from "../../lib/legal";
+import { getAgreement } from "../../lib/kv";
+import { isWebOnly, legacyMasterFrom } from "@jdd/schema";
+import { resolveAccountForUser } from "../../lib/portal-account";
+import { upgradeBlockReason } from "../../lib/plan-billing";
+import { getPlanChange } from "../../lib/plan-change";
+import { planConsolidation } from "../../lib/consolidation";
+import type { PlanSlug } from "../../lib/agreement-types";
+import { isPlanSlug } from "../../lib/plan-ids.mjs";
+import { smsConsentCopy } from "../../lib/sms-consent-text";
+
+const SIGNING_METADATA: Metadata = {
+    title: "Accept the Terms of Service | Juneau Digital Designs",
+    description:
+        "Review and accept the Juneau Digital Designs Terms of Service before completing your subscription payment.",
+};
+
+/**
+ * The title has to follow the branch: "Sign Service Agreement" on a page that refuses to let
+ * you sign reads as a bug. `canUpgrade` is wrapped in React `cache()`, so this and the page
+ * body share one evaluation per request rather than each hitting Clerk and KV.
+ */
+export async function generateMetadata({
+    searchParams,
+}: {
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; period?: string; downgrade?: string; receptionist?: string }>;
+}): Promise<Metadata> {
+    const { upgrade, plan } = await searchParams;
+    const slug = upgrade?.trim();
+    if (slug && !(await canUpgrade(slug, isPlanSlug(plan) ? plan : "growth"))) {
+        return { title: "Upgrade | Juneau Digital Designs", robots: { index: false } };
+    }
+    return SIGNING_METADATA;
+}
+
+
+export default async function AgreementPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ plan?: string; upgrade?: string; kind?: string; consolidate?: string; downgrade?: string; receptionist?: string }>;
+}) {
+    const { plan, upgrade, kind, consolidate, downgrade, receptionist } = await searchParams;
+    const downgradeSlug = downgrade?.trim() || null;
+    const receptionistSlug = receptionist?.trim() || null;
+    // An unknown plan goes back to /pricing to be chosen, never defaulted. It used to become
+    // Starter, which since v1.45.0 is the receptionist plan. An upgrade link without a plan is an
+    // old Growth link, the only upgrade there was.
+    if (!isPlanSlug(plan) && !(upgrade?.trim() && plan === undefined)) redirect("/pricing");
+    let selectedPlan: PlanSlug = isPlanSlug(plan) ? plan : "growth";
+    // Every plan is month to month, so the cover always states the monthly price.
+    const billingPeriod = "monthly" as const;
+
+    /**
+     * Nobody signs anonymously any more.
+     *
+     * `/start` is the front door and authenticates before sending anyone here, but this page
+     * is a plain URL and people bookmark and share those. Without the guard a signed-out
+     * visitor could read the terms, sign them, and only *then* be refused by `/api/checkout`
+     * — having produced a legally signed agreement, and an emailed copy of it, for a purchase
+     * that can never complete.
+     *
+     * Bounced through `/start` rather than straight to sign-in, so they rejoin the funnel at
+     * the entitlement check: a client whose account already rules this purchase out should
+     * meet the upsell, not the signature form.
+     */
+    const { userId } = await auth();
+    const upgradeSlug = upgrade?.trim() || null;
+    if (!userId) {
+        // A plan change link (an upgrade CTA, or the downgrade email) belongs to an existing
+        // client. Sending them into `/start` would put them in the purchase funnel; sign them
+        // in and bring them straight back instead.
+        if (upgradeSlug || downgradeSlug || receptionistSlug) {
+            const back = upgradeSlug
+                ? `/terms/accept?plan=${selectedPlan}&upgrade=${encodeURIComponent(upgradeSlug)}`
+                : downgradeSlug
+                  ? `/terms/accept?plan=${selectedPlan}&downgrade=${encodeURIComponent(downgradeSlug)}`
+                  : `/terms/accept?plan=starter&receptionist=${encodeURIComponent(receptionistSlug!)}`;
+            redirect(`/portal/sign-in?redirect_url=${encodeURIComponent(back)}`);
+        }
+        redirect(`/start?plan=${selectedPlan}`);
+    }
+
+    // A Growth → Enterprise move: the site list starts with the Growth sites. A move that can't be done here goes back to its page, which says
+    // why, so nothing is accepted for a move that would then be refused.
+    let prefillSites: string[] | undefined;
+    if (consolidate === "1") {
+        const account = await resolveAccountForUser(userId);
+        const move = account ? await planConsolidation(account) : null;
+        if (!move?.ok) redirect("/portal/consolidate");
+        selectedPlan = "enterprise";
+        prefillSites = [move.host, ...move.others].map(({ site }) => site.name ?? site.slug);
+    }
+
+    if (downgradeSlug) {
+        const change = await downgradeFor(downgradeSlug);
+        // No pending request for this site on this account: the link is stale, already used,
+        // or not theirs. Nothing to accept, so back to the portal.
+        if (!change) redirect("/portal");
+        selectedPlan = change.toPlan;
+    }
+
+    // Switching the receptionist on. On the website plan it is a paid upgrade to Starter + AI
+    // Receptionist ($97 → $297, prorated now, no new onboarding fee: D6), so an old
+    // `?receptionist=` link is forwarded into the upgrade. Only a legacy website-only Starter
+    // (`starter` + `declined`, D14) still switches it on here, free: it already pays Starter.
+    if (receptionistSlug) {
+        const owner = await resolveAccountForUser(userId);
+        const site = owner?.sites.find((s) => s.slug === receptionistSlug);
+        if (!site || !isWebOnly(site)) redirect("/portal");
+        if (site.plan === "website") {
+            redirect(`/terms/accept?plan=starter&upgrade=${encodeURIComponent(receptionistSlug)}`);
+        }
+        selectedPlan = "starter";
+    }
+
+    /**
+     * Master or addendum.
+     *
+     * `/start` decides which, having compared the account's recorded master against the
+     * current terms version and the tier being bought, and says so in `?kind=`. It is not
+     * trusted blind: the account is re-read here and an addendum is only honoured if a master
+     * actually exists to hang it off. A stale or hand-edited link asking for the short form
+     * when there is no master falls back to the full terms, which is the safe direction —
+     * the failure mode is a client reading more than they had to, not less.
+     */
+    const account = await resolveAccountForUser(userId);
+    const master = account?.masterAgreement ?? legacyMasterFrom(account?.sites ?? []);
+    const wantsAddendum = kind === "addendum";
+    const isAddendum = wantsAddendum && Boolean(master?.agreementId);
+
+    if (wantsAddendum && !isAddendum) {
+        console.warn(
+            `[agreement] addendum requested with no master on file (${account?.email ?? "no account"}) — serving full terms`,
+        );
+    }
+
+    // Resolved on the server so the client never ships the full body of all three plans, and
+    // so the text rendered here is the text the signed PDF is generated from.
+    const { sections, version } = isAddendum
+        ? getAddendumForPlan(getSchedule(selectedPlan))
+        : getTermsForPlan(selectedPlan);
+
+    // No "website only" toggle any more: since v1.45.0 website-only is its own plan, chosen
+    // before signing (`?plan=website`), with its own plan summary in `SCHEDULES.website`.
+
+    // `?upgrade=<slug>` marks this as an existing client moving up a tier rather than a first
+    // purchase. Same terms, same signature, different ending: the upgrade endpoint modifies
+    // their live subscription instead of opening a second one.
+    //
+    // The slug still isn't *trusted* here — the endpoint re-resolves it against the signed-in
+    // account, which remains the authorization boundary. What this adds is a feasibility
+    // check, because the endpoint's verdict arrives too late to be useful: the client has
+    // already signed and been emailed the agreement by the time it runs. Anything that makes
+    // the upgrade impossible should stop them before the signature, not after it.
+    //
+    // Only reached when `?upgrade=` is present, so an anonymous first-time buyer never hits
+    // Clerk or KV and the purchase path is unchanged.
+    // A website-only site upgrading to Growth has no phone setup to keep, so the phone choice is
+    // asked for as on a first purchase. It used to be hidden on every upgrade, leaving the site on
+    // Growth with the receptionist still "declined", which onboard.js can't provision.
+    let askPhoneChoice = Boolean(receptionistSlug);
+    if (upgradeSlug) {
+        const site = await upgradableSite(upgradeSlug, selectedPlan);
+        if (!site) return <UpgradeUnavailable />;
+        askPhoneChoice = isWebOnly(site);
+    }
+
+    return (
+        <AgreementClient
+            plan={selectedPlan}
+            billingPeriod={billingPeriod}
+            sections={sections}
+            version={version}
+            smsConsentCopy={smsConsentCopy()}
+            upgradeSlug={upgradeSlug}
+            downgradeSlug={downgradeSlug}
+            receptionistSlug={receptionistSlug}
+            askPhoneChoice={askPhoneChoice}
+            kind={isAddendum ? "addendum" : "master"}
+            consolidate={consolidate === "1"}
+            prefillSites={prefillSites}
+            parentAgreementId={isAddendum ? master?.agreementId ?? undefined : undefined}
+            /*
+             * Prefilled, not fixed. A returning client usually contracts as the same entity,
+             * so retyping it is friction — but a second site bought by a different LLC is
+             * exactly the case the addendum exists for, so every field stays editable.
+             *
+             * Taken from the master agreement record rather than the account profile, because
+             * that record holds the *contracting* entity — legal name, entity type, registered
+             * address — which the profile does not. Paid agreements no longer expire, so it
+             * is still there to read.
+             */
+            prefill={isAddendum ? await masterPrefill(master?.agreementId) : undefined}
+        />
+    );
+}
+
+/**
+ * The contracting details from the client's master, to prefill the addendum's entity block.
+ *
+ * Returns undefined rather than throwing when the master has gone — an agreement signed
+ * before paid records stopped expiring may simply not be there. An addendum with a blank
+ * entity block is still perfectly signable; the client just types it.
+ */
+async function masterPrefill(agreementId: string | null | undefined) {
+    if (!agreementId) return undefined;
+    try {
+        const master = await getAgreement(agreementId);
+        if (!master) return undefined;
+        return {
+            clientLegalName: master.clientLegalName,
+            clientEntityType: master.clientEntityType,
+            clientAddress: master.clientAddress,
+            signerName: master.signerName,
+            signerTitle: master.signerTitle,
+            signerEmail: master.signerEmail,
+        };
+    } catch (e) {
+        console.error("[agreement] could not read master for prefill", agreementId, e);
+        return undefined;
+    }
+}
+
+/**
+ * Can this caller actually complete an upgrade for this slug?
+ *
+ * Fails closed: any missing piece — signed out, no account, slug not theirs, not a live
+ * starter, no subscription on file — means no signing form. `resolveAccountForUser` is the
+ * same lookup the portal routes use, so "not theirs" is decided by the account record rather
+ * than by the URL.
+ */
+const canUpgrade = cache(async function canUpgrade(slug: string, targetPlan: PlanSlug): Promise<boolean> {
+    return (await upgradableSite(slug, targetPlan)) !== null;
+});
+
+/** The site behind `canUpgrade`, or null. Cached, so the metadata and the page share one read. */
+const upgradableSite = cache(async function upgradableSite(slug: string, targetPlan: PlanSlug) {
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    const account = await resolveAccountForUser(userId);
+    const site = account?.sites.find((s) => s.slug === slug);
+    if (!site) return null;
+
+    // Same predicate the CTA and the upgrade route use, so a link can never reach a signature
+    // the endpoint would then refuse.
+    const block = upgradeBlockReason(site, targetPlan);
+    if (block === "no-billing-link") {
+        // A client with no subscription on file is a data problem, not a plan state.
+        console.error(
+            `[agreement] upgrade blocked: ${slug} is on ${site.plan} with no stripeSubscriptionId ` +
+                `or sessionId. Client cannot self-serve upgrade.`,
+        );
+    }
+    return block === null ? site : null;
+});
+
+/**
+ * The downgrade this signed-in client has been asked to accept for `slug`, or null.
+ *
+ * Only a request still awaiting acceptance qualifies: one already scheduled, done or withdrawn
+ * has nothing left to sign. Read from the account the session resolves to, so a forwarded link
+ * opens nothing for anyone else.
+ */
+async function downgradeFor(slug: string) {
+    const { userId } = await auth();
+    if (!userId) return null;
+    const account = await resolveAccountForUser(userId);
+    if (!account?.sites.some((s) => s.slug === slug)) return null;
+    const change = await getPlanChange(account.email, slug);
+    return change?.status === "awaiting-acceptance" ? change : null;
+}

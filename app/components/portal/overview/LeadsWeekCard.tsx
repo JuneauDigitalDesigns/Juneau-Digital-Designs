@@ -15,10 +15,13 @@ export function LeadsWeekCard({
     week,
     todayIndex,
     chart,
+    webOnly = false,
 }: {
     week: LeadWeek;
     todayIndex: number;
     chart: boolean;
+    /** The website plan has no calls, so the receptionist row is left out. */
+    webOnly?: boolean;
 }) {
     const more = week.total - week.previousTotal;
     const max = Math.max(1, ...week.perDay);
@@ -82,10 +85,12 @@ export function LeadsWeekCard({
                 </div>
             </div>}
 
-            <Split
-                label={<ByWidth desktop="Calls your receptionist answered" phone="Answered by your receptionist" />}
-                value={week.calls}
-            />
+            {!webOnly && (
+                <Split
+                    label={<ByWidth desktop="Calls your receptionist answered" phone="Answered by your receptionist" />}
+                    value={week.calls}
+                />
+            )}
             <Split label="Web inquiries" value={week.web} />
             {/* Hidden, not zeroed, while the client's hours are unknown. See `isAfterHours`. */}
             {week.afterHours !== null && <Split label="Came in after hours" value={week.afterHours} />}

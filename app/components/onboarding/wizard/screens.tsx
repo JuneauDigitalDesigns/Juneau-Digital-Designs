@@ -34,7 +34,11 @@ import {
     customerOptions,
     diffOptions,
     emptyFacts,
+    exampleInitials,
+    logoShapeNudge,
+    logoSummary,
     modesFor,
+    moveLogo,
     openService,
     profilesForPayload,
     screenErrors,
@@ -44,19 +48,23 @@ import {
     slotsFor,
     topTownsFor,
     townFromAddress,
+    webOnly,
     yearsInBusiness,
     type ScreenDef,
     type ServiceFacts,
     type ServiceStatus,
     type ServiceStepId,
+    type LogoSlot,
     type WizardContext,
     type WizardPrefill,
     type WizardState,
+    withoutBefore,
 } from "./model";
-import { PROFILE_KINDS, VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
+import { PLAN_LABELS, VOICE_OPTIONS, type ImageMeta, type ProfileKind } from "@jdd/schema";
 import { profileLinkProblem } from "@/app/lib/profile-links";
+import { showsBeforeAfter } from "@/app/lib/before-after";
 import { ACCEPT_ATTR } from "@/app/lib/image-prep";
-import { C, PROFILE_HOWTO, PROFILE_SHORT } from "./copy-service-details";
+import { C, PROFILE_HOWTO, PROFILE_SHORT, WIZARD_PROFILE_KINDS } from "./copy-service-details";
 import { prefillLine } from "./prefill-notes";
 import { suggestionsFor } from "./service-suggestions";
 import { fmtEmail, fmtLicense, fmtPhone, fmtPrice, fmtProfileUrl, fmtRating, fmtText, fmtWebsite, fmtWholeNumber, fmtYear } from "./formatting";
@@ -66,7 +74,7 @@ import { RECEPTIONIST_OPTIONS } from "./receptionist-options";
 import { REVIEW, reviewCards } from "./review";
 export { RECEPTIONIST_OPTIONS };
 
-const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roofing: "⌂", "lawn-care": "✿", "car-detailing": "◆", health: "✚" };
+const TRADE_ICONS: Record<string, string> = { hvac: "❄", plumbing: "≈", roofing: "⌂", "lawn-care": "✿", "car-detailing": "◆", "pressure-washing": "≋", health: "✚" };
 
 export type ScreenCopy = { q: string; help: string };
 
@@ -84,7 +92,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
             };
         case "trade": return { q: "What kind of work do you do?", help: "This shapes everything we suggest from here." };
         case "name": return { q: "What's your business called?", help: "Exactly as you want it on your site." };
-        case "contact": return { q: "How do customers reach you?", help: "These go on your site. Your email is already filled in from your agreement." };
+        case "contact": return { q: "How do customers reach you?", help: "These go on your site. Your email is already filled in from your sign-up." };
         case "toptowns": return { q: C.topTownsQ, help: C.topTownsHelp }; // Q2 (local SEO, 2026-11-12)
         case "area": return { q: "Which towns do you cover?", help: 'Named towns read better than "the surrounding area". Your receptionist uses them too.' };
         case "website": return { q: "Do you have a website now?", help: "We'll read it so you don't have to retype anything." };
@@ -108,7 +116,7 @@ export function copyFor(id: string, state: WizardState, extra: { firstName: stri
         case "radius": return { q: "How far do you travel for mobile service?", help: "In miles. Leave blank if you don't offer mobile service." };
         case "offer": return { q: "Any current promotional offer?", help: "Shown as a small ribbon on the site. Leave blank if none." };
         case "tagline": return { q: C.taglineQ, help: C.taglineHelp }; // T3, T4 (2026-11-11)
-        case "logo": return { q: "Do you have a logo?", help: "PNG, JPG or WebP, up to 10 MB. A clear, high-quality version is best." };
+        case "logo": return { q: "Do you have a logo?", help: C.logoHelp }; // W1 (unchanged), W2 (2026-11-19)
         case "photos": return { q: C.photosQ, help: C.photosHelp }; // P1, P2 (2026-11-11)
         case "voice": return { q: "How should your site sound?", help: "Pick up to three. It steers how we write." };
         case "setup": return { q: "How will calls reach your receptionist?", help: "Your receptionist never answers before you do. It only picks up when nobody else does." };
@@ -130,11 +138,16 @@ export type ScreenProps = {
     uploads: {
         busy: Set<string>;
         errors: Record<string, string>;
+        /** The wide logo, the footer's wordmark (`images.logo`). */
         logo: (files: File[]) => void;
+        /** The square logo, the nav's monogram (`images.monogram`). */
+        monogram: (files: File[]) => void;
         work: (files: File[]) => void;
         team: (files: File[]) => void;
         /** Photos for one service's details, by service name. Busy/error slot: `svc:<name>`. */
         service: (name: string, files: File[]) => void;
+        /** A job photo's before photo, by service name and photo index. Slot: `svc:<name>:before:<i>`. */
+        before: (name: string, index: number, files: File[]) => void;
     };
     extra: { firstName: string; planLabel: string; maxSites: number };
     /** What was prefilled, so a field can say where its value came from. */
@@ -715,11 +728,14 @@ export function ScreenBody(p: ScreenProps) {
                     <div className={s.chips} style={{ margin: "12px 0 18px" }}>
                         <Chip label={EMERGENCY_LINE} on={state.emergency} onClick={() => update({ emergency: !state.emergency })} />
                     </div>
-                    <div className={s.narrower}>
-                        <Field label="Name your receptionist" optional note="Leave it blank and we'll pick a friendly name.">
-                            <Text value={state.agentName} onChange={(v) => update({ agentName: v })} placeholder="e.g. Sam" />
-                        </Field>
-                    </div>
+                    {/* Website only has no receptionist to name. */}
+                    {webOnly(p.ctx) ? null : (
+                        <div className={s.narrower}>
+                            <Field label="Name your receptionist" optional note="Leave it blank and we'll pick a friendly name.">
+                                <Text value={state.agentName} onChange={(v) => update({ agentName: v })} placeholder="e.g. Sam" />
+                            </Field>
+                        </div>
+                    )}
                 </>
             );
 
@@ -787,8 +803,8 @@ function GoogleScreen({ state, update }: ScreenProps) {
     );
 }
 
-/** Everything but Google, in the footer's order. Tapping one opens its link box. */
-const OTHER_PROFILES = PROFILE_KINDS.filter((k) => k !== "google");
+/** Everything the wizard offers but Google, in the footer's order. Tapping one opens its link box. */
+const OTHER_PROFILES = WIZARD_PROFILE_KINDS.filter((k) => k !== "google");
 
 function ElsewhereScreen({ state, update }: ScreenProps) {
     const on = (k: ProfileKind) => state.profiles.some((x) => x.kind === k);
@@ -1027,6 +1043,8 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
             q = C.qPhotos; help = C.hPhotos; earn = C.addsPhotos;
             {
                 const room = SERVICE_CAPS.photos - f.photos.length;
+                // A before photo per job photo, only where the site draws the pair (app/lib/before-after.ts).
+                const pairs = showsBeforeAfter(state.trade);
                 const addPhotos = (files: File[]) => {
                     if (files.length > room) toast(C.photosCap);
                     uploads.service(sv.name, files.slice(0, room));
@@ -1037,10 +1055,26 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                             {f.photos.length ? (
                                 <div className={s.thumbs}>
                                     {f.photos.map((img, i) => (
-                                        <span key={img.url} className={`${s.thumb} ${s.thumbBig}`}>
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
-                                            <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
+                                        <span key={img.url} className={s.beforePair}>
+                                            <span className={`${s.thumb} ${s.thumbBig}`}>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img src={img.url} alt={`${sv.name} photo ${i + 1}`} />
+                                                <button type="button" className={s.thumbX} aria-label="Remove photo" onClick={() => set({ photos: f.photos.filter((_, j) => j !== i) })}>✕</button>
+                                            </span>
+                                            {pairs ? (
+                                                img.before?.url ? (
+                                                    <span className={`${s.thumb} ${s.beforeThumb}`}>
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={img.before.url} alt={C.beforeAlt(sv.name, i + 1)} />
+                                                        <span className={s.beforeTag}>{C.beforeTag}</span>
+                                                        <button type="button" className={s.thumbX} aria-label={C.beforeRemove} onClick={() => set({ photos: f.photos.map((x, j) => (j === i ? withoutBefore(x) : x)) })}>✕</button>
+                                                    </span>
+                                                ) : (
+                                                    <FilePicker accept={ACCEPT} onFiles={(files) => uploads.before(sv.name, i, files)} className={s.beforeAdd}>
+                                                        {uploads.busy.has(`${slot}:before:${i}`) ? "…" : C.beforeAdd}
+                                                    </FilePicker>
+                                                )
+                                            ) : null}
                                         </span>
                                     ))}
                                     {room > 0 ? (
@@ -1052,6 +1086,8 @@ function ServiceStep({ state, update, toast, uploads, index, status }: ScreenPro
                             ) : null}
                         </PhotoBox>
                         {uploads.errors[slot] ? <p className={s.err} role="alert">{uploads.errors[slot]}</p> : null}
+                        {pairs && f.photos.length ? <p className={s.beforeHelp}>{C.beforeHelp}</p> : null}
+                        {pairs ? f.photos.map((_, i) => (uploads.errors[`${slot}:before:${i}`] ? <p key={i} className={s.err} role="alert">{uploads.errors[`${slot}:before:${i}`]}</p> : null)) : null}
                         <PhotoTowns
                             photos={f.photos}
                             towns={state.towns}
@@ -1138,37 +1174,106 @@ function SitesScreen({ state, update, extra }: ScreenProps) {
     );
 }
 
+/**
+ * Two logos (Xander, 2026-11-19, mockup https://claude.ai/artifact/Lmg7cMwAiivdPsPsNKaiB9): the
+ * square logo is the nav's monogram (`images.monogram`), the wide logo the footer's wordmark
+ * (`images.logo`). Both optional. Words W2 to W14 are in copy-service-details.ts.
+ */
 function LogoScreen({ state, update, uploads }: ScreenProps) {
-    const logo = state.images.logo;
-    if (logo) {
-        return (
-            <div className={`${s.drop} ${s.narrow}`} style={{ borderStyle: "solid", cursor: "default" }}>
-                <span className={s.thumb} style={{ width: 64, height: 48 }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logo.url} alt="Logo preview" style={{ objectFit: "contain" }} />
-                </span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                    <b style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{logo.filename}</b>
-                </span>
-                <button type="button" className={s.lnk} onClick={() => update({ images: { ...state.images, logo: undefined } })}>Replace</button>
-            </div>
-        );
-    }
+    const { monogram, logo } = state.images;
+    // Width over height of each uploaded file, by URL, measured as its preview loads (W14).
+    const [ratios, setRatios] = useState<Record<string, number>>({});
+    const boxes: { slot: LogoSlot; title: string; what: string; upload: string; shown: string; onFiles: (f: File[]) => void }[] = [
+        { slot: "monogram", title: C.logoSquare, what: C.logoSquareWhat, upload: C.logoUploadSquare, shown: C.logoShownTop, onFiles: uploads.monogram },
+        { slot: "logo", title: C.logoWide, what: C.logoWideWhat, upload: C.logoUploadWide, shown: C.logoShownBottom, onFiles: uploads.logo },
+    ];
+    const one = !!monogram !== !!logo;
     return (
-        <div className={s.narrow} style={{ display: "grid", gap: 10 }}>
-            <FilePicker accept={ACCEPT} onFiles={uploads.logo} className={s.drop}>
-                <span style={{ fontSize: 26 }} aria-hidden="true">⤒</span>
-                <span>
-                    <b>{uploads.busy.has("logo") ? "Uploading…" : "Upload your logo"}</b>
-                    <small>Drag it here or tap to choose a file</small>
-                </span>
-            </FilePicker>
-            {uploads.errors.logo ? <p className={s.err} role="alert">{uploads.errors.logo}</p> : null}
-            <button type="button" className={s.opt} aria-pressed={state.logoChoice === "design"} onClick={() => update({ logoChoice: state.logoChoice === "design" ? "" : "design" })}>
-                <span className={s.optLabel}>Not yet. Design one for me.</span>
-                <span className={s.optDetail}>We&apos;ll design a simple logo for you.</span>
-            </button>
+        <div className={s.logoGrid}>
+            {boxes.map((b) => {
+                const file = state.images[b.slot];
+                if (!file) {
+                    return (
+                        <div key={b.slot} className={s.logoCell}>
+                            <FilePicker accept={ACCEPT} onFiles={b.onFiles} className={`${s.drop} ${s.logoBox}`} ariaLabel={b.upload}>
+                                <LogoExample slot={b.slot} name={state.name} />
+                                <span className={s.logoText}>
+                                    <b>{b.title}</b>
+                                    <span className={s.logoWhat}>{b.what}</span>
+                                    <span className={s.logoUp}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 15V4" /><path d="M7 9l5-5 5 5" /><path d="M5 20h14" /></svg>
+                                        {uploads.busy.has(b.slot) ? "Uploading…" : b.upload}
+                                    </span>
+                                </span>
+                            </FilePicker>
+                            {uploads.errors[b.slot] ? <p className={s.err} role="alert">{uploads.errors[b.slot]}</p> : null}
+                        </div>
+                    );
+                }
+                const nudge = logoShapeNudge(b.slot, ratios[file.url] ?? NaN);
+                return (
+                    <div key={b.slot} className={s.logoCard}>
+                        <b className={s.logoCardT}>{b.title}</b>
+                        <div className={s.logoCardRow}>
+                            <span className={`${s.logoThumb} ${b.slot === "logo" ? s.logoThumbWide : ""}`}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={file.url}
+                                    alt=""
+                                    onLoad={(e) => {
+                                        const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+                                        if (w && h) setRatios((r) => ({ ...r, [file.url]: w / h }));
+                                    }}
+                                />
+                            </span>
+                            <span className={s.logoFile}>
+                                <b>{file.filename}</b>
+                                <small>{b.shown}</small>
+                            </span>
+                            <button type="button" className={s.lnk} onClick={() => update({ images: { ...state.images, [b.slot]: undefined } })}>Replace</button>
+                        </div>
+                        {nudge ? (
+                            <p className={s.logoNudge} role="status">
+                                <span>{nudge}</span>
+                                <button type="button" className={s.addBtn} onClick={() => update({ images: moveLogo(state.images, b.slot) })}>{C.logoMove}</button>
+                            </p>
+                        ) : null}
+                    </div>
+                );
+            })}
+            {one ? <p className={s.logoNote}>{monogram ? C.logoNoWide : C.logoNoSquare}</p> : null}
+            {!monogram && !logo ? (
+                <button type="button" className={`${s.opt} ${s.logoSpan}`} aria-pressed={state.logoChoice === "design"} onClick={() => update({ logoChoice: state.logoChoice === "design" ? "" : "design" })}>
+                    <span className={s.optLabel}>Not yet. Design one for me.</span>
+                    <span className={s.optDetail}>We&apos;ll design a simple logo for you.</span>
+                </button>
+            ) : null}
         </div>
+    );
+}
+
+/**
+ * The drawn example beside each empty box (W8), made from the client's own business name, as the
+ * mockup drew it for its test business: initials in a square, or the name set out wide.
+ */
+function LogoExample({ slot, name }: { slot: LogoSlot; name: string }) {
+    const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
+    return (
+        <span className={s.logoEx} aria-hidden="true">
+            {slot === "monogram" ? (
+                <span className={`${s.logoExTile} ${s.logoExSq}`}>
+                    <span className={s.logoExMark}>{exampleInitials(name)}</span>
+                </span>
+            ) : (
+                <span className={`${s.logoExTile} ${s.logoExWide}`}>
+                    <span className={s.logoExWord}>
+                        <span>{words[0] ?? ""}</span>
+                        {words.length > 1 ? <small>{words.slice(1).join(" ")}</small> : null}
+                    </span>
+                </span>
+            )}
+            <small className={s.logoExCap}>{C.logoLikeThis}</small>
+        </span>
     );
 }
 
@@ -1246,17 +1351,17 @@ function SetupScreen({ state, update, ctx, errors, goTo }: ScreenProps) {
     const signed = ctx.signedMode;
     return (
         <>
-            {signed ? (
+            {/* B3 (2026-11-24). Website only never reaches this screen (screensFor), so the only note is
+                for a client who signed with a receptionist. "Starter" is the `website` plan's name. */}
+            {signed && signed !== "declined" ? (
                 <p className={s.signedNote}>
-                    {signed === "declined"
-                        ? "To add the receptionist, just reply to your welcome email and we'll sort out the paperwork."
-                        : "You can switch between forwarding and a new number below. To move to website-only, reply to your welcome email and we'll handle the change."}
+                    {`You can switch between forwarding and a new number below. To drop the receptionist and move to ${PLAN_LABELS.website.name}, reply to your welcome email and we'll handle the change.`}
                 </p>
             ) : null}
-            {RECEPTIONIST_OPTIONS.filter((o) => allowed.includes(o.id) || (signed && o.id === signed)).map((o) => (
+            {RECEPTIONIST_OPTIONS.filter((o) => allowed.includes(o.id)).map((o) => (
                 <button key={o.id} type="button" className={s.opt} aria-pressed={state.receptionistMode === o.id} onClick={() => update({ receptionistMode: o.id })}>
                     <span className={s.optLabel}>{o.label}</span>
-                    {o.id === signed ? <em className={s.tag} style={{ fontStyle: "normal" }}>You chose this when you signed</em> : null}
+                    {o.id === signed ? <em className={s.tag} style={{ fontStyle: "normal" }}>You chose this when you signed up</em> : null}
                     <span className={s.optDetail}>{o.detail}</span>
                 </button>
             ))}
@@ -1299,7 +1404,7 @@ export function summaryLines(id: string, st: WizardState): string[] {
         case "certs": return [st.certs.join(", ")];
         case "reviews": return [t(st.rating) && t(st.reviewCount) ? `${t(st.rating)} stars from ${t(st.reviewCount)} reviews` : "", t(st.reviewUrl) ? "Review link added" : ""];
         case "tagline": return [st.tagline.trim()];
-        case "logo": return [st.images.logo ? "Uploaded" : st.logoChoice === "design" ? "We'll design one" : ""];
+        case "logo": return [logoSummary(st)];
         case "photos": return [st.images.heroSlides.length ? `${st.images.heroSlides.length} work photos` : "", st.images.aboutFeature ? "Team photo" : ""];
         case "voice": return [st.voice.join(", ")];
         case "setup": return [RECEPTIONIST_OPTIONS.find((o) => o.id === st.receptionistMode)?.label ?? ""];

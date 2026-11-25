@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { faqJsonLd, pageMetadata } from "@/app/lib/site-seo";
 import { FAQ_GROUPS } from "@/app/data/faq";
-import FaqAsk from "@/app/components/faq/FaqAsk";
+import PageAsk from "@/app/components/PageAsk";
+import JsonLd from "@/app/components/JsonLd";
 
-export const metadata: Metadata = {
-    title: "FAQ | Juneau Digital Designs",
-    description:
-        "Straight answers on the AI receptionist, your website, your plan and getting set up, before you call.",
-};
+export const metadata: Metadata = pageMetadata(
+    "/faq",
+    "FAQ | Juneau Digital Designs",
+    "Straight answers on the AI receptionist, your website, your plan and getting set up, before you call.",
+);
 
 /**
  * The FAQ, on its own page.
@@ -22,6 +24,7 @@ export const metadata: Metadata = {
 export default function FaqPage() {
     return (
         <main className="faq-page">
+            <JsonLd data={faqJsonLd(FAQ_GROUPS.flatMap((g) => g.entries))} />
             <div className="aurora-grid" />
             <div className="faq-inner">
                 <p className="kicker faq-kicker">FAQ</p>
@@ -43,7 +46,7 @@ export default function FaqPage() {
                     </section>
                 ))}
 
-                <FaqAsk />
+                <PageAsk className="faq-ask" />
             </div>
         </main>
     );

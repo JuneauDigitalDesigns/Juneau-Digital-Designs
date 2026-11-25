@@ -10,6 +10,8 @@ import { invitePortalUser } from "./portal-invite";
 import { sendWelcomeEmail } from "./welcome-email";
 import { doubleOptInEnabled, promotePendingConsent } from "./sms-consent";
 import { sendSms } from "./twilio";
+import { sendOpsNotice } from "./ops-notice";
+import { isPlanSlug } from "./plan-ids.mjs";
 import type { PortalPlan } from "@jdd/schema";
 import type { ReceptionistMode } from "./agreement-types";
 
@@ -58,7 +60,32 @@ export interface FulfilledSession {
   welcomeSent?: boolean;
 }
 
-const VALID_PLANS: PortalPlan[] = ["starter", "growth", "enterprise"];
+/**
+ * The phone choice a new site is recorded with. The website plan has none to make (D4: no number,
+ * no receptionist), so its site is stamped `declined`: every reader, on this schema or an older
+ * one, then treats it as website-only rather than as a receptionist "not wired yet".
+ */
+function siteReceptionistMode(plan: PortalPlan, signed: ReceptionistMode | undefined): ReceptionistMode | undefined {
+  return plan === "website" ? "declined" : signed;
+}
+
+/**
+ * A paid session whose plan we don't recognise. Refused loudly, never defaulted: the old code
+ * made it Starter, which since v1.45.0 is the receptionist plan, so a website buyer read by a
+ * stale list would have been provisioned a number. The money has moved, so a human is told.
+ */
+async function refuseUnknownPlan(where: string, ref: string, rawPlan: string): Promise<null> {
+  console.error(`[fulfillment] ${where}: unknown plan ${JSON.stringify(rawPlan)}, nothing provisioned`, ref);
+  await sendOpsNotice(`[JDD] Paid, but not provisioned: unknown plan`, [
+    `A payment cleared for <strong>${ref}</strong> with plan <strong>${escapeHtml(rawPlan || "(none)")}</strong>, which isn't a plan this app sells.`,
+    `No site was created. Check the session in Stripe and set the client up by hand.`,
+  ]).catch((e) => console.error("[fulfillment] ops notice failed", ref, e));
+  return null;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
 
 export async function provisionPaidSession(
   sessionIdOrSession: string | Stripe.Checkout.Session,
@@ -84,9 +111,6 @@ export async function provisionPaidSession(
   const agreementId = session.metadata?.agreement_id;
   const purchaseId = session.metadata?.purchase_id;
   const rawPlan = session.metadata?.plan ?? "";
-  const plan: PortalPlan = VALID_PLANS.includes(rawPlan as PortalPlan)
-    ? (rawPlan as PortalPlan)
-    : "starter";
 
   if (!agreementId) {
     console.warn("[fulfillment] no agreement_id in session metadata", session.id);
@@ -98,6 +122,10 @@ export async function provisionPaidSession(
     console.warn("[fulfillment] agreement not found", agreementId);
     return null;
   }
+
+  if (!isPlanSlug(rawPlan)) return refuseUnknownPlan("checkout", session.id, rawPlan);
+  const plan: PortalPlan = rawPlan;
+  const receptionistMode = siteReceptionistMode(plan, agreement.receptionistMode);
 
   /**
    * Whose purchase is this?
@@ -149,7 +177,7 @@ export async function provisionPaidSession(
     // knows a website-only site has no call log. Schema-supported, unlike `forwardingNumber`
     // (which lives on the agreement record only — see FulfilledSession). Absent on Enterprise,
     // upgrades, and pre-ship agreements, where the onboarding form collects it fresh.
-    ...(agreement.receptionistMode ? { receptionistMode: agreement.receptionistMode } : {}),
+    ...(receptionistMode ? { receptionistMode } : {}),
     // The agreement record is written with a 30-day TTL, so copying its identity here is what
     // keeps "which terms authorised this site" answerable afterwards.
     agreementId,
@@ -185,8 +213,8 @@ export async function provisionPaidSession(
     slug,
     email,
     plan,
-    ...(agreement.receptionistMode ? { receptionistMode: agreement.receptionistMode } : {}),
-    ...(agreement.forwardingNumber ? { forwardingNumber: agreement.forwardingNumber } : {}),
+    ...(receptionistMode ? { receptionistMode } : {}),
+    ...(agreement.forwardingNumber && plan !== "website" ? { forwardingNumber: agreement.forwardingNumber } : {}),
     clientLegalName: agreement.clientLegalName,
     signerName: agreement.signerName,
     signerEmail: agreement.signerEmail,
@@ -196,8 +224,8 @@ export async function provisionPaidSession(
 /**
  * Payment cleared, so any SMS consent held since the agreement was accepted becomes real.
  *
- * Shared by both kinds of purchase: the self-serve `/agreement` holds a ticked box against its
- * agreement id, and so does an order's private agreement link (`/agree/[code]`). Idempotent,
+ * Shared by both kinds of purchase: the self-serve `/terms/accept` holds a ticked box against its
+ * agreement id, and so does an order's private agreement link (`/terms/[code]`). Idempotent,
  * because `promotePendingConsent` reads and deletes the pending key in one step, so a replayed
  * webhook or a second caller finds nothing. A no-op when the box was never ticked.
  *
@@ -314,12 +342,14 @@ async function fulfilHoldingLock(orderId: string, payment: OperatorPayment): Pro
     console.error("[fulfillment] operator order not found", orderId, payment.ref);
     return null;
   }
+  if (!isPlanSlug(order.plan)) return refuseUnknownPlan("operator order", `${orderId} (${payment.ref})`, String(order.plan));
   const email = order.client.email;
+  const orderMode = siteReceptionistMode(order.plan, order.receptionistMode);
   const result: FulfilledSession = {
     slug: order.siteSlug,
     email,
     plan: order.plan,
-    ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
+    ...(orderMode ? { receptionistMode: orderMode } : {}),
     ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
     clientLegalName: order.client.legalName,
     signerName: order.client.contactName,
@@ -343,7 +373,7 @@ async function fulfilHoldingLock(orderId: string, payment: OperatorPayment): Pro
     signerName: order.client.contactName,
     onboardingCompletedAt: null,
     addedAt: Date.now(),
-    ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
+    ...(orderMode ? { receptionistMode: orderMode } : {}),
     ...(order.agreementId ? { agreementId: order.agreementId } : {}),
     ...(agreement ? { agreementPdfUrl: agreement.pdfUrl, agreementVersion: agreement.agreementVersion } : {}),
     ...(payment.customerId ? { stripeCustomerId: payment.customerId } : {}),
@@ -417,7 +447,7 @@ async function fulfilHoldingLock(orderId: string, payment: OperatorPayment): Pro
         signerName: order.client.contactName,
         clientLegalName: order.client.legalName,
         plan: order.plan,
-        ...(order.receptionistMode ? { receptionistMode: order.receptionistMode } : {}),
+        ...(orderMode ? { receptionistMode: orderMode } : {}),
         ...(order.forwardingNumber ? { forwardingNumber: order.forwardingNumber } : {}),
         siteSlug: order.siteSlug,
         ...(invite.kind === "invitation" ? { inviteUrl: invite.url } : { existingLogin: true }),

@@ -199,6 +199,36 @@ export const lastVisitKey = (acctScope: string, slug: string) =>
     `portal:last-visit:v1:${acctScope}:${slug}`;
 
 /**
+ * The trade a site was set up as (the wizard's industry: a `VerticalId` or "other"), so the
+ * portal tour and the Growth preview can show sample data from that trade (Xander, 19 Nov 2026).
+ *
+ * Its own key rather than a field on the site record, which is the shared `@jdd/schema` type.
+ * Written once when onboarding completes; sites set up before then have none, and the samples
+ * fall back to a hint in the business name (`sampleTradeFor`). No expiry: it is a fact about
+ * the site, not a cache. Not sensitive: it says only what kind of business the site is.
+ */
+export const siteTradeKey = (slug: string) => `portal:site-trade:v1:${slug}`;
+
+export async function getSiteTrades(slugs: string[]): Promise<(string | null)[]> {
+    if (slugs.length === 0) return [];
+    try {
+        return await getRedis().mget<(string | null)[]>(...slugs.map(siteTradeKey));
+    } catch (e) {
+        // Optional data: a failed read means samples from the name hint, never a broken page.
+        console.error("[portal-kv] site trade read failed", e);
+        return slugs.map(() => null);
+    }
+}
+
+export async function setSiteTrade(slug: string, trade: string): Promise<void> {
+    try {
+        await getRedis().set(siteTradeKey(slug), trade);
+    } catch (e) {
+        console.error(`[portal-kv] site trade write failed for ${slug}`, e);
+    }
+}
+
+/**
  * The resolved account, keyed by Clerk user id.
  *
  * Short on purpose: this record decides which sites a client may see. Every write goes

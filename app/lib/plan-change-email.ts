@@ -4,6 +4,7 @@ import { brandedEmailHtml } from "./email-template";
 import { EMAIL, EMAIL_FONT } from "./email-tokens";
 import { SCHEDULES } from "./legal/schedules";
 import type { PlanSlug } from "./agreement-types";
+import { PLAN_LABELS, planHasReceptionist } from "@jdd/schema";
 
 /**
  * The two client emails a scheduled downgrade sends. Wording approved word for word by Xander on
@@ -28,7 +29,7 @@ function formatDate(ms: number): string {
 
 const money = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-/** "$197 a month": the monthly price of the new plan. */
+/** "$297 a month": the monthly price of the new plan. */
 export function pricePerPeriod(plan: PlanSlug, interval: "month"): string {
     return `${money(SCHEDULES[plan].monthlyPrice)} a ${interval}`;
 }
@@ -81,13 +82,13 @@ export function downgradeAcceptEmail(input: DowngradeEmailInput & { acceptUrl: s
     subject: string;
     html: string;
 } {
-    const from = SCHEDULES[input.fromPlan].name;
-    const to = SCHEDULES[input.toPlan].name;
+    const from = PLAN_LABELS[input.fromPlan].name;
+    const to = PLAN_LABELS[input.toPlan].name;
     const date = formatDate(input.effectiveAt);
     const subject = `Your move to ${to}: please accept the terms`;
     const body =
         paragraph(
-            `You asked to move ${input.siteName} from ${from} to ${to}. Before we make the change, please read and accept the ${to} service agreement.`,
+            `You asked to move ${input.siteName} from ${from} to ${to}. Before we make the change, please read and accept the Terms of Service for the ${to} plan.`,
         ) +
         button(input.acceptUrl, "Review and accept") +
         paragraph(
@@ -98,14 +99,32 @@ export function downgradeAcceptEmail(input: DowngradeEmailInput & { acceptUrl: s
 
 /** The confirmation, once the client has accepted and the change is scheduled. */
 export function downgradeConfirmedEmail(input: DowngradeEmailInput): { subject: string; html: string } {
-    const from = SCHEDULES[input.fromPlan].name;
-    const to = SCHEDULES[input.toPlan].name;
+    const from = PLAN_LABELS[input.fromPlan].name;
+    const to = PLAN_LABELS[input.toPlan].name;
     const date = formatDate(input.effectiveAt);
     const subject = `Your plan change to ${to}`;
-    const body = paragraph(
-        `Your plan changes from ${from} to ${to} on ${date}, at the end of the ${input.interval} you've already paid for. Until then nothing changes. From ${date} you're billed ${pricePerPeriod(input.toPlan, input.interval)}. Your number, receptionist and call history all stay. Questions? Reply to this email.`,
-    );
+    const body = paragraph(downgradeConfirmedLine({ from, to, date, interval: input.interval, toPlan: input.toPlan }));
     return { subject, html: brandedEmailHtml({ title: subject, subtitle: input.siteName, body }) };
+}
+
+/**
+ * The confirmation's one paragraph (B4, approved word for word 2026-11-24). A downgrade that keeps
+ * the receptionist (Growth → Starter + AI Receptionist) keeps today's sentence, which stays true.
+ * A downgrade to the website plan (operator-initiated only, D7) says what goes: the receptionist,
+ * then the number 30 days later, while the site, web inquiries and past calls stay.
+ */
+export function downgradeConfirmedLine(input: {
+    from: string;
+    to: string;
+    date: string;
+    interval: "month";
+    toPlan: PlanSlug;
+}): string {
+    const { from, to, date, interval, toPlan } = input;
+    if (!planHasReceptionist(toPlan)) {
+        return `Your plan changes from ${from} to ${to} on ${date}, at the end of the ${interval} you've already paid for. Until then nothing changes. From ${date} you're billed ${pricePerPeriod(toPlan, interval)} and your AI receptionist stops answering calls. The number it used is released 30 days later, unless you ask us to port it out. Your website and your web inquiries stay as they are, and your past calls stay readable in your portal. Questions? Reply to this email.`;
+    }
+    return `Your plan changes from ${from} to ${to} on ${date}, at the end of the ${interval} you've already paid for. Until then nothing changes. From ${date} you're billed ${pricePerPeriod(toPlan, interval)}. Your number, receptionist and call history all stay. Questions? Reply to this email.`;
 }
 
 export async function sendDowngradeAcceptEmail(input: DowngradeEmailInput & { acceptUrl: string }): Promise<void> {

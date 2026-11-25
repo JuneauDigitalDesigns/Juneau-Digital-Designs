@@ -23,16 +23,18 @@ const analytics = await import("../app/lib/portal-analytics.ts");
 
 /* ── nav ─────────────────────────────────────────────────────────────────── */
 
-test("the tabs are Overview, Inbox, Customers, Calendar, Analytics, Settings, Support", () => {
+// "Overview" became "Home" on 2026-11-19 (Xander, mobile app rework), on phones and desktop.
+test("the tabs are Home, Inbox, Customers, Calendar, Analytics, Settings, Support", () => {
   assert.deepEqual(
     types.PORTAL_TABS.map((t) => t.label),
-    ["Overview", "Inbox", "Customers", "Calendar", "Analytics", "Settings", "Support"],
+    ["Home", "Inbox", "Customers", "Calendar", "Analytics", "Settings", "Support"],
   );
 });
 
 test("the phone bar holds four tabs plus More, and More holds the rest", () => {
-  assert.deepEqual([...types.MOBILE_BAR_TABS], ["overview", "calls", "customers", "analytics"]);
-  assert.deepEqual([...types.MOBILE_MORE_TABS], ["calendar", "settings", "support"]);
+  // 2026-11-19: Home · Inbox · Customers · Calendar · More; Analytics moved behind More.
+  assert.deepEqual([...types.MOBILE_BAR_TABS], ["overview", "calls", "customers", "calendar"]);
+  assert.deepEqual([...types.MOBILE_MORE_TABS], ["analytics", "settings", "support"]);
   const all = [...types.MOBILE_BAR_TABS, ...types.MOBILE_MORE_TABS].sort();
   assert.deepEqual(all, types.PORTAL_TABS.map((t) => t.id).sort(), "every tab is reachable on a phone");
 });

@@ -1,18 +1,22 @@
+import type { Metadata } from "next";
+import { pageMetadata } from "@/app/lib/site-seo";
 import type { ReactNode } from "react";
 import { smsConsentCopy, splitConsentText } from "@/app/lib/sms-consent-text";
+import { ownerTextCampaign } from "@/app/lib/owner-text-campaign";
+import { PROGRAM_ONE_COPY } from "./samples";
 
-export const metadata = {
-    title: "SMS Terms | Juneau Digital Designs",
-    description:
-        "Terms for the two text messaging programs involved in Juneau Digital Designs service: the Call Alerts program we send to account holders, and the customer messages a client's own business sends from its own number.",
-};
+export const metadata: Metadata = pageMetadata(
+    "/sms-terms",
+    "SMS Terms | Juneau Digital Designs",
+    "Terms for the two text messaging programs involved in Juneau Digital Designs service: the Call Alerts program we send to account holders, and the customer messages a client's own business sends from its own number.",
+);
 
 /**
  * Public messaging program disclosure.
  *
  * Written to be read by two audiences at once: a client deciding whether to tick the box,
  * and a carrier or TCR reviewer checking that the program described here matches the
- * campaign registration and the consent language on /agreement. The sample message must
+ * campaign registration and the consent language on /terms/accept. The sample message must
  * stay byte-identical to the body the Make.com post-call scenario actually sends and to
  * the sample submitted with the campaign.
  *
@@ -25,7 +29,7 @@ export const metadata = {
  *   Customer lane  the business -> its customer  the CLIENT's own CUSTOMER_CARE campaign and number
  *
  * The distinction is legal, not cosmetic: different registrant, different consent basis, and the
- * client cannot grant consent on their own customers' behalf. So the opt-in on /agreement covers
+ * client cannot grant consent on their own customers' behalf. So the opt-in on /terms/accept covers
  * the account lane ONLY, and this page says so before describing either.
  *
  * Both programs live on one page on purpose (operator's call): a reader who gets a text and comes
@@ -116,12 +120,49 @@ const OPENING: Section = {
             </table>
             <p>
                 Only the first is a Juneau Digital Designs program, and it is the only one the checkbox on
-                our agreement page opts you into. The second is your business&rsquo;s own program: we build
+                our Terms of Service page opts you into. The second is your business&rsquo;s own program: we build
                 and operate the tools, but your business is the sender and the registrant.
             </p>
         </>
     ),
 };
+
+/**
+ * Program One's kinds of message, samples and frequency, per owner-text campaign (samples.ts).
+ *
+ * Read when the page renders, like the consent sentence below, so it is always the wording the
+ * campaign switch picks: v1 (live today) or v2 after the cutover deploy (Xander, 2026-11-18).
+ */
+function ProgramOne({ part }: { part: "kindsIntro" | "kinds" | "samples" | "frequency" }) {
+    const copy = PROGRAM_ONE_COPY[ownerTextCampaign()];
+    if (part === "kindsIntro") return <>{copy.kindsIntro}</>;
+    if (part === "frequency") return <>{copy.frequency}</>;
+    if (part === "kinds") {
+        return (
+            <ul style={ulStyle}>
+                {copy.kinds.map((k) => (
+                    <li key={k.term}>
+                        <span style={termStyle}>{k.term}</span> {k.text}
+                    </li>
+                ))}
+            </ul>
+        );
+    }
+    return (
+        <>
+            {copy.samples.map((group) => (
+                <div key={group.leadIn}>
+                    <p style={{ marginBottom: 14 }}>{group.leadIn}</p>
+                    {group.texts.map((t) => (
+                        <blockquote key={t} style={{ ...sampleStyle, whiteSpace: "pre-line" }}>
+                            {t}
+                        </blockquote>
+                    ))}
+                </div>
+            ))}
+        </>
+    );
+}
 
 /**
  * The consent sentence, read when the page renders rather than when this module loads, so it is
@@ -153,25 +194,9 @@ const PROGRAM_ONE: Section[] = [
             <>
                 <p style={{ marginBottom: 14 }}>
                     Juneau Digital Designs Call Alerts is a customer care text messaging program for business
-                    owners who use our AI receptionist service. It sends three kinds of message:
+                    owners who use our AI receptionist service. <ProgramOne part="kindsIntro" />
                 </p>
-                <ul style={ulStyle}>
-                    <li>
-                        <span style={termStyle}>Call summaries.</span> When the receptionist handles a call for
-                        your business, a short text tells you who called, what they wanted, and how urgent it
-                        is.
-                    </li>
-                    <li>
-                        <span style={termStyle}>New-lead alerts.</span> When someone fills in the contact form
-                        on your website, a short text tells you a new lead arrived so you can open your portal
-                        and follow up.
-                    </li>
-                    <li>
-                        <span style={termStyle}>Service alerts.</span> Occasional notices about your own
-                        account, such as your receptionist being unreachable, your included minutes running
-                        low, or planned maintenance that affects call handling.
-                    </li>
-                </ul>
+                <ProgramOne part="kinds" />
                 <p style={{ marginBottom: 14 }}>
                     The program is available to Juneau Digital Designs clients who use our AI receptionist,
                     and only for the mobile number that client provides. We do not send marketing or
@@ -190,16 +215,7 @@ const PROGRAM_ONE: Section[] = [
         heading: "What the messages look like",
         content: (
             <>
-                <p style={{ marginBottom: 14 }}>A typical call summary reads:</p>
-                <blockquote style={sampleStyle}>
-                    Juneau Digital Designs call alert: Callback requested. New lead Maria Alvarez, callback (930)
-                    555-0117. Reply STOP to opt out.
-                </blockquote>
-                <p style={{ marginBottom: 14 }}>A typical service alert reads:</p>
-                <blockquote style={{ ...sampleStyle, margin: "0 0 14px" }}>
-                    Juneau Digital Designs service alert: you have used 90% of your included minutes this billing
-                    period. Reply STOP to opt out.
-                </blockquote>
+                <ProgramOne part="samples" />
                 <p>
                     Call summaries are sent only for calls the AI receptionist handles. Calls you answer yourself
                     do not generate a text.
@@ -211,10 +227,7 @@ const PROGRAM_ONE: Section[] = [
         heading: "Message frequency",
         content: (
             <p>
-                Message frequency varies based on call and lead volume. You receive at most one message per
-                handled call and one per new lead, so a quiet week may produce none and a busy day may produce
-                several. Service alerts are infrequent and only sent when something about your own account
-                needs your attention. We do not send scheduled or recurring messages of any other kind.
+                <ProgramOne part="frequency" />
             </p>
         ),
     },
@@ -233,8 +246,8 @@ const PROGRAM_ONE: Section[] = [
             <>
                 <p style={{ marginBottom: 14 }}>
                     Opt-in happens on our{" "}
-                    <a href="/agreement" style={linkStyle}>
-                        service agreement page
+                    <a href="/terms/accept" style={linkStyle}>
+                        Terms of Service page
                     </a>
                     . You enter the mobile number that should receive call alerts, and check the box beside it
                     that reads:
@@ -254,7 +267,7 @@ const PROGRAM_ONE: Section[] = [
                     <ConsentQuote />
                 </blockquote>
                 <p style={{ marginBottom: 14 }}>
-                    The box starts unchecked and is separate from the checkbox accepting the service agreement.
+                    The box starts unchecked and is separate from the checkbox accepting the Terms of Service.
                     Consent is not a condition of purchase: the service is sold, built, and billed the same way
                     whether you opt in or not.
                 </p>
@@ -326,7 +339,7 @@ const PROGRAM_TWO: Section[] = [
             <>
                 <p style={{ marginBottom: 14 }}>
                     On the Growth and Enterprise plans, your client portal can text your own customers in two
-                    specific ways. Starter and website-only plans never send customer-facing messages at all.
+                    specific ways. The Starter and Starter + AI Receptionist plans never send customer-facing messages at all.
                 </p>
                 <ul style={ulStyle}>
                     <li>
@@ -516,7 +529,7 @@ export default function SmsTermsPage() {
                 <ProgramHeading
                     label="Program One"
                     title="Juneau Digital Designs Call Alerts"
-                    blurb="Messages we send to you about your own account. This is the program the checkbox on our agreement page opts you into."
+                    blurb="Messages we send to you about your own account. This is the program the checkbox on our Terms of Service page opts you into."
                 />
                 {PROGRAM_ONE.map((section) => (
                     <SectionBlock key={`one-${section.heading}`} section={section} />

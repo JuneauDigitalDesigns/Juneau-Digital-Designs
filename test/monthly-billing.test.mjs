@@ -44,13 +44,24 @@ test("an upgrade charges the difference now and refuses a declined card", () => 
   for (const [fromPlan, toPlan] of [
     ["starter", "growth"],
     ["growth", "enterprise"],
-    [null, "starter"],
+    ["website", "starter"],
+    ["website", "growth"],
   ]) {
     assert.deepEqual(immediateChangeParams({ fromPlan, toPlan }), {
       proration_behavior: "always_invoice",
       payment_behavior: "error_if_incomplete",
     });
   }
+});
+
+test("no immediate change from an unknown price, or onto the plan it is already on", () => {
+  // An unknown starting price used to count as an upgrade (v1.45.0 plan: trap 4).
+  assert.equal(immediateChangeParams({ fromPlan: null, toPlan: "starter" }), null);
+  assert.equal(immediateChangeParams({ fromPlan: "mystery", toPlan: "growth" }), null);
+  // Same plan, a grandfathered price: never re-priced onto today's (D3).
+  assert.equal(immediateChangeParams({ fromPlan: "starter", toPlan: "starter" }), null);
+  // A move down to the website plan waits for the period end (D7).
+  assert.equal(immediateChangeParams({ fromPlan: "starter", toPlan: "website" }), null);
 });
 
 test("changeSubscriptionPlan refuses a downgrade and a subscription that isn't monthly", () => {

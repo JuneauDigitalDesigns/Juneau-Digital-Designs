@@ -45,16 +45,17 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
     const autoOpen = params.get(DEMO_PARAM) === DEMO_GROWTH;
     useEffect(() => {
         if (!autoOpen) return;
+        if (site.webOnly) return;
         // eslint-disable-next-line react-hooks/set-state-in-effect -- opening on arrival is the point
         setRunning(true);
         const url = new URL(window.location.href);
         url.searchParams.delete(DEMO_PARAM);
         window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    }, [autoOpen]);
+    }, [autoOpen, site.webOnly]);
 
     return (
         <div className="space-y-6">
-            <SectionHeader title="Customers" meta="Not included on Starter" />
+            <SectionHeader title="Customers" meta="Not included on your plan" />
 
             <div
                 className="rounded-2xl border p-7 lg:p-8 flex gap-8 flex-wrap items-center"
@@ -65,12 +66,14 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         className="font-extrabold"
                         style={{ fontFamily: "var(--font-display)", fontSize: "26px", letterSpacing: "-0.02em" }}
                     >
-                        Turn the people who call you into repeat customers
+                        {site.webOnly
+                            ? "Turn the people who contact you into repeat customers"
+                            : "Turn the people who call you into repeat customers"}
                     </h2>
                     <p className="mt-2.5 text-[14.5px] leading-relaxed max-w-[56ch]" style={{ color: "var(--fg-2)" }}>
-                        You already see every call and web inquiry in your Inbox. Growth adds the next
-                        step — a place to track each one until the job is won, text them straight from
-                        the portal, and ask happy customers for a Google review.
+                        {site.webOnly
+                            ? "You already see every web inquiry in your Inbox. Growth adds the next step: a place to track each one until the job is won, text them straight from the portal, and ask happy customers for a Google review."
+                            : "You already see every call and web inquiry in your Inbox. Growth adds the next step — a place to track each one until the job is won, text them straight from the portal, and ask happy customers for a Google review."}
                     </p>
                     <ul className="mt-4 space-y-2.5 list-none p-0">
                         {[
@@ -93,7 +96,9 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                     </ul>
                 </div>
 
-                <div className="flex flex-col gap-2.5 min-w-[260px]">
+                <div className="flex flex-col gap-2.5 w-full sm:w-auto sm:min-w-[260px]">
+                    {/* The website plan gets no demo (D5): its one upsell is the receptionist. */}
+                    {!site.webOnly && (
                     <button
                         ref={launcher}
                         type="button"
@@ -104,8 +109,13 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                         style={{ background: "var(--accent)", color: "var(--on-accent)" }}
                     >
                         <PlayCircle size={16} weight="fill" />
-                        Show me what Growth does for me
+                        {/* Centred and balanced when it wraps on a phone (Xander, 2026-11-19: "just me is on the
+
+                            bottom line and all the way left aligned"). */}
+
+                        <span className="text-center" style={{ textWrap: "balance" }}>Show me what Growth does for me</span>
                     </button>
+                    )}
                     <Link
                         href="/pricing"
                         className="w-full rounded-lg border px-4 py-3 text-sm font-semibold text-center"
@@ -113,10 +123,12 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                     >
                         Compare plans
                     </Link>
+                    {!site.webOnly && (
                     <p className="text-[11.5px] text-center leading-relaxed" style={{ color: "var(--fg-3)" }}>
                         {/* "A one-minute demo" until 2026-11-12, when the demo grew to about a minute and a half. Approved by Xander word for word. */}
                         A short demo with sample customers. Nothing changes on your account.
                     </p>
+                    )}
                 </div>
             </div>
 
@@ -178,7 +190,7 @@ export default function StarterShowcase({ site }: { site: PortalSiteProps }) {
                 </div>
             </div>
 
-            {running && <GrowthDemo upgradeUrl={upgradeHref(site.slug)} onClose={stop} returnFocusTo={launcher} />}
+            {running && !site.webOnly && <GrowthDemo upgradeUrl={upgradeHref(site.slug, site)} onClose={stop} returnFocusTo={launcher} trade={site.sampleTrade} />}
         </div>
     );
 }

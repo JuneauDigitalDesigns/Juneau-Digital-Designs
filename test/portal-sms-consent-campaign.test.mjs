@@ -44,6 +44,8 @@ const EMAIL = "owner@arthursplumbing.com";
 const PHONE = "+14075550123";
 const NEW_PHONE = "+14075550199";
 const V2_HASH = "8f05b3bedd688820a666c740e7dcf2720a6161a319742ade984836ea3666c460";
+/** The v2 campaign's text since 2026-11-18 (`sms-consent-v3`). */
+const V3_HASH = "205f4816e59d07e22c0107565971630c4df4d6b8678b1e12d593bcf96c5f842c";
 
 /** A grant exactly as the portal stored it under v2, before this change. */
 const STORED_V2_GRANT = {
@@ -137,8 +139,8 @@ test("v2: opt-in, number change and turning off all work, each recorded under to
     assert.equal(on.status, 200);
     assert.equal(on.body.consent.phone, PHONE);
     let [grant] = await getConsentLog(PHONE);
-    assert.equal(grant.consentTextVersion, "sms-consent-v2");
-    assert.equal(grant.consentTextHash, V2_HASH);
+    assert.equal(grant.consentTextVersion, "sms-consent-v3");
+    assert.equal(grant.consentTextHash, V3_HASH);
 
     const moved = await post({ enabled: true, phone: NEW_PHONE });
     assert.equal(moved.status, 200);
@@ -146,7 +148,7 @@ test("v2: opt-in, number change and turning off all work, each recorded under to
     assert.equal((await getConsentLog(PHONE)).at(-1).action, "revoked");
     [grant] = await getConsentLog(NEW_PHONE);
     assert.equal(grant.action, "granted");
-    assert.equal(grant.consentTextVersion, "sms-consent-v2");
+    assert.equal(grant.consentTextVersion, "sms-consent-v3");
 
     const off = await post({ enabled: false });
     assert.equal(off.status, 200);

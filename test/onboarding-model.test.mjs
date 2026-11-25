@@ -65,7 +65,7 @@ test("HVAC Growth: no color step, no website-only, and HVAC's stats are all work
     assert.ok(ids.includes("brands") && ids.includes("certs"), "brands and certifications are separate screens");
     assert.ok(!ids.includes("numbers"), "every HVAC stat is derivable, so there is no numbers screen");
     assert.ok(!ids.includes("sites"), "extra sites are Enterprise only");
-    assert.deepEqual(modesFor(growth), ["forwarded", "published"], "website-only is Starter only");
+    assert.deepEqual(modesFor(growth), ["forwarded", "published"], "website only is the website plan, never a choice here");
     assert.equal(ids[0], "welcome");
     assert.equal(ids.at(-1), "review");
 });
@@ -78,8 +78,35 @@ test("trade-specific screens appear only where the template uses them", () => {
     assert.ok(car.includes("radius"));
     const ent = screensFor(ridgeline(), { plan: "enterprise" }).map((s) => s.id);
     assert.ok(ent.includes("sites"));
-    assert.deepEqual(modesFor({ plan: "starter" }), ["forwarded", "published", "declined"]);
-    assert.deepEqual(modesFor({ plan: "starter", signedMode: "declined" }), ["declined"]);
+});
+
+test("Starter + AI Receptionist offers no website-only choice; a legacy signed one still reads", () => {
+    assert.deepEqual(modesFor({ plan: "starter" }), ["forwarded", "published"], "no declined on a new choice");
+    assert.deepEqual(modesFor({ plan: "starter", signedMode: "forwarded" }), ["forwarded", "published"]);
+    const empty = initialState("", undefined);
+    assert.ok(screenErrors("setup", { ...empty, receptionistMode: "declined" }, { plan: "starter" }).receptionistMode, "declined is refused on starter");
+    assert.ok(screensFor(ridgeline(), { plan: "starter" }).some((s) => s.id === "setup"), "starter still sets up the phone");
+    // A Starter site signed "declined" before the website plan existed (legacy, read only).
+    const legacy = { plan: "starter", signedMode: "declined" };
+    assert.deepEqual(modesFor(legacy), ["declined"]);
+    assert.ok(!screensFor(ridgeline(), legacy).some((s) => s.id === "setup"));
+    assert.equal(buildPayload({ ...ridgeline(), receptionistMode: "declined" }, legacy, NOW).receptionistMode, "declined");
+});
+
+test("website plan: no Phone setup screen, no owner text-alerts screen, sent as declined", () => {
+    const website = { plan: "website" };
+    const ids = screensFor(ridgeline(), website).map((s) => s.id);
+    assert.ok(!ids.includes("setup"), "the plan decided there is no number");
+    assert.ok(!ids.some((id) => /alert|sms|text/i.test(id)), "a website site's owner gets no lead texts (D9)");
+    assert.deepEqual(modesFor(website), ["declined"]);
+    const empty = initialState("", undefined);
+    assert.deepEqual(requiredGaps(empty, website).map((s) => s.id), ["trade", "name", "contact"], "nothing blocks on a phone choice");
+    // A stale draft choice never leaks into a website submission.
+    const payload = buildPayload({ ...ridgeline(), receptionistMode: "forwarded" }, website, NOW);
+    assert.equal(payload.selectedPlan, "website");
+    assert.equal(payload.receptionistMode, "declined");
+    assert.equal(zBrandIntakeSubmission.safeParse(payload).success, true, "the schema accepts website + declined");
+    assert.equal(zBrandIntakeSubmission.safeParse({ ...payload, receptionistMode: "forwarded" }).success, false);
 });
 
 test("only the facts the build needs block, with the approved messages", () => {
@@ -92,7 +119,7 @@ test("only the facts the build needs block, with the approved messages", () => {
     assert.equal(c.address, "We need an address for your site and your local area.");
     assert.equal(screenErrors("contact", empty, growth).phone, "We need a phone number to set up your calls.");
     assert.equal(screenErrors("setup", empty, growth).receptionistMode, "Pick one so we know whether to set up a number.");
-    assert.ok(screenErrors("setup", { ...empty, receptionistMode: "declined" }, growth).receptionistMode, "declined is refused off Starter");
+    assert.ok(screenErrors("setup", { ...empty, receptionistMode: "declined" }, growth).receptionistMode, "declined is refused off the website plan");
     for (const id of ["area", "services", "since", "brands", "certs", "reviews", "photos", "voice", "hours"]) {
         assert.deepEqual(screenErrors(id, empty, growth), {}, `${id} never blocks`);
     }

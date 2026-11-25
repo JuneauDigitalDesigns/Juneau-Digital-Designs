@@ -41,6 +41,8 @@ export interface AccountAgreement {
     signedAt: string;
     /** The site an addendum covers, by name. Null on a master, which covers the account. */
     siteName: string | null;
+    /** True for a master accepted under the old Service Agreement (v5.x and earlier). */
+    legacyAgreement: boolean;
 }
 
 /** The site an addendum was signed for: the one it authorised, or the plan change's target. */
@@ -67,6 +69,8 @@ export async function listAccountAgreements(account: PortalAccount): Promise<Acc
                 current: kind === "master" && account.masterAgreement?.agreementId === r.id,
                 signedAt: r.audit.signedAt,
                 siteName: kind === "addendum" ? siteNameFor(r, account) : null,
+                // v6.0 onwards is the Terms of Service; anything before was the Service Agreement.
+                legacyAgreement: kind === "master" && !/^v([6-9]|\d{2,})\./.test(r.agreementVersion ?? ""),
             };
         });
     return rows.sort((a, b) => Number(b.current) - Number(a.current) || Date.parse(b.signedAt) - Date.parse(a.signedAt));
