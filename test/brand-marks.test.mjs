@@ -1,8 +1,9 @@
 /**
- * The agency's brand marks in the nav and footer (Xander, 24 Nov 2026, from the mockup
- * https://claude.ai/artifact/Tv1x1gqfbNr9RAMx6hxPyh): the nav shows monogram | dark hairline |
- * wordmark, the wordmark alone below 640px; the footer shows the wordmark alone. Both marks are
- * transparent files; the old boxed lockup (/JDD_mark.webp) is gone from both.
+ * The agency's brand marks in the nav and footer. Since 25 Nov 2026 (Xander) the nav shows the
+ * monogram alone, at every width, as the link home; the footer shows the wordmark alone. Both
+ * marks are transparent files; the old boxed lockup (/JDD_mark.webp) is gone from both.
+ * (The earlier monogram | hairline | wordmark nav came from the mockup
+ * https://claude.ai/artifact/Tv1x1gqfbNr9RAMx6hxPyh.)
  *
  * Source-level, as there is no browser in this suite. Run: `npm test`
  */
@@ -11,7 +12,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { MONOGRAM, WORDMARK, WORDMARK_STACKED } from "../app/data/brand-marks.ts";
+import { MONOGRAM, WORDMARK } from "../app/data/brand-marks.ts";
 
 const root = (p) => fileURLToPath(new URL(`../${p}`, import.meta.url));
 const read = (p) => readFileSync(root(p), "utf8");
@@ -20,32 +21,29 @@ const footer = read("app/components/footer/footer.tsx");
 const css = read("app/globals.css");
 
 test("both marks are real files, with their own pixel sizes", () => {
-    for (const mark of [MONOGRAM, WORDMARK, WORDMARK_STACKED]) assert.ok(existsSync(root(`public${mark.src}`)), `${mark.src} is missing`);
+    for (const mark of [MONOGRAM, WORDMARK]) assert.ok(existsSync(root(`public${mark.src}`)), `${mark.src} is missing`);
     assert.deepEqual([MONOGRAM.width, MONOGRAM.height], [3200, 1684]);
     assert.deepEqual([WORDMARK.width, WORDMARK.height], [4800, 773]);
-    assert.deepEqual([WORDMARK_STACKED.width, WORDMARK_STACKED.height], [4800, 2100]);
 });
 
-test("the nav is monogram | hairline | wordmark; the footer is the wordmark alone", () => {
-    const mono = nav.indexOf("src={MONOGRAM.src}");
-    const rule = nav.indexOf('className="nav-brand-rule"');
-    const word = nav.indexOf("src={WORDMARK.src}");
-    assert.ok(mono > -1 && mono < rule && rule < word, "the nav's order is monogram, hairline, wordmark");
+test("the nav is the monogram alone, linking home; the footer is the wordmark alone", () => {
+    const brand = nav.match(/<Link href="\/" aria-label="Juneau Digital Designs, home" className="nav-brand">([\s\S]*?)<\/Link>/);
+    assert.ok(brand, "the brand must be a link to / that names the business");
+    assert.match(brand[1], /src=\{MONOGRAM\.src\}/, "the nav brand shows the monogram");
+    assert.doesNotMatch(nav, /WORDMARK/, "the wordmark is the footer's, not the nav's");
+    assert.doesNotMatch(nav, /nav-brand-(rule|word|stacked)/, "no hairline or wordmark left in the nav");
     assert.match(footer, /src=\{WORDMARK\.src\}/);
     assert.doesNotMatch(footer, /MONOGRAM/, "the footer shows the wordmark only");
     for (const src of [nav, footer]) assert.doesNotMatch(src, /JDD_mark\.webp/, "the old boxed lockup is still in use");
 });
 
-test("approved sizes, and the wordmark alone below 640px", () => {
-    assert.match(css, /\.nav-brand-mono \{[^}]*height: 30px/);
-    assert.match(css, /\.nav-brand-word \{[^}]*height: 44px/);
+test("sizes: the monogram 40px tall at every width, the footer wordmark up to 64px", () => {
+    assert.match(css, /\.nav-brand-mono \{[^}]*height: 40px/);
+    assert.doesNotMatch(css, /\.nav-brand-mono[^{]*\{[^}]*display: none/, "the monogram must never be hidden");
     assert.match(css, /\.footer-brand \{[^}]*max-height: 64px/);
-    assert.match(css, /@media \(max-width: 639px\) \{\s*\.nav-brand-mono,\s*\.nav-brand-rule \{ display: none; \}/);
 });
 
-test("option B: the stacked wordmark from 1040px to 1219px, the menu below 1040px, the brand hard left", () => {
-    assert.ok(nav.includes("src={WORDMARK_STACKED.src}"), "the nav has no stacked wordmark");
-    assert.match(css, /@media \(min-width: 1040px\) and \(max-width: 1219px\) \{\s*\.nav-brand-word \{ display: none; \}\s*\.nav-brand-stacked \{ display: block; \}/);
+test("the menu below 1040px, the brand hard left, the bar full width", () => {
     assert.match(css, /@media \(max-width: 1039px\) \{\s*\.nav-bar/);
     assert.match(css, /@media \(min-width: 1040px\) \{\s*\.nav-menu-sm \{ display: none; \}/);
     assert.ok(nav.includes('className="nav-menu-sm '), "the phone menu must hide at the same width the burger does");
