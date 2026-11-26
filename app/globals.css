@@ -96,8 +96,9 @@
   --wash-rule: rgba(20, 18, 12, 0.13);
 
   /* fonts */
-  --font-display: var(--font-big-shoulders), 'Big Shoulders', sans-serif;
-  --font-body:    var(--font-hanken), 'Hanken Grotesk', sans-serif;
+  /* Plus Jakarta Sans for headings and body, DM Mono for labels (pairing A, 2026-11-26). */
+  --font-display: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
+  --font-body:    var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
   --font-mono:    var(--font-dm-mono), 'DM Mono', monospace;
 
   /* ── Type scale (perfect-fourth-ish, clamp-driven) ────────── */
@@ -107,10 +108,10 @@
   --text-lg:   18px;
   --text-xl:   clamp(20px, 2vw,    24px);
   --text-2xl:  clamp(28px, 3vw,    36px);
-  --text-3xl:  clamp(40px, 4.5vw,  56px);
-  --text-4xl:  clamp(56px, 6.5vw,  88px);
-  --text-5xl:  clamp(72px, 9vw,    128px);
-  --text-6xl:  clamp(96px, 14vw,   220px);
+  --text-3xl:  clamp(34px, 3.9vw,  48px);
+  --text-4xl:  clamp(48px, 5.6vw,  76px);
+  --text-5xl:  clamp(56px, 7.4vw,  104px);
+  --text-6xl:  clamp(76px, 11.5vw, 180px);
 
   /* ── Tracking ────────────────────────────────────────────── */
   --tracking-tightest: -0.04em;
@@ -150,16 +151,16 @@
   --chart-tooltip-border: rgba(20, 18, 12, 0.20);
 }
 
-/* ── Global heading defaults (tuned for Big Shoulders) ──────── */
+/* ── Global heading defaults (tuned for Plus Jakarta Sans, 2026-11-26) ── */
 @layer base {
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: var(--tracking-tight);
-    line-height: 0.95;
+    line-height: 1.04;
     color: var(--fg);
   }
-  h1 { font-size: var(--text-5xl); font-weight: 900; letter-spacing: 0.005em; }
+  h1 { font-size: var(--text-5xl); font-weight: 800; letter-spacing: 0; }
   h2 { font-size: var(--text-3xl); font-weight: 800; }
   h3 { font-size: var(--text-2xl); font-weight: 700; }
   h4 { font-size: var(--text-xl);  font-weight: 700; }
@@ -267,8 +268,7 @@ body {
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 16px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   cursor: pointer;
   border: 1px solid transparent;
   background: var(--fg);
@@ -333,8 +333,7 @@ body {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 15px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   white-space: nowrap;
 }
 .ticker-bar:hover .ticker-track { animation-play-state: paused; }
@@ -476,7 +475,7 @@ body {
   font-family: var(--font-display);
   font-size: 22px;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: var(--fg-3);
   min-width: 40px;
   padding-top: 2px;
@@ -485,7 +484,7 @@ body {
 /* Simple text */
 .hiw-simple-text {
   font-family: var(--font-display);
-  font-size: clamp(16px, 2.5vw, 22px);
+  font-size: clamp(16px, 2.15vw, 22px);
   font-weight: 400;
   letter-spacing: -0.015em;
   color: var(--fg);
@@ -1006,9 +1005,8 @@ select option {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(28px, 3vw, 44px);
-  line-height: 0.95;
-  text-transform: uppercase;
+  font-size: clamp(24px, 2.58vw, 38px);
+  line-height: 1.04;
   color: var(--fg-3);
 }
 .rail-cta-lead { color: var(--fg); }
@@ -1042,11 +1040,10 @@ select option {
   padding: clamp(72px, 9vw, 160px) clamp(18px, 4vw, 56px);
 }
 .home-display {
-  font-size: clamp(40px, 6.6vw, 100px);
+  font-size: clamp(34px, 5.68vw, 86px);
   font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: 0.005em;
-  text-transform: uppercase;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
   text-wrap: balance;
   max-width: 13ch;
 }
@@ -1122,9 +1119,8 @@ select option {
 .faq-h1 {
   margin-top: 10px;
   text-align: center;
-  text-transform: uppercase;
-  font-size: clamp(44px, 8vw, 96px);
-  line-height: 0.92;
+  font-size: clamp(38px, 6.88vw, 83px);
+  line-height: 1.04;
 }
 .faq-group { margin-top: clamp(40px, 5vw, 72px); }
 .faq-group-label {
@@ -1148,9 +1144,8 @@ select option {
 }
 .faq-entry-q {
   font-weight: 700;
-  font-size: clamp(18px, 1.9vw, 22px);
+  font-size: clamp(18px, 1.63vw, 22px);
   line-height: 1.15;
-  text-transform: uppercase;
   margin-bottom: 10px;
 }
 .faq-entry-a {
@@ -2590,10 +2585,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .pricing-h1 {
   margin: 0;
-  font-size: clamp(48px, 5.4vw, 92px);
-  line-height: 0.9;
-  letter-spacing: 0.005em;
-  text-transform: uppercase;
+  font-size: clamp(41px, 4.64vw, 79px);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
   text-wrap: balance;
   overflow-wrap: break-word;
 }
@@ -2629,7 +2623,6 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   font-family: var(--font-display);
   font-size: 21px;
   font-weight: 700;
-  text-transform: uppercase;
   line-height: 1;
   color: var(--fg);
 }
@@ -2692,7 +2685,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pricing-price { display: flex; align-items: flex-end; gap: 4px; margin-top: 16px; }
 .pricing-amount {
   font-family: var(--font-display);
-  font-size: 52px;
+  font-size: 41px;
   font-weight: 600;
   color: var(--fg);
   letter-spacing: var(--tracking-tightest);
@@ -2796,7 +2789,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pricing-ent .pricing-setup { margin-top: 4px; }
 .pricing-ent-amount {
   font-family: var(--font-display);
-  font-size: 30px;
+  font-size: 23px;
   font-weight: 600;
   color: var(--fg);
   letter-spacing: -0.03em;
@@ -2847,9 +2840,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pricing-faq-h {
   margin: 0;
   text-align: center;
-  text-transform: uppercase;
-  font-size: clamp(40px, 6vw, 96px);
-  line-height: 0.9;
+  font-size: clamp(34px, 5.16vw, 83px);
+  line-height: 1.04;
 }
 .pricing-acc { max-width: 900px; margin: 0 auto; border-bottom: 1px solid var(--rule); }
 .pricing-qa { border-top: 1px solid var(--rule); scroll-margin-top: 96px; }
@@ -2869,9 +2861,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   color: var(--fg);
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(19px, 1.8vw, 23px);
+  font-size: clamp(19px, 1.55vw, 20px);
   line-height: 1.1;
-  text-transform: uppercase;
 }
 .pricing-q:hover { color: var(--accent-2); }
 .pricing-q:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
@@ -2914,7 +2905,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* A phone: centred header, titles only, one plan at a time behind the pills. */
 @media (max-width: 859px) {
   .pricing-copy { text-align: center; }
-  .pricing-h1 { margin-inline: auto; font-size: clamp(44px, 14vw, 64px); }
+  .pricing-h1 { margin-inline: auto; font-size: clamp(38px, 12.04vw, 55px); }
   .pricing-rule { margin: 24px auto; }
   .pricing-points { display: block; text-align: left; }
   .pricing-point { grid-template-columns: 36px 1fr; align-items: center; padding: 12px 0; }
@@ -2949,8 +2940,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 15px;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    letter-spacing: 0;
     line-height: 1;
   }
   .pricing-pill-price { margin-top: 3px; font-family: var(--font-mono); font-size: 10.5px; color: var(--fg-3); }
@@ -3069,18 +3059,16 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .about-coral { color: var(--accent-2); }
 .about-h1 {
-  font-size: clamp(60px, 12.5vw, 148px);
-  line-height: 0.86;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.005em;
+  font-size: clamp(52px, 10.75vw, 127px);
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 .about-h2 {
-  font-size: clamp(40px, 7vw, 84px);
-  line-height: 0.9;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-size: clamp(34px, 6.02vw, 72px);
+  line-height: 1.04;
+  font-weight: 800;
   text-wrap: balance;
 }
 .about-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
@@ -3149,7 +3137,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   font-size: 22px;
   font-weight: 800;
   line-height: 1.1;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   color: var(--fg);
 }
 
@@ -3166,9 +3154,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .about-q blockquote {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 900;
-  line-height: 0.95;
-  text-transform: uppercase;
+  font-weight: 800;
+  line-height: 1.04;
 }
 .about-q figcaption {
   display: block;
@@ -3188,8 +3175,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   top: -18px;
   left: -4px;
   font-family: var(--font-display);
-  font-size: 96px;
-  font-weight: 900;
+  font-size: 75px;
+  font-weight: 800;
   line-height: 1;
   color: var(--accent-2);
 }
@@ -3212,8 +3199,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   top: 8px;
   left: 20px;
   font-family: var(--font-display);
-  font-size: 68px;
-  font-weight: 900;
+  font-size: 53px;
+  font-weight: 800;
   line-height: 1;
   color: var(--accent-2);
 }
@@ -3238,10 +3225,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .about-story-last {
   font-family: var(--font-display);
-  font-size: clamp(24px, 2.6vw, 32px);
+  font-size: clamp(21px, 2.24vw, 28px);
   font-weight: 800;
   line-height: 1;
-  text-transform: uppercase;
   color: var(--fg);
 }
 
@@ -3283,7 +3269,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   text-transform: uppercase;
   color: var(--accent-2);
 }
-.about-tl-what { font-size: 25px; font-weight: 800; line-height: 1; margin: 6px 0; text-transform: uppercase; }
+.about-tl-what { font-size: 22px; font-weight: 800; line-height: 1; margin: 6px 0; }
 .about-tl-detail { color: var(--fg-2); font-size: 16px; }
 
 /* 4 · Ledger. Two columns of meaning: what I learned, and what your site gets. */
@@ -3315,12 +3301,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .about-row p { color: var(--fg-2); }
 .about-row-n {
   font-family: var(--font-display);
-  font-size: 40px;
-  font-weight: 900;
-  line-height: 0.9;
+  font-size: 31px;
+  font-weight: 800;
+  line-height: 1;
   color: var(--accent-2);
 }
-.about-row-h { font-size: 27px; font-weight: 800; line-height: 1; margin-bottom: 8px; text-transform: uppercase; }
+.about-row-h { font-size: 23px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
 .about-row-site {
   background: var(--elev-1);
   border-radius: 3px;
@@ -3340,7 +3326,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 
 /* 5 · Close. */
-.about-close-h { font-size: clamp(48px, 9vw, 112px); }
+.about-close-h { font-size: clamp(41px, 7.74vw, 96px); }
 .about-close-copy { font-size: clamp(18px, 1.7vw, 21px); color: var(--fg-2); max-width: 44ch; }
 .about-ask { margin-top: clamp(40px, 5vw, 64px); }
 
@@ -3387,13 +3373,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-legend-h,
 .hvac-group-h {
   font-family: var(--font-display);
-  text-transform: uppercase;
   text-wrap: balance;
   color: var(--fg);
 }
-.hvac-h1 { margin-top: 14px; font-size: clamp(46px, 8.4vw, 104px); font-weight: 900; line-height: 0.88; letter-spacing: 0.005em; }
-.hvac-h2 { font-size: clamp(38px, 6.4vw, 80px); font-weight: 900; line-height: 0.9; }
-.hvac-h3 { font-size: 25px; font-weight: 800; line-height: 1; }
+.hvac-h1 { margin-top: 14px; font-size: clamp(40px, 7.22vw, 89px); font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; }
+.hvac-h2 { font-size: clamp(33px, 5.5vw, 69px); font-weight: 800; line-height: 1.04; }
+.hvac-h3 { font-size: 22px; font-weight: 800; line-height: 1; }
 .hvac-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 50ch; }
 .hvac-eg {
   font-family: var(--font-mono);
@@ -3451,7 +3436,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-hero-lede { margin-top: 14px; }
 .hvac-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .hvac-when { display: flex; flex-direction: column; }
-.hvac-when-h { font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 0.9; }
+.hvac-when-h { font-size: clamp(29px, 3.44vw, 45px); font-weight: 800; line-height: 1.04; }
 .hvac-beats { list-style: none; margin: 0; padding: 0; flex: 1; display: grid; grid-auto-rows: 1fr; }
 .hvac-beat {
   display: grid;
@@ -3461,7 +3446,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   padding-block: 26px;
 }
 .hvac-scene { grid-row: span 2; align-self: center; font-size: 56px; stroke-width: 1.7; color: var(--fg); }
-.hvac-beat-h { font-size: clamp(25px, 2.7vw, 34px); font-weight: 800; line-height: 1; }
+.hvac-beat-h { font-size: clamp(22px, 2.32vw, 29px); font-weight: 800; line-height: 1; }
 .hvac-pickline { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
 .hvac-ringer { position: relative; flex: none; font-size: 34px; color: var(--fg-2); transform-origin: 50% 60%; }
 .hvac-arcs { position: absolute; left: -12px; top: -6px; width: 58px; height: 46px; color: var(--accent-2); opacity: 0; }
@@ -3485,8 +3470,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   font-size: 18px;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
 }
 .hvac-picked .hvac-ic { font-size: 20px; }
 .hvac-picked .hvac-wave { height: 18px; gap: 2px; }
@@ -3538,11 +3522,10 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: 12px;
   margin-bottom: 18px;
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.4vw, 30px);
+  font-size: clamp(22px, 2.06vw, 26px);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--accent-2);
 }
 .hvac-call {
@@ -3616,7 +3599,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   border-radius: 50%;
   font-family: var(--font-display);
   font-size: 19px;
-  font-weight: 900;
+  font-weight: 800;
   line-height: 29px;
   text-align: center;
   color: var(--accent-2);
@@ -3708,7 +3691,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: 0 clamp(20px, 4vw, 56px);
 }
 .hvac-vs-heads { align-items: end; padding-bottom: 14px; border-bottom: 2px solid var(--fg); }
-.hvac-vs-h { font-size: clamp(28px, 4vw, 48px); font-weight: 900; line-height: 0.92; }
+.hvac-vs-h { font-size: clamp(24px, 3.44vw, 41px); font-weight: 800; line-height: 1.04; }
 .hvac-vs-row { align-items: start; padding-block: 26px; border-bottom: 1px solid var(--wash-rule); }
 .hvac-vs-cell { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; align-items: start; }
 .hvac-mark { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 1px; border-radius: 50%; font-size: 18px; }
@@ -3717,10 +3700,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-vs-no p:last-child {
   padding-top: 3px;
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.5vw, 30px);
+  font-size: clamp(22px, 1.95vw, 23px);
   font-weight: 800;
   line-height: 1;
-  text-transform: uppercase;
 }
 .hvac-vs-yes p:last-child { padding-top: 2px; font-size: 17px; line-height: 1.45; color: var(--fg); }
 .hvac-vs-lbl { display: none; margin-bottom: 4px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
@@ -3773,12 +3755,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   padding-block: 22px;
   border-bottom: 1px solid var(--rule);
 }
-.hvac-legend-n { font-family: var(--font-display); font-size: 34px; font-weight: 900; line-height: 0.9; color: var(--accent-2); }
-.hvac-legend-h { margin-bottom: 6px; font-size: 24px; font-weight: 800; line-height: 1; }
+.hvac-legend-n { font-family: var(--font-display); font-size: 27px; font-weight: 800; line-height: 1; color: var(--accent-2); }
+.hvac-legend-h { margin-bottom: 6px; font-size: 21px; font-weight: 800; line-height: 1; }
 .hvac-legend p { font-size: 16px; color: var(--fg-2); }
 
 /* 4 · What customers are trying to find out: what they search, then what they ask on a call. */
-.hvac-find-h { max-width: 14ch; font-size: clamp(42px, 7.4vw, 96px); }
+.hvac-find-h { max-width: 14ch; font-size: clamp(36px, 6.36vw, 83px); }
 .hvac-find-h::after {
   content: "";
   display: block;
@@ -3797,7 +3779,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   padding-top: clamp(36px, 4.5vw, 56px);
   border-top: 2px solid var(--fg);
 }
-.hvac-group-h { display: flex; align-items: center; gap: 14px; font-size: clamp(26px, 3.4vw, 42px); font-weight: 900; line-height: 0.95; }
+.hvac-group-h { display: flex; align-items: center; gap: 14px; font-size: clamp(22px, 2.92vw, 36px); font-weight: 800; line-height: 1.04; }
 .hvac-group-h .hvac-ic { flex: none; font-size: 0.8em; stroke-width: 2.6; color: var(--accent-2); }
 .hvac-group-h .hvac-wave { flex: none; height: 0.7em; color: var(--accent-2); }
 .hvac-qs {
@@ -3875,9 +3857,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   border-bottom: 4px solid transparent;
   font-family: var(--font-display);
   font-size: var(--hvac-num);
-  font-weight: 900;
-  line-height: 0.85;
-  text-transform: uppercase;
+  font-weight: 800;
+  line-height: 1;
   color: var(--fg);
 }
 .hvac-field { border-bottom-color: var(--accent-2); color: var(--accent-2); }
@@ -3924,7 +3905,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   align-items: center;
   height: calc(var(--hvac-num) * 0.85 + 12px);
   font-family: var(--font-display);
-  font-size: clamp(30px, 4vw, 52px);
+  font-size: clamp(26px, 3.44vw, 45px);
   font-weight: 800;
   line-height: 1;
   color: var(--fg-3);
@@ -3942,9 +3923,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-result-half { display: grid; gap: 8px; justify-items: center; padding: 26px 12px; }
 .hvac-big {
   font-family: var(--font-display);
-  font-size: clamp(48px, 8vw, 104px);
-  font-weight: 900;
-  line-height: 0.85;
+  font-size: clamp(37px, 6.24vw, 81px);
+  font-weight: 800;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--fg);
 }
@@ -3952,7 +3933,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-src { margin-top: 18px; }
 
 /* 6 · Close. */
-.hvac-close-h { font-size: clamp(46px, 8.6vw, 108px); }
+.hvac-close-h { font-size: clamp(40px, 7.4vw, 93px); }
 .hvac-close .hvac-lede { max-width: 46ch; }
 .hvac-ask { margin-top: clamp(36px, 5vw, 56px); }
 
@@ -4034,7 +4015,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .hvac-term { grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; justify-items: start; max-width: none; }
   .hvac-num { justify-self: end; }
   .hvac-term-l { text-align: left; }
-  .hvac-op { font-size: 28px; }
+  .hvac-op { font-size: 24px; }
   .hvac-result { grid-template-columns: minmax(0, 1fr); }
   .hvac-vr { height: 1px; }
 
@@ -4098,8 +4079,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 14px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--fg);
   background: transparent;
   border: 1px solid transparent;
@@ -4166,8 +4146,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 19px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--fg);
   text-decoration: none;
   cursor: pointer;
@@ -4227,8 +4206,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 15px;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: 0;
   color: var(--fg);
   text-decoration: none;
   white-space: nowrap;
@@ -4280,12 +4258,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .ty-h1,
 .ty-track-h {
   font-family: var(--font-display);
-  text-transform: uppercase;
   text-wrap: balance;
   color: var(--fg);
 }
-.contact-h1 { margin-top: 14px; font-size: clamp(64px, 12vw, 152px); font-weight: 900; line-height: 0.84; letter-spacing: 0.005em; }
-.contact-h2 { font-size: clamp(40px, 6.6vw, 84px); font-weight: 900; line-height: 0.9; }
+.contact-h1 { margin-top: 14px; font-size: clamp(55px, 10.32vw, 131px); font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; }
+.contact-h2 { font-size: clamp(34px, 5.68vw, 72px); font-weight: 800; line-height: 1.04; }
 .contact-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 46ch; }
 
 /* A voice, drawn: the same bars /hvac uses, for the demo line. */
@@ -4324,10 +4301,10 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .contact-way-how { font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
 .contact-way-what {
   font-family: var(--font-display);
-  font-size: clamp(26px, 3vw, 38px);
-  font-weight: 900;
+  font-size: clamp(22px, 2.58vw, 33px);
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.01em;
   color: var(--fg);
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -4377,7 +4354,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .contact-track > li:last-child .contact-track-dot { background: var(--accent-2); border-color: var(--accent-2); color: var(--on-accent-2); }
 .contact-track-when { font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-2); min-height: 1.4em; }
-.contact-track-h { font-size: clamp(20px, 2vw, 26px); font-weight: 800; line-height: 1; }
+.contact-track-h { font-size: clamp(20px, 1.72vw, 22px); font-weight: 800; line-height: 1; }
 .contact-track p { font-size: 15px; color: var(--fg-2); max-width: 22ch; }
 
 /* 3 · Before you ask: question left, answer right. */
@@ -4389,7 +4366,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   padding-block: 28px;
   border-bottom: 1px solid var(--rule);
 }
-.contact-ledger-q { font-size: clamp(24px, 2.8vw, 34px); font-weight: 800; line-height: 1; }
+.contact-ledger-q { font-size: clamp(21px, 2.41vw, 29px); font-weight: 800; line-height: 1; }
 .contact-ledger-row p { color: var(--fg-2); }
 .contact-more { margin-top: 26px; font: 500 12px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; }
 .contact-more a { color: var(--accent-2); }
@@ -4409,7 +4386,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .ty-stamp-ic { width: 50%; height: 50%; }
 .ty-kicker { margin-top: 34px; color: var(--accent-2); }
-.ty-h1 { margin-top: 14px; font-size: clamp(60px, 11vw, 140px); font-weight: 900; line-height: 0.84; letter-spacing: 0.005em; }
+.ty-h1 { margin-top: 14px; font-size: clamp(52px, 9.46vw, 120px); font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; }
 .ty-lede { margin-top: 24px; max-width: 44ch; font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); }
 .ty-lede b { color: var(--fg); }
 
@@ -4432,7 +4409,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .ty-track-when { font: 500 11px/1.4 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
 .ty-track-done .ty-track-when,
 .ty-track-next .ty-track-when { color: var(--accent-2); }
-.ty-track-h { margin-top: 4px; font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; line-height: 1; }
+.ty-track-h { margin-top: 4px; font-size: clamp(22px, 2.06vw, 26px); font-weight: 800; line-height: 1; }
 .ty-track-done .ty-track-h { color: var(--fg-3); text-decoration: line-through; text-decoration-color: var(--accent-2); text-decoration-thickness: 3px; }
 .ty-track > li p { margin-top: 6px; max-width: 40ch; font-size: 15.5px; color: var(--fg-2); }
 
@@ -4497,7 +4474,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-group-h,
 .hp-spec h3,
 .hp-vs-heads h3,
-.hp-base-item h3 { font-family: var(--font-display); text-transform: uppercase; text-wrap: balance; color: var(--fg); }
+.hp-base-item h3 { font-family: var(--font-display); text-wrap: balance; color: var(--fg); }
 
 /* A voice, drawn: bars that stand for someone speaking. Only the receptionist's voices speak. */
 .hp-wave { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 22px; }
@@ -4523,11 +4500,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-hero-wrap { padding-block: clamp(28px, 4vw, 64px) clamp(64px, 8vw, 120px); }
 .hp-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 448px); gap: clamp(36px, 5vw, 76px); align-items: center; }
 .hp-hero > * { min-width: 0; }
-.hp-h1 { margin: 0; max-width: 15ch; font-weight: 900; font-size: clamp(36px, 5.3vw, 86px); line-height: 0.9; letter-spacing: 0.005em; }
+.hp-h1 { margin: 0; max-width: 15ch; font-weight: 800; font-size: clamp(31px, 4.56vw, 74px); line-height: 1.04; letter-spacing: -0.01em; }
 /* The coral close of the h1 is three words long, so unlike `.home-em` it may wrap on a phone. */
 .hp-h1-em { color: var(--accent-2); }
 /* The three beats, once the headline, now its eyebrow: one line, coral dots between, the last in coral. */
-.hp-beats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 clamp(16px, 1.8vw, 24px); font-family: var(--font-display); font-weight: 800; font-size: clamp(17px, 1.7vw, 24px); line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg); }
+.hp-beats { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 clamp(16px, 1.8vw, 24px); font-family: var(--font-display); font-weight: 800; font-size: clamp(17px, 1.46vw, 21px); line-height: 1; letter-spacing: 0; color: var(--fg); }
 .hp-beats > span { display: inline-flex; align-items: center; gap: 14px; }
 .hp-beats > span + span::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); }
 /* The one line under the headline since the paragraph left the hero (26 Nov 2026): the paragraph's
@@ -4548,7 +4525,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-loop-step4 { grid-column: 7; }
 .hp-loop-art { height: calc(140px * var(--s)); display: grid; place-items: end center; }
 .hp-loop-art svg { display: block; width: calc(var(--w) * var(--s) * 1px); height: calc(var(--h) * var(--s) * 1px); overflow: visible; }
-.hp-loop-step h3 { margin: 0; max-width: 11ch; font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 2.4vw, 34px); line-height: 0.95; letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; color: var(--fg); }
+.hp-loop-step h3 { margin: 0; max-width: 11ch; font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 2.06vw, 29px); line-height: 1.04; letter-spacing: -0.01em; text-wrap: balance; color: var(--fg); }
 .hp-loop-step p { margin: 0; max-width: 18ch; font-size: clamp(16px, 1.35vw, 19px); line-height: 1.4; color: var(--fg-2); text-wrap: balance; }
 .hp-loop-arr { grid-row: 1; align-self: start; display: grid; place-items: center; margin-top: calc(70px * var(--s) - 12px); color: var(--accent-2); }
 .hp-loop-arr1 { grid-column: 2; }
@@ -4571,7 +4548,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 @media (max-width: 980px) {
   .hp-loop { --s: 0.85; grid-template-columns: minmax(0, 1fr) clamp(30px, 8vw, 96px) minmax(0, 1fr); grid-template-rows: auto clamp(78px, 10vw, 92px) auto; width: 100%; max-width: 760px; margin-inline: auto; }
   .hp-loop-step { gap: 8px; }
-  .hp-loop-step h3 { max-width: none; font-size: clamp(21px, 3.4vw, 30px); }
+  .hp-loop-step h3 { max-width: none; font-size: clamp(21px, 2.92vw, 26px); }
   .hp-loop-step p { font-size: clamp(15px, 2vw, 18px); }
   .hp-loop-step2 { grid-column: 3; }
   .hp-loop-step3 { grid-row: 3; grid-column: 3; }
@@ -4616,7 +4593,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .hp-slip-head { display: grid; gap: 10px; margin-bottom: 20px; }
 .hp-slip-head .kicker { color: var(--accent-2); }
-.hp-slip-head h2 { margin: 0; font-weight: 900; font-size: clamp(30px, 3vw, 40px); line-height: 0.95; }
+.hp-slip-head h2 { margin: 0; font-weight: 800; font-size: clamp(26px, 2.58vw, 34px); line-height: 1.04; }
 .hp-slip-head p:last-child { margin: 0; font-size: 15px; line-height: 1.5; color: var(--fg-2); }
 .hp-form { display: grid; gap: 15px; }
 .hp-field { display: grid; gap: 6px; }
@@ -4675,7 +4652,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* 2 · What your customers are trying to find out: searches scatter across the width and fade in
    and out; spoken questions sit under them, their coral bar flashing as each one arrives. */
 .hp-band { margin-top: clamp(52px, 6.4vw, 88px); padding-top: clamp(34px, 4.2vw, 54px); border-top: 2px solid var(--fg); }
-.hp-group-h { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0; font-weight: 900; font-size: clamp(26px, 3.4vw, 44px); line-height: 0.95; text-align: center; }
+.hp-group-h { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 0; font-weight: 800; font-size: clamp(22px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .hp-group-h .hp-ic { font-size: 0.8em; stroke-width: 2.6; color: var(--accent-2); }
 .hp-group-h .hp-wave { height: 0.7em; color: var(--accent-2); }
 .hp-sky { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px clamp(12px, 2vw, 28px); margin: clamp(26px, 3.4vw, 44px) 0 0; padding: 0; list-style: none; }
@@ -4733,8 +4710,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-shot-f { position: relative; aspect-ratio: 3 / 2; max-width: 100%; overflow: hidden; border: 1px solid var(--rule-strong); border-radius: 8px; background: #ffffff; box-shadow: 0 24px 48px -30px rgba(20, 18, 12, 0.45); }
 .hp-shot-f img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .hp-ring { position: absolute; width: 15%; aspect-ratio: 2.6 / 1; border: 2.5px solid var(--accent-2); border-radius: 999px; transform: translate(-50%, -50%); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.55); }
-.hp-spec-n { position: absolute; left: -4px; bottom: -0.3em; font-family: var(--font-display); font-size: clamp(58px, 6vw, 84px); font-weight: 900; line-height: 0.8; color: var(--accent-2); -webkit-text-stroke: 9px var(--bg); paint-order: stroke fill; }
-.hp-spec h3 { margin: 34px 0 0; font-weight: 800; font-size: clamp(24px, 2.2vw, 30px); line-height: 1; }
+.hp-spec-n { position: absolute; left: -4px; bottom: -0.3em; font-family: var(--font-display); font-size: clamp(45px, 4.68vw, 66px); font-weight: 800; line-height: 1; color: var(--accent-2); -webkit-text-stroke: 9px var(--bg); paint-order: stroke fill; }
+.hp-spec h3 { margin: 34px 0 0; font-weight: 800; font-size: clamp(21px, 1.89vw, 26px); line-height: 1; }
 .hp-spec p { margin: 8px 0 0; max-width: 40ch; font-size: 16px; line-height: 1.55; color: var(--fg-2); }
 .hp-specs-cap { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 22px; margin-top: clamp(36px, 4vw, 56px); }
 .hp-specs-cap a { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-2); }
@@ -4742,7 +4719,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-swipe { display: none; }
 
 /* 4 · The receptionist: three example calls across the width, each a voice answering a voice. */
-.hp-now { display: inline-flex; align-items: center; gap: 12px; margin: 0 0 18px; font-family: var(--font-display); font-size: clamp(22px, 2.4vw, 30px); font-weight: 800; line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; color: var(--accent-2); }
+.hp-now { display: inline-flex; align-items: center; gap: 12px; margin: 0 0 18px; font-family: var(--font-display); font-size: clamp(22px, 2.06vw, 26px); font-weight: 800; line-height: 1; letter-spacing: -0.01em; color: var(--accent-2); }
 .hp-onair-row { display: flex; justify-content: center; margin-top: clamp(44px, 5vw, 64px); }
 .hp-onair { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 999px; background: var(--fg); color: var(--bg); font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1; letter-spacing: 0.12em; text-transform: uppercase; }
 .hp-onair .hp-ic { font-size: 15px; }
@@ -4771,7 +4748,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-vs::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--fg); }
 .hp-vs-heads,
 .hp-vs-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.hp-vs-heads h3 { margin: 0; padding-bottom: clamp(18px, 2.4vw, 30px); font-weight: 900; font-size: clamp(28px, 4.2vw, 56px); line-height: 0.92; }
+.hp-vs-heads h3 { margin: 0; padding-bottom: clamp(18px, 2.4vw, 30px); font-weight: 800; font-size: clamp(24px, 3.61vw, 48px); line-height: 1.04; }
 .hp-vs-heads h3:first-child { text-align: right; padding-right: clamp(20px, 3vw, 44px); }
 .hp-vs-heads h3:last-child { padding-left: clamp(20px, 3vw, 44px); }
 .hp-vs-row { border-top: 1px solid var(--wash-rule); }
@@ -4782,7 +4759,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-m { display: grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 50%; font-size: 19px; }
 .hp-vs-no .hp-m { border: 2px solid var(--accent-2); background: var(--wash); color: var(--accent-2); }
 .hp-vs-yes .hp-m { background: var(--fg); color: var(--bg); }
-.hp-vs-no .hp-say { font-family: var(--font-display); font-size: clamp(22px, 2.6vw, 34px); font-weight: 800; line-height: 1; text-transform: uppercase; }
+.hp-vs-no .hp-say { font-family: var(--font-display); font-size: clamp(22px, 2.03vw, 27px); font-weight: 800; line-height: 1; }
 .hp-vs-yes .hp-say { max-width: 44ch; font-size: clamp(16.5px, 1.4vw, 19px); line-height: 1.45; color: var(--fg); }
 .hp-vs-lbl { display: none; margin-bottom: 4px !important; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
 
@@ -4914,7 +4891,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-crow { display: grid; gap: 14px; align-content: start; min-width: 0; padding-block: 22px; border-bottom: 1px solid var(--wash-rule); cursor: pointer; }
 .hp-crow:first-child { padding-top: 0; }
 .hp-crow p { margin: 0; font-size: clamp(17px, 1.6vw, 21px); color: var(--fg-2); }
-.hp-crow p b { font-family: var(--font-display); font-size: clamp(26px, 2.6vw, 34px); font-weight: 900; line-height: 1; color: var(--accent-2); }
+.hp-crow p b { font-family: var(--font-display); font-size: clamp(22px, 2.24vw, 29px); font-weight: 800; line-height: 1; color: var(--accent-2); }
 .hp-crow input[type="range"] { width: 100%; height: 24px; margin: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none; }
 .hp-crow input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent-2) var(--pct, 20%), var(--rule-strong) var(--pct, 20%)); }
 .hp-crow input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--accent-2) var(--pct, 20%), var(--rule-strong) var(--pct, 20%)); }
@@ -4936,12 +4913,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-oc-figs { display: grid; align-content: space-between; gap: 24px; padding-bottom: 46px; }
 .hp-fig { display: grid; gap: 10px; justify-items: center; min-width: 0; text-align: center; }
 .hp-fig p { margin: 0; }
-.hp-fig-n { font-family: var(--font-display); font-size: clamp(48px, 6.4vw, 92px); font-weight: 900; line-height: 0.84; font-variant-numeric: tabular-nums; color: var(--fg); }
+.hp-fig-n { font-family: var(--font-display); font-size: clamp(37px, 4.99vw, 72px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); }
 .hp-fig.won .hp-fig-n { color: var(--accent-2); }
 .hp-remark { margin: clamp(26px, 3.2vw, 40px) auto 0; max-width: 46ch; text-align: center; font-size: clamp(18px, 1.8vw, 23px); font-weight: 600; line-height: 1.4; color: var(--fg); }
 .hp-cact { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 30px; margin-top: 20px; }
 .hp-cact a,
-.hp-cact button { display: inline-flex; align-items: center; gap: 8px; padding: 0; background: none; border: 0; font-family: var(--font-display); font-size: 17px; font-weight: 800; line-height: 1; letter-spacing: 0.03em; text-transform: uppercase; color: var(--fg-2); text-decoration: none; cursor: pointer; }
+.hp-cact button { display: inline-flex; align-items: center; gap: 8px; padding: 0; background: none; border: 0; font-family: var(--font-display); font-size: 17px; font-weight: 800; line-height: 1; letter-spacing: 0; color: var(--fg-2); text-decoration: none; cursor: pointer; }
 .hp-cact a { color: var(--accent-2); }
 .hp-cact button:hover { color: var(--accent-2); }
 .hp-cact .hp-ic { font-size: 16px; color: var(--accent-2); }
@@ -4956,9 +4933,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-base-item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 14px; align-items: start; padding-block: 20px; border-top: 1px solid var(--wash-rule); }
 .hp-base-ic { margin-top: 2px; font-size: 44px; stroke-width: 1.6; color: var(--accent-2); }
 .hp-base-item .kicker { color: var(--accent-2); }
-.hp-base-item h3 { margin: 8px 0 0; font-weight: 800; font-size: clamp(22px, 2.2vw, 28px); line-height: 1; }
+.hp-base-item h3 { margin: 8px 0 0; font-weight: 800; font-size: clamp(22px, 1.89vw, 24px); line-height: 1; }
 .hp-base-item p:last-child { margin: 6px 0 0; font-size: 15.5px; color: var(--fg-2); }
-.hp-bill { margin: 18px 0 0; font-family: var(--font-display); font-size: clamp(22px, 2.2vw, 28px); font-weight: 800; line-height: 1; text-transform: uppercase; }
+.hp-bill { margin: 18px 0 0; font-family: var(--font-display); font-size: clamp(22px, 1.89vw, 24px); font-weight: 800; line-height: 1; }
 .hp-plans-panel { border-radius: 4px; background: var(--panel); box-shadow: 0 24px 48px -34px rgba(20, 18, 12, 0.45); }
 .hp-cplan { padding: 22px 24px; border-top: 1px solid var(--rule); }
 .hp-cplan:first-child { border-top: 0; }
@@ -4968,20 +4945,20 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hp-cplan p:last-child { font-size: 15.5px; color: var(--fg-2); }
 .hp-cplan strong { color: var(--fg); }
 .hp-cplan a { color: inherit; }
-.hp-price { margin: 6px 0 8px !important; font-family: var(--font-display); font-size: clamp(40px, 4.2vw, 58px); font-weight: 900; line-height: 1; }
+.hp-price { margin: 6px 0 8px !important; font-family: var(--font-display); font-size: clamp(31px, 3.28vw, 45px); font-weight: 800; line-height: 1; }
 .hp-price span { margin-left: 4px; font-family: var(--font-mono); font-size: 14px; font-weight: 500; line-height: 1; color: var(--fg-3); }
 .hp-live-dot { display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 0 0 var(--accent-glow); vertical-align: 1px; }
 .hp-ask { display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr); margin-top: clamp(40px, 5.5vw, 72px); border-top: 2px solid var(--fg); text-align: center; }
 .hp-ask-half { display: grid; gap: 8px; justify-items: center; align-content: start; padding: clamp(34px, 4.4vw, 60px) 16px; }
 .hp-ask-half p { margin: 0; }
 .hp-ask-vr { margin-block: clamp(34px, 4.4vw, 60px); background: var(--rule); }
-.hp-ask-h { font-family: var(--font-display); font-size: clamp(34px, 4.6vw, 64px); font-weight: 900; line-height: 0.92; text-transform: uppercase; color: var(--fg); }
+.hp-ask-h { font-family: var(--font-display); font-size: clamp(29px, 3.96vw, 55px); font-weight: 800; line-height: 1.04; color: var(--fg); }
 .hp-ask-s { margin-bottom: 14px !important; font-size: clamp(17px, 1.5vw, 20px); color: var(--fg-2); }
 .hp-ask-pair { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .hp-ask-pair .btn.lg { box-shadow: 0 0 32px var(--accent-glow); }
 .hp-dial { display: inline-flex; align-items: center; gap: clamp(12px, 1.6vw, 22px); color: var(--accent-2); text-decoration: none; }
 .hp-dial:hover .hp-dial-n { text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 6px; }
-.hp-dial-n { font-family: var(--font-display); font-size: clamp(38px, 5.4vw, 78px); font-weight: 900; line-height: 0.9; letter-spacing: 0.01em; white-space: nowrap; }
+.hp-dial-n { font-family: var(--font-display); font-size: clamp(30px, 4.21vw, 61px); font-weight: 800; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; }
 .hp-ringer { position: relative; font-size: clamp(34px, 4vw, 54px); transform-origin: 50% 60%; }
 .hp-ringer-arcs { position: absolute; left: -32%; top: -14%; width: 164%; height: 128%; opacity: 0; }
 @keyframes hp-ring { 0%, 22%, 100% { transform: rotate(0); } 3%, 11% { transform: rotate(-14deg); } 7%, 15% { transform: rotate(14deg); } 19% { transform: rotate(-8deg); } }
@@ -5002,7 +4979,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 @media (max-width: 980px) {
   .hp-hero { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
-  .hp-h1 { font-size: clamp(36px, 10.4vw, 92px); margin-inline: auto; }
+  .hp-h1 { font-size: clamp(31px, 8.94vw, 79px); margin-inline: auto; }
   .hp-beats { justify-content: center; }
   .hp-hero-trades { margin-inline: auto; }
   /* Room to breathe on a phone (26 Nov 2026): clear of the navbar, and space between the blocks. */
@@ -5113,12 +5090,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-rcell h3,
 .plumb-slice h3 {
   font-family: var(--font-display);
-  text-transform: uppercase;
   text-wrap: balance;
   color: var(--fg);
 }
-.plumb-h1 { margin-top: 14px; font-size: clamp(50px, 9vw, 116px); font-weight: 900; line-height: 0.86; letter-spacing: 0.005em; }
-.plumb-h2 { font-size: clamp(38px, 6.4vw, 80px); font-weight: 900; line-height: 0.9; }
+.plumb-h1 { margin-top: 14px; font-size: clamp(43px, 7.74vw, 100px); font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; }
+.plumb-h2 { font-size: clamp(33px, 5.5vw, 69px); font-weight: 800; line-height: 1.04; }
 .plumb-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 48ch; }
 .plumb-eg {
   font-family: var(--font-mono);
@@ -5179,7 +5155,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-hero-lede { margin-top: 14px; }
 .plumb-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .plumb-handsfull { display: grid; justify-items: center; gap: 18px; }
-.plumb-handsfull-h { font-size: clamp(30px, 3.4vw, 44px); font-weight: 900; line-height: 0.92; text-align: center; }
+.plumb-handsfull-h { font-size: clamp(26px, 2.92vw, 38px); font-weight: 800; line-height: 1.04; text-align: center; }
 .plumb-phone {
   width: min(330px, 100%);
   padding: 14px;
@@ -5208,7 +5184,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   border-radius: 12px;
   background: #000;
 }
-.plumb-clock { margin-top: 18px; font-family: var(--font-display); font-size: 54px; font-weight: 800; line-height: 1; letter-spacing: 0.02em; text-align: center; }
+.plumb-clock { margin-top: 18px; font-family: var(--font-display); font-size: 42px; font-weight: 800; line-height: 1; letter-spacing: -0.01em; text-align: center; }
 .plumb-date { margin-bottom: 8px; font-size: 12px; font-weight: 500; line-height: 1.4; text-align: center; color: var(--plumb-ink-2); }
 .plumb-call-group { display: grid; gap: 10px; }
 .plumb-where { padding: 4px 4px 0; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; line-height: 1.3; letter-spacing: 0.12em; text-transform: uppercase; color: var(--plumb-ink-2); }
@@ -5278,11 +5254,10 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: 12px;
   margin-bottom: 18px;
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.4vw, 30px);
+  font-size: clamp(22px, 2.06vw, 26px);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--accent-2);
 }
 .plumb-now .plumb-wave { height: 22px; }
@@ -5367,7 +5342,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Where the lead lands: the portal inbox, as the phone shows it. */
 .plumb-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.plumb-lands-h { max-width: 18ch; margin-inline: auto; font-size: clamp(32px, 4.4vw, 58px); font-weight: 900; line-height: 0.92; }
+.plumb-lands-h { max-width: 18ch; margin-inline: auto; font-size: clamp(28px, 3.78vw, 50px); font-weight: 800; line-height: 1.04; }
 .plumb-lands-sub { margin: 14px auto 0; max-width: 44ch; font-size: clamp(16px, 1.5vw, 19px); color: var(--fg-2); }
 .plumb-mini-phone {
   width: 300px;
@@ -5438,12 +5413,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: clamp(28px, 5vw, 64px);
   align-items: start;
 }
-.plumb-urgent-h { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 0.92; }
+.plumb-urgent-h { font-size: clamp(26px, 3.1vw, 40px); font-weight: 800; line-height: 1.04; }
 .plumb-urgent-sub { margin-top: 14px; max-width: 34ch; font-size: 16px; color: var(--fg-2); }
 .plumb-em { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--fg); }
 .plumb-em > li { display: flex; align-items: center; gap: 18px; padding-block: 14px; border-bottom: 1px solid var(--wash-rule); }
 .plumb-em-drop { font-size: 26px; color: var(--accent-2); }
-.plumb-em b { font-family: var(--font-display); font-size: clamp(30px, 4vw, 54px); font-weight: 900; line-height: 0.95; letter-spacing: 0.005em; text-transform: uppercase; }
+.plumb-em b { font-family: var(--font-display); font-size: clamp(26px, 3.44vw, 46px); font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; }
 .plumb-em span {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -5458,7 +5433,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* It won't / instead, as a hairline 2×2 grid. */
 .plumb-rules { margin-top: clamp(64px, 8vw, 108px); }
-.plumb-rules-h { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 0.92; }
+.plumb-rules-h { font-size: clamp(26px, 3.1vw, 40px); font-weight: 800; line-height: 1.04; }
 .plumb-rgrid { margin-top: 26px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 2px solid var(--fg); }
 .plumb-rcell { padding: 26px clamp(16px, 2.6vw, 34px) 28px 0; border-bottom: 1px solid var(--wash-rule); }
 .plumb-rcell:nth-child(even) { padding-right: 0; padding-left: clamp(16px, 2.6vw, 34px); border-left: 1px solid var(--wash-rule); }
@@ -5475,7 +5450,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   color: var(--accent-2);
 }
 .plumb-x { display: grid; place-items: center; width: 22px; height: 22px; border: 2px solid var(--accent-2); border-radius: 50%; font-size: 12px; }
-.plumb-rcell h3 { margin-top: 10px; font-size: clamp(24px, 2.6vw, 32px); font-weight: 800; line-height: 1; }
+.plumb-rcell h3 { margin-top: 10px; font-size: clamp(21px, 2.24vw, 28px); font-weight: 800; line-height: 1; }
 .plumb-instead {
   margin-top: 14px;
   display: grid;
@@ -5522,8 +5497,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-slice:nth-child(4) .plumb-shot { background-position: 0 54.3%; }
 .plumb-slice:nth-child(5) .plumb-shot { background-position: 0 76.05%; }
 .plumb-slice:nth-child(6) .plumb-shot { background-position: 0 91.17%; }
-.plumb-n { font-family: var(--font-display); font-size: 30px; font-weight: 900; line-height: 0.9; color: var(--accent-2); }
-.plumb-slice h3 { font-size: 23px; font-weight: 800; line-height: 1; }
+.plumb-n { font-family: var(--font-display); font-size: 23px; font-weight: 800; line-height: 1; color: var(--accent-2); }
+.plumb-slice h3 { font-size: 20px; font-weight: 800; line-height: 1; }
 .plumb-slice p { font-size: 15.5px; color: var(--fg-2); }
 .plumb-pt { display: grid; gap: 6px; }
 .plumb-shotcap { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; }
@@ -5537,7 +5512,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: clamp(32px, 5vw, 64px);
   align-items: start;
 }
-.plumb-qa-h { display: flex; align-items: center; gap: 12px; font-size: clamp(24px, 2.8vw, 34px); font-weight: 900; line-height: 0.95; }
+.plumb-qa-h { display: flex; align-items: center; gap: 12px; font-size: clamp(21px, 2.41vw, 29px); font-weight: 800; line-height: 1.04; }
 .plumb-qa-h .plumb-ic { font-size: 0.8em; stroke-width: 2.6; color: var(--accent-2); }
 .plumb-qa-h .plumb-wave { height: 0.7em; color: var(--accent-2); }
 .plumb-gbox {
@@ -5623,7 +5598,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-wo::before { top: -1px; }
 .plumb-wo::after { bottom: -1px; transform: scaleY(-1); }
 .plumb-wo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 14px; border-bottom: 2px solid var(--fg); }
-.plumb-wo-head b { font-family: var(--font-display); font-size: clamp(26px, 3vw, 34px); font-weight: 900; line-height: 1; text-transform: uppercase; }
+.plumb-wo-head b { font-family: var(--font-display); font-size: clamp(22px, 2.58vw, 29px); font-weight: 800; line-height: 1; }
 .plumb-wo-line {
   display: grid;
   grid-template-columns: 30px minmax(0, 1fr) auto;
@@ -5635,7 +5610,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-wo-op { font-family: var(--font-display); font-size: 22px; font-weight: 800; line-height: 1; color: var(--fg-3); }
 .plumb-wo-what { font-size: 16.5px; color: var(--fg-2); }
 .plumb-wo-what .plumb-eg { display: block; margin-top: 2px; }
-.plumb-wo-val { font-family: var(--font-display); font-size: clamp(30px, 3.6vw, 42px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); }
+.plumb-wo-val { font-family: var(--font-display); font-size: clamp(23px, 2.81vw, 33px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); }
 .plumb-wo-field { display: flex; align-items: baseline; border-bottom: 3px solid var(--accent-2); color: var(--accent-2); }
 /* The site-wide form rule (top of this file) paints every input grey with dark text and, on a
    phone, forces 16px, all `!important`. These figures are type, not form boxes, so they take it
@@ -5667,12 +5642,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-wo-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 12px; border-top: 2px solid var(--fg); }
 .plumb-wo-row + .plumb-wo-row { border-top: 1px solid var(--rule); }
 .plumb-wo-lbl { font-family: var(--font-mono); font-size: 12px; font-weight: 500; line-height: 1.4; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); }
-.plumb-wo-amt { font-family: var(--font-display); font-size: clamp(40px, 5.6vw, 64px); font-weight: 900; line-height: 0.9; font-variant-numeric: tabular-nums; color: var(--fg); }
+.plumb-wo-amt { font-family: var(--font-display); font-size: clamp(31px, 4.37vw, 50px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; color: var(--fg); }
 .plumb-wo-row:last-child .plumb-wo-amt { color: var(--accent-2); }
 .plumb-wo-src { margin-top: 20px; text-align: center; }
 
 /* 6 · Close. */
-.plumb-close-h { font-size: clamp(44px, 8vw, 104px); }
+.plumb-close-h { font-size: clamp(38px, 6.88vw, 89px); }
 .plumb-ask { margin-top: clamp(36px, 5vw, 56px); }
 
 @media (max-width: 860px) {
@@ -5704,7 +5679,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .plumb-t { grid-column: 1; justify-self: start; }
   .plumb-turn-caller .plumb-say,
   .plumb-turn-rec .plumb-say { grid-column: 2; text-align: left; }
-  .plumb-em b { font-size: 30px; }
+  .plumb-em b { font-size: 26px; }
   .plumb-em span { display: none; }
   .plumb-rgrid { grid-template-columns: minmax(0, 1fr); }
   .plumb-rcell,
@@ -5785,12 +5760,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-left-grid h4,
 .lawn-part-h {
   font-family: var(--font-display);
-  text-transform: uppercase;
   text-wrap: balance;
   color: var(--fg);
 }
-.lawn-h1 { margin-top: 14px; font-size: clamp(50px, 9vw, 116px); font-weight: 900; line-height: 0.86; letter-spacing: 0.005em; }
-.lawn-h2 { font-size: clamp(38px, 6.4vw, 80px); font-weight: 900; line-height: 0.9; }
+.lawn-h1 { margin-top: 14px; font-size: clamp(43px, 7.74vw, 100px); font-weight: 800; line-height: 1.04; letter-spacing: -0.01em; }
+.lawn-h2 { font-size: clamp(33px, 5.5vw, 69px); font-weight: 800; line-height: 1.04; }
 .lawn-lede { font-size: clamp(17px, 1.6vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 48ch; }
 .lawn-eg {
   font-family: var(--font-mono);
@@ -5854,7 +5828,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-hero-copy .lawn-lede { margin-top: 14px; }
 .lawn-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .lawn-onroute { display: grid; justify-items: center; gap: 18px; }
-.lawn-onroute-h { font-size: clamp(30px, 3.4vw, 44px); font-weight: 900; line-height: 0.92; text-align: center; }
+.lawn-onroute-h { font-size: clamp(26px, 2.92vw, 38px); font-weight: 800; line-height: 1.04; text-align: center; }
 .lawn-route {
   width: min(430px, 100%);
   padding: 20px 20px 14px;
@@ -5864,7 +5838,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   box-shadow: 0 34px 60px -40px var(--lawn-shadow);
 }
 .lawn-route-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
-.lawn-route-head b { font-family: var(--font-display); font-size: 26px; font-weight: 900; line-height: 1; text-transform: uppercase; }
+.lawn-route-head b { font-family: var(--font-display); font-size: 22px; font-weight: 800; line-height: 1; }
 .lawn-leg { display: grid; gap: 6px; padding-block: 14px 12px; border-bottom: 1px solid var(--rule); }
 .lawn-leg:last-child { border-bottom: 0; padding-bottom: 4px; }
 .lawn-leg-top { display: flex; align-items: baseline; gap: 10px; }
@@ -5970,11 +5944,10 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   gap: 12px;
   margin-bottom: 18px;
   font-family: var(--font-display);
-  font-size: clamp(22px, 2.4vw, 30px);
+  font-size: clamp(22px, 2.06vw, 26px);
   font-weight: 800;
   line-height: 1;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  letter-spacing: -0.01em;
   color: var(--accent-2);
 }
 .lawn-now .lawn-wave { height: 22px; }
@@ -6056,7 +6029,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   align-items: baseline;
   gap: 10px;
 }
-.lawn-field-head b { font-family: var(--font-display); font-size: 26px; font-weight: 900; line-height: 1; text-transform: uppercase; }
+.lawn-field-head b { font-family: var(--font-display); font-size: 22px; font-weight: 800; line-height: 1; }
 .lawn-field-last { border-bottom: 1px solid var(--rule); border-radius: 0 0 10px 10px; box-shadow: 0 34px 46px -34px var(--lawn-shadow); }
 .lawn-field-lbl {
   font-family: var(--font-mono);
@@ -6067,7 +6040,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   text-transform: uppercase;
   color: var(--fg-3);
 }
-.lawn-field-val { font-family: var(--font-display); font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; line-height: 1.05; letter-spacing: 0.01em; text-transform: uppercase; }
+.lawn-field-val { font-family: var(--font-display); font-size: clamp(22px, 1.87vw, 22px); font-weight: 800; line-height: 1.05; letter-spacing: -0.01em; }
 .lawn-field-yours .lawn-field-val { color: var(--accent-2); }
 .lawn-field-yours .lawn-field-val span { border-bottom: 3px dashed var(--accent-2); padding-bottom: 2px; }
 
@@ -6091,7 +6064,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* 16ch, not the mockup's 18ch: the site's Big Shoulders sets narrower than the web font the
    mockup drew with, and at 18ch this heading fell to two lines instead of the three Xander
    approved. The measure is tuned to the shipped face so the stack is the one he signed off. */
-.lawn-lands-h { max-width: 16ch; margin-inline: auto; font-size: clamp(32px, 4.4vw, 58px); font-weight: 900; line-height: 0.92; }
+.lawn-lands-h { max-width: 16ch; margin-inline: auto; font-size: clamp(28px, 3.78vw, 50px); font-weight: 800; line-height: 1.04; }
 .lawn-lands-sub { margin: 14px auto 0; max-width: 50ch; font-size: clamp(16px, 1.5vw, 19px); color: var(--fg-2); }
 
 /* The portal inbox's own rows: unread dot, name, status, time, the summary, where it came from. */
@@ -6126,11 +6099,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* Three things it leaves to the owner. Lawn care has no emergencies, so this stands where the
    other trade pages put their urgent list. */
 .lawn-left { margin-top: clamp(64px, 8vw, 108px); }
-.lawn-left-h { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; line-height: 0.92; }
+.lawn-left-h { font-size: clamp(26px, 3.1vw, 40px); font-weight: 800; line-height: 1.04; }
 .lawn-left-grid { margin-top: 26px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--fg); }
 .lawn-left-grid > div { padding: 24px clamp(14px, 2.2vw, 28px) 26px; display: grid; gap: 10px; align-content: start; border-left: 1px solid var(--wash-rule); }
 .lawn-left-grid > div:first-child { padding-left: 0; border-left: 0; }
-.lawn-left-grid h4 { margin: 0; font-size: clamp(26px, 3vw, 38px); font-weight: 900; line-height: 0.95; }
+.lawn-left-grid h4 { margin: 0; font-size: clamp(22px, 2.58vw, 33px); font-weight: 800; line-height: 1.04; }
 .lawn-left-grid p { font-size: 16px; line-height: 1.5; color: var(--fg-2); }
 .lawn-left-foot { margin-top: 4px; padding-top: 16px; border-top: 1px solid var(--wash-rule); font-family: var(--font-body); font-size: 17px; font-weight: 600; line-height: 1.4; }
 
@@ -6171,7 +6144,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-part + .lawn-part { padding-left: clamp(12px, 1.8vw, 24px); border-left: 1px solid var(--rule); }
 .lawn-part .lawn-shot { display: none; border: 1px solid var(--rule-strong); border-radius: 6px; }
 .lawn-part-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
-.lawn-part-h { display: block; font-size: clamp(21px, 2.1vw, 25px); font-weight: 800; line-height: 1; }
+.lawn-part-h { display: block; font-size: clamp(21px, 1.81vw, 22px); font-weight: 800; line-height: 1; }
 .lawn-part-p { display: block; font-size: 15.5px; line-height: 1.5; color: var(--fg-2); }
 .lawn-part.is-on { border-top-color: var(--accent-2); }
 .lawn-part.is-on .lawn-part-tag { color: var(--accent-2); }
@@ -6185,7 +6158,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
    the approved mockup stacks it in two. */
 .lawn-season-h { max-width: 20ch; }
 .lawn-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.lawn-qa-h { display: flex; align-items: center; gap: 12px; font-size: clamp(24px, 2.8vw, 34px); font-weight: 900; line-height: 0.95; }
+.lawn-qa-h { display: flex; align-items: center; gap: 12px; font-size: clamp(21px, 2.41vw, 29px); font-weight: 800; line-height: 1.04; }
 .lawn-qa-h .lawn-ic,
 .lawn-qa-h .lawn-wave { color: var(--accent-2); }
 .lawn-qa-h .lawn-ic { font-size: 0.8em; stroke-width: 2.6; }
@@ -6260,7 +6233,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   border-bottom: 3px solid var(--accent-2);
   font-family: var(--font-display);
   font-size: 1.25em;
-  font-weight: 900;
+  font-weight: 800;
   line-height: 1;
   color: var(--accent-2);
   font-variant-numeric: tabular-nums;
@@ -6293,7 +6266,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-sumpic { width: min(860px, 100%); display: grid; gap: clamp(18px, 2.6vw, 26px); }
 .lawn-one { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 12px; }
 .lawn-one-each { font-family: var(--font-body); font-size: clamp(17px, 1.7vw, 20px); font-weight: 600; line-height: 1.3; }
-.lawn-one b { font-family: var(--font-display); font-size: clamp(26px, 3vw, 36px); font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+.lawn-one b { font-family: var(--font-display); font-size: clamp(22px, 2.58vw, 31px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 /* The two figures, each over its own part of the lawn: won back on the left, over the mown strip;
    lost on the right, over the tall grass. */
 .lawn-halves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 2px solid var(--fg); }
@@ -6315,7 +6288,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-key { flex: none; width: 18px; border-radius: 2px 2px 0 0; }
 .lawn-key-short { height: 5px; background: var(--lawn-g4); }
 .lawn-key-long { height: 15px; background: linear-gradient(90deg, var(--lawn-g1) 0 34%, var(--lawn-g2) 34% 67%, var(--lawn-g6) 67%); }
-.lawn-amt { font-family: var(--font-display); font-size: clamp(40px, 7vw, 84px); font-weight: 900; line-height: 0.9; font-variant-numeric: tabular-nums; }
+.lawn-amt { font-family: var(--font-display); font-size: clamp(31px, 5.46vw, 66px); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .lawn-halves > div:first-child .lawn-amt { color: var(--accent-2); }
 .lawn-of { font-family: var(--font-body); font-size: 16px; font-weight: 600; line-height: 1.35; color: var(--fg-2); }
 /* The street: one lawn per customer the missed calls cost. Overgrown until a receptionist wins it
@@ -6360,7 +6333,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-sum-src { margin-top: 22px; text-align: center; }
 
 /* ── 6 · Close ── */
-.lawn-close-h { font-size: clamp(44px, 8vw, 104px); }
+.lawn-close-h { font-size: clamp(38px, 6.88vw, 89px); }
 .lawn-ask { margin-top: clamp(36px, 5vw, 56px); }
 
 @media (max-width: 860px) {
@@ -6447,13 +6420,13 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-inner { max-width: 1200px; margin: 0 auto; }
 .svc-sec { padding-block: clamp(72px, 9vw, 140px); }
 .svc-wash { background: linear-gradient(180deg, var(--bg) 0%, var(--wash) 22%, var(--wash) 78%, var(--bg) 100%); }
-.svc-page h1, .svc-page h2, .svc-page h3 { font-family: var(--font-display); text-transform: uppercase; text-wrap: balance; color: var(--fg); margin: 0; }
+.svc-page h1, .svc-page h2, .svc-page h3 { font-family: var(--font-display); text-wrap: balance; color: var(--fg); margin: 0; }
 .svc-page p, .svc-page ul, .svc-page ol, .svc-page figure, .svc-page blockquote { margin: 0; }
 .svc-page ul, .svc-page ol { padding: 0; list-style: none; }
 .svc-em { color: var(--accent-2); }
 .svc-ic { display: block; flex: none; width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .svc-eg { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
-.svc-h2 { font-weight: 800; font-size: clamp(36px, 5.6vw, 76px); line-height: 0.9; letter-spacing: 0.005em; }
+.svc-h2 { font-weight: 800; font-size: clamp(31px, 4.82vw, 65px); line-height: 1.04; letter-spacing: -0.01em; }
 .svc-lede { font-size: clamp(17px, 1.5vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 50ch; }
 .svc-head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 18px clamp(28px, 5vw, 72px); align-items: end; }
 .svc-head > * { min-width: 0; }
@@ -6467,18 +6440,18 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-hero-wide > * { width: 100%; }
 .svc-kicker { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 18px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-2); }
 .svc-kicker::before { content: ""; width: 22px; height: 2px; background: var(--accent-2); }
-.svc-h1 { font-weight: 900; font-size: clamp(42px, 6.4vw, 96px); line-height: 0.88; letter-spacing: 0.005em; }
+.svc-h1 { font-weight: 800; font-size: clamp(36px, 5.5vw, 83px); line-height: 1.04; letter-spacing: -0.01em; }
 .svc-intro { margin-top: 24px; font-size: clamp(18px, 1.7vw, 22px); line-height: 1.5; color: var(--fg-2); max-width: 40ch; }
 .svc-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 
 /* The system rail: the four services as one line, this page lit. */
 .svc-rail { border-top: 2px solid var(--fg); padding-block: 20px 6px; margin-bottom: clamp(24px, 3vw, 40px); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px clamp(20px, 3vw, 48px); align-items: center; }
-.svc-rail-lbl { font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 1.7vw, 22px); line-height: 1; text-transform: uppercase; color: var(--fg); }
+.svc-rail-lbl { font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 1.46vw, 22px); line-height: 1; color: var(--fg); }
 .svc-rail ol { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .svc-rail ol::before { content: ""; position: absolute; left: 8px; right: 8px; top: 8px; height: 2px; background: var(--rule-strong); }
 .svc-rail li { position: relative; display: grid; gap: 10px; justify-items: start; padding-right: 8px; }
 .svc-rail li::before { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--bg); border: 2px solid var(--fg-3); }
-.svc-rail a { font-family: var(--font-display); font-weight: 700; font-size: 15px; line-height: 1.2; letter-spacing: 0.03em; text-transform: uppercase; color: var(--fg-2); text-decoration: none; }
+.svc-rail a { font-family: var(--font-display); font-weight: 700; font-size: 15px; line-height: 1.2; letter-spacing: 0; color: var(--fg-2); text-decoration: none; }
 .svc-rail a:hover { color: var(--accent-2); }
 .svc-rail a span { display: block; margin-top: 3px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; line-height: 1.4; letter-spacing: 0.1em; color: var(--fg-3); }
 .svc-rail li.on::before { background: var(--accent-2); border-color: var(--accent-2); box-shadow: 0 0 0 5px var(--accent-glow); }
@@ -6486,14 +6459,14 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Close */
 .svc-close { display: grid; justify-items: center; text-align: center; gap: 14px; }
-.svc-ask-h { font-family: var(--font-display); font-weight: 900; font-size: clamp(44px, 6.4vw, 92px); line-height: 0.9; text-transform: uppercase; color: var(--fg); }
+.svc-ask-h { font-family: var(--font-display); font-weight: 800; font-size: clamp(38px, 5.5vw, 79px); line-height: 1.04; color: var(--fg); }
 .svc-ask-s { font-size: clamp(18px, 1.6vw, 21px); color: var(--fg-2); }
 .svc-ask-pair { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; }
 .svc-ask-pair .btn.lg { box-shadow: 0 0 32px var(--accent-glow); }
 .svc-price { margin-top: 6px; font-size: 16px; color: var(--fg-2); }
 .svc-next { margin-top: clamp(36px, 4vw, 56px); padding-top: 20px; border-top: 1px solid var(--rule-strong); width: min(100%, 720px); display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
 .svc-next span { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
-.svc-next a { font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 2vw, 26px); line-height: 1; text-transform: uppercase; text-decoration: none; color: var(--fg); }
+.svc-next a { font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.72vw, 22px); line-height: 1; text-decoration: none; color: var(--fg); }
 .svc-next a b { color: var(--accent-2); }
 
 /* Browser frame, shared by the website shots and the town pages */
@@ -6506,13 +6479,13 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-frame-view { position: relative; aspect-ratio: 4 / 3; max-width: 100%; }
 .svc-frame-view img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 0.45s ease; }
 .svc-frame-view img.on { opacity: 1; }
-.svc-frame-n { position: absolute; left: -2px; bottom: -0.18em; font-family: var(--font-display); font-weight: 900; font-size: clamp(56px, 6vw, 88px); line-height: 0.8; color: var(--accent-2); -webkit-text-stroke: 8px var(--bg); paint-order: stroke fill; }
+.svc-frame-n { position: absolute; left: -2px; bottom: -0.18em; font-family: var(--font-display); font-weight: 800; font-size: clamp(44px, 4.68vw, 69px); line-height: 1; color: var(--accent-2); -webkit-text-stroke: 8px var(--bg); paint-order: stroke fill; }
 .svc-frame-cap { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .svc-frame-cap a { font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-2); }
 
 /* ── /website-design ── */
 .svc-map { width: 100%; max-width: 520px; margin-inline: auto; }
-.svc-map text { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; }
+.svc-map text { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; }
 .svc-map text.svc-map-note { font-family: var(--font-mono); font-weight: 500; letter-spacing: 0.08em; }
 .svc-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin-top: 16px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); }
 .svc-key span { display: inline-flex; align-items: center; gap: 8px; }
@@ -6533,8 +6506,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-carry-list { border-top: 2px solid var(--fg); }
 .svc-carry-list li { border-bottom: 1px solid var(--wash-rule); }
 .svc-carry-list button { width: 100%; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 4px 14px 0; background: none; border: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
-.svc-carry-n { font-family: var(--font-display); font-weight: 900; font-size: 30px; line-height: 0.9; color: var(--fg-3); transition: color 0.2s ease; }
-.svc-carry-list b { display: block; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.9vw, 25px); line-height: 1; text-transform: uppercase; color: var(--fg-2); transition: color 0.2s ease; }
+.svc-carry-n { font-family: var(--font-display); font-weight: 800; font-size: 23px; line-height: 1; color: var(--fg-3); transition: color 0.2s ease; }
+.svc-carry-list b { display: block; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.63vw, 22px); line-height: 1; color: var(--fg-2); transition: color 0.2s ease; }
 .svc-carry-body { display: block; max-height: 0; overflow: hidden; opacity: 0; font-size: 15.5px; line-height: 1.55; color: var(--fg-2); transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease; }
 .svc-carry-list button[aria-selected="true"] .svc-carry-n { color: var(--accent-2); }
 .svc-carry-list button[aria-selected="true"] b { color: var(--fg); }
@@ -6553,10 +6526,10 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-serp-u { font-size: 13px; color: #3c4043; }
 .svc-serp-t { font-size: 20px; line-height: 1.3; color: #1a0dab; }
 .svc-serp-d { font-size: 14px; line-height: 1.55; color: #4d5156; }
-.svc-pin { position: absolute; right: -12px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-2); color: var(--on-accent-2); font-family: var(--font-display); font-weight: 900; font-size: 15px; box-shadow: 0 0 0 4px var(--bg); }
+.svc-pin { position: absolute; right: -12px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-2); color: var(--on-accent-2); font-family: var(--font-display); font-weight: 800; font-size: 15px; box-shadow: 0 0 0 4px var(--bg); }
 .svc-under { display: grid; border-top: 2px solid var(--fg); }
 .svc-under li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 12px; padding-block: 14px; border-bottom: 1px solid var(--wash-rule); align-items: baseline; }
-.svc-under b { font-family: var(--font-display); font-weight: 900; font-size: 20px; line-height: 1; color: var(--accent-2); }
+.svc-under b { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1; color: var(--accent-2); }
 .svc-under span { font-size: 16.5px; line-height: 1.45; }
 .svc-honest { margin-top: 22px !important; font-size: 16px; line-height: 1.6; color: var(--fg-2); max-width: 52ch; }
 .svc-honest strong { color: var(--fg); }
@@ -6573,7 +6546,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-qa li:nth-child(even) .svc-ans::before { left: auto; right: -38px; border-left: 0; border-right: 2.5px solid var(--accent-2); border-bottom-left-radius: 0; border-bottom-right-radius: 14px; }
 .svc-qa li:nth-child(even) .svc-ans::after { left: auto; right: -9px; transform: rotate(-135deg); }
 .svc-ans-by { display: flex; align-items: center; gap: 10px; margin-bottom: 8px !important; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-3); }
-.svc-ans-mk { font-family: var(--font-display); font-weight: 900; font-size: 13px; line-height: 1; letter-spacing: 0.04em; color: var(--on-accent-2); background: var(--accent-2); padding: 4px 6px; border-radius: 2px; }
+.svc-ans-mk { font-family: var(--font-display); font-weight: 800; font-size: 13px; line-height: 1; letter-spacing: 0; color: var(--on-accent-2); background: var(--accent-2); padding: 4px 6px; border-radius: 2px; }
 .svc-ans p:last-child { font-size: clamp(16.5px, 1.4vw, 19px); line-height: 1.6; color: var(--fg-2); }
 
 /* ── /website-hosting ── */
@@ -6598,7 +6571,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-receipt-h { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); padding-bottom: 12px; border-bottom: 1.5px dashed var(--rule-strong); }
 .svc-receipt li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; padding-block: 11px; border-bottom: 1px dotted var(--rule-strong); font-size: 13.5px; line-height: 1.45; color: var(--fg); }
 .svc-receipt li span:last-child { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-2); align-self: center; }
-.svc-receipt-t { display: flex; justify-content: space-between; margin-top: 14px !important; font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1; text-transform: uppercase; }
+.svc-receipt-t { display: flex; justify-content: space-between; margin-top: 14px !important; font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1; }
 .svc-receipt-t span:last-child { color: var(--accent-2); }
 .svc-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin: clamp(36px, 4vw, 56px) auto 0; max-width: 760px; }
 .svc-month .dn { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); text-align: center; padding-bottom: 6px; }
@@ -6609,7 +6582,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-month .tk small { font-family: var(--font-mono); font-size: 9.5px; font-weight: 500; line-height: 1.2; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-2); }
 .svc-quote-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 30px; margin-top: 30px; }
 .svc-quote-row p { display: inline-flex; align-items: center; gap: 10px; font-size: 16px; color: var(--fg-2); }
-.svc-quote-row b { font-family: var(--font-display); font-weight: 800; font-size: 18px; text-transform: uppercase; color: var(--fg); }
+.svc-quote-row b { font-family: var(--font-display); font-weight: 800; font-size: 18px; color: var(--fg); }
 .svc-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px clamp(24px, 3vw, 48px); margin-top: clamp(40px, 5vw, 64px) !important; }
 .svc-meter { display: grid; gap: 12px; min-width: 0; }
 .svc-meter-bar { height: 10px; border-radius: 999px; background: var(--rule); overflow: hidden; }
@@ -6625,7 +6598,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-take li .svc-ic { font-size: 20px; color: var(--accent-2); transform: translateY(3px); }
 .svc-take li b { font-weight: 700; }
 .svc-take li.guar { border-bottom: 2px solid var(--fg); }
-.svc-take li.guar b { display: block; margin-bottom: 2px; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.9vw, 24px); line-height: 1.1; text-transform: uppercase; color: var(--accent-2); }
+.svc-take li.guar b { display: block; margin-bottom: 2px; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 1.63vw, 21px); line-height: 1.1; color: var(--accent-2); }
 .svc-small { max-width: 980px; margin: 28px auto 0 !important; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 12.5px; line-height: 1.6; color: var(--fg-3); }
 
 /* ── /ai-receptionist ── */
@@ -6634,7 +6607,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-stop:not(:last-child)::after { content: ""; position: absolute; left: 31px; top: 64px; bottom: 0; width: 2px; background: repeating-linear-gradient(180deg, var(--fg) 0 6px, transparent 6px 11px); }
 .svc-dot { position: relative; z-index: 1; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--elev-1); border: 2px solid var(--fg); font-size: 26px; color: var(--fg); }
 .svc-stop.ai .svc-dot { background: var(--accent-2); border-color: var(--accent-2); color: var(--on-accent-2); box-shadow: 0 0 0 8px var(--accent-glow); }
-.svc-stop b { display: block; font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 2.2vw, 28px); line-height: 1; text-transform: uppercase; color: var(--fg); }
+.svc-stop b { display: block; font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 1.89vw, 24px); line-height: 1; color: var(--fg); }
 .svc-stop span.s { display: block; margin-top: 4px; font-size: 15px; color: var(--fg-2); }
 .svc-gap { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 4px 16px; align-items: center; position: relative; padding-bottom: 26px; }
 .svc-gap::after { content: ""; position: absolute; left: 31px; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(180deg, var(--fg-3) 0 6px, transparent 6px 11px); }
@@ -6666,7 +6639,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-said-r blockquote { margin-top: 8px !important; font-size: clamp(18px, 1.7vw, 22px); font-weight: 600; line-height: 1.35; color: var(--fg); }
 .svc-rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(20px, 2.4vw, 32px); margin-top: clamp(40px, 5vw, 64px); }
 .svc-rule { display: grid; gap: 14px; padding-top: 22px; border-top: 2px solid var(--fg); min-width: 0; }
-.svc-rule-no { display: flex; align-items: center; gap: 14px; font-family: var(--font-display); font-weight: 900; font-size: clamp(26px, 2.8vw, 38px); line-height: 0.95; text-transform: uppercase; color: var(--fg); }
+.svc-rule-no { display: flex; align-items: center; gap: 14px; font-family: var(--font-display); font-weight: 800; font-size: clamp(20px, 2.18vw, 30px); line-height: 1; color: var(--fg); }
 .svc-m { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; }
 .svc-rule-no .svc-m { border: 2px solid var(--accent-2); color: var(--accent-2); }
 .svc-rule-yes { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 14px; font-size: 16.5px; line-height: 1.5; color: var(--fg-2); }
@@ -6680,7 +6653,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-dialbox { display: grid; gap: 14px; justify-items: center; text-align: center; padding: clamp(28px, 3vw, 44px) 18px; border-top: 4px solid var(--fg); background: var(--elev-1); box-shadow: 0 30px 50px -36px var(--svc-shadow); }
 .svc-dialbox .svc-ask-h { font-size: clamp(34px, 4vw, 56px); }
 .svc-dial { display: inline-flex; align-items: center; gap: 16px; color: var(--accent-2); text-decoration: none; }
-.svc-dial-n { font-family: var(--font-display); font-weight: 900; font-size: clamp(38px, 5vw, 70px); line-height: 0.9; white-space: nowrap; }
+.svc-dial-n { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 3.9vw, 55px); line-height: 1; white-space: nowrap; }
 .svc-ringer { font-size: clamp(34px, 3.6vw, 50px); }
 
 /* ── /crm ── */
@@ -6757,14 +6730,14 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-gsys { display: grid; border-top: 2px solid var(--fg); }
 .svc-gsys li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 14px; padding-block: 18px; border-bottom: 1px solid var(--wash-rule); }
 .svc-gsys .svc-ic { grid-row: span 2; font-size: 30px; stroke-width: 1.7; color: var(--accent-2); }
-.svc-gsys b { font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 2.2vw, 28px); line-height: 1; text-transform: uppercase; }
+.svc-gsys b { font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 1.89vw, 24px); line-height: 1; }
 .svc-gsys p { font-size: 16px; color: var(--fg-2); }
 .svc-gate { display: inline-block; margin-left: 8px; font-family: var(--font-mono); font-size: 10px; font-weight: 500; line-height: 1; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-3); border: 1px solid var(--rule-strong); border-radius: 3px; padding: 4px 6px; vertical-align: 3px; text-decoration: none; }
 .svc-also { margin-top: 16px !important; font-size: 15.5px; color: var(--fg-2); }
 .svc-rooms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: clamp(40px, 5vw, 64px) !important; border-top: 2px solid var(--fg); }
 .svc-room { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 14px; padding: 22px 20px 22px 0; border-bottom: 1px solid var(--rule); min-width: 0; }
 .svc-room .svc-ic { grid-row: span 2; font-size: 30px; stroke-width: 1.6; }
-.svc-room b { font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1; text-transform: uppercase; }
+.svc-room b { font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1; }
 .svc-room p { font-size: 15px; line-height: 1.5; color: var(--fg-2); }
 .svc-room p span { display: block; margin-top: 4px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-2); }
 
@@ -6786,7 +6759,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-metro { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: clamp(32px, 5vw, 72px); align-items: start; margin-top: clamp(40px, 5vw, 64px); }
 .svc-metro > * { min-width: 0; }
 .svc-metro svg { width: 100%; max-width: 560px; }
-.svc-metro svg text { font-family: var(--font-display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.svc-metro svg text { font-family: var(--font-display); font-weight: 800; letter-spacing: 0; }
 .svc-frame-tabs { display: flex; gap: 2px; padding: 8px 10px 0; background: var(--wash); overflow-x: auto; }
 .svc-frame-tabs button { flex: none; padding: 8px 14px; border: 0; border-radius: 8px 8px 0 0; background: transparent; font-family: var(--svc-inter); font-size: 12.5px; font-weight: 600; line-height: 1; color: var(--fg-2); cursor: pointer; }
 .svc-frame-tabs button[aria-selected="true"] { background: var(--elev-2); color: var(--fg); }
@@ -6829,7 +6802,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .svc-ans::before, .svc-qa li:nth-child(even) .svc-ans::before { left: -30px; right: auto; width: 24px; border-right: 0; border-left: 2.5px solid var(--accent-2); border-bottom-right-radius: 0; border-bottom-left-radius: 14px; }
   .svc-qa li:nth-child(even) .svc-ans::after { left: -9px; right: auto; transform: rotate(45deg); }
   .svc-carry-body { font-size: 15px; }
-  .svc-frame-n { font-size: 54px; }
+  .svc-frame-n { font-size: 42px; }
   .svc-meters, .svc-three { grid-template-columns: minmax(0, 1fr); }
   .svc-three li { justify-items: center; text-align: center; }
   .svc-box-out { grid-template-columns: minmax(0, 1fr); justify-items: center; }
@@ -6896,11 +6869,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-page h1,
 .detail-page h2,
 .detail-page h3,
-.detail-page h4 { font-family: var(--display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+.detail-page h4 { font-family: var(--display); margin: 0; text-wrap: balance; }
 .detail-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
 .detail-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
 .detail-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
-.detail-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.detail-h2 { font-weight: 800; font-size: clamp(33px, 5.5vw, 69px); line-height: 1.04; }
 .detail-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
 .detail-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
 
@@ -6931,15 +6904,15 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* ── 1 · Hero: the claim left; a car going through a detail, and the call that came in mid-detail ── */
 .detail-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .9fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
-.detail-h1 { font-weight: 900; font-size: clamp(50px, 9vw, 116px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.detail-h1 { font-weight: 800; font-size: clamp(43px, 7.74vw, 100px); line-height: 1.04; letter-spacing: -0.01em; margin-top: 14px; }
 .detail-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
 .detail-hero .detail-lede { margin-top: 14px; }
 .detail-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
 .detail-inbay { display: grid; justify-items: center; gap: 18px; }
-.detail-inbay-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.detail-inbay-h { font-weight: 800; font-size: clamp(26px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .detail-bay { width: min(440px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
 .detail-bay-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
-.detail-bay-head b { font: 900 26px/1 var(--display); text-transform: uppercase; }
+.detail-bay-head b { font: 900 26px/1 var(--display); }
 .detail-car { display: block; width: 100%; height: auto; margin-top: 2px; overflow: visible; }
 .detail-car .dull { --paint: #a9755f; --tint: #62635c; }
 .detail-car .clean { --paint: var(--coral); --tint: var(--glass); }
@@ -6989,12 +6962,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-inbay .detail-then b { color: var(--fg); }
 
 /* ── 2 · The receptionist on a detailing call: a vehicle check-in sheet, filled in as they talk ── */
-.detail-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--coral); }
+.detail-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: 0; color: var(--coral); }
 .detail-now .detail-wave { height: 22px; }
 .detail-sheet { margin-top: clamp(52px, 7vw, 84px); background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 34px 60px -40px var(--shadow); display: grid; grid-template-columns: minmax(0, .62fr) minmax(0, 1.38fr); }
 .detail-sheet-car { padding: 22px 22px 26px; border-right: 1px dashed var(--rule-strong); display: grid; gap: 14px; align-content: start; justify-items: center; }
 .detail-sheet-title { justify-self: stretch; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
-.detail-sheet-title b { font: 900 26px/1 var(--display); text-transform: uppercase; }
+.detail-sheet-title b { font: 900 26px/1 var(--display); }
 .detail-plan { width: min(190px, 70%); height: auto; overflow: visible; }
 .detail-plan .shell { fill: var(--bg); stroke: var(--fg); stroke-width: 2.5; }
 .detail-plan .pane { fill: var(--glass); opacity: .82; }
@@ -7005,13 +6978,13 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 @media (prefers-reduced-motion: no-preference) { .detail-plan .ring { animation: detail-ping 2.2s ease-out infinite; transform-origin: 100px 232px; } }
 @keyframes detail-ping { 0% { transform: scale(.9); opacity: .6; } 100% { transform: scale(1.25); opacity: 0; } }
 .detail-plan-cap { text-align: center; }
-.detail-plan-cap b { display: block; font: 800 20px/1.1 var(--display); text-transform: uppercase; color: var(--coral); }
+.detail-plan-cap b { display: block; font: 800 20px/1.1 var(--display); color: var(--coral); }
 .detail-rows { display: grid; }
 .detail-row { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: clamp(14px, 2.4vw, 28px); padding: 20px 24px; border-bottom: 1px dashed var(--rule-strong); align-items: start; }
 .detail-row:last-child { border-bottom: 0; }
 .detail-row .detail-field { display: grid; gap: 4px; }
 .detail-lbl { font: 500 11px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); }
-.detail-val { font: 800 clamp(22px, 2.3vw, 27px)/1.05 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+.detail-val { font: 800 clamp(22px, 2.3vw, 27px)/1.05 var(--display); letter-spacing: 0; }
 .detail-row.yours .detail-val { color: var(--coral); }
 .detail-row.yours .detail-val span { border-bottom: 3px dashed var(--coral); padding-bottom: 2px; }
 .detail-heard { display: grid; gap: 10px; padding-left: clamp(14px, 2.4vw, 28px); border-left: 2px solid var(--rule); }
@@ -7032,7 +7005,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
 .detail-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
 .detail-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.detail-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.detail-lands-h { font-weight: 800; font-size: clamp(28px, 3.78vw, 50px); line-height: 1.04; max-width: 18ch; margin-inline: auto; }
 .detail-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
 .detail-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
 .detail-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
@@ -7083,7 +7056,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Three things it leaves to the owner, each on a tree air freshener hanging from its string. */
 .detail-keys { margin-top: clamp(64px, 8vw, 108px); }
-.detail-keys-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.detail-keys-h { font-weight: 800; font-size: clamp(26px, 3.1vw, 40px); line-height: 1.04; }
 .detail-trees { margin-top: 70px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.4vw, 30px); align-items: start; justify-items: center; }
 .detail-tree-wrap { width: min(330px, 100%); transform-origin: 50% -46px; }
 .detail-tree-wrap:nth-child(1) { transform: rotate(-2.2deg); } .detail-tree-wrap:nth-child(2) { transform: rotate(1.4deg); margin-top: 16px; } .detail-tree-wrap:nth-child(3) { transform: rotate(-1deg); margin-top: 4px; }
@@ -7096,7 +7069,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-tree-shape .cord { fill: none; stroke: var(--fg-2); stroke-width: 2.2; stroke-linecap: round; }
 .detail-tree-txt { position: absolute; inset: 0; text-align: center; }
 .detail-tree-txt .detail-tree-no { position: absolute; left: 0; right: 0; top: 17.5%; font: 500 3.3cqw/1.4 var(--mono); letter-spacing: .16em; text-transform: uppercase; opacity: .86; }
-.detail-tree-txt h4 { position: absolute; left: 50%; top: 28.5%; height: 21.5%; width: 54%; margin: 0 0 0 -27%; display: grid; place-items: center; font: 900 8.8cqw/.94 var(--display); text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.detail-tree-txt h4 { position: absolute; left: 50%; top: 28.5%; height: 21.5%; width: 54%; margin: 0 0 0 -27%; display: grid; place-items: center; font: 900 8.8cqw/.94 var(--display); letter-spacing: 0; text-wrap: balance; }
 .detail-tree-txt .detail-tree-what { position: absolute; left: 50%; top: 54.5%; height: 34%; width: 62%; margin-left: -31%; display: grid; place-items: start center; font: 500 4.85cqw/1.42 var(--body); text-wrap: pretty; }
 .detail-keys-foot { margin-top: 34px; font: 600 17px/1.4 var(--body); }
 
@@ -7114,7 +7087,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* ── 4 · Searched (license plates) and asked (stickers on a windshield) ── */
 .detail-find .detail-h2 { max-width: 15ch; }
 .detail-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.detail-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.detail-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: clamp(21px, 2.41vw, 29px); line-height: 1.04; }
 .detail-qa-h .detail-ic, .detail-qa-h .detail-wave { color: var(--coral); }
 .detail-qa-h .detail-ic { font-size: .8em; stroke-width: 2.6; }
 .detail-qa-h .detail-wave { height: .7em; }
@@ -7123,7 +7096,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-plate::before, .detail-plate::after { content: ""; position: absolute; top: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--fg-3); }
 .detail-plate::before { left: 12px; } .detail-plate::after { right: 12px; }
 .detail-plate-tag { font: 500 10px/1.4 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--coral); }
-.detail-plate-num { font: 900 clamp(21px, 2.3vw, 28px)/.98 var(--display); text-transform: uppercase; letter-spacing: .04em; text-wrap: balance; min-height: 2em; display: grid; align-items: center; }
+.detail-plate-num { font: 900 clamp(21px, 2.3vw, 28px)/.98 var(--display); letter-spacing: 0; text-wrap: balance; min-height: 2em; display: grid; align-items: center; }
 .detail-src { margin-top: 14px; }
 .detail-answers { margin-top: 26px; display: grid; gap: 10px; color: var(--fg-2); font-size: 16px; }
 .detail-answers .detail-answers-lead { font: 600 clamp(18px, 1.8vw, 21px)/1.4 var(--body); color: var(--fg); }
@@ -7268,11 +7241,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .pw-shell-hero { padding-block: clamp(36px, 5vw, 72px) clamp(88px, 11vw, 140px); }
 .pw-coral { color: var(--accent-2); }
-.pw-page h1, .pw-page h2, .pw-page h3, .pw-page h4 { font-family: var(--display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+.pw-page h1, .pw-page h2, .pw-page h3, .pw-page h4 { font-family: var(--display); margin: 0; text-wrap: balance; }
 .pw-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
 .pw-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
 .pw-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
-.pw-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.pw-h2 { font-weight: 800; font-size: clamp(33px, 5.5vw, 69px); line-height: 1.04; }
 .pw-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
 .pw-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
 
@@ -7302,15 +7275,15 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* ── 1 · Hero ── */
 .pw-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .95fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
-.pw-h1 { font-weight: 900; font-size: clamp(50px, 8.6vw, 110px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.pw-h1 { font-weight: 800; font-size: clamp(43px, 7.4vw, 95px); line-height: 1.04; letter-spacing: -0.01em; margin-top: 14px; }
 .pw-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
 .pw-hero .pw-lede { margin-top: 14px; }
 .pw-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
 .pw-onjob { display: grid; justify-items: center; gap: 18px; }
-.pw-onjob-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.pw-onjob-h { font-weight: 800; font-size: clamp(26px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .pw-job { width: min(460px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
 .pw-job-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
-.pw-job-head b { font: 900 26px/1 var(--display); text-transform: uppercase; }
+.pw-job-head b { font: 900 26px/1 var(--display); }
 .pw-scene { display: block; width: 100%; height: auto; margin-top: 10px; overflow: visible; }
 .pw-scene .wall { fill: var(--wall); stroke: var(--rule-strong); stroke-width: 1.5; }
 .pw-scene .trim { stroke: var(--rule-strong); stroke-width: 2; }
@@ -7363,7 +7336,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-onjob .pw-then b { color: var(--fg); }
 
 /* ── 2 · The receptionist on a wash call: the call itself, as a thread, with what the AI notes ── */
-.pw-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--coral); }
+.pw-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: 0; color: var(--coral); }
 .pw-now .pw-wave { height: 22px; }
 .pw-oncall { margin-top: clamp(44px, 6vw, 72px); width: min(840px, 100%); margin-inline: auto; display: grid; gap: 4px; }
 .pw-oncall-bar { display: flex; align-items: center; gap: 12px; background: var(--fg); color: var(--bg); border-radius: 10px 10px 4px 4px; padding: 12px 18px; font: 600 14px/1 var(--body); }
@@ -7398,7 +7371,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-noted.yours { background: transparent; border-left-style: dashed; color: var(--coral); }
 .pw-noted.yours .pw-noted-k { color: var(--fg-3); }
 .pw-handoff { margin-top: 10px; background: var(--paper); border: 1px solid var(--rule); border-top: 3px solid var(--coral); border-radius: 4px 4px 10px 10px; padding: 20px clamp(16px, 3vw, 26px) 22px; }
-.pw-handoff-h { font: 800 clamp(19px, 2.2vw, 25px)/1.1 var(--display); text-transform: uppercase; }
+.pw-handoff-h { font: 800 clamp(19px, 2.2vw, 25px)/1.1 var(--display); }
 .pw-handoff-chips { margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .pw-hchip { display: grid; gap: 4px; align-content: start; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); font: 700 15px/1.2 var(--body); }
 .pw-hchip-k { font: 500 9.5px/1.3 var(--mono); letter-spacing: .13em; text-transform: uppercase; color: var(--fg-3); }
@@ -7413,7 +7386,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
 .pw-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
 .pw-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.pw-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.pw-lands-h { font-weight: 800; font-size: clamp(28px, 3.78vw, 50px); line-height: 1.04; max-width: 18ch; margin-inline: auto; }
 .pw-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
 .pw-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
 .pw-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
@@ -7463,7 +7436,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Three things it never touches, each on a colour-coded nozzle tip. */
 .pw-keeps { margin-top: clamp(64px, 8vw, 108px); }
-.pw-keeps-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.pw-keeps-h { font-weight: 800; font-size: clamp(26px, 3.1vw, 40px); line-height: 1.04; }
 .pw-nozzles { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(20px, 3vw, 40px); align-items: start; }
 .pw-nozzle { display: grid; gap: 14px; justify-items: center; text-align: center; }
 .pw-tipsvg { width: 96px; height: auto; overflow: visible; filter: drop-shadow(0 14px 12px rgba(20,18,12,.28)); }
@@ -7480,7 +7453,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-tipsvg .nholder { fill: var(--metal); }
 .pw-tipsvg .nstem { fill: #14120c; }
 .pw-no { font: 500 10.5px/1.4 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--coral); }
-.pw-nozzle h4 { margin: 0; font: 900 clamp(24px, 2.7vw, 32px)/.95 var(--display); text-transform: uppercase; }
+.pw-nozzle h4 { margin: 0; font: 900 clamp(24px, 2.7vw, 32px)/.95 var(--display); }
 .pw-nozzle .pw-what { color: var(--fg-2); font-size: 15.5px; line-height: 1.5; max-width: 30ch; }
 .pw-keeps-foot { margin-top: 30px; font: 600 17px/1.4 var(--body); }
 
@@ -7498,7 +7471,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* ── 4 · Searched (search bars washed into the grime) and asked (door hangers) ── */
 .pw-find .pw-h2 { max-width: 15ch; }
 .pw-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.pw-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.pw-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: clamp(21px, 2.41vw, 29px); line-height: 1.04; }
 .pw-qa-h .pw-ic, .pw-qa-h .pw-wave { color: var(--coral); }
 .pw-qa-h .pw-ic { font-size: .8em; stroke-width: 2.6; }
 .pw-qa-h .pw-wave { height: .7em; }
@@ -7551,7 +7524,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-gauge .needle.lost { stroke: var(--fg); stroke-width: 6; }
 .pw-gauge .needle.won { stroke: var(--coral); stroke-width: 4; }
 @media (prefers-reduced-motion: no-preference) { .pw-gauge .needle { transition: transform 1.1s cubic-bezier(.3, 1.4, .4, 1); } }
-.pw-gauge .unit { font: 800 15px var(--display); letter-spacing: .08em; fill: var(--fg-3); text-anchor: middle; }
+.pw-gauge .unit { font: 800 15px var(--display); letter-spacing: 0; fill: var(--fg-3); text-anchor: middle; }
 .pw-gauge-key { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; font: 600 13.5px/1.4 var(--body); color: var(--fg-2); }
 .pw-gauge-key i { display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: 3px; margin-right: 7px; }
 .pw-gauge-key .k-lost i { background: var(--fg); }
@@ -7656,11 +7629,11 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .rf-shell-hero { padding-block: clamp(36px, 5vw, 72px) clamp(88px, 11vw, 140px); }
 .rf-coral { color: var(--accent-2); }
-.rf-page h1, .rf-page h2, .rf-page h3, .rf-page h4 { font-family: var(--display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+.rf-page h1, .rf-page h2, .rf-page h3, .rf-page h4 { font-family: var(--display); margin: 0; text-wrap: balance; }
 .rf-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
 .rf-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
 .rf-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
-.rf-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.rf-h2 { font-weight: 800; font-size: clamp(33px, 5.5vw, 69px); line-height: 1.04; }
 .rf-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
 .rf-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
 
@@ -7687,15 +7660,15 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* ── 1 · Hero: the claim left; a roof shingled course by course, and the call that came mid-job ── */
 .rf-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .95fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
-.rf-h1 { font-weight: 900; font-size: clamp(50px, 9vw, 116px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.rf-h1 { font-weight: 800; font-size: clamp(43px, 7.74vw, 100px); line-height: 1.04; letter-spacing: -0.01em; margin-top: 14px; }
 .rf-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
 .rf-hero .rf-lede { margin-top: 14px; }
 .rf-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
 .rf-onjob { display: grid; justify-items: center; gap: 18px; }
-.rf-onjob-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.rf-onjob-h { font-weight: 800; font-size: clamp(26px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .rf-job { width: min(460px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
 .rf-job-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
-.rf-job-head b { font: 900 26px/1 var(--display); text-transform: uppercase; }
+.rf-job-head b { font: 900 26px/1 var(--display); }
 .rf-scene { display: block; width: 100%; height: auto; margin-top: 10px; overflow: visible; }
 .rf-scene .ground { stroke: var(--rule-strong); stroke-width: 2; }
 .rf-scene .wall { fill: var(--wall); stroke: var(--rule-strong); stroke-width: 1.5; }
@@ -7738,7 +7711,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .rf-onjob .rf-then b { color: var(--fg); }
 
 /* ── 2 · The receptionist on a roofing call: it checks for water first, and the call forks ── */
-.rf-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--coral); }
+.rf-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: 0; color: var(--coral); }
 .rf-now .rf-wave { height: 22px; }
 .rf-triage { margin-top: clamp(52px, 7vw, 84px); display: grid; grid-template-columns: minmax(0, .9fr) 44px minmax(0, 1fr) 64px minmax(0, 1.25fr); align-items: center; }
 .rf-tri-who { font: 500 10px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); }
@@ -7762,7 +7735,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 @keyframes rf-flow { to { stroke-dashoffset: -32; } }
 .rf-tri-out { display: grid; gap: 18px; }
 .rf-lane { border-radius: 12px; padding: 16px 18px; display: grid; gap: 10px; }
-.rf-lane-k { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 800 17px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; }
+.rf-lane-k { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 800 17px/1 var(--display); letter-spacing: 0; }
 .rf-lane.yes { background: var(--paper); border: 2px solid var(--coral); box-shadow: 0 0 0 6px var(--glow), 0 26px 40px -30px var(--shadow); }
 .rf-lane.yes .rf-lane-k { color: var(--coral); }
 .rf-lane.no { border: 1.5px dashed var(--rule-strong); background: transparent; opacity: .72; }
@@ -7781,7 +7754,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .rf-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
 .rf-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
 .rf-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.rf-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.rf-lands-h { font-weight: 800; font-size: clamp(28px, 3.78vw, 50px); line-height: 1.04; max-width: 18ch; margin-inline: auto; }
 .rf-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
 .rf-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
 .rf-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
@@ -7832,7 +7805,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Three things it never nails down, each on an asphalt shingle, laid in a course. */
 .rf-keeps { margin-top: clamp(64px, 8vw, 108px); }
-.rf-keeps-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.rf-keeps-h { font-weight: 800; font-size: clamp(26px, 3.1vw, 40px); line-height: 1.04; }
 .rf-course { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; align-items: stretch; padding-bottom: 14px; }
 .rf-tab { position: relative; color: #f4ecd8; padding: 34px clamp(16px, 2.4vw, 26px) 26px; display: grid; gap: 10px; align-content: start; text-align: center; border-radius: 3px 3px 5px 5px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.28), 0 18px 24px -18px rgba(20,18,12,.55);
   background-image: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.4px), radial-gradient(rgba(0,0,0,.22) 1px, transparent 1.4px); background-size: 7px 7px, 9px 9px; background-position: 0 0, 3px 4px; }
@@ -7842,7 +7815,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .rf-tab::before, .rf-tab::after { content: ""; position: absolute; top: 12px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #d9d4c6, #7d776a 70%); box-shadow: 0 1px 0 rgba(0,0,0,.5); }
 .rf-tab::before { left: 22%; } .rf-tab::after { right: 22%; }
 .rf-tab .rf-no { font: 500 10.5px/1.4 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: #ff9a74; }
-.rf-tab h4 { margin: 0; font: 900 clamp(24px, 2.7vw, 32px)/.95 var(--display); text-transform: uppercase; color: inherit; text-wrap: wrap; }
+.rf-tab h4 { margin: 0; font: 900 clamp(24px, 2.7vw, 32px)/.95 var(--display); color: inherit; text-wrap: wrap; }
 .rf-tab .rf-what { color: rgba(244,236,216,.86); font-size: 15px; line-height: 1.5; }
 .rf-keeps-foot { margin-top: 30px; font: 600 17px/1.4 var(--body); }
 
@@ -7860,7 +7833,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* ── 4 · Searched (each phrase, with its volume in shingles) and asked (plates on a ladder) ── */
 .rf-find .rf-h2 { max-width: 15ch; }
 .rf-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.rf-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.rf-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: clamp(21px, 2.41vw, 29px); line-height: 1.04; }
 .rf-qa-h .rf-ic, .rf-qa-h .rf-wave { color: var(--coral); }
 .rf-qa-h .rf-ic { font-size: .8em; stroke-width: 2.6; }
 .rf-qa-h .rf-wave { height: .7em; }
@@ -7970,7 +7943,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .rf-ladder { padding: 22px 0 24px; gap: 20px; }
   .rf-dials { grid-template-columns: minmax(0, 1fr); }
   .rf-dial + .rf-dial { border-left: 0; border-top: 1px solid var(--rule); }
-  .rf-amt { font-size: 30px; }
+  .rf-amt { font-size: 23px; }
   /* Left off a phone. */
   .rf-m-cut { display: none !important; }
 }

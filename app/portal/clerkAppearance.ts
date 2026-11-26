@@ -15,7 +15,7 @@
  *   provider's appearance, not the button's. Per-button, that modal would have stayed on a
  *   third palette under a cream popover.
  * - `clerkAuthAppearance` goes on `<SignIn/>` and `<SignUp/>`. The card itself: the lockup,
- *   the full-width Google button, Big Shoulders title, the coral Continue button. Clerk applies
+ *   the full-width Google button, the display title, the coral Continue button. Clerk applies
  *   the provider's appearance first and the component's on top.
  *
  * WHY LITERAL HEX AND NOT `var(--token)`. Two reasons, either one enough:
@@ -133,7 +133,7 @@ type ClerkProviderAppearance = ClerkTheme & { cssLayerName?: string };
  *   success  on card                      4.95
  *   warning  on card                      5.82
  *   onCoral  on coral                     4.08  LARGE TEXT ONLY (>= 18.66px bold). Clerk's
- *            primary button label here is Big Shoulders 20px 800, so it clears the 3:1 floor.
+ *            primary button label here is Plus Jakarta Sans 19px 800, so it clears the 3:1 floor.
  *            Anything smaller on coral uses `coralDeep` (5.31) instead.
  *   onCoral  on coralDeep                 5.31
  * `--fg-3` (#7a715a) is deliberately absent: 4.11:1 on cream, which fails AA for the 11-13px
@@ -228,9 +228,9 @@ export const clerkAppearance = {
         borderRadius: "6px",
         // The agency body face (`--font-body` in `:root`), named by its next/font variable rather
         // than `var(--font-body)`: `.portal-scope` redefines `--font-body`, and the UserButton
-        // trigger sits inside it. Hanken is loaded at 400-600, so a 700 renders at 600.
-        fontFamily: "var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif",
-        fontFamilyButtons: "var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif",
+        // trigger sits inside it. Plus Jakarta Sans since 2026-11-26 (was Hanken Grotesk).
+        fontFamily: "var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif",
+        fontFamilyButtons: "var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif",
     },
     elements: {
         // ── The account popover (ClerkMenu mockup) ──────────────────────────────────────────
@@ -281,9 +281,9 @@ export const clerkAuthAppearance = {
         // 150px wide at the lockup's 10:3.
         logoBox: "hidden lg:flex h-[45px] justify-center",
         logoImage: "h-[45px] w-auto",
-        // Big Shoulders 900, uppercase: the agency's display voice. Ink on card, 18.39:1.
+        // Plus Jakarta Sans 800, as written: the agency's display voice. Ink on card, 18.39:1.
         headerTitle:
-            "[font-family:var(--font-display)] font-black uppercase text-[28px] lg:text-[32px] leading-none tracking-normal text-[var(--clerk-fg)]",
+            "[font-family:var(--font-display)] font-extrabold text-[26px] lg:text-[28px] leading-[1.08] tracking-[-0.02em] text-[var(--clerk-fg)]",
         // 10.27:1 on the card.
         headerSubtitle: "text-[13.5px] text-[var(--clerk-fg2)]",
         socialButtonsBlockButton:
@@ -302,11 +302,11 @@ export const clerkAuthAppearance = {
         // an edge that clears 3:1 (0.5 ink on white, 3.52:1). Focus: coral edge plus coral ring.
         formFieldInput:
             "h-12 max-h-none lg:h-[46px] px-3 !text-[16px] lg:!text-[14.5px] !bg-[var(--clerk-input)] !text-[var(--clerk-fg)] !shadow-[0_0_0_1px_var(--clerk-border)] focus:!shadow-[0_0_0_1px_var(--clerk-coral),0_0_0_4px_rgba(210,84,47,0.25)]",
-        // The agency's `.btn.primary`: Big Shoulders 800, uppercase, coral. The label is cream on
+        // The agency's `.btn.primary`: Plus Jakarta Sans 800, coral. The label is cream on
         // coral at 4.08:1, which passes only as large text, so the size must stay >= 18.66px
         // bold. 20px (21px on phones) is the mockup's. Hover darkens to 5.31:1.
         formButtonPrimary:
-            "h-[50px] lg:h-12 rounded-[6px] bg-[var(--clerk-coral)] hover:bg-[var(--clerk-coral-deep)] text-[var(--clerk-on-coral)] [font-family:var(--font-display)] font-extrabold text-[21px] lg:text-[20px] tracking-[0.04em] uppercase shadow-[0_8px_20px_-8px_rgba(210,84,47,0.55)] after:hidden",
+            "h-[50px] lg:h-12 rounded-[6px] bg-[var(--clerk-coral)] hover:bg-[var(--clerk-coral-deep)] text-[var(--clerk-on-coral)] [font-family:var(--font-display)] font-extrabold text-[19px] tracking-normal shadow-[0_8px_20px_-8px_rgba(210,84,47,0.55)] after:hidden",
         // The sand strip under the card: "Don't have an account? Sign up", "Secured by Clerk".
         footer: "bg-none bg-transparent lg:bg-[var(--clerk-panel-header)] border-t-0 lg:border-t lg:border-[var(--clerk-rule)]",
         // 8.42:1 on the sand.
