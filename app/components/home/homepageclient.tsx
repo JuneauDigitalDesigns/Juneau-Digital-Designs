@@ -7,6 +7,7 @@ import FindOut from "./FindOut";
 import HeroForm from "./HeroForm";
 import HomeIcon, { RingArcs, Wave, type HomeIconName } from "./HomeIcon";
 import LeadLands from "./LeadLands";
+import TheLoop from "./TheLoop";
 import YearCalculator from "./YearCalculator";
 import { SCHEDULES } from "@/app/lib/legal/schedules";
 import { EVERY_PLAN } from "@/app/data/every-plan";
@@ -21,7 +22,8 @@ import { DEMO_TEL, DEMO_TEL_DISPLAY } from "@/app/data/demo-line";
  * here may be reworded, reordered or restyled without a fresh approval. `test/homepage.test.mjs`
  * pins the sentences.
  *
- * Order is the argument. The claim, with the form beside it. What customers are trying to find
+ * Order is the argument. The claim, with the form beside it. The short version, as a loop (added
+ * 26 Nov 2026: website, receptionist, customers, reviews, and back round). What customers are trying to find
  * out, which frames both halves of the product: the searches lead into the website, the questions
  * into the receptionist. The website, in six points. The receptionist, then what it will never do.
  * Where the lead lands. What missed calls cost. Client sites. What every plan gets, and the ask.
@@ -58,11 +60,9 @@ function Hero() {
                     <h1 className="hp-h1">
                         Website design and AI receptionist for <span className="hp-h1-em">local service businesses.</span>
                     </h1>
-                    {/* Xander's three beats, approved word for word on 19 Nov 2026 (draft A): the website,
-                        the receptionist in voicemail's place, the one place leads land. */}
-                    <p className="hp-hero-p">
-                        We build you a website that gets you found and noticed. Then we go a step further and replace your voicemail with a 24/7 receptionist. Every lead lands in one place.
-                    </p>
+                    {/* The paragraph that sat here (19 Nov 2026, draft A) left the hero on 26 Nov 2026: its
+                        job is now `TheLoop`, straight after. The trades line is the one line under the
+                        headline, a size up (Xander, round 3 of https://claude.ai/artifact/Hviy8YQTmrbpbZ4o5XsKTu). */}
                     {/* Each trade becomes a link once its own page is live (HVAC, then plumbing, 19 Nov 2026;
                         lawn care, 20 Nov 2026; auto detailing, pressure washing and roofing, 25 Nov 2026). Every
                         trade on the line now has its page. "pressure washing" and "auto detailing" are Xander's exact
@@ -425,6 +425,7 @@ export default function HomePageClient({ featuredSites = [] }: { featuredSites?:
     return (
         <div className="hp-page">
             <Hero />
+            <TheLoop />
             <FindOut />
             <WebsiteSection />
             <ReceptionistSection />
