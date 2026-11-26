@@ -1040,11 +1040,10 @@ select option {
   padding: clamp(72px, 9vw, 160px) clamp(18px, 4vw, 56px);
 }
 .home-display {
-  font-size: clamp(40px, 6.6vw, 100px);
+  font-size: clamp(34px, 5.68vw, 86px);
   font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: 0.005em;
-  text-transform: uppercase;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
   text-wrap: balance;
   max-width: 13ch;
 }
@@ -1120,9 +1119,8 @@ select option {
 .faq-h1 {
   margin-top: 10px;
   text-align: center;
-  text-transform: uppercase;
-  font-size: clamp(44px, 8vw, 96px);
-  line-height: 0.92;
+  font-size: clamp(38px, 6.88vw, 83px);
+  line-height: 1.04;
 }
 .faq-group { margin-top: clamp(40px, 5vw, 72px); }
 .faq-group-label {
@@ -1146,9 +1144,8 @@ select option {
 }
 .faq-entry-q {
   font-weight: 700;
-  font-size: clamp(18px, 1.9vw, 22px);
+  font-size: clamp(18px, 1.63vw, 22px);
   line-height: 1.15;
-  text-transform: uppercase;
   margin-bottom: 10px;
 }
 .faq-entry-a {
@@ -2588,10 +2585,9 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .pricing-h1 {
   margin: 0;
-  font-size: clamp(48px, 5.4vw, 92px);
-  line-height: 0.9;
-  letter-spacing: 0.005em;
-  text-transform: uppercase;
+  font-size: clamp(41px, 4.64vw, 79px);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
   text-wrap: balance;
   overflow-wrap: break-word;
 }
@@ -2844,9 +2840,8 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pricing-faq-h {
   margin: 0;
   text-align: center;
-  text-transform: uppercase;
-  font-size: clamp(40px, 6vw, 96px);
-  line-height: 0.9;
+  font-size: clamp(34px, 5.16vw, 83px);
+  line-height: 1.04;
 }
 .pricing-acc { max-width: 900px; margin: 0 auto; border-bottom: 1px solid var(--rule); }
 .pricing-qa { border-top: 1px solid var(--rule); scroll-margin-top: 96px; }
@@ -2910,7 +2905,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* A phone: centred header, titles only, one plan at a time behind the pills. */
 @media (max-width: 859px) {
   .pricing-copy { text-align: center; }
-  .pricing-h1 { margin-inline: auto; font-size: clamp(44px, 14vw, 64px); }
+  .pricing-h1 { margin-inline: auto; font-size: clamp(38px, 12.04vw, 55px); }
   .pricing-rule { margin: 24px auto; }
   .pricing-points { display: block; text-align: left; }
   .pricing-point { grid-template-columns: 36px 1fr; align-items: center; padding: 12px 0; }
@@ -3064,18 +3059,16 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 .about-coral { color: var(--accent-2); }
 .about-h1 {
-  font-size: clamp(60px, 12.5vw, 148px);
-  line-height: 0.86;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.005em;
+  font-size: clamp(52px, 10.75vw, 127px);
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   text-wrap: balance;
 }
 .about-h2 {
-  font-size: clamp(40px, 7vw, 84px);
-  line-height: 0.9;
-  font-weight: 900;
-  text-transform: uppercase;
+  font-size: clamp(34px, 6.02vw, 72px);
+  line-height: 1.04;
+  font-weight: 800;
   text-wrap: balance;
 }
 .about-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
@@ -3276,7 +3269,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   text-transform: uppercase;
   color: var(--accent-2);
 }
-.about-tl-what { font-size: 25px; font-weight: 800; line-height: 1; margin: 6px 0; text-transform: uppercase; }
+.about-tl-what { font-size: 22px; font-weight: 800; line-height: 1; margin: 6px 0; }
 .about-tl-detail { color: var(--fg-2); font-size: 16px; }
 
 /* 4 · Ledger. Two columns of meaning: what I learned, and what your site gets. */
@@ -3313,7 +3306,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   line-height: 1;
   color: var(--accent-2);
 }
-.about-row-h { font-size: 27px; font-weight: 800; line-height: 1; margin-bottom: 8px; text-transform: uppercase; }
+.about-row-h { font-size: 23px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
 .about-row-site {
   background: var(--elev-1);
   border-radius: 3px;
@@ -3333,7 +3326,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 }
 
 /* 5 · Close. */
-.about-close-h { font-size: clamp(48px, 9vw, 112px); }
+.about-close-h { font-size: clamp(41px, 7.74vw, 96px); }
 .about-close-copy { font-size: clamp(18px, 1.7vw, 21px); color: var(--fg-2); max-width: 44ch; }
 .about-ask { margin-top: clamp(40px, 5vw, 64px); }
 
@@ -3767,7 +3760,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-legend p { font-size: 16px; color: var(--fg-2); }
 
 /* 4 · What customers are trying to find out: what they search, then what they ask on a call. */
-.hvac-find-h { max-width: 14ch; font-size: clamp(42px, 7.4vw, 96px); }
+.hvac-find-h { max-width: 14ch; font-size: clamp(36px, 6.36vw, 83px); }
 .hvac-find-h::after {
   content: "";
   display: block;
@@ -3940,7 +3933,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .hvac-src { margin-top: 18px; }
 
 /* 6 · Close. */
-.hvac-close-h { font-size: clamp(46px, 8.6vw, 108px); }
+.hvac-close-h { font-size: clamp(40px, 7.4vw, 93px); }
 .hvac-close .hvac-lede { max-width: 46ch; }
 .hvac-ask { margin-top: clamp(36px, 5vw, 56px); }
 
@@ -5654,7 +5647,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .plumb-wo-src { margin-top: 20px; text-align: center; }
 
 /* 6 · Close. */
-.plumb-close-h { font-size: clamp(44px, 8vw, 104px); }
+.plumb-close-h { font-size: clamp(38px, 6.88vw, 89px); }
 .plumb-ask { margin-top: clamp(36px, 5vw, 56px); }
 
 @media (max-width: 860px) {
@@ -6340,7 +6333,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .lawn-sum-src { margin-top: 22px; text-align: center; }
 
 /* ── 6 · Close ── */
-.lawn-close-h { font-size: clamp(44px, 8vw, 104px); }
+.lawn-close-h { font-size: clamp(38px, 6.88vw, 89px); }
 .lawn-ask { margin-top: clamp(36px, 5vw, 56px); }
 
 @media (max-width: 860px) {
@@ -6433,7 +6426,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-em { color: var(--accent-2); }
 .svc-ic { display: block; flex: none; width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .svc-eg { font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.5; letter-spacing: 0.12em; text-transform: uppercase; color: var(--fg-3); }
-.svc-h2 { font-weight: 800; font-size: clamp(36px, 5.6vw, 76px); line-height: 0.9; letter-spacing: 0.005em; }
+.svc-h2 { font-weight: 800; font-size: clamp(31px, 4.82vw, 65px); line-height: 1.04; letter-spacing: -0.01em; }
 .svc-lede { font-size: clamp(17px, 1.5vw, 20px); line-height: 1.6; color: var(--fg-2); max-width: 50ch; }
 .svc-head { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 18px clamp(28px, 5vw, 72px); align-items: end; }
 .svc-head > * { min-width: 0; }
@@ -6447,7 +6440,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .svc-hero-wide > * { width: 100%; }
 .svc-kicker { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 18px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; line-height: 1.4; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-2); }
 .svc-kicker::before { content: ""; width: 22px; height: 2px; background: var(--accent-2); }
-.svc-h1 { font-weight: 900; font-size: clamp(42px, 6.4vw, 96px); line-height: 0.88; letter-spacing: 0.005em; }
+.svc-h1 { font-weight: 800; font-size: clamp(36px, 5.5vw, 83px); line-height: 1.04; letter-spacing: -0.01em; }
 .svc-intro { margin-top: 24px; font-size: clamp(18px, 1.7vw, 22px); line-height: 1.5; color: var(--fg-2); max-width: 40ch; }
 .svc-acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 
@@ -6880,7 +6873,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
 .detail-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
 .detail-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
-.detail-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.detail-h2 { font-weight: 800; font-size: clamp(33px, 5.5vw, 69px); line-height: 1.04; }
 .detail-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
 .detail-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
 
@@ -6911,12 +6904,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* ── 1 · Hero: the claim left; a car going through a detail, and the call that came in mid-detail ── */
 .detail-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .9fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
-.detail-h1 { font-weight: 900; font-size: clamp(50px, 9vw, 116px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.detail-h1 { font-weight: 800; font-size: clamp(43px, 7.74vw, 100px); line-height: 1.04; letter-spacing: -0.01em; margin-top: 14px; }
 .detail-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
 .detail-hero .detail-lede { margin-top: 14px; }
 .detail-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
 .detail-inbay { display: grid; justify-items: center; gap: 18px; }
-.detail-inbay-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.detail-inbay-h { font-weight: 800; font-size: clamp(26px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .detail-bay { width: min(440px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
 .detail-bay-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
 .detail-bay-head b { font: 900 26px/1 var(--display); }
@@ -7012,7 +7005,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .detail-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
 .detail-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
 .detail-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.detail-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.detail-lands-h { font-weight: 800; font-size: clamp(28px, 3.78vw, 50px); line-height: 1.04; max-width: 18ch; margin-inline: auto; }
 .detail-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
 .detail-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
 .detail-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
@@ -7063,7 +7056,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Three things it leaves to the owner, each on a tree air freshener hanging from its string. */
 .detail-keys { margin-top: clamp(64px, 8vw, 108px); }
-.detail-keys-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.detail-keys-h { font-weight: 800; font-size: clamp(26px, 3.1vw, 40px); line-height: 1.04; }
 .detail-trees { margin-top: 70px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 2.4vw, 30px); align-items: start; justify-items: center; }
 .detail-tree-wrap { width: min(330px, 100%); transform-origin: 50% -46px; }
 .detail-tree-wrap:nth-child(1) { transform: rotate(-2.2deg); } .detail-tree-wrap:nth-child(2) { transform: rotate(1.4deg); margin-top: 16px; } .detail-tree-wrap:nth-child(3) { transform: rotate(-1deg); margin-top: 4px; }
@@ -7094,7 +7087,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* ── 4 · Searched (license plates) and asked (stickers on a windshield) ── */
 .detail-find .detail-h2 { max-width: 15ch; }
 .detail-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.detail-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.detail-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: clamp(21px, 2.41vw, 29px); line-height: 1.04; }
 .detail-qa-h .detail-ic, .detail-qa-h .detail-wave { color: var(--coral); }
 .detail-qa-h .detail-ic { font-size: .8em; stroke-width: 2.6; }
 .detail-qa-h .detail-wave { height: .7em; }
@@ -7252,7 +7245,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
 .pw-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
 .pw-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
-.pw-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.pw-h2 { font-weight: 800; font-size: clamp(33px, 5.5vw, 69px); line-height: 1.04; }
 .pw-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
 .pw-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
 
@@ -7282,12 +7275,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* ── 1 · Hero ── */
 .pw-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .95fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
-.pw-h1 { font-weight: 900; font-size: clamp(50px, 8.6vw, 110px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.pw-h1 { font-weight: 800; font-size: clamp(43px, 7.4vw, 95px); line-height: 1.04; letter-spacing: -0.01em; margin-top: 14px; }
 .pw-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
 .pw-hero .pw-lede { margin-top: 14px; }
 .pw-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
 .pw-onjob { display: grid; justify-items: center; gap: 18px; }
-.pw-onjob-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.pw-onjob-h { font-weight: 800; font-size: clamp(26px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .pw-job { width: min(460px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
 .pw-job-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
 .pw-job-head b { font: 900 26px/1 var(--display); }
@@ -7393,7 +7386,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .pw-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
 .pw-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
 .pw-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.pw-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.pw-lands-h { font-weight: 800; font-size: clamp(28px, 3.78vw, 50px); line-height: 1.04; max-width: 18ch; margin-inline: auto; }
 .pw-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
 .pw-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
 .pw-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
@@ -7443,7 +7436,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Three things it never touches, each on a colour-coded nozzle tip. */
 .pw-keeps { margin-top: clamp(64px, 8vw, 108px); }
-.pw-keeps-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.pw-keeps-h { font-weight: 800; font-size: clamp(26px, 3.1vw, 40px); line-height: 1.04; }
 .pw-nozzles { margin-top: 44px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(20px, 3vw, 40px); align-items: start; }
 .pw-nozzle { display: grid; gap: 14px; justify-items: center; text-align: center; }
 .pw-tipsvg { width: 96px; height: auto; overflow: visible; filter: drop-shadow(0 14px 12px rgba(20,18,12,.28)); }
@@ -7478,7 +7471,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* ── 4 · Searched (search bars washed into the grime) and asked (door hangers) ── */
 .pw-find .pw-h2 { max-width: 15ch; }
 .pw-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.pw-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.pw-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: clamp(21px, 2.41vw, 29px); line-height: 1.04; }
 .pw-qa-h .pw-ic, .pw-qa-h .pw-wave { color: var(--coral); }
 .pw-qa-h .pw-ic { font-size: .8em; stroke-width: 2.6; }
 .pw-qa-h .pw-wave { height: .7em; }
@@ -7640,7 +7633,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .rf-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
 .rf-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
 .rf-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
-.rf-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.rf-h2 { font-weight: 800; font-size: clamp(33px, 5.5vw, 69px); line-height: 1.04; }
 .rf-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
 .rf-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
 
@@ -7667,12 +7660,12 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* ── 1 · Hero: the claim left; a roof shingled course by course, and the call that came mid-job ── */
 .rf-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .95fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
-.rf-h1 { font-weight: 900; font-size: clamp(50px, 9vw, 116px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.rf-h1 { font-weight: 800; font-size: clamp(43px, 7.74vw, 100px); line-height: 1.04; letter-spacing: -0.01em; margin-top: 14px; }
 .rf-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
 .rf-hero .rf-lede { margin-top: 14px; }
 .rf-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
 .rf-onjob { display: grid; justify-items: center; gap: 18px; }
-.rf-onjob-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.rf-onjob-h { font-weight: 800; font-size: clamp(26px, 2.92vw, 38px); line-height: 1.04; text-align: center; }
 .rf-job { width: min(460px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
 .rf-job-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
 .rf-job-head b { font: 900 26px/1 var(--display); }
@@ -7761,7 +7754,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 .rf-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
 .rf-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
 .rf-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
-.rf-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.rf-lands-h { font-weight: 800; font-size: clamp(28px, 3.78vw, 50px); line-height: 1.04; max-width: 18ch; margin-inline: auto; }
 .rf-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
 .rf-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
 .rf-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
@@ -7812,7 +7805,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 
 /* Three things it never nails down, each on an asphalt shingle, laid in a course. */
 .rf-keeps { margin-top: clamp(64px, 8vw, 108px); }
-.rf-keeps-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.rf-keeps-h { font-weight: 800; font-size: clamp(26px, 3.1vw, 40px); line-height: 1.04; }
 .rf-course { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; align-items: stretch; padding-bottom: 14px; }
 .rf-tab { position: relative; color: #f4ecd8; padding: 34px clamp(16px, 2.4vw, 26px) 26px; display: grid; gap: 10px; align-content: start; text-align: center; border-radius: 3px 3px 5px 5px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.28), 0 18px 24px -18px rgba(20,18,12,.55);
   background-image: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.4px), radial-gradient(rgba(0,0,0,.22) 1px, transparent 1.4px); background-size: 7px 7px, 9px 9px; background-position: 0 0, 3px 4px; }
@@ -7840,7 +7833,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* ── 4 · Searched (each phrase, with its volume in shingles) and asked (plates on a ladder) ── */
 .rf-find .rf-h2 { max-width: 15ch; }
 .rf-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
-.rf-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.rf-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: clamp(21px, 2.41vw, 29px); line-height: 1.04; }
 .rf-qa-h .rf-ic, .rf-qa-h .rf-wave { color: var(--coral); }
 .rf-qa-h .rf-ic { font-size: .8em; stroke-width: 2.6; }
 .rf-qa-h .rf-wave { height: .7em; }
