@@ -7078,7 +7078,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* Beat the site-wide input override (background/border/colour !important) with higher specificity. */
 .detail-page .detail-dash .detail-blank input.detail-blank-in.detail-blank-in.detail-blank-in {
   background: transparent !important; border: 0 !important; color: inherit !important;
-  font: inherit; padding: 0; text-align: center; -moz-appearance: textfield; appearance: textfield;
+  font: inherit; font-size: inherit !important; padding: 0; text-align: center; -moz-appearance: textfield; appearance: textfield;
 }
 .detail-page .detail-dash .detail-blank input::-webkit-outer-spin-button,
 .detail-page .detail-dash .detail-blank input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -7120,7 +7120,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .detail-trees { gap: 62px; margin-top: 62px; }
   .detail-tree-wrap { width: min(286px, 100%); }
   .detail-land { padding-bottom: 0; }
-  .detail-fone { position: relative; right: auto; margin: -14px 6px 0 auto; }
+  .detail-fone { position: relative; right: auto; margin: -14px 40px 0 auto; }
   .detail-land-cap { margin-top: -6px; }
   .detail-keys-foot { text-align: center; }
   .detail-phones { grid-template-columns: minmax(0, 1fr); gap: 44px; }
@@ -7460,7 +7460,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
 /* Beat the site-wide input override (background/border/colour !important) with higher specificity. */
 .pw-page .pw-sum .pw-blank input.pw-blank-in.pw-blank-in.pw-blank-in {
   background: transparent !important; border: 0 !important; color: inherit !important;
-  font: inherit; padding: 0; text-align: center; -moz-appearance: textfield; appearance: textfield;
+  font: inherit; font-size: inherit !important; padding: 0; text-align: center; -moz-appearance: textfield; appearance: textfield;
 }
 .pw-page .pw-sum .pw-blank input::-webkit-outer-spin-button,
 .pw-page .pw-sum .pw-blank input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -7503,7 +7503,7 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   .pw-handoff-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pw-irow time { margin-left: 0; flex-basis: 100%; order: 3; }
   .pw-land { padding-bottom: 0; }
-  .pw-fone { position: relative; right: auto; margin: -14px 6px 0 auto; }
+  .pw-fone { position: relative; right: auto; margin: -14px 40px 0 auto; }
   .pw-land-cap { margin-top: -6px; }
   .pw-nozzles { gap: 40px; margin-top: 34px; }
   .pw-keeps-foot { text-align: center; }
