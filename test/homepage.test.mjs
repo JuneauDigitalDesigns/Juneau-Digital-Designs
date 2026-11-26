@@ -37,6 +37,7 @@ const findOut = read("app/components/home/FindOut.tsx");
 const lands = read("app/components/home/LeadLands.tsx");
 const calc = read("app/components/home/YearCalculator.tsx");
 const hero = read("app/components/home/HeroForm.tsx");
+const loop = read("app/components/home/TheLoop.tsx");
 const css = read("app/globals.css");
 
 /** Source text with JSX escapes resolved and whitespace collapsed, so a sentence matches as written. */
@@ -61,20 +62,21 @@ function headings(src) {
 }
 
 test("the page runs in the approved order", () => {
-    const order = ["<Hero />", "<FindOut />", "<WebsiteSection />", "<ReceptionistSection />", "<LeadLands />", "<YearCalculator />", "<FeaturedSites", "<ClosingSection />"];
+    const order = ["<Hero />", "<TheLoop />", "<FindOut />", "<WebsiteSection />", "<ReceptionistSection />", "<LeadLands />", "<YearCalculator />", "<FeaturedSites", "<ClosingSection />"];
     const at = order.map((tag) => home.indexOf(tag, home.indexOf("export default function HomePageClient")));
     for (const [i, n] of at.entries()) assert.ok(n > 0, `${order[i]} is missing`);
     assert.deepEqual([...at].sort((a, b) => a - b), at, "sections out of order");
 });
 
 test("every section heading keeps its exact words and its coral close", () => {
-    const all = [...headings(home), ...headings(findOut), ...headings(lands), ...headings(calc)];
+    const all = [...headings(home), ...headings(loop), ...headings(findOut), ...headings(lands), ...headings(calc)];
     for (const h of [
         "A website that makes the phone ring.",
         "Then someone picks up.",
         "What it will never do.",
         "What it does instead.",
         "Every plan starts here.",
+        "Every piece feeds the next.",
         "What your customers are trying to find out.",
         "What they're searching for",
         "What they're asking on calls",
@@ -88,6 +90,7 @@ test("every section heading keeps its exact words and its coral close", () => {
         [home, "never do."],
         [home, "starts here."],
         [home, "Run like a team."],
+        [loop, "feeds the next."],
         [findOut, "find out."],
         [lands, "nothing slips."],
         [calc, "missed calls"],
@@ -101,12 +104,15 @@ test("1 · the hero: the live words, and the form on the page", () => {
         [
             '<span>Get found.</span> <span>Get called.</span> <span className="home-em">Run like a team.</span>',
             'Website design and AI receptionist for <span className="hp-h1-em">local service businesses.</span>',
-            "We build you a website that gets you found and noticed. Then we go a step further and replace your voicemail with a 24/7 receptionist. Every lead lands in one place.",
             'Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, <Link href="/roofing" className="home-trade-link">roofing</Link>, <Link href="/lawn-care" className="home-trade-link">lawn care</Link>, <Link href="/pressure-washing" className="home-trade-link">pressure washing</Link> and <Link href="/auto-detailing" className="home-trade-link">auto detailing</Link> businesses.',
             "<HeroForm />",
         ],
         "the hero",
     );
+    // Xander, 26 Nov 2026: the paragraph leaves the hero, so the headline and the trades line fit on a
+    // phone. Its job is now the loop, straight after.
+    assert.doesNotMatch(home, /replace your voicemail with a 24\/7 receptionist/, "the paragraph is out of the hero");
+    assert.doesNotMatch(css, /\.hp-hero-p\b/);
     says(
         hero,
         [
@@ -122,6 +128,42 @@ test("1 · the hero: the live words, and the form on the page", () => {
     assert.match(hero, /markLeadSent\(business\)/);
     assert.match(hero, /router\.push\("\/contact\/thank-you"\)/);
     assert.doesNotMatch(hero, /autoFocus/, "a form on a page must not steal the cursor");
+});
+
+test("2 · the loop: the flyer's four steps and the way back, approved word for word (Xander, 26 Nov 2026)", () => {
+    says(
+        loop,
+        [
+            'Every piece <span className="home-em">feeds the next.</span>',
+            "We build your website",
+            "Look the part. Easy to call.",
+            "Our AI receptionist answers",
+            "Picks up the calls you miss.",
+            "You win more customers",
+            "From calls you used to lose.",
+            "More customers, more reviews",
+            // Review requests are Growth and Enterprise only, so the step says so (approved).
+            "On Growth, ask every happy customer for one in a tap.",
+            "More people find you",
+            "Keep scrolling to find out exactly how we make this happen.",
+        ],
+        "the loop",
+    );
+    // In this order: website, receptionist, customers, reviews.
+    const at = ["We build your website", "Our AI receptionist answers", "You win more customers", "More customers, more reviews"].map((h) => loop.indexOf(h));
+    assert.deepEqual([...at].sort((a, b) => a - b), at, "the steps are out of order");
+    // The site speaks as "we"; the flyer's "I" and "My" never come over.
+    assert.doesNotMatch(loop, /"I build|"My AI/);
+    // Xander: on a row, the way back is a line BROKEN by its words, never a line drawn behind them,
+    // so nothing paints a background behind the words and the line is two pieces either side.
+    assert.match(loop, /hp-loop-seg-l[\s\S]*hp-loop-back-words[\s\S]*hp-loop-seg-r/);
+    assert.doesNotMatch(css, /\.hp-loop-back-words \{[^}]*background/);
+    // A phone gets the flyer's square loop ("the square loop is perfect").
+    assert.match(css, /@media \(max-width: 980px\) \{[^@]*\.hp-loop-step3 \{ grid-row: 3; grid-column: 3; \}[^@]*\.hp-loop-step4 \{ grid-row: 3; grid-column: 1; \}/);
+});
+
+test("1 · a phone's hero breathes (Xander, 26 Nov 2026): clear of the navbar, room between the blocks", () => {
+    assert.match(css, /@media \(max-width: 980px\) \{[^@]*\.hp-hero-wrap \{ padding-top: 56px; \}[^@]*\.hp-hero \{ row-gap: 56px; \}[^@]*\.hp-beats \{ margin-bottom: 32px;/);
 });
 
 test("1 · the h1 names the service, and is the page's only one (Xander, 24 Nov 2026, option C)", () => {
@@ -337,7 +379,7 @@ test("every Get Started on the site goes to /contact, and the drawer is gone", (
 });
 
 test("no state is named on the homepage (Xander, 19 Nov 2026)", () => {
-    for (const src of [home, findOut, lands, calc, hero, read("app/data/home-find-out.ts")])
+    for (const src of [home, loop, findOut, lands, calc, hero, read("app/data/home-find-out.ts")])
         assert.doesNotMatch(src, /Florida|Georgia|Alabama/);
 });
 
@@ -346,6 +388,6 @@ test("the homepage styles: centred heads, coral closes, and what a phone leaves 
     assert.match(css, /\.home-head \{[^}]*text-align: center;/);
     assert.match(css, /@media \(max-width: 800px\) \{[\s\S]*?\.hp-m-cut \{ display: none; \}/);
     // Everything that moves is behind reduced motion.
-    for (const anim of ["hp-speak", "hp-lamp", "hp-buzz", "hp-ring", "hp-pulse", "hp-arrive"])
+    for (const anim of ["hp-speak", "hp-lamp", "hp-buzz", "hp-ring", "hp-pulse", "hp-arrive", "hp-loop-lit", "hp-loop-bob"])
         assert.match(css, new RegExp(`prefers-reduced-motion: no-preference\\) \\{[^@]*animation: ${anim}`), anim);
 });
