@@ -60,7 +60,7 @@ test("every font variable the app's CSS reads is still defined by the layout", (
   // Swapping a loader must not drop a variable: a missing one is no error, the text just falls
   // back to the system stack.
   const layout = readFileSync(join(ROOT, "app/layout.tsx"), "utf8");
-  for (const v of ["--font-big-shoulders", "--font-dm-mono", "--font-hanken", "--font-inter", "--font-jetbrains", "--font-cabinet"]) {
+  for (const v of ["--font-jakarta", "--font-dm-mono", "--font-inter", "--font-jetbrains", "--font-cabinet"]) {
     assert.match(layout, new RegExp(`variable:\\s*"${v}"`), `${v} is no longer defined`);
   }
 });

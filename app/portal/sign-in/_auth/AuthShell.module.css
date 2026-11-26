@@ -39,8 +39,8 @@
     flex-direction: column;
     background: var(--bg);
     color: var(--fg);
-    /* The agency body face, as `--font-body` in `:root` (Hanken Grotesk). */
-    font-family: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
+    /* The agency body face, as `--font-body` in `:root` (Plus Jakarta Sans). */
+    font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
     font-size: 14px;
 }
 
@@ -89,10 +89,9 @@
 .launchTitle {
     margin: 6px 0 0;
     font-family: var(--font-display);
-    font-weight: 900;
-    font-size: 40px;
-    line-height: 0.95;
-    text-transform: uppercase;
+    font-weight: 800;
+    font-size: 34px;
+    line-height: 1.04;
     color: var(--fg);
 }
 .launchSub {
@@ -103,15 +102,14 @@
     color: var(--fg-2);
 }
 
-/* Big Shoulders 900, uppercase: the agency display voice, as on the homepage. */
+/* Plus Jakarta Sans 800, as written: the agency display voice, as on the homepage. */
 .headline {
     margin: 0;
     font-family: var(--font-display);
-    font-weight: 900;
-    font-size: 44px;
-    line-height: 0.92;
+    font-weight: 800;
+    font-size: 38px;
+    line-height: 1.04;
     letter-spacing: -0.005em;
-    text-transform: uppercase;
     color: var(--fg);
 }
 
@@ -186,7 +184,7 @@
     .headline {
         display: block;
         margin-top: auto;
-        font-size: clamp(56px, 5.3vw, 76px);
+        font-size: clamp(48px, 4.56vw, 65px);
     }
 
     .sub {
@@ -271,8 +269,7 @@
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 14px;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0;
     background: #b8441f;
     color: #fffdf5;
 }
