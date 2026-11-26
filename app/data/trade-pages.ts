@@ -21,4 +21,5 @@ export const TRADE_PAGES: readonly TradePage[] = [
     { label: "Lawn Care", href: "/lawn-care" },
     { label: "Auto Detailing", href: "/auto-detailing" },
     { label: "Pressure Washing", href: "/pressure-washing" },
+    { label: "Roofing", href: "/roofing" },
 ];

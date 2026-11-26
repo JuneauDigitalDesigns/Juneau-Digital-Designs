@@ -56,6 +56,10 @@ export const AUTO_DETAILING_DESCRIPTION = `We write, build and host your detaili
 export const PRESSURE_WASHING_TITLE = "Pressure Washing Website Design + 24/7 AI Receptionist | JDD";
 export const PRESSURE_WASHING_DESCRIPTION = `We write, build and host your pressure washing website, and an AI receptionist answers the calls you miss, 24/7, from driveways to roof soft washes. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
 
+/** /roofing, the sixth trade page. Xander approved the page, with this title and description, on 25 Nov 2026. Price is Schedule A's, never typed. */
+export const ROOFING_TITLE = "Roofing Website Design + 24/7 AI Receptionist | JDD";
+export const ROOFING_DESCRIPTION = `We write, build and host your roofing website, and an AI receptionist answers the calls you miss, 24/7, from storm leaks to full replacements. From $${SCHEDULES.starter.monthlyPrice} a month, no contract.`;
+
 /**
  * /contact. Xander approved the page, with this title and description, from the round-1 mockup
  * (19 Nov 2026). Its /contact/thank-you child is deliberately NOT a public path: it is the
@@ -101,6 +105,7 @@ export const PUBLIC_PATHS = [
     "/lawn-care",
     "/auto-detailing",
     "/pressure-washing",
+    "/roofing",
     "/contact",
     "/pricing",
     "/faq",
@@ -650,6 +655,53 @@ export function pressureWashingJsonLd() {
                 url: `${SITE_URL}/pressure-washing`,
                 provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
                 audience: { "@type": "BusinessAudience", name: "Pressure washing companies" },
+                offers: {
+                    "@type": "Offer",
+                    name: starter.name,
+                    url: `${SITE_URL}/pricing`,
+                    priceCurrency: "USD",
+                    price: starter.monthlyPrice,
+                    priceSpecification: {
+                        "@type": "UnitPriceSpecification",
+                        price: starter.monthlyPrice,
+                        priceCurrency: "USD",
+                        unitCode: "MON",
+                        referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
+                    },
+                },
+            },
+        ],
+    };
+}
+
+/**
+ * /roofing's structured data: the page, and the service it describes. Same shape as the other five
+ * trade pages' builders, with roofing's own audience and wording — no `areaServed`, since the page
+ * names no region. Only what the page itself says.
+ */
+export function roofingJsonLd() {
+    const starter = SCHEDULES.starter;
+    return {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "WebPage",
+                "@id": `${SITE_URL}/roofing#page`,
+                url: `${SITE_URL}/roofing`,
+                name: ROOFING_TITLE,
+                description: ROOFING_DESCRIPTION,
+                isPartOf: { "@id": `${SITE_URL}/#website` },
+                about: { "@id": `${SITE_URL}/roofing#service` },
+            },
+            {
+                "@type": "Service",
+                "@id": `${SITE_URL}/roofing#service`,
+                name: "Websites and a 24/7 AI receptionist for roofing companies",
+                serviceType: "Website design and AI answering service",
+                description: ROOFING_DESCRIPTION,
+                url: `${SITE_URL}/roofing`,
+                provider: { "@type": "Organization", "@id": ORG_ID, name: SITE_NAME, url: SITE_URL },
+                audience: { "@type": "BusinessAudience", name: "Roofing companies" },
                 offers: {
                     "@type": "Offer",
                     name: starter.name,
