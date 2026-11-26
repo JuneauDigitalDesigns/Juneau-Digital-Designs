@@ -270,7 +270,7 @@ test("the page has its approved title and description, a sitemap entry and links
     const home = prose(read("app/components/home/homepageclient.tsx"));
     assert.ok(
         home.includes(
-            'Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, roofing, <Link href="/lawn-care" className="home-trade-link">lawn care</Link>, <Link href="/pressure-washing" className="home-trade-link">pressure washing</Link> and <Link href="/auto-detailing" className="home-trade-link">auto detailing</Link> businesses.',
+            'Built for <Link href="/hvac" className="home-trade-link">HVAC</Link>, <Link href="/plumbing" className="home-trade-link">plumbing</Link>, <Link href="/roofing" className="home-trade-link">roofing</Link>, <Link href="/lawn-care" className="home-trade-link">lawn care</Link>, <Link href="/pressure-washing" className="home-trade-link">pressure washing</Link> and <Link href="/auto-detailing" className="home-trade-link">auto detailing</Link> businesses.',
         ),
         "the homepage trade line changed",
     );

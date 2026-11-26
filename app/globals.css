@@ -7518,3 +7518,385 @@ a.portal-cell:hover, button.portal-cell:hover { background: var(--surface); }
   /* Left off a phone. */
   .pw-m-cut { display: none !important; }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════
+   /roofing — the sixth trade page. Built to the approved mockup (Xander, 25 Nov 2026,
+   https://claude.ai/artifact/BepUyeZ3FWUaXoAPR2LrKK), desktop and phone. Its own devices, none
+   shared with the other five trade pages: a roof shingled course by course in the hero, the call as
+   a triage fork, shingle tabs, example-site phone screens, search phrases with shingle counts,
+   question plates on a ladder, and the missed-call sum as two roofs shingled up to the money.
+   `.rf-m-cut` marks what a phone leaves out.
+   ══════════════════════════════════════════════════════════════════════════════════════════════ */
+.rf-page {
+  /* The mockup's own tokens, mapped to the site's. Colours the site's :root already defines
+     (--fg, --rule, --wash, --surface, --bg) are inherited; only what the site lacks is set here. */
+  --coral: var(--accent-2);
+  --on-coral: var(--on-accent-2);
+  --paper: var(--elev-1);
+  --glow: var(--accent-glow);
+  --shadow: rgba(20, 18, 12, 0.45);
+  --shingle: #3a3936;
+  --shingle-2: #2d2c2a;
+  --shingle-edge: #1c1b19;
+  --felt: #c9b58c;
+  --felt-line: rgba(20, 18, 12, 0.12);
+  --wall: #e6ddc4;
+  --rain: #7fb3c9;
+  --wood: #a77b52;
+  --wood-2: #8a6240;
+  --metal: #3a3833;
+  --sh-char: #2f3033;
+  --sh-brown: #57443a;
+  --sh-slate: #3b4954;
+  /* The client portal's own palette, borrowed for the inbox and the phone text. */
+  --p-bg: #f6f7f9;
+  --p-card: #ffffff;
+  --p-fg: #0d1117;
+  --p-fg-2: #4a5058;
+  --p-fg-3: #656b73;
+  --p-accent: #2563eb;
+  --p-attn: #c2410c;
+  --p-attn-wash: #fbeee7;
+  --p-rule: rgba(13, 17, 23, 0.09);
+  --p-rule-strong: rgba(13, 17, 23, 0.18);
+  --display: var(--font-display);
+  --body: var(--font-body);
+  --mono: var(--font-mono);
+  --portal: var(--font-inter), "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  /* The mockup's body size and line-height, which the page's running text inherits. */
+  font-size: 17px;
+  line-height: 1.6;
+}
+/* The mockup's headings keep their natural spacing, not the site's tightened base. `:where` keeps
+   this below the page's own heading classes (.rf-h1 sets its own). */
+.rf-page :where(h1, h2, h3, h4) { letter-spacing: normal; }
+/* The site's own buttons and the shared closing pair keep the site's sizing, as on every page. */
+.rf-page .btn { line-height: 1.5; }
+.rf-page .rf-ask { font-size: 16px; line-height: 1.5; }
+.rf-shell {
+  max-width: calc(1120px + 2 * clamp(18px, 4vw, 56px));
+  margin: 0 auto;
+  padding: clamp(88px, 11vw, 152px) clamp(18px, 4vw, 56px);
+}
+.rf-shell-hero { padding-block: clamp(36px, 5vw, 72px) clamp(88px, 11vw, 140px); }
+.rf-coral { color: var(--accent-2); }
+.rf-page h1, .rf-page h2, .rf-page h3, .rf-page h4 { font-family: var(--display); text-transform: uppercase; margin: 0; text-wrap: balance; }
+.rf-ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
+.rf-eg { font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
+.rf-lede { font-size: clamp(17px, 1.6vw, 20px); color: var(--fg-2); max-width: 48ch; }
+.rf-h2 { font-weight: 900; font-size: clamp(38px, 6.4vw, 80px); line-height: .9; }
+.rf-split-head { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(24px, 5vw, 72px); align-items: end; }
+.rf-centre { text-align: center; display: grid; gap: 16px; justify-items: center; }
+
+/* Voices. */
+.rf-wave { display: inline-flex; align-items: center; gap: 3px; height: 20px; flex: none; }
+.rf-wave i { width: 3px; border-radius: 2px; background: currentColor; height: 40%; }
+.rf-wave i:nth-child(2) { height: 85%; } .rf-wave i:nth-child(3) { height: 55%; } .rf-wave i:nth-child(4) { height: 100%; }
+.rf-wave i:nth-child(5) { height: 45%; } .rf-wave i:nth-child(6) { height: 75%; } .rf-wave i:nth-child(7) { height: 30%; }
+@media (prefers-reduced-motion: no-preference) {
+  .rf-wave-live i { animation: rf-speak 1.1s ease-in-out infinite; transform-origin: 50% 50%; }
+  .rf-wave-live i:nth-child(2) { animation-delay: -.2s; } .rf-wave-live i:nth-child(3) { animation-delay: -.5s; }
+  .rf-wave-live i:nth-child(4) { animation-delay: -.8s; } .rf-wave-live i:nth-child(5) { animation-delay: -.35s; }
+  .rf-wave-live i:nth-child(6) { animation-delay: -.65s; } .rf-wave-live i:nth-child(7) { animation-delay: -.1s; }
+}
+@keyframes rf-speak { 0%, 100% { transform: scaleY(.45); } 50% { transform: scaleY(1); } }
+
+/* Shingle courses on the sand bands: the page's quiet mark, as suds were pressure washing's and
+   mown stripes lawn care's. A faint staggered course pattern, two rows to a tile. */
+.rf-page .wash { position: relative; }
+.rf-page .wash::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='56'%3E%3Cg fill='none' stroke='%2314120c' stroke-opacity='.055' stroke-width='1.4'%3E%3Cpath d='M0 27.5H72M0 55.5H72M18 0V27M54 28V56'/%3E%3C/g%3E%3C/svg%3E");
+  -webkit-mask-image: linear-gradient(180deg, transparent 4%, #000 22%, #000 78%, transparent 96%); mask-image: linear-gradient(180deg, transparent 4%, #000 22%, #000 78%, transparent 96%); }
+.rf-page .wash > .rf-shell { position: relative; }
+
+/* ── 1 · Hero: the claim left; a roof shingled course by course, and the call that came mid-job ── */
+.rf-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .95fr); gap: clamp(36px, 6vw, 88px); align-items: center; }
+.rf-h1 { font-weight: 900; font-size: clamp(50px, 9vw, 116px); line-height: .86; letter-spacing: .005em; margin-top: 14px; }
+.rf-intro { font: 600 clamp(18px, 1.9vw, 23px)/1.35 var(--body); margin-top: 28px; max-width: 30ch; color: var(--fg); }
+.rf-hero .rf-lede { margin-top: 14px; }
+.rf-acts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+.rf-onjob { display: grid; justify-items: center; gap: 18px; }
+.rf-onjob-h { font-weight: 900; font-size: clamp(30px, 3.4vw, 44px); line-height: .92; text-align: center; }
+.rf-job { width: min(460px, 100%); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 34px 60px -40px var(--shadow); padding: 20px 20px 16px; }
+.rf-job-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--fg); }
+.rf-job-head b { font: 900 26px/1 var(--display); text-transform: uppercase; }
+.rf-scene { display: block; width: 100%; height: auto; margin-top: 10px; overflow: visible; }
+.rf-scene .ground { stroke: var(--rule-strong); stroke-width: 2; }
+.rf-scene .wall { fill: var(--wall); stroke: var(--rule-strong); stroke-width: 1.5; }
+.rf-scene .pane { fill: #262a2c; stroke: var(--rule-strong); stroke-width: 1.5; }
+.rf-scene .mull { stroke: var(--wall); stroke-width: 2; }
+.rf-scene .door { fill: var(--coral); stroke: rgba(20,18,12,.3); stroke-width: 1.5; }
+.rf-scene .knob { fill: var(--paper); }
+.rf-scene .felt { fill: var(--felt); stroke: var(--rule-strong); stroke-width: 2; stroke-linejoin: round; }
+.rf-scene .feltline { stroke: var(--felt-line); stroke-width: 1.2; }
+.rf-scene .course { fill: var(--shingle); }
+.rf-scene .course.alt { fill: var(--shingle-2); }
+.rf-scene .slot { stroke: var(--shingle-edge); stroke-width: 1.6; }
+.rf-scene .lap { stroke: var(--shingle-edge); stroke-width: 2.2; }
+.rf-scene .ridge { fill: var(--shingle-edge); }
+.rf-scene .gutter { fill: none; stroke: var(--metal); stroke-width: 5; stroke-linecap: round; }
+.rf-scene .rail { stroke: var(--wood-2); stroke-width: 4; stroke-linecap: round; }
+.rf-scene .rung { stroke: var(--wood-2); stroke-width: 3; stroke-linecap: round; }
+.rf-scene .spark { fill: #fff; stroke: rgba(20,18,12,.2); stroke-width: .8; }
+.rf-scene .gun-body { fill: var(--coral); stroke: rgba(20,18,12,.4); stroke-width: 1.2; }
+.rf-scene .gun-dark { fill: var(--fg); }
+.rf-scene .thunk { fill: #ffd36b; opacity: 0; }
+@media (prefers-reduced-motion: no-preference) { .rf-scene .gun.firing .thunk { animation: rf-thunk .33s steps(1) infinite; } }
+@keyframes rf-thunk { 0%, 40% { opacity: .95; } 41%, 100% { opacity: 0; } }
+.rf-incoming { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 34px; font: 500 12.5px/1.4 var(--body); }
+.rf-incoming .rf-badge { width: 30px; height: 30px; border-radius: 50%; background: var(--fg-3); color: var(--paper); display: grid; place-items: center; font-size: 14px; flex: none; transition: background .25s; }
+.rf-incoming .rf-incoming-top { font: 600 13.5px/1.4 var(--body); }
+.rf-incoming .rf-state { display: grid; }
+.rf-incoming .rf-state > span { grid-area: 1 / 1; display: flex; align-items: center; gap: 6px; transition: opacity .25s; }
+.rf-incoming .waiting, .rf-incoming .ringing { color: var(--fg-3); }
+.rf-incoming .answered { color: var(--coral); font-weight: 600; }
+.rf-incoming .answered .rf-wave { height: 13px; gap: 2px; }
+.rf-incoming .answered .rf-wave i { width: 2px; }
+.rf-job .waiting, .rf-job .ringing { opacity: 0; }
+.rf-job.is-quiet .waiting { opacity: 1; } .rf-job.is-quiet .answered { opacity: 0; }
+.rf-job.is-ringing .ringing { opacity: 1; } .rf-job.is-ringing .answered { opacity: 0; }
+.rf-job.is-answered .rf-badge { background: var(--coral); }
+@media (prefers-reduced-motion: no-preference) { .rf-job.is-ringing .rf-badge svg { animation: rf-jingle .45s ease-in-out infinite; } }
+@keyframes rf-jingle { 0%, 100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+.rf-onjob .rf-then { color: var(--fg-2); font-size: 16px; text-align: center; max-width: 30ch; }
+.rf-onjob .rf-then b { color: var(--fg); }
+
+/* ── 2 · The receptionist on a roofing call: it checks for water first, and the call forks ── */
+.rf-now { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 18px; font: 800 clamp(22px, 2.4vw, 30px)/1 var(--display); letter-spacing: .03em; text-transform: uppercase; color: var(--coral); }
+.rf-now .rf-wave { height: 22px; }
+.rf-triage { margin-top: clamp(52px, 7vw, 84px); display: grid; grid-template-columns: minmax(0, .9fr) 44px minmax(0, 1fr) 64px minmax(0, 1.25fr); align-items: center; }
+.rf-tri-who { font: 500 10px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); }
+.rf-tri-in { background: var(--wash); border: 1px solid var(--wash-rule); border-radius: 16px 16px 16px 4px; padding: 16px 18px; display: grid; gap: 6px; }
+.rf-tri-in .rf-says { font: 500 16.5px/1.42 var(--body); color: var(--fg-2); }
+.rf-tri-tag { justify-self: start; font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); border: 1px solid var(--rule-strong); border-radius: 999px; padding: 5px 9px; }
+.rf-tri-arrow { height: 2px; background: var(--fg); position: relative; margin-inline: 4px; }
+.rf-tri-arrow::after { content: ""; position: absolute; right: -2px; top: -5px; border: 6px solid transparent; border-left: 8px solid var(--fg); border-right: 0; }
+.rf-tri-q { position: relative; background: var(--fg); color: var(--bg); border-radius: 14px; padding: 20px 18px 18px; display: grid; gap: 8px; box-shadow: 0 30px 50px -34px var(--shadow); }
+.rf-tri-q .rf-tri-who { color: #ff8a4a; display: flex; align-items: center; gap: 8px; }
+.rf-tri-q .rf-tri-who .rf-wave { height: 12px; gap: 2px; }
+.rf-tri-q .rf-tri-who .rf-wave i { width: 2px; }
+.rf-tri-q .rf-says { font: 700 18px/1.35 var(--body); }
+.rf-tri-q .rf-drop { position: absolute; top: -18px; right: 16px; width: 36px; height: 44px; }
+.rf-tri-q .rf-drop path { fill: var(--rain); stroke: var(--fg); stroke-width: 2; }
+.rf-tri-fork { width: 100%; height: 100%; min-height: 220px; overflow: visible; }
+.rf-tri-fork path { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; }
+.rf-tri-fork .yes { stroke: var(--coral); }
+.rf-tri-fork .no { stroke: var(--rule-strong); stroke-dasharray: 6 6; }
+@media (prefers-reduced-motion: no-preference) { .rf-triage.go .rf-tri-fork .yes { animation: rf-flow 1.6s linear infinite; stroke-dasharray: 10 6; } }
+@keyframes rf-flow { to { stroke-dashoffset: -32; } }
+.rf-tri-out { display: grid; gap: 18px; }
+.rf-lane { border-radius: 12px; padding: 16px 18px; display: grid; gap: 10px; }
+.rf-lane-k { display: flex; align-items: center; justify-content: space-between; gap: 10px; font: 800 17px/1 var(--display); letter-spacing: .03em; text-transform: uppercase; }
+.rf-lane.yes { background: var(--paper); border: 2px solid var(--coral); box-shadow: 0 0 0 6px var(--glow), 0 26px 40px -30px var(--shadow); }
+.rf-lane.yes .rf-lane-k { color: var(--coral); }
+.rf-lane.no { border: 1.5px dashed var(--rule-strong); background: transparent; opacity: .72; }
+.rf-lane.no .rf-lane-k { color: var(--fg-3); }
+.rf-line { display: grid; gap: 2px; }
+.rf-line .rf-says { font: 500 15px/1.42 var(--body); color: var(--fg-2); }
+.rf-line.rec .rf-tri-who { color: var(--coral); }
+.rf-line.rec .rf-says { font-weight: 600; color: var(--fg); }
+.rf-out { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font: 700 14.5px/1.3 var(--body); }
+.rf-lane-chip { font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--on-coral); background: var(--coral); border-radius: 999px; padding: 5px 9px; }
+.rf-lane.no .rf-lane-chip { background: var(--fg-3); }
+
+/* The call ends, and an arrow hands off to where the lead lands. */
+.rf-ended { display: grid; justify-items: center; margin-top: clamp(30px, 4vw, 44px); }
+.rf-end-pill { font: 500 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 999px; }
+.rf-end-line { width: 2px; height: clamp(34px, 4.4vw, 56px); background: var(--fg); }
+.rf-end-arrow { font-size: 26px; margin-top: -16px; color: var(--fg); stroke-width: 2.4; }
+.rf-lands { margin-top: 18px; display: grid; justify-items: center; text-align: center; gap: clamp(26px, 3.4vw, 40px); }
+.rf-lands-h { font-weight: 900; font-size: clamp(32px, 4.4vw, 58px); line-height: .92; max-width: 18ch; margin-inline: auto; }
+.rf-lands-sub { margin: 14px auto 0; color: var(--fg-2); font-size: clamp(16px, 1.5vw, 19px); max-width: 50ch; }
+.rf-inbox { width: min(700px, 100%); background: var(--p-bg); border: 1px solid var(--p-rule-strong); border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -38px var(--shadow); font-family: var(--portal); color: var(--p-fg); text-align: left; }
+.rf-inbox-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--p-card); border-bottom: 1px solid var(--p-rule); }
+.rf-inbox-top b { font-size: 16px; font-weight: 700; }
+.rf-inbox-top span { font-size: 12px; font-weight: 600; color: var(--p-fg-2); border: 1px solid var(--p-rule-strong); border-radius: 999px; padding: 3px 10px; }
+.rf-inbox-day { padding: 12px 18px 6px; font: 400 10.5px/1.4 var(--mono); letter-spacing: .1em; color: var(--p-fg-3); }
+.rf-irow { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 12px; padding: 14px 18px; background: var(--p-card); border-top: 1px solid var(--p-rule); }
+.rf-irow .rf-irow-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--p-accent); }
+.rf-irow-r1 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.rf-irow strong { font-size: 15.5px; font-weight: 700; }
+.rf-irow-chip { font-size: 12.5px; font-weight: 600; color: var(--p-attn); background: var(--p-attn-wash); border-radius: 999px; padding: 2px 9px; }
+.rf-irow-count { font-size: 12px; font-weight: 600; color: var(--p-fg-2); background: var(--p-bg); border: 1px solid var(--p-rule); border-radius: 999px; padding: 1px 8px; }
+.rf-irow time { margin-left: auto; font: 500 12px/1.4 var(--mono); }
+.rf-irow-pv { margin-top: 5px; font-size: 14px; line-height: 1.45; }
+.rf-irow-mini { display: inline-block; margin-top: 8px; font-size: 11.5px; font-weight: 600; color: var(--p-fg-2); border: 1px solid var(--p-rule-strong); border-radius: 999px; padding: 1px 8px; }
+.rf-irow.is-read { opacity: .55; }
+.rf-irow.is-read .rf-irow-dot { background: transparent; }
+.rf-irow.is-read strong { font-weight: 600; }
+
+/* The inbox, with "your phone" hanging off its corner: the text the owner gets. As on the homepage. */
+.rf-land { position: relative; width: min(700px, 100%); padding-bottom: 150px; }
+.rf-land .rf-inbox { width: 100%; }
+.rf-fone { position: absolute; z-index: 2; right: calc(-1 * clamp(0px, (100vw - 700px) / 2 - 60px, 130px)); bottom: 0; width: min(312px, 80%); text-align: left; }
+.rf-fone-lbl { display: flex; align-items: center; gap: 10px; margin: 0 0 10px 24px; font: 500 11px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--fg); }
+.rf-fone-lbl::before { content: ""; width: 22px; height: 2px; background: var(--coral); }
+.rf-fone-body { position: relative; padding: 10px 10px 34px; border: 3px solid var(--fg); border-bottom: 0; border-radius: 34px 34px 0 0; background: linear-gradient(180deg, #fffdf5, var(--paper)); -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent 100%); mask-image: linear-gradient(180deg, #000 70%, transparent 100%); }
+.rf-fone-top { display: flex; align-items: center; justify-content: space-between; padding: 2px 14px 10px; font: 600 12px/1 var(--portal); color: var(--fg); }
+.rf-fone-top i { width: 62px; height: 18px; border-radius: 999px; background: var(--fg); }
+.rf-fone-sig { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+.rf-fone-sig b { width: 3px; height: 40%; border-radius: 1px; background: var(--fg); }
+.rf-fone-sig b:nth-child(2) { height: 70%; } .rf-fone-sig b:nth-child(3) { height: 100%; }
+.rf-sms { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 4px 12px; padding: 13px 15px 14px; border: 1px solid rgba(13,17,23,.18); border-radius: 16px; background: rgba(255,255,255,.94); box-shadow: 0 10px 20px -14px rgba(20,18,12,.45); font-family: var(--portal); color: #0d1117; }
+.rf-sms-app { display: grid; grid-row: span 2; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: #34b855; font-size: 20px; color: #fff; }
+.rf-sms-l1 { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: #656b73; }
+.rf-sms-l2 { font-size: 14px; line-height: 1.4; }
+.rf-sms-l2 b { display: block; font-weight: 600; }
+.rf-arc { position: absolute; top: 52px; width: 16px; height: 40px; border: 3px solid transparent; border-radius: 50%; opacity: 0; }
+.rf-arc.l { left: -20px; border-left-color: var(--coral); } .rf-arc.r { right: -20px; border-right-color: var(--coral); }
+.rf-arc.l2 { left: -34px; top: 44px; width: 22px; height: 56px; border-left-color: var(--coral); } .rf-arc.r2 { right: -34px; top: 44px; width: 22px; height: 56px; border-right-color: var(--coral); }
+@keyframes rf-buzz { 0%, 100% { transform: translateX(0) rotate(0); } 15% { transform: translateX(-3px) rotate(-1deg); } 30% { transform: translateX(3px) rotate(1deg); } 45% { transform: translateX(-2px) rotate(-.6deg); } 60% { transform: translateX(2px) rotate(.6deg); } 78% { transform: translateX(-1px); } }
+@keyframes rf-arcflash { 0% { opacity: 0; } 15%, 55% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) {
+  .rf-fone.buzz .rf-fone-body { animation: rf-buzz .62s ease-in-out 2; }
+  .rf-fone.buzz .rf-arc { animation: rf-arcflash .9s ease-out 2; }
+  .rf-fone.buzz .rf-arc.l2, .rf-fone.buzz .rf-arc.r2 { animation-delay: .12s; }
+}
+.rf-land-cap { margin-top: -8px; }
+
+/* Three things it never nails down, each on an asphalt shingle, laid in a course. */
+.rf-keeps { margin-top: clamp(64px, 8vw, 108px); }
+.rf-keeps-h { font-weight: 900; font-size: clamp(30px, 3.6vw, 46px); line-height: .92; }
+.rf-course { margin-top: 40px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; align-items: stretch; padding-bottom: 14px; }
+.rf-tab { position: relative; color: #f4ecd8; padding: 34px clamp(16px, 2.4vw, 26px) 26px; display: grid; gap: 10px; align-content: start; text-align: center; border-radius: 3px 3px 5px 5px; box-shadow: inset 0 -6px 0 rgba(0,0,0,.28), 0 18px 24px -18px rgba(20,18,12,.55);
+  background-image: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.4px), radial-gradient(rgba(0,0,0,.22) 1px, transparent 1.4px); background-size: 7px 7px, 9px 9px; background-position: 0 0, 3px 4px; }
+.rf-tab:nth-child(1) { background-color: var(--sh-char); transform: rotate(-.8deg); z-index: 1; }
+.rf-tab:nth-child(2) { background-color: var(--sh-brown); transform: translateY(8px) rotate(.6deg); z-index: 2; margin-left: -6px; }
+.rf-tab:nth-child(3) { background-color: var(--sh-slate); transform: rotate(-.4deg); z-index: 1; margin-left: -6px; }
+.rf-tab::before, .rf-tab::after { content: ""; position: absolute; top: 12px; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #d9d4c6, #7d776a 70%); box-shadow: 0 1px 0 rgba(0,0,0,.5); }
+.rf-tab::before { left: 22%; } .rf-tab::after { right: 22%; }
+.rf-tab .rf-no { font: 500 10.5px/1.4 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: #ff9a74; }
+.rf-tab h4 { margin: 0; font: 900 clamp(24px, 2.7vw, 32px)/.95 var(--display); text-transform: uppercase; color: inherit; text-wrap: wrap; }
+.rf-tab .rf-what { color: rgba(244,236,216,.86); font-size: 15px; line-height: 1.5; }
+.rf-keeps-foot { margin-top: 30px; font: 600 17px/1.4 var(--body); }
+
+/* ── 3 · The website: the example template site, as three phone screens ── */
+.rf-phones { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(22px, 4vw, 56px); align-items: start; }
+.rf-ph { display: grid; gap: 18px; justify-items: center; }
+.rf-handset { width: min(248px, 100%); background: var(--fg); border-radius: 34px; padding: 9px; box-shadow: 0 34px 60px -34px var(--shadow), 0 0 0 1px rgba(20,18,12,.4); }
+.rf-handset .rf-scr { display: block; width: 100%; aspect-ratio: 375 / 812; border-radius: 26px; background-size: cover; background-position: top center; }
+.rf-ph-cap { display: grid; gap: 7px; text-align: left; justify-self: stretch; }
+.rf-ph-cap .rf-ph-t { font: 500 11px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--coral); }
+.rf-ph-cap h3 { font-weight: 800; font-size: clamp(21px, 2.1vw, 25px); line-height: 1; }
+.rf-ph-cap p { color: var(--fg-2); font-size: 15.5px; line-height: 1.5; }
+.rf-shotcap { margin-top: 26px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* ── 4 · Searched (each phrase, with its volume in shingles) and asked (plates on a ladder) ── */
+.rf-find .rf-h2 { max-width: 15ch; }
+.rf-qa { margin-top: clamp(52px, 7vw, 88px); display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: clamp(32px, 5vw, 64px); align-items: start; }
+.rf-qa-h { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: clamp(24px, 2.8vw, 34px); line-height: .95; }
+.rf-qa-h .rf-ic, .rf-qa-h .rf-wave { color: var(--coral); }
+.rf-qa-h .rf-ic { font-size: .8em; stroke-width: 2.6; }
+.rf-qa-h .rf-wave { height: .7em; }
+.rf-srows { margin-top: 24px; display: grid; gap: 16px; }
+.rf-sr { display: grid; gap: 9px; padding-bottom: 16px; border-bottom: 1px dashed var(--rule-strong); }
+.rf-sr:last-child { border-bottom: 0; padding-bottom: 0; }
+.rf-sr-q { display: flex; align-items: center; gap: 10px; font: 800 clamp(20px, 2.2vw, 26px)/1.15 var(--body); color: var(--fg); letter-spacing: -.005em; }
+.rf-sr-q .rf-ic { color: var(--coral); font-size: .8em; stroke-width: 2.8; }
+.rf-sr-scale { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-left: calc(.8em + 12px); }
+.rf-sr-tabs { display: inline-flex; flex-wrap: wrap; gap: 2px; align-items: flex-end; }
+.rf-sr-tabs i { width: 20px; height: 15px; border-radius: 2px 2px 3px 3px; background-color: var(--shingle); background-image: radial-gradient(rgba(255,255,255,.13) .8px, transparent 1.1px); background-size: 4px 4px; box-shadow: inset 0 -3px 0 var(--shingle-edge); }
+.rf-sr-tabs i:nth-child(even) { background-color: var(--shingle-2); }
+.rf-sr-tabs i.part { width: calc(20px * var(--f)); min-width: 2px; border-radius: 2px 0 0 3px; }
+.rf-sr-n { font: 500 11px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3); }
+.rf-sr-n b { font-weight: 600; color: var(--fg); }
+@media (prefers-reduced-motion: no-preference) {
+  .rf-srows .rf-sr-tabs i { opacity: 0; transform: translateY(-7px); transition: opacity .22s ease-out, transform .22s ease-out; transition-delay: calc(var(--i) * 40ms); }
+  .rf-srows.go .rf-sr-tabs i { opacity: 1; transform: none; }
+}
+.rf-src { margin-top: 18px; }
+.rf-answers { margin-top: 26px; display: grid; gap: 10px; color: var(--fg-2); font-size: 16px; }
+.rf-answers .rf-answers-lead { font: 600 clamp(18px, 1.8vw, 21px)/1.4 var(--body); color: var(--fg); }
+.rf-ladder { position: relative; margin-top: 26px; padding: 26px 0 30px; display: grid; gap: 26px; justify-items: center; }
+.rf-ladder::before, .rf-ladder::after { content: ""; position: absolute; top: 0; bottom: 0; width: 9px; border-radius: 4px; background: linear-gradient(90deg, var(--wood) 0 60%, var(--wood-2) 60%); box-shadow: 0 14px 20px -14px rgba(20,18,12,.5); }
+.rf-ladder::before { left: 12%; } .rf-ladder::after { right: 12%; }
+.rf-rungs { position: absolute; inset: 0; z-index: 0; background: repeating-linear-gradient(180deg, transparent 0 46px, var(--wood-2) 46px 53px, transparent 53px 92px); margin-inline: 12%; opacity: .9; }
+.rf-plate { position: relative; z-index: 1; width: 100%; background: var(--paper); border: 1px solid var(--rule-strong); border-radius: 8px; overflow: hidden; box-shadow: 0 16px 24px -18px var(--shadow); display: grid; }
+.rf-plate:nth-child(2) { transform: rotate(-1.2deg); } .rf-plate:nth-child(3) { transform: rotate(.9deg); } .rf-plate:nth-child(4) { transform: rotate(-.6deg); }
+.rf-plate .rf-band { display: flex; align-items: center; gap: 7px; padding: 6px 12px; background: var(--coral); color: var(--on-coral); font: 500 9.5px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.rf-plate .rf-band .rf-wave { height: 11px; gap: 1.5px; }
+.rf-plate .rf-band .rf-wave i { width: 1.5px; }
+.rf-plate q { padding: 11px 14px 13px; font: 700 clamp(15px, 1.5vw, 17.5px)/1.3 var(--body); quotes: "\201C" "\201D"; color: var(--fg); }
+
+/* ── 5 · The missed call, as two roofs on one scale, shingled up to the money ── */
+.rf-sum { margin: clamp(44px, 6vw, 72px) auto 0; width: min(760px, 100%); display: grid; gap: clamp(22px, 3vw, 30px); justify-items: center; }
+.rf-dials { justify-self: stretch; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 2px solid var(--fg); border-bottom: 1px solid var(--rule); }
+.rf-dial { padding: 18px 12px 20px; display: grid; gap: 8px; justify-items: center; text-align: center; }
+.rf-dial + .rf-dial { border-left: 1px solid var(--rule); }
+.rf-dial .rf-dial-lbl { font: 500 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3); }
+.rf-dial .rf-blank { display: inline-flex; align-items: baseline; color: var(--coral); border-bottom: 3px solid var(--coral); font: 900 clamp(44px, 6vw, 64px)/1 var(--display); padding-inline: 6px; font-variant-numeric: tabular-nums; }
+/* Beat the site-wide input override (background/border/colour !important, and 16px on phones) with
+   higher specificity. These inputs are 44px or more, so a phone still won't zoom in on them. */
+.rf-page .rf-sum .rf-blank input.rf-blank-in.rf-blank-in.rf-blank-in {
+  background: transparent !important; border: 0 !important; color: inherit !important;
+  font: inherit; font-size: inherit !important; padding: 0; text-align: center; -moz-appearance: textfield; appearance: textfield;
+}
+.rf-page .rf-sum .rf-blank input::-webkit-outer-spin-button,
+.rf-page .rf-sum .rf-blank input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.rf-chain { text-align: center; }
+.rf-vroofs { justify-self: stretch; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: end; }
+.rf-vroof { position: relative; display: grid; justify-items: center; gap: 10px; text-align: center; }
+.rf-rsvg { width: min(290px, 100%); height: auto; overflow: visible; }
+.rf-rsvg .felt { fill: var(--felt); stroke: var(--rule-strong); stroke-width: 2; stroke-linejoin: round; }
+.rf-rsvg .feltline { stroke: var(--felt-line); stroke-width: 1.2; }
+.rf-rsvg .course { fill: var(--shingle); }
+.rf-rsvg .course.alt { fill: var(--shingle-2); }
+.rf-rsvg .slot { stroke: var(--shingle-edge); stroke-width: 1.4; }
+.rf-rsvg .lap { stroke: var(--shingle-edge); stroke-width: 2; }
+.rf-rsvg.won .course { fill: var(--coral); }
+.rf-rsvg.won .course.alt { fill: #b8461f; }
+.rf-rsvg.won .slot, .rf-rsvg.won .lap { stroke: #7e2e14; }
+.rf-rsvg .wall { fill: var(--wall); stroke: var(--rule-strong); stroke-width: 1.5; }
+.rf-rsvg .gutter { stroke: var(--metal); stroke-width: 4; stroke-linecap: round; }
+.rf-rsvg .ridge { fill: var(--shingle-edge); opacity: 0; transition: opacity .3s; }
+.rf-vroof.full .rf-rsvg .ridge { opacity: 1; }
+.rf-rsvg .tick { stroke: var(--fg-3); stroke-width: 1.5; }
+.rf-rsvg .tlabel { font: 600 11px var(--mono); fill: var(--fg-3); }
+.rf-over { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); font: 600 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--on-coral); background: var(--fg); border-radius: 999px; padding: 5px 9px; opacity: 0; transition: opacity .3s; white-space: nowrap; }
+.rf-vroof.over-max .rf-over { opacity: 1; }
+.rf-vroof-lbl { font: 500 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--fg-3); }
+.rf-amt { font: 900 clamp(32px, 4.4vw, 50px)/1 var(--display); font-variant-numeric: tabular-nums; }
+.rf-vroof.won .rf-amt { color: var(--coral); }
+.rf-of { font: 600 15px/1.35 var(--body); color: var(--fg-2); }
+.rf-scale-note { text-align: center; }
+.rf-wo-src { margin-top: 22px; text-align: center; }
+
+/* ── Phone ── */
+@media (max-width: 1000px) {
+  .rf-triage { grid-template-columns: minmax(0, .9fr) 30px minmax(0, 1fr) 44px minmax(0, 1.25fr); }
+}
+@media (max-width: 860px) {
+  .rf-hero, .rf-split-head, .rf-qa, .rf-phones { grid-template-columns: minmax(0, 1fr); }
+  .rf-hero > div:first-child, .rf-split-head, .rf-keeps-h, .rf-find, .rf-qa-h { text-align: center; }
+  .rf-intro, .rf-hero .rf-lede, .rf-split-head .rf-lede, .rf-lands-sub { margin-inline: auto; }
+  .rf-acts, .rf-qa-h, .rf-now { justify-content: center; }
+  /* The fork stacks: the caller, an arrow down, the question, then the two lanes. */
+  .rf-triage { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .rf-tri-arrow { width: 2px; height: 30px; margin: 4px auto; }
+  .rf-tri-arrow::after { right: -5px; top: auto; bottom: -2px; border: 6px solid transparent; border-top: 8px solid var(--fg); border-bottom: 0; }
+  .rf-tri-fork { display: none; }
+  .rf-tri-q { margin-bottom: 22px; }
+  .rf-tri-q::after { content: ""; position: absolute; left: 50%; bottom: -24px; width: 2px; height: 22px; background: var(--coral); }
+  .rf-irow time { margin-left: 0; flex-basis: 100%; order: 3; }
+  .rf-land { padding-bottom: 0; }
+  /* In from the edge far enough that the ringing arcs stay on screen. */
+  .rf-fone { position: relative; right: auto; margin: -14px 40px 0 auto; }
+  .rf-land-cap { margin-top: -6px; }
+  .rf-course { grid-template-columns: minmax(0, 1fr); gap: 16px; max-width: 360px; margin-inline: auto; }
+  .rf-tab:nth-child(n) { margin-left: 0; }
+  .rf-keeps-foot { text-align: center; }
+  .rf-phones { gap: 44px; }
+  .rf-handset { width: 232px; }
+  .rf-ph-cap { text-align: center; }
+  .rf-sr-q { font-size: 18px; gap: 8px; }
+  .rf-sr-tabs i { width: 15px; height: 12px; }
+  .rf-sr-tabs i.part { width: calc(15px * var(--f)); }
+  .rf-ladder { padding: 22px 0 24px; gap: 20px; }
+  .rf-dials { grid-template-columns: minmax(0, 1fr); }
+  .rf-dial + .rf-dial { border-left: 0; border-top: 1px solid var(--rule); }
+  .rf-amt { font-size: 30px; }
+  /* Left off a phone. */
+  .rf-m-cut { display: none !important; }
+}
